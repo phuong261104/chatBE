@@ -11,6 +11,7 @@ import { setupMiddlewares } from "./share/middleware";
 import { setupUserHexagon } from "./modules/user";
 import Logger from "./share/utils/logger";
 import { responseErr } from "./share/app-error";
+import { setupMediaHexagon } from "./modules/media";
 
 config();
 
@@ -38,8 +39,10 @@ config();
   const sctx = { mdlFactory: setupMiddlewares(introspector) };
 
   const userRouter = setupUserHexagon(sctx);
+  const mediaRouter = setupMediaHexagon(sctx);
 
   app.use("/v1", userRouter);
+  app.use("/v1", mediaRouter);
 
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     responseErr(err, res);

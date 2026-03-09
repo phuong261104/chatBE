@@ -12,10 +12,7 @@ export function allowRoles(roles: UserRole[]): Handler {
     const requester = res.locals.requester as Requester;
 
     if (roles.indexOf(requester.role) === -1) {
-      responseErr(
-        ErrForbidden.withLog(`This user has role: ${requester.role}`),
-        res,
-      );
+      responseErr(ErrForbidden.withLog(`This user has role: ${requester.role}`), res);
       return;
     }
 
