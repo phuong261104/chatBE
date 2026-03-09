@@ -1,0 +1,51 @@
+import { z } from 'zod';
+import { UserStatus, UserVerifiedSchema, UserPrivacySchema, UserSettingsSchema } from './model';
+
+export const UserCreateSchema = z
+  .object({
+    email: z.string().email().optional(),
+    phone: z.string().optional(),
+    username: z.string().optional(),
+    password: z.string(),
+    salt: z.string(),
+    displayName: z.string().optional(),
+    avatarUrl: z.string().optional(),
+    bio: z.string().optional(),
+    verified: UserVerifiedSchema.optional(),
+    privacy: UserPrivacySchema.optional(),
+    settings: UserSettingsSchema.optional()
+  })
+  .refine((data) => data.email || data.phone, {
+    message: 'Either email or phone must be provided'
+  });
+
+export type UserCreateDTO = z.infer<typeof UserCreateSchema>;
+
+export const UserUpdateSchema = z.object({
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  salt: z.string().optional(),
+  status: z.nativeEnum(UserStatus).optional(),
+  displayName: z.string().optional(),
+  avatarUrl: z.string().optional(),
+  bio: z.string().optional(),
+  verified: UserVerifiedSchema.optional(),
+  privacy: UserPrivacySchema.optional(),
+  settings: UserSettingsSchema.optional(),
+  lastLoginAt: z.date().optional()
+});
+
+export type UserUpdateDTO = z.infer<typeof UserUpdateSchema>;
+
+export const UserCondDTOSchema = z.object({
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  username: z.string().optional(),
+  status: z.nativeEnum(UserStatus).optional(),
+  'verified.email': z.boolean().optional(),
+  'verified.phone': z.boolean().optional()
+});
+
+export type UserCondDTO = z.infer<typeof UserCondDTOSchema>;
