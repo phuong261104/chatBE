@@ -7,3 +7,9 @@ export const PagingDTOSchema = z.object({
 });
 
 export type PagingDTO = z.infer<typeof PagingDTOSchema>;
+
+export type Paginated<E> = {
+  data: E[];
+  paging: PagingDTO;
+  total: number;
+};
