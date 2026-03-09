@@ -1,0 +1,57 @@
+{
+  "name": "zl-demo",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "demo": "ts-node src/index.ts",
+    "start": "nodemon src/index.ts",
+    "test:messaging": "ts-node test-messaging-api.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/dotenv": "^8.2.0",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/module-alias": "^2.0.4",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^22.7.2",
+    "@types/sequelize": "^4.28.20",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/uuid": "^10.0.0",
+    "@types/yamljs": "^0.2.34",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
+  },
+  "dependencies": {
+    "@types/multer": "^2.0.0",
+    "@types/socket.io": "^3.0.1",
+    "axios": "^1.7.7",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "module-alias": "^2.2.3",
+    "mongoose": "^9.2.1",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "mysql2": "^3.11.3",
+    "sequelize": "^6.37.3",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^10.0.0",
+    "yamljs": "^0.3.0",
+    "zod": "^3.23.8"
+  },
+  "_moduleAliases": {
+    "@root": ".",
+    "@modules": "src/modules",
+    "@share": "src/share"
+  }
+}
