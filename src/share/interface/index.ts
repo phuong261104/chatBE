@@ -1,11 +1,15 @@
 import { PagingDTO } from "@share/model/paging";
 
-export interface IRepository<Entity, Cond, UpdateDTO> extends IQueryRepository<Entity, Cond>, ICommandRepository<Entity, UpdateDTO> { }
+export interface IRepository<Entity, Cond, UpdateDTO>
+  extends
+    IQueryRepository<Entity, Cond>,
+    ICommandRepository<Entity, UpdateDTO> {}
 
 export interface IQueryRepository<Entity, Cond> {
   get(id: string): Promise<Entity | null>;
   findByCond(cond: Cond): Promise<Entity | null>;
   list(cond: Cond, paging: PagingDTO): Promise<Array<Entity>>;
+  listByIds(ids: string[]): Promise<Array<Entity>>;
 }
 
 export interface ICommandRepository<Entity, UpdateDTO> {
@@ -32,8 +36,8 @@ export interface IUseCase<CreateDTO, UpdateDTO, Entity, Cond> {
 
 ///
 export enum UserRole {
-  ADMIN = 'admin',
-  USER = 'user'
+  ADMIN = "admin",
+  USER = "user",
 }
 
 export interface TokenPayload {
@@ -41,7 +45,7 @@ export interface TokenPayload {
   role: UserRole;
 }
 
-export interface Requester extends TokenPayload { }
+export interface Requester extends TokenPayload {}
 
 export interface ITokenProvider {
   generateToken(payload: TokenPayload): Promise<string>;
@@ -52,13 +56,13 @@ export interface ITokenProvider {
 export type UserToken = {
   accessToken: string;
   refreshToken: string;
-}
+};
 
 export type TokenIntrospectResult = {
   payload: TokenPayload | null;
   error?: Error;
   isOk: boolean;
-}
+};
 
 export interface ITokenIntrospect {
   introspect(token: string): Promise<TokenIntrospectResult>;

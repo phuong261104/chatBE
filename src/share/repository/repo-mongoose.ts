@@ -1,7 +1,11 @@
-import { ICommandRepository, IQueryRepository, IRepository } from '@share/interface';
-import { ModelStatus } from '@share/model/base-model';
-import { PagingDTO } from '@share/model/paging';
-import type { Model } from 'mongoose';
+import {
+  ICommandRepository,
+  IQueryRepository,
+  IRepository,
+} from "@share/interface";
+import { ModelStatus } from "@share/model/base-model";
+import { PagingDTO } from "@share/model/paging";
+import type { Model } from "mongoose";
 
 /**
  * Notes:
@@ -10,10 +14,14 @@ import type { Model } from 'mongoose';
  * - Uses `_id` as Mongo primary key, but exposes/accepts `id: string`
  */
 
-export abstract class BaseRepositoryMongoose<Entity, Cond, UpdateDTO> implements IRepository<Entity, Cond, UpdateDTO> {
+export abstract class BaseRepositoryMongoose<
+  Entity,
+  Cond,
+  UpdateDTO,
+> implements IRepository<Entity, Cond, UpdateDTO> {
   constructor(
     readonly queryRepo: IQueryRepository<Entity, Cond>,
-    readonly cmdRepo: ICommandRepository<Entity, UpdateDTO>
+    readonly cmdRepo: ICommandRepository<Entity, UpdateDTO>,
   ) {}
 
   async get(id: string): Promise<Entity | null> {
@@ -26,6 +34,10 @@ export abstract class BaseRepositoryMongoose<Entity, Cond, UpdateDTO> implements
 
   async list(cond: Cond, paging: PagingDTO): Promise<Array<Entity>> {
     return await this.queryRepo.list(cond, paging);
+  }
+
+  async listByIds(ids: string[]): Promise<Array<Entity>> {
+    return await this.queryRepo.listByIds(ids);
   }
 
   async insert(data: Entity): Promise<boolean> {
@@ -41,10 +53,13 @@ export abstract class BaseRepositoryMongoose<Entity, Cond, UpdateDTO> implements
   }
 }
 
-export abstract class BaseQueryRepositoryMongoose<Entity, Cond> implements IQueryRepository<Entity, Cond> {
+export abstract class BaseQueryRepositoryMongoose<
+  Entity,
+  Cond,
+> implements IQueryRepository<Entity, Cond> {
   constructor(
     readonly model: Model<any>,
-    readonly defaultSort: any = { _id: -1 }
+    readonly defaultSort: any = { _id: -1 },
   ) {}
 
   /**
@@ -55,13 +70,13 @@ export abstract class BaseQueryRepositoryMongoose<Entity, Cond> implements IQuer
   protected toEntity(doc: any): Entity {
     if (!doc) return doc;
 
-    const obj = typeof doc.toObject === 'function' ? doc.toObject() : doc;
+    const obj = typeof doc.toObject === "function" ? doc.toObject() : doc;
 
     // Mongoose might include both _id and id (virtual). Ensure consistent.
     const { _id, __v, ...rest } = obj;
     return {
       ...rest,
-      id: String(_id)
+      id: String(_id),
     } as Entity;
   }
 
@@ -90,7 +105,7 @@ export abstract class BaseQueryRepositoryMongoose<Entity, Cond> implements IQuer
     // soft-delete filter like Sequelize version
     const condMongo: any = {
       ...(cond as any),
-      status: { $ne: ModelStatus.DELETED }
+      status: { $ne: ModelStatus.DELETED },
     };
 
     const total = await this.model.countDocuments(condMongo).exec();
@@ -106,12 +121,21 @@ export abstract class BaseQueryRepositoryMongoose<Entity, Cond> implements IQuer
 
     return rows.map((row) => this.toEntity(row));
   }
+
+  async listByIds(ids: string[]): Promise<Array<Entity>> {
+    const rows = await this.model
+      .find({ _id: { $in: ids } })
+      .lean()
+      .exec();
+
+    return rows.map((row) => this.toEntity(row));
+  }
 }
 
-export abstract class BaseCommandRepositoryMongoose<Entity, UpdateDTO> implements ICommandRepository<
+export abstract class BaseCommandRepositoryMongoose<
   Entity,
-  UpdateDTO
-> {
+  UpdateDTO,
+> implements ICommandRepository<Entity, UpdateDTO> {
   constructor(readonly model: Model<any>) {}
 
   async insert(data: Entity): Promise<boolean> {
@@ -126,13 +150,17 @@ export abstract class BaseCommandRepositoryMongoose<Entity, UpdateDTO> implement
   }
 
   async update(id: string, data: UpdateDTO): Promise<boolean> {
-    await this.model.updateOne({ _id: id }, data as any, { runValidators: true }).exec();
+    await this.model
+      .updateOne({ _id: id }, data as any, { runValidators: true })
+      .exec();
     return true;
   }
 
   async delete(id: string, isHard: boolean = false): Promise<boolean> {
     if (!isHard) {
-      await this.model.updateOne({ _id: id }, { status: ModelStatus.DELETED }).exec();
+      await this.model
+        .updateOne({ _id: id }, { status: ModelStatus.DELETED })
+        .exec();
     } else {
       await this.model.deleteOne({ _id: id }).exec();
     }

@@ -12,6 +12,8 @@ import { setupUserHexagon } from "./modules/user";
 import Logger from "./share/utils/logger";
 import { responseErr } from "./share/app-error";
 import { setupMediaHexagon } from "./modules/media";
+import { createSocketIOServer } from "@share/component/socket-io";
+import { setupMessagingHexagon } from "@modules/chat";
 
 config();
 
@@ -40,9 +42,13 @@ config();
 
   const userRouter = setupUserHexagon(sctx);
   const mediaRouter = setupMediaHexagon(sctx);
+  const io = createSocketIOServer(httpServer);
+  const { router: messagingRouter, socketService: messagingSocketService } =
+    setupMessagingHexagon(io, sctx);
 
   app.use("/v1", userRouter);
   app.use("/v1", mediaRouter);
+  app.use("/v1", messagingRouter);
 
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     responseErr(err, res);

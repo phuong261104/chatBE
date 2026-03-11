@@ -1,0 +1,150 @@
+import { IMessagingUseCase, CreateGroupData } from '../interface';
+import { Conversation, ConversationMember, ConversationMemberRole, Message, MediaAttachment } from '../model/model';
+import { ConversationWithMetadata, ConversationDetail, LoadMessagesResult } from '../model/dto';
+
+import { GetOrCreatePrivateConversationHandler } from './get-or-create-private-conversation';
+import { SendMessageHandler } from './send-message';
+import { CreateGroupHandler } from './create-group';
+import { SendGroupMessageHandler } from './send-group-message';
+import { AddMembersToGroupHandler } from './add-members-to-group';
+import { RemoveMemberFromGroupHandler } from './remove-member-from-group';
+import { UpdateGroupInfoHandler } from './update-group-info';
+import { MarkAsSeenHandler } from './mark-as-seen';
+import { MarkAsDeliveredHandler } from './mark-as-delivered';
+import { LeaveGroupHandler } from './leave-group';
+import { GetConversationsQueryHandler } from './get-conversations';
+import { GetConversationDetailQueryHandler } from './get-conversation-detail';
+import { GetConversationMembersQueryHandler } from './get-conversation-members';
+import { LoadMessagesQueryHandler } from './load-messages';
+import { GetTotalUnreadCountQueryHandler } from './get-total-unread-count';
+import { GetGroupMembersQueryHandler } from './get-group-members';
+
+export class MessagingUseCaseFacade implements IMessagingUseCase {
+  constructor(
+    private readonly getOrCreatePrivateConversationHandler: GetOrCreatePrivateConversationHandler,
+    private readonly sendMessageHandler: SendMessageHandler,
+    private readonly createGroupHandler: CreateGroupHandler,
+    private readonly sendGroupMessageHandler: SendGroupMessageHandler,
+    private readonly addMembersToGroupHandler: AddMembersToGroupHandler,
+    private readonly removeMemberFromGroupHandler: RemoveMemberFromGroupHandler,
+    private readonly updateGroupInfoHandler: UpdateGroupInfoHandler,
+    private readonly markAsSeenHandler: MarkAsSeenHandler,
+    private readonly markAsDeliveredHandler: MarkAsDeliveredHandler,
+    private readonly leaveGroupHandler: LeaveGroupHandler,
+    private readonly getConversationsQueryHandler: GetConversationsQueryHandler,
+    private readonly getConversationDetailQueryHandler: GetConversationDetailQueryHandler,
+    private readonly getConversationMembersQueryHandler: GetConversationMembersQueryHandler,
+    private readonly loadMessagesQueryHandler: LoadMessagesQueryHandler,
+    private readonly getTotalUnreadCountQueryHandler: GetTotalUnreadCountQueryHandler,
+    private readonly getGroupMembersQueryHandler: GetGroupMembersQueryHandler
+  ) {}
+
+  async getOrCreatePrivateConversation(currentUserId: string, targetUserId: string): Promise<Conversation> {
+    return this.getOrCreatePrivateConversationHandler.execute({ currentUserId, targetUserId });
+  }
+
+  async sendMessage(
+    conversationId: string,
+    senderId: string,
+    text?: string,
+    media?: MediaAttachment[]
+  ): Promise<Message> {
+    return this.sendMessageHandler.execute({ conversationId, senderId, text, media });
+  }
+
+  async getConversationMembers(conversationId: string, excludeUserId?: string): Promise<string[]> {
+    return this.getConversationMembersQueryHandler.query({ conversationId, excludeUserId });
+  }
+
+  async createGroup(
+    creatorId: string,
+    data: CreateGroupData
+  ): Promise<{
+    conversation: Conversation;
+    members: ConversationMember[];
+    systemMessage: Message;
+  }> {
+    return this.createGroupHandler.execute({ creatorId, data });
+  }
+
+  async sendGroupMessage(
+    conversationId: string,
+    senderId: string,
+    text?: string,
+    media?: MediaAttachment[]
+  ): Promise<Message> {
+    return this.sendGroupMessageHandler.execute({ conversationId, senderId, text, media });
+  }
+
+  async addMembersToGroup(
+    conversationId: string,
+    requesterId: string,
+    memberIds: string[]
+  ): Promise<ConversationMember[]> {
+    return this.addMembersToGroupHandler.execute({ conversationId, requesterId, memberIds });
+  }
+
+  async removeMemberFromGroup(conversationId: string, requesterId: string, targetUserId: string): Promise<void> {
+    return this.removeMemberFromGroupHandler.execute({ conversationId, requesterId, targetUserId });
+  }
+
+  async updateGroupInfo(
+    conversationId: string,
+    requesterId: string,
+    data: { name?: string; avatarUrl?: string }
+  ): Promise<Conversation> {
+    return this.updateGroupInfoHandler.execute({ conversationId, requesterId, ...data });
+  }
+
+  async getConversations(
+    userId: string,
+    page?: number,
+    limit?: number
+  ): Promise<Array<Conversation & { unreadCount: number; role: ConversationMemberRole }>> {
+    return this.getConversationsQueryHandler.query({ userId, page, limit });
+  }
+
+  async getConversationDetail(
+    conversationId: string,
+    userId: string
+  ): Promise<{
+    conversation: Conversation;
+    members: ConversationMember[];
+    currentUserRole: ConversationMemberRole;
+  }> {
+    return this.getConversationDetailQueryHandler.query({ conversationId, userId });
+  }
+
+  async loadMessages(
+    conversationId: string,
+    userId: string,
+    cursor: string | undefined,
+    limit: number
+  ): Promise<{
+    messages: Message[];
+    nextCursor: string;
+    hasMore: boolean;
+  }> {
+    return this.loadMessagesQueryHandler.query({ conversationId, userId, cursor, limit });
+  }
+
+  async markAsSeen(conversationId: string, userId: string, lastSeenMessageId: string): Promise<void> {
+    return this.markAsSeenHandler.execute({ conversationId, userId, lastSeenMessageId });
+  }
+
+  async markAsDelivered(conversationId: string, userId: string, lastDeliveredMessageId: string): Promise<void> {
+    return this.markAsDeliveredHandler.execute({ conversationId, userId, lastDeliveredMessageId });
+  }
+
+  async getTotalUnreadCount(userId: string): Promise<number> {
+    return this.getTotalUnreadCountQueryHandler.query({ userId });
+  }
+
+  async leaveGroup(conversationId: string, userId: string): Promise<void> {
+    return this.leaveGroupHandler.execute({ conversationId, userId });
+  }
+
+  async getGroupMembers(conversationId: string, userId: string): Promise<ConversationMember[]> {
+    return this.getGroupMembersQueryHandler.query({ conversationId, userId });
+  }
+}

@@ -1,0 +1,674 @@
+import { IMessagingUseCase } from '../../interface';
+import { Request, Response } from 'express';
+import { MessagingSocketService } from './socket-service';
+import {
+  createGroupDTOSchema,
+  addMembersToGroupDTOSchema,
+  removeMemberFromGroupDTOSchema,
+  updateGroupInfoDTOSchema,
+  getOrCreatePrivateConversationDTOSchema,
+  loadMessagesDTOSchema,
+  markAsSeenDTOSchema,
+  markAsDeliveredDTOSchema,
+  leaveGroupDTOSchema,
+  getGroupMembersDTOSchema,
+  sendMessageDTOSchema
+} from '../../model/dto';
+import { z } from 'zod';
+import { ConversationType } from '../../model/model';
+
+export class MessagingHttpService {
+  private socketService?: MessagingSocketService;
+
+  constructor(private readonly useCase: IMessagingUseCase) {}
+
+  setSocketService(socketService: MessagingSocketService) {
+    this.socketService = socketService;
+  }
+
+  async getPrivateConversationAPI(req: Request, res: Response) {
+    try {
+      const { targetUserId } = req.query;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = getOrCreatePrivateConversationDTOSchema.parse({
+        currentUserId,
+        targetUserId
+      });
+
+      const conversation = await this.useCase.getOrCreatePrivateConversation(
+        validatedData.currentUserId,
+        validatedData.targetUserId
+      );
+
+      res.status(200).json({ data: conversation });
+    } catch (error) {
+      console.error('[HTTP] Error in getPrivateConversationAPI:', error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      res.status(400).json({
+        error: (error as Error).message
+      });
+    }
+  }
+
+  async createGroupAPI(req: Request, res: Response) {
+    try {
+      const { name, memberIds, avatarUrl } = req.body;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = createGroupDTOSchema.parse({
+        name,
+        memberIds,
+        avatarUrl
+      });
+
+      const result = await this.useCase.createGroup(currentUserId, validatedData);
+
+      if (this.socketService) {
+        const allMemberIds = [currentUserId, ...memberIds];
+        this.socketService.notifyNewGroup(allMemberIds, {
+          conversation: result.conversation,
+          systemMessage: result.systemMessage
+        });
+      }
+
+      res.status(201).json({ data: result });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      res.status(400).json({
+        error: (error as Error).message
+      });
+    }
+  }
+
+  async addMembersAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const { memberIds } = req.body;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = addMembersToGroupDTOSchema.parse({
+        conversationId: groupId,
+        requesterId: currentUserId,
+        memberIds
+      });
+
+      const newMembers = await this.useCase.addMembersToGroup(
+        validatedData.conversationId,
+        validatedData.requesterId,
+        validatedData.memberIds
+      );
+
+      if (this.socketService) {
+        this.socketService.notifyMembersAdded(groupId, newMembers);
+      }
+
+      res.status(200).json({ data: newMembers });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async removeMemberAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = removeMemberFromGroupDTOSchema.parse({
+        conversationId: groupId,
+        requesterId: currentUserId,
+        targetUserId: userId
+      });
+
+      await this.useCase.removeMemberFromGroup(
+        validatedData.conversationId,
+        validatedData.requesterId,
+        validatedData.targetUserId
+      );
+
+      if (this.socketService) {
+        this.socketService.notifyMemberRemoved(groupId, userId);
+      }
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async updateGroupAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const { name, avatarUrl } = req.body;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = updateGroupInfoDTOSchema.parse({
+        conversationId: groupId,
+        requesterId: currentUserId,
+        name,
+        avatarUrl
+      });
+
+      const updatedConversation = await this.useCase.updateGroupInfo(
+        validatedData.conversationId,
+        validatedData.requesterId,
+        {
+          name: validatedData.name,
+          avatarUrl: validatedData.avatarUrl
+        }
+      );
+
+      if (this.socketService) {
+        this.socketService.notifyGroupUpdated(groupId, updatedConversation);
+      }
+
+      res.status(200).json({ data: updatedConversation });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async getConversationsAPI(req: Request, res: Response) {
+    try {
+      const { page = '1', limit = '20' } = req.query;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const pageNum = parseInt(page as string, 10);
+      const limitNum = Math.min(parseInt(limit as string, 10), 100);
+
+      const conversations = await this.useCase.getConversations(currentUserId, pageNum, limitNum);
+
+      res.status(200).json({ data: conversations });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async getConversationDetailAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const result = await this.useCase.getConversationDetail(conversationId, currentUserId);
+
+      res.status(200).json({ data: result });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async loadMessagesAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const { cursor, limit = '20' } = req.query;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = loadMessagesDTOSchema.parse({
+        conversationId,
+        cursor: cursor || undefined,
+        limit: parseInt(limit as string, 10)
+      });
+
+      const result = await this.useCase.loadMessages(
+        validatedData.conversationId,
+        currentUserId,
+        validatedData.cursor,
+        validatedData.limit
+      );
+
+      res.status(200).json({ data: result });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async markAsSeenAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const { lastSeenMessageId } = req.body;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = markAsSeenDTOSchema.parse({
+        conversationId,
+        userId: currentUserId,
+        lastSeenMessageId
+      });
+
+      await this.useCase.markAsSeen(
+        validatedData.conversationId,
+        validatedData.userId,
+        validatedData.lastSeenMessageId
+      );
+
+      if (this.socketService) {
+        const memberUserIds = await this.useCase.getConversationMembers(
+          validatedData.conversationId,
+          validatedData.userId
+        );
+
+        for (const memberId of memberUserIds) {
+          this.socketService.notifyMessageSeen(
+            memberId,
+            validatedData.conversationId,
+            validatedData.userId,
+            validatedData.lastSeenMessageId
+          );
+        }
+      }
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async markAsDeliveredAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const { lastDeliveredMessageId } = req.body;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = markAsDeliveredDTOSchema.parse({
+        conversationId,
+        userId: currentUserId,
+        lastDeliveredMessageId
+      });
+
+      await this.useCase.markAsDelivered(
+        validatedData.conversationId,
+        validatedData.userId,
+        validatedData.lastDeliveredMessageId
+      );
+
+      if (this.socketService) {
+        const memberUserIds = await this.useCase.getConversationMembers(
+          validatedData.conversationId,
+          validatedData.userId
+        );
+
+        for (const memberId of memberUserIds) {
+          this.socketService.notifyMessageDelivered(
+            memberId,
+            validatedData.conversationId,
+            validatedData.userId,
+            validatedData.lastDeliveredMessageId
+          );
+        }
+      }
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async getTotalUnreadCountAPI(req: Request, res: Response) {
+    try {
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const totalUnread = await this.useCase.getTotalUnreadCount(currentUserId);
+
+      res.status(200).json({ totalUnread });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async leaveGroupAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = leaveGroupDTOSchema.parse({
+        conversationId: groupId,
+        userId: currentUserId
+      });
+
+      await this.useCase.leaveGroup(validatedData.conversationId, validatedData.userId);
+
+      if (this.socketService) {
+        this.socketService.notifyMemberRemoved(groupId, currentUserId);
+      }
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async getGroupMembersAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = getGroupMembersDTOSchema.parse({
+        conversationId: groupId,
+        userId: currentUserId
+      });
+
+      const members = await this.useCase.getGroupMembers(validatedData.conversationId, validatedData.userId);
+
+      res.status(200).json({ data: members });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+
+  async sendMessageAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const { text, media } = req.body;
+
+      const requester = res.locals['requester'];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const validatedData = sendMessageDTOSchema.parse({
+        conversationId,
+        senderId: currentUserId,
+        text,
+        media
+      });
+
+      const conversationDetail = await this.useCase.getConversationDetail(
+        validatedData.conversationId,
+        validatedData.senderId
+      );
+
+      const isGroup = conversationDetail.conversation.type === ConversationType.GROUP;
+
+      const message = isGroup
+        ? await this.useCase.sendGroupMessage(
+            validatedData.conversationId,
+            validatedData.senderId,
+            validatedData.text,
+            validatedData.media
+          )
+        : await this.useCase.sendMessage(
+            validatedData.conversationId,
+            validatedData.senderId,
+            validatedData.text,
+            validatedData.media
+          );
+
+      if (this.socketService) {
+        if (isGroup) {
+          this.socketService.emitToGroupRoom(validatedData.conversationId, 'receiveMessage', {
+            message,
+            conversationId: validatedData.conversationId
+          });
+          const memberUserIds = await this.useCase.getConversationMembers(
+            validatedData.conversationId,
+            validatedData.senderId
+          );
+
+          for (const userId of memberUserIds) {
+            this.socketService.emitToUser(userId, 'receiveMessage', {
+              message,
+              conversationId: validatedData.conversationId
+            });
+          }
+        } else {
+          const memberUserIds = await this.useCase.getConversationMembers(
+            validatedData.conversationId,
+            validatedData.senderId
+          );
+
+          for (const userId of memberUserIds) {
+            this.socketService.emitToUser(userId, 'receiveMessage', {
+              message,
+              conversationId: validatedData.conversationId
+            });
+          }
+        }
+      }
+
+      res.status(201).json({ data: message });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Validation error',
+          details: error.errors
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message
+      });
+    }
+  }
+}
