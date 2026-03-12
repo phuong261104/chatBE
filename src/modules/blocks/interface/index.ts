@@ -1,6 +1,5 @@
 import { IUseCase } from '@share/interface';
-import { BlockCreateDTO, BlockUpdateDTO, BlockCondDTO } from '../model/dto';
-import { Block } from '../model/model';
+import { BlockCreateDTO, BlockUpdateDTO, BlockCondDTO, Block } from '../model';
 
 export interface IBlockUseCase extends IUseCase<BlockCreateDTO, BlockUpdateDTO, Block, BlockCondDTO> {
   blockUser(blockerId: string, blockedUserId: string): Promise<string>;

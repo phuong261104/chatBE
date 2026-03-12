@@ -1,5 +1,4 @@
-import { BlockCondDTO, BlockUpdateDTO } from '@modules/blocks/model/dto';
-import { Block } from '@modules/blocks/model/model';
+import { BlockCondDTO, BlockUpdateDTO, Block } from '@modules/blocks/model';
 import {
   BaseCommandRepositoryMongoose,
   BaseQueryRepositoryMongoose,

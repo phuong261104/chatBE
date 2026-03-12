@@ -30,7 +30,6 @@ const BlockSchema = new Schema<IBlockDocument>(
   }
 );
 
-// Indexes
 BlockSchema.index({ blockerId: 1, blockedUserId: 1 }, { unique: true });
 BlockSchema.index({ blockerId: 1 });
 BlockSchema.index({ blockedUserId: 1 });
