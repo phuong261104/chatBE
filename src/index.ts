@@ -14,6 +14,12 @@ import { responseErr } from "./share/app-error";
 import { setupMediaHexagon } from "./modules/media";
 import { createSocketIOServer } from "@share/component/socket-io";
 import { setupMessagingHexagon } from "@modules/chat";
+import { setupBlockHexagon } from "@modules/blocks";
+import { setupFriendRequestHexagon } from "@modules/friend-requests";
+import { setupFriendshipHexagon } from "@modules/friendships";
+import path from "path";
+import YAML from "yamljs";
+import swaggerUi from "swagger-ui-express";
 
 config();
 
@@ -35,6 +41,38 @@ config();
   app.use(express.json());
   app.use(morgan("dev"));
 
+  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS",
+    );
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization",
+    );
+
+    // Handle preflight requests
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+
+    next();
+  });
+
+  const swaggerDocument = YAML.load(path.join(process.cwd(), "swagger.yaml"));
+
+  app.use(
+    "/api-docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerDocument, {
+      customCss: ".swagger-ui .topbar { display: none }",
+      customSiteTitle: "BEMVP API Documentation",
+    }),
+  );
+
   const introspector = new TokenIntrospectLocal(
     appConfig.accessToken.secretKey,
   );
@@ -45,10 +83,19 @@ config();
   const io = createSocketIOServer(httpServer);
   const { router: messagingRouter, socketService: messagingSocketService } =
     setupMessagingHexagon(io, sctx);
+  const blockRouter = setupBlockHexagon(sctx);
+
+  const { router: friendRequestRouter, socketService } =
+    setupFriendRequestHexagon(sctx, io);
+
+  const friendshipRouter = setupFriendshipHexagon(sctx, socketService);
 
   app.use("/v1", userRouter);
   app.use("/v1", mediaRouter);
   app.use("/v1", messagingRouter);
+  app.use("/v1", blockRouter);
+  app.use("/v1", friendRequestRouter);
+  app.use("/v1", friendshipRouter);
 
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     responseErr(err, res);
