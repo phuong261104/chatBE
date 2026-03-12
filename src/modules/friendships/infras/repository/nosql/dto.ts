@@ -2,8 +2,8 @@ import { Schema, model } from 'mongoose';
 
 interface IFriendshipDocument {
   _id: string;
-  userA: string; // min(userId1, userId2)
-  userB: string; // max(userId1, userId2)
+  userA: string;
+  userB: string;
   createdAt: Date;
 }
 
@@ -30,7 +30,6 @@ const FriendshipSchema = new Schema<IFriendshipDocument>(
   }
 );
 
-// Indexes
 FriendshipSchema.index({ userA: 1, userB: 1 }, { unique: true });
 FriendshipSchema.index({ userA: 1 });
 FriendshipSchema.index({ userB: 1 });

@@ -1,5 +1,4 @@
-import { FriendshipCondDTO, FriendshipUpdateDTO } from '@modules/friendships/model/dto';
-import { Friendship } from '@modules/friendships/model/model';
+import { FriendshipCondDTO, FriendshipUpdateDTO, Friendship } from '@modules/friendships/model';
 import {
   BaseCommandRepositoryMongoose,
   BaseQueryRepositoryMongoose,

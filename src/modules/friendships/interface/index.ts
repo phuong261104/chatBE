@@ -1,6 +1,5 @@
 import { IUseCase } from '@share/interface';
-import { FriendshipCreateDTO, FriendshipCondDTO } from '../model/dto';
-import { Friendship } from '../model/model';
+import { FriendshipCreateDTO, FriendshipCondDTO, Friendship } from '../model';
 
 export interface IFriendshipUseCase extends IUseCase<FriendshipCreateDTO, never, Friendship, FriendshipCondDTO> {
   getFriendsList(userId: string): Promise<Friendship[]>;
