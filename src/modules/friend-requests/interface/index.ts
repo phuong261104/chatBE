@@ -1,6 +1,5 @@
 import { IUseCase } from '@share/interface';
-import { FriendRequestCreateDTO, FriendRequestUpdateDTO, FriendRequestCondDTO } from '../model/dto';
-import { FriendRequest } from '../model/model';
+import { FriendRequestCreateDTO, FriendRequestUpdateDTO, FriendRequestCondDTO, FriendRequest } from '../model';
 
 export interface IFriendRequestUseCase extends IUseCase<
   FriendRequestCreateDTO,

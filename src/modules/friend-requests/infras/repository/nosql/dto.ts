@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { FriendRequestStatus } from '@modules/friend-requests/model/model';
+import { FriendRequestStatus } from '@modules/friend-requests/model';
 
 interface IFriendRequestDocument {
   _id: string;
@@ -43,7 +43,6 @@ const FriendRequestSchema = new Schema<IFriendRequestDocument>(
   }
 );
 
-// Indexes
 FriendRequestSchema.index({ fromUserId: 1, toUserId: 1 });
 FriendRequestSchema.index({ toUserId: 1, status: 1 });
 FriendRequestSchema.index({ fromUserId: 1, status: 1 });

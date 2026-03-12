@@ -1,5 +1,4 @@
-import { FriendRequestCondDTO, FriendRequestUpdateDTO } from '@modules/friend-requests/model/dto';
-import { FriendRequest } from '@modules/friend-requests/model/model';
+import { FriendRequestCondDTO, FriendRequestUpdateDTO, FriendRequest } from '@modules/friend-requests/model';
 import {
   BaseCommandRepositoryMongoose,
   BaseQueryRepositoryMongoose,
