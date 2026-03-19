@@ -9,13 +9,13 @@
  */
 
 // ==================== Framework & Infrastructure ====================
-import { Router } from 'express';
-import { Server as SocketIOServer } from 'socket.io';
-import { ServiceContext } from '@/share/interface/service-context';
+import { Router } from "express";
+import { Server as SocketIOServer } from "socket.io";
+import { ServiceContext } from "@/share/interface/service-context";
 
 // ==================== External Dependencies (User Module) ====================
-import { MongoUserRepository } from '@modules/user/infras/repository/nosql/mongodb-repo';
-import { UserUseCase } from '@modules/user/usecase';
+import { MongoUserRepository } from "@modules/user/infras/repository/nosql/mongodb-repo";
+import { UserUseCase } from "@modules/user/usecase";
 
 // ==================== Chat Module Components (using barrel exports) ====================
 // Infrastructure: Repositories & Transport
@@ -25,8 +25,8 @@ import {
   MongoMessageRepository,
   UserRepositoryAdapter,
   MessagingHttpService,
-  MessagingSocketService
-} from './infras';
+  MessagingSocketService,
+} from "./infras";
 
 // Use Cases: All handlers and facade
 import {
@@ -46,10 +46,13 @@ import {
   LoadMessagesQueryHandler,
   GetTotalUnreadCountQueryHandler,
   GetGroupMembersQueryHandler,
-  MessagingUseCaseFacade
-} from './usecase';
+  MessagingUseCaseFacade,
+} from "./usecase";
 
-export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) => {
+export const setupMessagingHexagon = (
+  io: SocketIOServer,
+  sctx: ServiceContext,
+) => {
   const mdlFactory = sctx.mdlFactory;
 
   const conversationRepo = new MongoConversationRepository();
@@ -60,27 +63,33 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const userUseCase = new UserUseCase(userRepo);
   const userAdapter = new UserRepositoryAdapter(userUseCase);
 
-  const getOrCreatePrivateConversationHandler = new GetOrCreatePrivateConversationHandler(
-    conversationRepo,
-    conversationRepo,
-    conversationMemberRepo,
-    userAdapter
-  );
+  const getOrCreatePrivateConversationHandler =
+    new GetOrCreatePrivateConversationHandler(
+      conversationRepo,
+      conversationRepo,
+      conversationMemberRepo,
+      userAdapter,
+    );
 
   const sendMessageHandler = new SendMessageHandler(
     conversationMemberRepo,
     conversationMemberRepo,
     messageRepo,
-    conversationRepo
+    conversationRepo,
   );
 
-  const createGroupHandler = new CreateGroupHandler(conversationRepo, conversationMemberRepo, messageRepo, userAdapter);
+  const createGroupHandler = new CreateGroupHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    messageRepo,
+    userAdapter,
+  );
 
   const sendGroupMessageHandler = new SendGroupMessageHandler(
     conversationMemberRepo,
     conversationMemberRepo,
     messageRepo,
-    conversationRepo
+    conversationRepo,
   );
 
   const addMembersToGroupHandler = new AddMembersToGroupHandler(
@@ -89,7 +98,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationMemberRepo,
     conversationMemberRepo,
     messageRepo,
-    userAdapter
+    userAdapter,
   );
 
   const removeMemberFromGroupHandler = new RemoveMemberFromGroupHandler(
@@ -98,17 +107,25 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationMemberRepo,
     conversationMemberRepo,
     messageRepo,
-    userAdapter
+    userAdapter,
   );
 
-  const updateGroupInfoHandler = new UpdateGroupInfoHandler(conversationRepo, conversationRepo, conversationMemberRepo);
+  const updateGroupInfoHandler = new UpdateGroupInfoHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
 
-  const markAsSeenHandler = new MarkAsSeenHandler(conversationMemberRepo, conversationMemberRepo, messageRepo);
+  const markAsSeenHandler = new MarkAsSeenHandler(
+    conversationMemberRepo,
+    conversationMemberRepo,
+    messageRepo,
+  );
 
   const markAsDeliveredHandler = new MarkAsDeliveredHandler(
     conversationMemberRepo,
     conversationMemberRepo,
-    messageRepo
+    messageRepo,
   );
 
   const leaveGroupHandler = new LeaveGroupHandler(
@@ -117,23 +134,36 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationMemberRepo,
     conversationMemberRepo,
     messageRepo,
-    userAdapter
+    userAdapter,
   );
 
-  const getConversationsQueryHandler = new GetConversationsQueryHandler(conversationRepo, conversationMemberRepo);
-
-  const getConversationDetailQueryHandler = new GetConversationDetailQueryHandler(
+  const getConversationsQueryHandler = new GetConversationsQueryHandler(
     conversationRepo,
-    conversationMemberRepo
+    conversationMemberRepo,
   );
 
-  const getConversationMembersQueryHandler = new GetConversationMembersQueryHandler(conversationMemberRepo);
+  const getConversationDetailQueryHandler =
+    new GetConversationDetailQueryHandler(
+      conversationRepo,
+      conversationMemberRepo,
+    );
 
-  const loadMessagesQueryHandler = new LoadMessagesQueryHandler(conversationMemberRepo, messageRepo);
+  const getConversationMembersQueryHandler =
+    new GetConversationMembersQueryHandler(conversationMemberRepo);
 
-  const getTotalUnreadCountQueryHandler = new GetTotalUnreadCountQueryHandler(conversationMemberRepo);
+  const loadMessagesQueryHandler = new LoadMessagesQueryHandler(
+    conversationMemberRepo,
+    messageRepo,
+  );
 
-  const getGroupMembersQueryHandler = new GetGroupMembersQueryHandler(conversationRepo, conversationMemberRepo);
+  const getTotalUnreadCountQueryHandler = new GetTotalUnreadCountQueryHandler(
+    conversationMemberRepo,
+  );
+
+  const getGroupMembersQueryHandler = new GetGroupMembersQueryHandler(
+    conversationRepo,
+    conversationMemberRepo,
+  );
 
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
@@ -151,7 +181,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     getConversationMembersQueryHandler,
     loadMessagesQueryHandler,
     getTotalUnreadCountQueryHandler,
-    getGroupMembersQueryHandler
+    getGroupMembersQueryHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -161,31 +191,83 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const router = Router();
 
-  router.get('/conversations/private', mdlFactory.auth, httpService.getPrivateConversationAPI.bind(httpService));
-  router.get('/conversations/unread-count', mdlFactory.auth, httpService.getTotalUnreadCountAPI.bind(httpService));
-  router.get('/conversations', mdlFactory.auth, httpService.getConversationsAPI.bind(httpService));
-  router.get('/conversations/:conversationId', mdlFactory.auth, httpService.getConversationDetailAPI.bind(httpService));
-  router.get('/conversations/:conversationId/messages', mdlFactory.auth, httpService.loadMessagesAPI.bind(httpService));
-
-  router.post('/conversations/:conversationId/messages', mdlFactory.auth, httpService.sendMessageAPI.bind(httpService));
-
-  router.post('/conversations/:conversationId/seen', mdlFactory.auth, httpService.markAsSeenAPI.bind(httpService));
   router.post(
-    '/conversations/:conversationId/delivered',
+    "/conversations/private",
     mdlFactory.auth,
-    httpService.markAsDeliveredAPI.bind(httpService)
+    httpService.getPrivateConversationAPI.bind(httpService),
+  );
+  router.get(
+    "/conversations/unread-count",
+    mdlFactory.auth,
+    httpService.getTotalUnreadCountAPI.bind(httpService),
+  );
+  router.get(
+    "/conversations",
+    mdlFactory.auth,
+    httpService.getConversationsAPI.bind(httpService),
+  );
+  router.get(
+    "/conversations/:conversationId",
+    mdlFactory.auth,
+    httpService.getConversationDetailAPI.bind(httpService),
+  );
+  router.get(
+    "/conversations/:conversationId/messages",
+    mdlFactory.auth,
+    httpService.loadMessagesAPI.bind(httpService),
   );
 
-  router.post('/groups', mdlFactory.auth, httpService.createGroupAPI.bind(httpService));
-  router.post('/groups/:groupId/members', mdlFactory.auth, httpService.addMembersAPI.bind(httpService));
-  router.delete('/groups/:groupId/members/:userId', mdlFactory.auth, httpService.removeMemberAPI.bind(httpService));
-  router.put('/groups/:groupId', mdlFactory.auth, httpService.updateGroupAPI.bind(httpService));
-  router.post('/groups/:groupId/leave', mdlFactory.auth, httpService.leaveGroupAPI.bind(httpService));
-  router.get('/groups/:groupId/members', mdlFactory.auth, httpService.getGroupMembersAPI.bind(httpService));
+  router.post(
+    "/conversations/:conversationId/messages",
+    mdlFactory.auth,
+    httpService.sendMessageAPI.bind(httpService),
+  );
+
+  router.post(
+    "/conversations/:conversationId/seen",
+    mdlFactory.auth,
+    httpService.markAsSeenAPI.bind(httpService),
+  );
+  router.post(
+    "/conversations/:conversationId/delivered",
+    mdlFactory.auth,
+    httpService.markAsDeliveredAPI.bind(httpService),
+  );
+
+  router.post(
+    "/groups",
+    mdlFactory.auth,
+    httpService.createGroupAPI.bind(httpService),
+  );
+  router.post(
+    "/groups/:groupId/members",
+    mdlFactory.auth,
+    httpService.addMembersAPI.bind(httpService),
+  );
+  router.delete(
+    "/groups/:groupId/members/:userId",
+    mdlFactory.auth,
+    httpService.removeMemberAPI.bind(httpService),
+  );
+  router.put(
+    "/groups/:groupId",
+    mdlFactory.auth,
+    httpService.updateGroupAPI.bind(httpService),
+  );
+  router.post(
+    "/groups/:groupId/leave",
+    mdlFactory.auth,
+    httpService.leaveGroupAPI.bind(httpService),
+  );
+  router.get(
+    "/groups/:groupId/members",
+    mdlFactory.auth,
+    httpService.getGroupMembersAPI.bind(httpService),
+  );
 
   return {
     router,
-    socketService
+    socketService,
   };
 };
 
@@ -193,10 +275,10 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 // Export models, DTOs, and interfaces for other modules that need to interact with Chat
 
 // Models & DTOs
-export * from './model';
+export * from "./model";
 
 // Interfaces (Repository & UseCase interfaces)
-export * from './interface';
+export * from "./interface";
 
 // Repositories (for modules that need direct data access)
 export {
@@ -205,5 +287,5 @@ export {
   MongoMessageRepository,
   ConversationModel,
   ConversationMemberModel,
-  MessageModel
-} from './infras';
+  MessageModel,
+} from "./infras";

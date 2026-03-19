@@ -1,6 +1,6 @@
-import { IMessagingUseCase } from '../../interface';
-import { Request, Response } from 'express';
-import { MessagingSocketService } from './socket-service';
+import { IMessagingUseCase } from "../../interface";
+import { Request, Response } from "express";
+import { MessagingSocketService } from "./socket-service";
 import {
   createGroupDTOSchema,
   addMembersToGroupDTOSchema,
@@ -12,10 +12,10 @@ import {
   markAsDeliveredDTOSchema,
   leaveGroupDTOSchema,
   getGroupMembersDTOSchema,
-  sendMessageDTOSchema
-} from '../../model/dto';
-import { z } from 'zod';
-import { ConversationType } from '../../model/model';
+  sendMessageDTOSchema,
+} from "../../model/dto";
+import { z } from "zod";
+import { ConversationType } from "../../model/model";
 
 export class MessagingHttpService {
   private socketService?: MessagingSocketService;
@@ -28,39 +28,38 @@ export class MessagingHttpService {
 
   async getPrivateConversationAPI(req: Request, res: Response) {
     try {
-      const { targetUserId } = req.query;
+      const { targetUserId } = req.body;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
       const validatedData = getOrCreatePrivateConversationDTOSchema.parse({
         currentUserId,
-        targetUserId
+        targetUserId,
       });
 
       const conversation = await this.useCase.getOrCreatePrivateConversation(
         validatedData.currentUserId,
-        validatedData.targetUserId
+        validatedData.targetUserId,
       );
 
       res.status(200).json({ data: conversation });
     } catch (error) {
-      console.error('[HTTP] Error in getPrivateConversationAPI:', error);
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
 
       res.status(400).json({
-        error: (error as Error).message
+        error: (error as Error).message,
       });
     }
   }
@@ -69,69 +68,74 @@ export class MessagingHttpService {
     try {
       const { name, memberIds, avatarUrl } = req.body;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
       const validatedData = createGroupDTOSchema.parse({
         name,
         memberIds,
-        avatarUrl
+        avatarUrl,
       });
 
-      const result = await this.useCase.createGroup(currentUserId, validatedData);
+      const result = await this.useCase.createGroup(
+        currentUserId,
+        validatedData,
+      );
 
       if (this.socketService) {
         const allMemberIds = [currentUserId, ...memberIds];
         this.socketService.notifyNewGroup(allMemberIds, {
           conversation: result.conversation,
-          systemMessage: result.systemMessage
+          systemMessage: result.systemMessage,
         });
       }
 
       res.status(201).json({ data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
 
       res.status(400).json({
-        error: (error as Error).message
+        error: (error as Error).message,
       });
     }
   }
 
   async addMembersAPI(req: Request, res: Response) {
     try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
       const { memberIds } = req.body;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
       const validatedData = addMembersToGroupDTOSchema.parse({
         conversationId: groupId,
         requesterId: currentUserId,
-        memberIds
+        memberIds,
       });
 
       const newMembers = await this.useCase.addMembersToGroup(
         validatedData.conversationId,
         validatedData.requesterId,
-        validatedData.memberIds
+        validatedData.memberIds,
       );
 
       if (this.socketService) {
@@ -141,9 +145,9 @@ export class MessagingHttpService {
       res.status(200).json({ data: newMembers });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
@@ -151,46 +155,50 @@ export class MessagingHttpService {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
 
   async removeMemberAPI(req: Request, res: Response) {
     try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
-      const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+      const userId = Array.isArray(req.params.userId)
+        ? req.params.userId[0]
+        : req.params.userId;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
       const validatedData = removeMemberFromGroupDTOSchema.parse({
         conversationId: groupId,
         requesterId: currentUserId,
-        targetUserId: userId
+        targetUserId: userId,
       });
 
       await this.useCase.removeMemberFromGroup(
         validatedData.conversationId,
         validatedData.requesterId,
-        validatedData.targetUserId
+        validatedData.targetUserId,
       );
 
       if (this.socketService) {
         this.socketService.notifyMemberRemoved(groupId, userId);
       }
 
-      res.status(200).json({ success: true });
+      res.status(204).send();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
@@ -198,21 +206,23 @@ export class MessagingHttpService {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
 
   async updateGroupAPI(req: Request, res: Response) {
     try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
       const { name, avatarUrl } = req.body;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
@@ -220,7 +230,7 @@ export class MessagingHttpService {
         conversationId: groupId,
         requesterId: currentUserId,
         name,
-        avatarUrl
+        avatarUrl,
       });
 
       const updatedConversation = await this.useCase.updateGroupInfo(
@@ -228,8 +238,8 @@ export class MessagingHttpService {
         validatedData.requesterId,
         {
           name: validatedData.name,
-          avatarUrl: validatedData.avatarUrl
-        }
+          avatarUrl: validatedData.avatarUrl,
+        },
       );
 
       if (this.socketService) {
@@ -239,9 +249,9 @@ export class MessagingHttpService {
       res.status(200).json({ data: updatedConversation });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
@@ -249,34 +259,38 @@ export class MessagingHttpService {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
 
   async getConversationsAPI(req: Request, res: Response) {
     try {
-      const { page = '1', limit = '20' } = req.query;
+      const { page = "1", limit = "20" } = req.query;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
       const pageNum = parseInt(page as string, 10);
       const limitNum = Math.min(parseInt(limit as string, 10), 100);
 
-      const conversations = await this.useCase.getConversations(currentUserId, pageNum, limitNum);
+      const conversations = await this.useCase.getConversations(
+        currentUserId,
+        pageNum,
+        limitNum,
+      );
 
       res.status(200).json({ data: conversations });
     } catch (error) {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
@@ -287,22 +301,25 @@ export class MessagingHttpService {
         ? req.params.conversationId[0]
         : req.params.conversationId;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
-      const result = await this.useCase.getConversationDetail(conversationId, currentUserId);
+      const result = await this.useCase.getConversationDetail(
+        conversationId,
+        currentUserId,
+      );
 
       res.status(200).json({ data: result });
     } catch (error) {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
@@ -313,35 +330,35 @@ export class MessagingHttpService {
         ? req.params.conversationId[0]
         : req.params.conversationId;
 
-      const { cursor, limit = '20' } = req.query;
+      const { cursor, limit = "20" } = req.query;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
       const validatedData = loadMessagesDTOSchema.parse({
         conversationId,
         cursor: cursor || undefined,
-        limit: parseInt(limit as string, 10)
+        limit: parseInt(limit as string, 10),
       });
 
       const result = await this.useCase.loadMessages(
         validatedData.conversationId,
         currentUserId,
         validatedData.cursor,
-        validatedData.limit
+        validatedData.limit,
       );
 
       res.status(200).json({ data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
@@ -349,7 +366,7 @@ export class MessagingHttpService {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
@@ -362,30 +379,30 @@ export class MessagingHttpService {
 
       const { lastSeenMessageId } = req.body;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
       const validatedData = markAsSeenDTOSchema.parse({
         conversationId,
         userId: currentUserId,
-        lastSeenMessageId
+        lastSeenMessageId,
       });
 
       await this.useCase.markAsSeen(
         validatedData.conversationId,
         validatedData.userId,
-        validatedData.lastSeenMessageId
+        validatedData.lastSeenMessageId,
       );
 
       if (this.socketService) {
         const memberUserIds = await this.useCase.getConversationMembers(
           validatedData.conversationId,
-          validatedData.userId
+          validatedData.userId,
         );
 
         for (const memberId of memberUserIds) {
@@ -393,7 +410,7 @@ export class MessagingHttpService {
             memberId,
             validatedData.conversationId,
             validatedData.userId,
-            validatedData.lastSeenMessageId
+            validatedData.lastSeenMessageId,
           );
         }
       }
@@ -401,9 +418,9 @@ export class MessagingHttpService {
       res.status(200).json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
@@ -411,7 +428,7 @@ export class MessagingHttpService {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
@@ -424,30 +441,30 @@ export class MessagingHttpService {
 
       const { lastDeliveredMessageId } = req.body;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
       const validatedData = markAsDeliveredDTOSchema.parse({
         conversationId,
         userId: currentUserId,
-        lastDeliveredMessageId
+        lastDeliveredMessageId,
       });
 
       await this.useCase.markAsDelivered(
         validatedData.conversationId,
         validatedData.userId,
-        validatedData.lastDeliveredMessageId
+        validatedData.lastDeliveredMessageId,
       );
 
       if (this.socketService) {
         const memberUserIds = await this.useCase.getConversationMembers(
           validatedData.conversationId,
-          validatedData.userId
+          validatedData.userId,
         );
 
         for (const memberId of memberUserIds) {
@@ -455,7 +472,7 @@ export class MessagingHttpService {
             memberId,
             validatedData.conversationId,
             validatedData.userId,
-            validatedData.lastDeliveredMessageId
+            validatedData.lastDeliveredMessageId,
           );
         }
       }
@@ -463,9 +480,9 @@ export class MessagingHttpService {
       res.status(200).json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
@@ -473,18 +490,18 @@ export class MessagingHttpService {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
 
   async getTotalUnreadCountAPI(req: Request, res: Response) {
     try {
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
@@ -495,29 +512,34 @@ export class MessagingHttpService {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
 
   async leaveGroupAPI(req: Request, res: Response) {
     try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
       const validatedData = leaveGroupDTOSchema.parse({
         conversationId: groupId,
-        userId: currentUserId
+        userId: currentUserId,
       });
 
-      await this.useCase.leaveGroup(validatedData.conversationId, validatedData.userId);
+      await this.useCase.leaveGroup(
+        validatedData.conversationId,
+        validatedData.userId,
+      );
 
       if (this.socketService) {
         this.socketService.notifyMemberRemoved(groupId, currentUserId);
@@ -526,9 +548,9 @@ export class MessagingHttpService {
       res.status(200).json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
@@ -536,36 +558,41 @@ export class MessagingHttpService {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
 
   async getGroupMembersAPI(req: Request, res: Response) {
     try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
       const validatedData = getGroupMembersDTOSchema.parse({
         conversationId: groupId,
-        userId: currentUserId
+        userId: currentUserId,
       });
 
-      const members = await this.useCase.getGroupMembers(validatedData.conversationId, validatedData.userId);
+      const members = await this.useCase.getGroupMembers(
+        validatedData.conversationId,
+        validatedData.userId,
+      );
 
       res.status(200).json({ data: members });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
@@ -573,7 +600,7 @@ export class MessagingHttpService {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }
@@ -586,11 +613,11 @@ export class MessagingHttpService {
 
       const { text, media } = req.body;
 
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
 
       if (!currentUserId) {
-        res.status(401).json({ error: 'Unauthorized' });
+        res.status(401).json({ error: "Unauthorized" });
         return;
       }
 
@@ -598,57 +625,62 @@ export class MessagingHttpService {
         conversationId,
         senderId: currentUserId,
         text,
-        media
+        media,
       });
 
       const conversationDetail = await this.useCase.getConversationDetail(
         validatedData.conversationId,
-        validatedData.senderId
+        validatedData.senderId,
       );
 
-      const isGroup = conversationDetail.conversation.type === ConversationType.GROUP;
+      const isGroup =
+        conversationDetail.conversation.type === ConversationType.GROUP;
 
       const message = isGroup
         ? await this.useCase.sendGroupMessage(
             validatedData.conversationId,
             validatedData.senderId,
             validatedData.text,
-            validatedData.media
+            validatedData.media,
           )
         : await this.useCase.sendMessage(
             validatedData.conversationId,
             validatedData.senderId,
             validatedData.text,
-            validatedData.media
+            validatedData.media,
           );
 
       if (this.socketService) {
         if (isGroup) {
-          this.socketService.emitToGroupRoom(validatedData.conversationId, 'receiveMessage', {
-            message,
-            conversationId: validatedData.conversationId
-          });
+          this.socketService.emitToGroupRoom(
+            validatedData.conversationId,
+            "receiveMessage",
+            {
+              message,
+              conversationId: validatedData.conversationId,
+            },
+          );
           const memberUserIds = await this.useCase.getConversationMembers(
             validatedData.conversationId,
-            validatedData.senderId
+            validatedData.senderId,
           );
 
           for (const userId of memberUserIds) {
-            this.socketService.emitToUser(userId, 'receiveMessage', {
+            this.socketService.emitToUser(userId, "receiveMessage", {
               message,
-              conversationId: validatedData.conversationId
+              conversationId: validatedData.conversationId,
             });
           }
         } else {
           const memberUserIds = await this.useCase.getConversationMembers(
             validatedData.conversationId,
-            validatedData.senderId
+            validatedData.senderId,
           );
 
           for (const userId of memberUserIds) {
-            this.socketService.emitToUser(userId, 'receiveMessage', {
+            this.socketService.emitToUser(userId, "receiveMessage", {
               message,
-              conversationId: validatedData.conversationId
+              conversationId: validatedData.conversationId,
             });
           }
         }
@@ -657,9 +689,9 @@ export class MessagingHttpService {
       res.status(201).json({ data: message });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
-          error: 'Validation error',
-          details: error.errors
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
         });
         return;
       }
@@ -667,7 +699,7 @@ export class MessagingHttpService {
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({
-        error: err.message
+        error: err.message,
       });
     }
   }

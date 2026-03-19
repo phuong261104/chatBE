@@ -15,8 +15,8 @@ export const setupUserHexagon = (sctx: ServiceContext) => {
   const mdlFactory = sctx.mdlFactory;
   const adminChecker = mdlFactory.allowRoles([UserRole.USER]);
 
-  router.post("/register", httpService.registerAPI.bind(httpService));
-  router.post("/authenticate", httpService.loginAPI.bind(httpService));
+  router.post("/auth/register", httpService.registerAPI.bind(httpService));
+  router.post("/auth/login", httpService.loginAPI.bind(httpService));
   router.get(
     "/profile",
     mdlFactory.auth,

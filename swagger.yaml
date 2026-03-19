@@ -40,81 +40,131 @@ components:
 
   schemas:
     # ==================== Common Schemas ====================
+    StandardResponse:
+      type: object
+      required:
+        - status
+        - msg
+      properties:
+        status:
+          type: string
+          enum: [success]
+        msg:
+          type: string
+        data:
+          nullable: true
+          description: Response payload
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+            - type: string
+            - type: number
+            - type: boolean
+        meta:
+          type: object
+          additionalProperties: true
+      example:
+        status: success
+        msg: OK
+        data: {}
+        meta:
+          page: 1
+          limit: 20
+
     ErrorResponse:
       type: object
+      required:
+        - status
+        - msg
+        - code
       properties:
-        message:
+        status:
           type: string
-          description: Error message
+          enum: [error]
+        msg:
+          type: string
+        code:
+          type: string
+          example: INTERNAL_ERROR
+        details:
+          nullable: true
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+            - type: string
       example:
-        message: "User not found"
+        status: error
+        msg: User not found
+        code: NOT_FOUND
 
     ValidationErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          example: "Validation error"
-        details:
-          type: array
-          items:
-            type: object
-            properties:
-              code:
-                type: string
-              path:
-                type: array
-                items:
-                  type: string
-              message:
-                type: string
+      allOf:
+        - $ref: "#/components/schemas/ErrorResponse"
+        - type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
       example:
-        error: "Validation error"
+        status: error
+        msg: Validation error
+        code: VALIDATION_ERROR
         details:
-          - code: "invalid_type"
-            path: ["name"]
-            message: "Required"
+          - path: [body, targetUserId]
+            message: Invalid target user ID
 
     SuccessResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-      example:
-        success: true
-        message: "Operation completed successfully"
+      $ref: "#/components/schemas/StandardResponse"
 
     DataResponse:
-      type: object
-      properties:
-        data:
-          type: object
-      example:
-        data:
-          id: "123"
-          message: "Operation successful"
+      $ref: "#/components/schemas/StandardResponse"
 
     PaginatedResponse:
       type: object
+      required:
+        - status
+        - msg
+        - data
       properties:
+        status:
+          type: string
+          enum: [success]
+        msg:
+          type: string
+          example: OK
         data:
           type: object
+          required:
+            - items
+            - total
+            - page
+            - limit
+            - hasMore
           properties:
             items:
               type: array
               items:
                 type: object
-            total:
-              type: integer
+                additionalProperties: true
             page:
               type: integer
             limit:
               type: integer
+            total:
+              type: integer
             hasMore:
               type: boolean
       example:
+        status: success
+        msg: OK
         data:
           items: []
           total: 0
@@ -529,7 +579,7 @@ components:
           type: array
           items:
             type: string
-          minItems: 1
+          minItems: 2
 
     CreateGroupResponse:
       type: object
@@ -566,13 +616,30 @@ components:
     MediaUploadResponse:
       type: object
       properties:
-        url:
-          type: string
         filename:
+          type: string
+        originalName:
           type: string
         mimetype:
           type: string
         size:
+          type: integer
+        url:
+          type: string
+        path:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+
+    MediaUploadMultipleResponse:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaUploadResponse"
+        count:
           type: integer
 
 security:
@@ -622,19 +689,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        "204":
           description: User unblocked successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        example: "User unblocked successfully"
         "400":
           description: Bad request
           content:
@@ -762,28 +818,24 @@ paths:
             type: string
           description: ID of user to send request to
       responses:
-        "200":
-          description: Friend request sent successfully
+        "201":
+          description: Friend request created successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        description: Friend request ID
-                      message:
-                        type: string
-                        example: "Friend request sent successfully"
-        "400":
-          description: Invalid request
+                $ref: "#/components/schemas/StandardResponse"
+              example:
+                status: success
+                msg: Created
+                data:
+                  id: "req123"
+                  status: "pending"
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ValidationErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -797,39 +849,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /friend-requests/{requestId}/accept:
-    post:
+  /friend-requests/{requestId}:
+    patch:
       tags:
         - Friend Requests
-      summary: Accept friend request
-      description: Accept a pending friend request
+      summary: Update friend request status
+      description: Update status of a friend request
       parameters:
         - in: path
           name: requestId
           required: true
           schema:
             type: string
-          description: ID of friend request to accept
+          description: ID of friend request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, rejected, canceled]
       responses:
         "200":
-          description: Friend request accepted successfully
+          description: Friend request updated successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        example: "Friend request accepted successfully"
-        "400":
-          description: Bad request
+                $ref: "#/components/schemas/StandardResponse"
+              example:
+                status: success
+                msg: OK
+                data:
+                  id: "req123"
+                  status: "accepted"
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ValidationErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -837,7 +900,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
-          description: Forbidden - Not authorized to accept this request
+          description: Forbidden - Not authorized to update this request
           content:
             application/json:
               schema:
@@ -849,53 +912,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /friend-requests/{requestId}/reject:
-    post:
-      tags:
-        - Friend Requests
-      summary: Reject friend request
-      description: Reject a pending friend request
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-          description: ID of friend request to reject
-      responses:
-        "200":
-          description: Friend request rejected successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        example: "Friend request rejected successfully"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Friend request not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /friend-requests/{requestId}:
     delete:
       tags:
         - Friend Requests
@@ -909,25 +925,8 @@ paths:
             type: string
           description: ID of friend request to cancel
       responses:
-        "200":
+        "204":
           description: Friend request canceled successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        example: "Friend request canceled successfully"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -1108,19 +1107,8 @@ paths:
             type: string
           description: ID of friend to unfriend
       responses:
-        "200":
+        "204":
           description: Unfriended successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        example: "Unfriended successfully"
         "400":
           description: Bad request
           content:
@@ -1229,36 +1217,54 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /conversations/private:
-    get:
+    post:
       tags:
         - Conversations
       summary: Get or create private conversation
       description: Get existing private conversation or create new one if it doesn't exist
-      parameters:
-        - in: query
-          name: targetUserId
-          required: true
-          schema:
-            type: string
-          description: ID of user to start conversation with
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetUserId
+              properties:
+                targetUserId:
+                  type: string
+                  description: ID of user to start conversation with
       responses:
         "200":
           description: Private conversation
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    $ref: "#/components/schemas/Conversation"
-        "400":
-          description: Bad request or validation error
+                $ref: "#/components/schemas/StandardResponse"
+              example:
+                status: success
+                msg: OK
+                data:
+                  id: "conv123"
+                  type: "private"
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: "#/components/schemas/ErrorResponse"
-                  - $ref: "#/components/schemas/ValidationErrorResponse"
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Target user not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -1280,11 +1286,22 @@ paths:
               schema:
                 type: object
                 properties:
-                  totalUnread:
-                    type: integer
-                    description: Total unread messages count
+                  status:
+                    type: string
+                    enum: [success]
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      totalUnread:
+                        type: integer
+                        description: Total unread messages count
               example:
-                totalUnread: 5
+                status: success
+                msg: OK
+                data:
+                  totalUnread: 5
         "400":
           description: Bad request
           content:
@@ -1375,8 +1392,8 @@ paths:
                 properties:
                   data:
                     $ref: "#/components/schemas/LoadMessagesResponse"
-        "400":
-          description: Bad request or validation error
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -1435,8 +1452,8 @@ paths:
                 properties:
                   data:
                     $ref: "#/components/schemas/Message"
-        "400":
-          description: Bad request or validation error
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -1497,11 +1514,19 @@ paths:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                    example: true
-        "400":
-          description: Bad request or validation error
+                  status:
+                    type: string
+                    enum: [success]
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -1516,6 +1541,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Not a member of this conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Message not found
           content:
             application/json:
               schema:
@@ -1556,11 +1587,19 @@ paths:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                    example: true
-        "400":
-          description: Bad request or validation error
+                  status:
+                    type: string
+                    enum: [success]
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -1575,6 +1614,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Not a member of this conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Message not found
           content:
             application/json:
               schema:
@@ -1610,14 +1655,26 @@ paths:
                 properties:
                   data:
                     $ref: "#/components/schemas/CreateGroupResponse"
-        "400":
-          description: Bad request or validation error
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
                 oneOf:
                   - $ref: "#/components/schemas/ErrorResponse"
                   - $ref: "#/components/schemas/ValidationErrorResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: One or more users not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -1657,8 +1714,8 @@ paths:
                 properties:
                   data:
                     $ref: "#/components/schemas/Conversation"
-        "400":
-          description: Bad request or validation error
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -1709,8 +1766,8 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/ConversationMember"
-        "400":
-          description: Bad request or validation error
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -1771,8 +1828,8 @@ paths:
                     items:
                       $ref: "#/components/schemas/ConversationMember"
                     description: List of newly added members
-        "400":
-          description: Bad request or validation error
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -1818,18 +1875,10 @@ paths:
             type: string
           description: ID of user to remove
       responses:
-        "200":
+        "204":
           description: Member removed successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-        "400":
-          description: Bad request or validation error
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -1876,9 +1925,17 @@ paths:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                    example: true
+                  status:
+                    type: string
+                    enum: [success]
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
         "400":
           description: Bad request (e.g., last admin trying to leave)
           content:
@@ -1934,34 +1991,29 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    $ref: "#/components/schemas/MediaUploadResponse"
+                allOf:
+                  - $ref: "#/components/schemas/StandardResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MediaUploadResponse"
               example:
-                success: true
+                status: success
+                msg: Created
                 data:
                   url: "http://localhost:3000/uploads/1234567890-image.jpg"
                   filename: "1234567890-image.jpg"
+                  originalName: "image.jpg"
                   mimetype: "image/jpeg"
                   size: 102400
+                  path: "uploads/1234567890-image.jpg"
+                  uploadedAt: "2026-03-19T09:00:00Z"
         "400":
           description: Bad request (no file or invalid file)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                  message:
-                    type: string
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -1973,15 +2025,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                  message:
-                    type: string
+                $ref: "#/components/schemas/ErrorResponse"
 
   /media/upload-multiple:
     post:
@@ -2013,40 +2057,38 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/MediaUploadResponse"
+                allOf:
+                  - $ref: "#/components/schemas/StandardResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MediaUploadMultipleResponse"
               example:
-                success: true
+                status: success
+                msg: Created
                 data:
-                  - url: "http://localhost:3000/uploads/1234567890-image1.jpg"
-                    filename: "1234567890-image1.jpg"
-                    mimetype: "image/jpeg"
-                    size: 102400
-                  - url: "http://localhost:3000/uploads/1234567891-image2.jpg"
-                    filename: "1234567891-image2.jpg"
-                    mimetype: "image/jpeg"
-                    size: 204800
+                  files:
+                    - url: "http://localhost:3000/uploads/1234567890-image1.jpg"
+                      filename: "1234567890-image1.jpg"
+                      originalName: "image1.jpg"
+                      mimetype: "image/jpeg"
+                      size: 102400
+                      path: "uploads/1234567890-image1.jpg"
+                      uploadedAt: "2026-03-19T09:00:00Z"
+                    - url: "http://localhost:3000/uploads/1234567891-image2.jpg"
+                      filename: "1234567891-image2.jpg"
+                      originalName: "image2.jpg"
+                      mimetype: "image/jpeg"
+                      size: 204800
+                      path: "uploads/1234567891-image2.jpg"
+                      uploadedAt: "2026-03-19T09:00:01Z"
+                  count: 2
         "400":
           description: Bad request (no files, too many files, or invalid files)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                  message:
-                    type: string
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -2058,15 +2100,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                  message:
-                    type: string
+                $ref: "#/components/schemas/ErrorResponse"
 
   /media/{filename}:
     delete:
@@ -2084,70 +2118,29 @@ paths:
             type: string
           description: Name of file to delete
       responses:
-        "200":
+        "204":
           description: File deleted successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: "File deleted successfully"
         "400":
           description: Bad request
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                  message:
-                    type: string
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: File not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                  message:
-                    type: string
         "500":
           description: Delete failed
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                  message:
-                    type: string
+                $ref: "#/components/schemas/ErrorResponse"
 
   # ==================== Authentication Endpoints ====================
-  /register:
+  /auth/register:
     post:
       tags:
         - Authentication
@@ -2190,28 +2183,10 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      token:
-                        type: string
-                        description: JWT authentication token
-                      user:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                          email:
-                            type: string
-                          username:
-                            type: string
-                            nullable: true
-                          fullName:
-                            type: string
-                            nullable: true
+                $ref: "#/components/schemas/StandardResponse"
               example:
+                status: success
+                msg: Created
                 data:
                   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   user:
@@ -2219,14 +2194,14 @@ paths:
                     email: "user@example.com"
                     username: "johndoe"
                     fullName: "John Doe"
-        "400":
-          description: Bad request (validation error or email already exists)
+        "422":
+          description: Validation error or email already exists
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ValidationErrorResponse"
 
-  /authenticate:
+  /auth/login:
     post:
       tags:
         - Authentication
@@ -2260,14 +2235,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: string
-                    description: JWT authentication token
+                $ref: "#/components/schemas/StandardResponse"
               example:
-                data: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-        "400":
+                status: success
+                msg: OK
+                data:
+                  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "401":
           description: Invalid email or password
           content:
             application/json:
@@ -2358,11 +2332,16 @@ paths:
               schema:
                 type: object
                 properties:
-                  success:
+                  status:
+                    type: string
+                    enum: [success]
+                  msg:
+                    type: string
+                  data:
                     type: boolean
                     example: true
-        "400":
-          description: Bad request or validation error
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -2376,13 +2355,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  # ==================== User Management Endpoints (Admin) ====================
+  # ==================== User Management Endpoints ====================
   /users:
     post:
       tags:
         - User Management
-      summary: Create user (Admin only)
-      description: Create a new user account (requires admin role)
+      summary: Create user
+      description: Create a new user account (requires authenticated user with role user in current implementation)
       requestBody:
         required: true
         content:
@@ -2390,6 +2369,7 @@ paths:
             schema:
               type: object
               required:
+                - email
                 - password
               properties:
                 email:
@@ -2414,13 +2394,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: string
-                    description: New user ID
-        "400":
-          description: Bad request or validation error
+                allOf:
+                  - $ref: "#/components/schemas/StandardResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: string
+                        description: New user ID
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -2434,7 +2416,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
-          description: Forbidden - Not an admin
+          description: Forbidden - Role is not allowed
           content:
             application/json:
               schema:
@@ -2444,7 +2426,8 @@ paths:
       tags:
         - User Management
       summary: List users
-      description: Get paginated list of users
+      description: Get paginated list of users (public endpoint in current implementation)
+      security: []
       parameters:
         - in: query
           name: page
@@ -2480,28 +2463,41 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PaginatedResponse"
+                allOf:
+                  - $ref: "#/components/schemas/StandardResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/User"
+                      meta:
+                        type: object
+                        properties:
+                          page:
+                            type: integer
+                          limit:
+                            type: integer
+                          filter:
+                            type: object
+                            additionalProperties: true
               example:
+                status: success
+                msg: OK
                 data:
-                  items:
-                    - id: "user123"
-                      email: "user@example.com"
-                      username: "johndoe"
-                      displayName: "John Doe"
-                      status: "active"
-                      createdAt: "2026-03-12T10:00:00Z"
-                  total: 1
+                  - id: "user123"
+                    email: "user@example.com"
+                    username: "johndoe"
+                    displayName: "John Doe"
+                    status: "active"
+                    createdAt: "2026-03-12T10:00:00Z"
+                meta:
                   page: 1
                   limit: 20
-                  hasMore: false
+                  filter:
+                    status: active
         "400":
           description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Unauthorized
           content:
             application/json:
               schema:
@@ -2512,7 +2508,8 @@ paths:
       tags:
         - User Management
       summary: Get user by ID
-      description: Get detailed information of a specific user
+      description: Get detailed information of a specific user (public endpoint in current implementation)
+      security: []
       parameters:
         - in: path
           name: id
@@ -2526,10 +2523,12 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    $ref: "#/components/schemas/User"
+                allOf:
+                  - $ref: "#/components/schemas/StandardResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/User"
         "400":
           description: Bad request
           content:
@@ -2546,8 +2545,8 @@ paths:
     patch:
       tags:
         - User Management
-      summary: Update user (Admin only)
-      description: Update user information (requires admin role)
+      summary: Update user
+      description: Update user information (requires authenticated user with role user in current implementation)
       parameters:
         - in: path
           name: id
@@ -2590,13 +2589,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-        "400":
-          description: Bad request or validation error
+                allOf:
+                  - $ref: "#/components/schemas/StandardResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: boolean
+                        example: true
+        "422":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -2610,7 +2611,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
-          description: Forbidden - Not an admin
+          description: Forbidden - Role is not allowed
           content:
             application/json:
               schema:
@@ -2625,8 +2626,8 @@ paths:
     delete:
       tags:
         - User Management
-      summary: Delete user (Admin only)
-      description: Delete a user account (requires admin role)
+      summary: Delete user
+      description: Delete a user account (requires authenticated user with role user in current implementation)
       parameters:
         - in: path
           name: id
@@ -2635,16 +2636,8 @@ paths:
             type: string
           description: User ID
       responses:
-        "200":
+        "204":
           description: User deleted successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
         "400":
           description: Bad request
           content:
@@ -2658,7 +2651,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
-          description: Forbidden - Not an admin
+          description: Forbidden - Role is not allowed
           content:
             application/json:
               schema:
@@ -2698,21 +2691,25 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: object
+                allOf:
+                  - $ref: "#/components/schemas/StandardResponse"
+                  - type: object
                     properties:
-                      sub:
-                        type: string
-                        description: User ID
-                      role:
-                        type: string
-                        description: User role
+                      data:
+                        type: object
+                        properties:
+                          sub:
+                            type: string
+                            description: User ID
+                          role:
+                            type: string
+                            description: User role
               example:
+                status: success
+                msg: OK
                 data:
                   sub: "user123"
-                  role: "USER"
+                  role: "user"
         "400":
           description: Invalid token
           content:
@@ -2726,7 +2723,7 @@ tags:
   - name: User Profile
     description: Current user profile management
   - name: User Management
-    description: User administration (Admin only)
+    description: User management endpoints
   - name: Internal RPC
     description: Internal RPC endpoints for microservices
   - name: Blocks

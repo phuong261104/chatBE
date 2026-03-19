@@ -7,7 +7,7 @@ import { createServer } from "http";
 import morgan from "morgan";
 import { config as appConfig } from "@share/component/config";
 import { TokenIntrospectLocal } from "./share/repository/verify-token.rpc";
-import { setupMiddlewares } from "./share/middleware";
+import { responseFormatMiddleware, setupMiddlewares } from "./share/middleware";
 import { setupUserHexagon } from "./modules/user";
 import Logger from "./share/utils/logger";
 import { responseErr } from "./share/app-error";
@@ -47,7 +47,7 @@ config();
     res.header("Access-Control-Allow-Origin", "*");
     res.header(
       "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, OPTIONS",
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     );
     res.header(
       "Access-Control-Allow-Headers",
@@ -78,6 +78,8 @@ config();
   );
   const sctx = { mdlFactory: setupMiddlewares(introspector) };
 
+  app.use("/v1", responseFormatMiddleware);
+
   const userRouter = setupUserHexagon(sctx);
   const mediaRouter = setupMediaHexagon(sctx);
   const io = createSocketIOServer(httpServer);
@@ -99,7 +101,7 @@ config();
 
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     responseErr(err, res);
-    return next();
+    return;
   });
 
   httpServer.listen(port, () => {

@@ -69,7 +69,7 @@ export class FriendshipHTTPService extends BaseHttpService<
       //   });
       // }
 
-      res.status(200).json({ data: { message: "Unfriended successfully" } });
+      res.status(204).send();
     } catch (error) {
       const err = error as Error;
       const statusCode = err.message.includes("not found") ? 404 : 400;

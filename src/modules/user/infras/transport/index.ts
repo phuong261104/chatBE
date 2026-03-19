@@ -4,7 +4,7 @@ import { BaseHttpService } from "@share/transport/http-server";
 import { Request, Response } from "express";
 import { User, UserRegistrationDTO } from "../../model/model";
 import { UserCondDTO, UserUpdateDTO } from "../../model/dto";
-import { successResponse } from "@share/utils/util";
+import { AppError } from "@share/app-error";
 
 export class UserHTTPService extends BaseHttpService<
   User,
@@ -20,8 +20,6 @@ export class UserHTTPService extends BaseHttpService<
     try {
       const userId = await this.usecase.create(req.body);
       const user = await this.usecase.getDetail(userId);
-
-      // Generate token for the newly registered user
       const token = await jwtProvider.generateToken({
         sub: userId,
         role: (user as any).role || "USER",
@@ -39,15 +37,35 @@ export class UserHTTPService extends BaseHttpService<
         },
       });
     } catch (error) {
-      res.status(400).json({
+      if (error instanceof AppError && error.getStatusCode() === 400) {
+        res.status(422).json({
+          message: error.message,
+        });
+        return;
+      }
+
+      res.status(422).json({
         message: (error as Error).message,
       });
     }
   }
 
   async loginAPI(req: Request, res: Response) {
-    const token = await this.usecase.login(req.body);
-    res.status(200).json({ data: token });
+    try {
+      const token = await this.usecase.login(req.body);
+      res.status(200).json({ data: { token } });
+    } catch (error) {
+      if (error instanceof AppError && error.getStatusCode() === 400) {
+        res.status(401).json({
+          message: error.message,
+        });
+        return;
+      }
+
+      res.status(401).json({
+        message: (error as Error).message,
+      });
+    }
   }
 
   async profileAPI(req: Request, res: Response) {
@@ -72,7 +90,7 @@ export class UserHTTPService extends BaseHttpService<
 
     await this.usecase.updateProfile(requester, req.body);
 
-    successResponse(true, res);
+    res.status(200).json({ data: true });
   }
 
   async introspectAPI(req: Request, res: Response) {

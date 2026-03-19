@@ -39,12 +39,10 @@ export class MediaHttpService {
       const result = await this.uploadMediaHandler.execute(cmd);
 
       res.status(201).json({
-        success: true,
         data: result,
       });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({
-        success: false,
         error: error.code || "UPLOAD_ERROR",
         message: error.message || "Failed to upload file",
       });
@@ -63,12 +61,10 @@ export class MediaHttpService {
       const result = await this.uploadMultipleMediaHandler.execute(cmd);
 
       res.status(201).json({
-        success: true,
         data: result,
       });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({
-        success: false,
         error: error.code || "UPLOAD_ERROR",
         message: error.message || "Failed to upload files",
       });
@@ -85,13 +81,9 @@ export class MediaHttpService {
 
       await this.deleteMediaHandler.execute(cmd);
 
-      res.status(200).json({
-        success: true,
-        message: "File deleted successfully",
-      });
+      res.status(204).send();
     } catch (error: any) {
       res.status(error.statusCode || 500).json({
-        success: false,
         error: error.code || "DELETE_ERROR",
         message: error.message || "Failed to delete file",
       });

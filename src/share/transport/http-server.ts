@@ -1,6 +1,6 @@
-import { Request, Response } from 'express';
-import { IUseCase } from '../interface';
-import { PagingDTOSchema } from '../model/paging';
+import { Request, Response } from "express";
+import { IUseCase } from "../interface";
+import { PagingDTOSchema } from "../model/paging";
 export abstract class BaseHttpService<Entity, CreateDTO, UpdateDTO, Cond> {
   constructor(readonly useCase: IUseCase<CreateDTO, UpdateDTO, Entity, Cond>) {}
 
@@ -23,23 +23,32 @@ export abstract class BaseHttpService<Entity, CreateDTO, UpdateDTO, Cond> {
 
   async deleteAPI(req: Request, res: Response) {
     const { id } = req.params;
-    const result = await this.useCase.delete(String(id));
-    res.status(200).json({ data: result });
+    await this.useCase.delete(String(id));
+    res.status(204).send();
   }
 
   async listAPI(req: Request, res: Response) {
-    const { success, data: paging, error } = PagingDTOSchema.safeParse(req.query);
+    const {
+      success,
+      data: paging,
+      error,
+    } = PagingDTOSchema.safeParse(req.query);
 
     if (!success) {
-      res.status(400).json({
-        message: 'Invalid paging',
-        error: error.message
+      res.status(422).json({
+        error: "Validation error",
+        details: error.message,
       });
 
       return;
     }
 
     const result = await this.useCase.list(req.query as Cond, paging);
-    res.status(200).json({ data: result, paging, filter: req.query as Cond });
+    res.status(200).json({
+      data: result,
+      page: paging.page,
+      limit: paging.limit,
+      filter: req.query as Cond,
+    });
   }
 }

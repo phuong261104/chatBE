@@ -1,4 +1,3 @@
-import { model } from "mongoose";
 import { Paginated, PagingDTO } from "@share/model/paging";
 import { Response } from "express";
 

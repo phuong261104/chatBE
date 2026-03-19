@@ -1,48 +1,63 @@
-import { IBlockUseCase } from '@modules/blocks/interface';
-import { BaseHttpService } from '@share/transport/http-server';
-import { Request, Response } from 'express';
-import { Block, BlockCondDTO, BlockCreateDTO, BlockUpdateDTO } from '../../model';
+import { IBlockUseCase } from "@modules/blocks/interface";
+import { BaseHttpService } from "@share/transport/http-server";
+import { Request, Response } from "express";
+import {
+  Block,
+  BlockCondDTO,
+  BlockCreateDTO,
+  BlockUpdateDTO,
+} from "../../model";
 
-export class BlockHTTPService extends BaseHttpService<Block, BlockCreateDTO, BlockUpdateDTO, BlockCondDTO> {
+export class BlockHTTPService extends BaseHttpService<
+  Block,
+  BlockCreateDTO,
+  BlockUpdateDTO,
+  BlockCondDTO
+> {
   constructor(readonly usecase: IBlockUseCase) {
     super(usecase);
   }
 
   async blockUserAPI(req: Request, res: Response) {
     try {
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const blockerId = requester.sub;
       const { blockedUserId } = req.params;
 
-      const blockId = await this.usecase.blockUser(blockerId, String(blockedUserId));
-      res.status(200).json({ data: { id: blockId, message: 'User blocked successfully' } });
+      const blockId = await this.usecase.blockUser(
+        blockerId,
+        String(blockedUserId),
+      );
+      res
+        .status(200)
+        .json({ data: { id: blockId, message: "User blocked successfully" } });
     } catch (error) {
       res.status(400).json({
-        message: (error as Error).message
+        message: (error as Error).message,
       });
     }
   }
 
   async unblockUserAPI(req: Request, res: Response) {
     try {
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const blockerId = requester.sub;
       const { blockedUserId } = req.params;
 
       await this.usecase.unblockUser(blockerId, String(blockedUserId));
-      res.status(200).json({ data: { message: 'User unblocked successfully' } });
+      res.status(204).send();
     } catch (error) {
       const err = error as Error;
-      const statusCode = err.message.includes('not found') ? 404 : 400;
+      const statusCode = err.message.includes("not found") ? 404 : 400;
       res.status(statusCode).json({
-        message: err.message
+        message: err.message,
       });
     }
   }
 
   async getBlockedUsersAPI(req: Request, res: Response) {
     try {
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const blockerId = requester.sub;
       const blocks = await this.usecase.getBlockedUsers(blockerId);
 
@@ -59,27 +74,30 @@ export class BlockHTTPService extends BaseHttpService<Block, BlockCreateDTO, Blo
           total: blocks.length,
           page,
           limit,
-          hasMore: endIndex < blocks.length
-        }
+          hasMore: endIndex < blocks.length,
+        },
       });
     } catch (error) {
       res.status(400).json({
-        message: (error as Error).message
+        message: (error as Error).message,
       });
     }
   }
 
   async checkBlockStatusAPI(req: Request, res: Response) {
     try {
-      const requester = res.locals['requester'];
+      const requester = res.locals["requester"];
       const blockerId = requester.sub;
       const { blockedUserId } = req.params;
 
-      const isBlocked = await this.usecase.isBlocked(blockerId, String(blockedUserId));
+      const isBlocked = await this.usecase.isBlocked(
+        blockerId,
+        String(blockedUserId),
+      );
       res.status(200).json({ data: { isBlocked } });
     } catch (error) {
       res.status(400).json({
-        message: (error as Error).message
+        message: (error as Error).message,
       });
     }
   }

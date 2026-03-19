@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 export class AppError extends Error {
   private statusCode: number = 500;
   private rootCause?: Error;
-  
+
   private details: Record<string, any> = {};
   private logMessage?: string;
 
@@ -21,7 +21,9 @@ export class AppError extends Error {
 
   getRootCause(): Error | null {
     if (this.rootCause) {
-      return this.rootCause instanceof AppError ? this.rootCause.getRootCause() : this.rootCause;
+      return this.rootCause instanceof AppError
+        ? this.rootCause.getRootCause()
+        : this.rootCause;
     }
 
     return null;
@@ -47,18 +49,21 @@ export class AppError extends Error {
 
   toJSON(isProduction: boolean = true) {
     const rootCause = this.getRootCause();
+    const hasDetails = Object.keys(this.details).length > 0;
 
-    return isProduction ? {
-      message: this.message,
-      statusCode: this.statusCode,
-      details: this.details,
-    } : {
-      message: this.message,
-      statusCode: this.statusCode,
-      rootCause: rootCause ? rootCause.message : this.message,
-      details: this.details,
-      logMessage: this.logMessage,
-    };
+    return isProduction
+      ? {
+          message: this.message,
+          statusCode: this.statusCode,
+          ...(hasDetails ? { details: this.details } : {}),
+        }
+      : {
+          message: this.message,
+          statusCode: this.statusCode,
+          rootCause: rootCause ? rootCause.message : this.message,
+          ...(hasDetails ? { details: this.details } : {}),
+          ...(this.logMessage ? { logMessage: this.logMessage } : {}),
+        };
   }
 
   getStatusCode(): number {
@@ -68,7 +73,7 @@ export class AppError extends Error {
 
 // Util error function
 export const responseErr = (err: Error, res: Response) => {
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = process.env.NODE_ENV === "production";
   !isProduction && console.error(err.stack);
 
   if (err instanceof AppError) {
@@ -77,13 +82,13 @@ export const responseErr = (err: Error, res: Response) => {
 
     return;
   }
-  
+
   if (err instanceof ZodError) {
     const zErr = err as ZodError;
     const appErr = ErrInvalidRequest.wrap(zErr);
 
     zErr.issues.forEach((issue) => {
-      appErr.withDetail(issue.path.join('.'), issue.message);
+      appErr.withDetail(issue.path.join("."), issue.message);
     });
 
     res.status(appErr.getStatusCode()).json(appErr.toJSON(isProduction));
@@ -94,10 +99,18 @@ export const responseErr = (err: Error, res: Response) => {
   res.status(appErr.getStatusCode()).json(appErr.toJSON(isProduction));
 };
 
-export const ErrInternalServer = AppError.from(new Error('Something went wrong, please try again later.'), 500);
-export const ErrInvalidRequest = AppError.from(new Error('Invalid request'), 400);
-export const ErrUnauthorized = AppError.from(new Error('Unauthorized'), 401);
-export const ErrForbidden = AppError.from(new Error('Forbidden'), 403);
-export const ErrNotFound = AppError.from(new Error('Not found'), 404);
-export const ErrMethodNotAllowed = AppError.from(new Error('Method not allowed'), 405);
-
+export const ErrInternalServer = AppError.from(
+  new Error("Something went wrong, please try again later."),
+  500,
+);
+export const ErrInvalidRequest = AppError.from(
+  new Error("Invalid request"),
+  400,
+);
+export const ErrUnauthorized = AppError.from(new Error("Unauthorized"), 401);
+export const ErrForbidden = AppError.from(new Error("Forbidden"), 403);
+export const ErrNotFound = AppError.from(new Error("Not found"), 404);
+export const ErrMethodNotAllowed = AppError.from(
+  new Error("Method not allowed"),
+  405,
+);
