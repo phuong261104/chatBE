@@ -1,5 +1,6 @@
 import { IUserUseCase } from "@modules/user/interface";
 import { jwtProvider } from "@share/component/jwt";
+import { UserRole } from "@share/interface";
 import { BaseHttpService } from "@share/transport/http-server";
 import { Request, Response } from "express";
 import { User, UserRegistrationDTO } from "../../model/model";
@@ -18,11 +19,11 @@ export class UserHTTPService extends BaseHttpService<
 
   async registerAPI(req: Request, res: Response) {
     try {
-      const userId = await this.usecase.create(req.body);
+      const userId = await this.usecase.register(req.body);
       const user = await this.usecase.getDetail(userId);
       const token = await jwtProvider.generateToken({
         sub: userId,
-        role: (user as any).role || "USER",
+        role: UserRole.USER,
       });
 
       res.status(201).json({
@@ -31,8 +32,10 @@ export class UserHTTPService extends BaseHttpService<
           user: {
             id: userId,
             email: (user as any).email,
+            phone: (user as any).phone,
             username: (user as any).username,
-            fullName: (user as any).fullName,
+            displayName: (user as any).displayName,
+            avatarUrl: (user as any).avatarUrl,
           },
         },
       });
@@ -63,6 +66,41 @@ export class UserHTTPService extends BaseHttpService<
       }
 
       res.status(401).json({
+        message: (error as Error).message,
+      });
+    }
+  }
+
+  async searchByPhoneAPI(req: Request, res: Response) {
+    try {
+      const { phone } = req.query as { phone?: string };
+
+      if (!phone) {
+        res.status(422).json({
+          message: "phone is required",
+        });
+        return;
+      }
+
+      const user = await this.usecase.searchByPhone(phone);
+      if (!user) {
+        res.status(404).json({
+          message: "User not found",
+        });
+        return;
+      }
+
+      const { password, salt, ...otherProps } = user as User;
+      res.status(200).json({ data: otherProps });
+    } catch (error) {
+      if (error instanceof AppError && error.getStatusCode() === 400) {
+        res.status(422).json({
+          message: error.message,
+        });
+        return;
+      }
+
+      res.status(422).json({
         message: (error as Error).message,
       });
     }

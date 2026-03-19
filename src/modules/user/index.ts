@@ -1,7 +1,6 @@
 import { UserRole } from "@share/interface";
 import { ServiceContext } from "@share/interface/service-context";
 import { Router } from "express";
-import { Sequelize } from "sequelize";
 import { UserHTTPService } from "./infras/transport";
 import { UserUseCase } from "./usecase";
 import { MongoUserRepository } from "./infras/repository/nosql/mongodb-repo";
@@ -33,6 +32,11 @@ export const setupUserHexagon = (sctx: ServiceContext) => {
     mdlFactory.auth,
     adminChecker,
     httpService.createAPI.bind(httpService),
+  );
+  router.get(
+    "/users/search",
+    mdlFactory.auth,
+    httpService.searchByPhoneAPI.bind(httpService),
   );
   router.get("/users/:id", httpService.getDetailAPI.bind(httpService));
   router.get("/users", httpService.listAPI.bind(httpService));

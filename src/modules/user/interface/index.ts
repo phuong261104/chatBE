@@ -10,6 +10,7 @@ export interface IUserUseCase extends IUseCase<
 > {
   login(data: UserLoginDTO): Promise<string>;
   register(data: UserRegistrationDTO): Promise<string>;
+  searchByPhone(phone: string): Promise<User | null>;
   updateProfile(requester: Requester, data: UserUpdateDTO): Promise<boolean>;
 
   profile(userId: string): Promise<User>;

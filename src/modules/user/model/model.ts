@@ -1,26 +1,31 @@
-import { z } from 'zod';
+import { z } from "zod";
+
+export const UserPhoneSchema = z
+  .string()
+  .trim()
+  .regex(/^\+?[0-9]{8,15}$/, "Phone number is invalid");
 
 export enum UserStatus {
-  ACTIVE = 'active',
-  DISABLED = 'disabled'
+  ACTIVE = "active",
+  DISABLED = "disabled",
 }
 
 export const UserVerifiedSchema = z.object({
   email: z.boolean(),
-  phone: z.boolean()
+  phone: z.boolean(),
 });
 
 export const UserPrivacySchema = z.object({
   searchableByEmail: z.boolean(),
   searchableByPhone: z.boolean(),
-  searchableByUsername: z.boolean()
+  searchableByUsername: z.boolean(),
 });
 
 export const UserSettingsSchema = z.object({
   notifications: z.object({
     push: z.boolean(),
-    inApp: z.boolean()
-  })
+    inApp: z.boolean(),
+  }),
 });
 
 export const UserSchema = z.object({
@@ -28,7 +33,7 @@ export const UserSchema = z.object({
 
   // Identity
   email: z.string().email().optional(),
-  phone: z.string().optional(),
+  phone: UserPhoneSchema.optional(),
   username: z.string().optional(),
 
   // Authentication
@@ -50,18 +55,25 @@ export const UserSchema = z.object({
 
   lastLoginAt: z.date().optional(),
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
-export const UserRegistrationDTOSchema = UserSchema.pick({
-  email: true,
-  password: true
+export const UserRegistrationDTOSchema = z.object({
+  email: z.string().email().optional(),
+  phone: UserPhoneSchema,
+  password: z.string().min(6),
+  displayName: z.string().optional(),
 });
 
-export const UserLoginDTOSchema = UserSchema.pick({
-  email: true,
-  password: true
-});
+export const UserLoginDTOSchema = z
+  .object({
+    email: z.string().email().optional(),
+    phone: UserPhoneSchema.optional(),
+    password: z.string().min(6),
+  })
+  .refine((data) => data.email || data.phone, {
+    message: "Either email or phone must be provided",
+  });
 
 export type UserRegistrationDTO = z.infer<typeof UserRegistrationDTOSchema>;
 export type UserLoginDTO = z.infer<typeof UserLoginDTOSchema>;

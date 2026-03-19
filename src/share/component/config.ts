@@ -9,7 +9,7 @@ export const config = {
       process.env.RPC_PRODUCT_CATEGORY_URL || "http://localhost:3000",
   },
   mongoose: {
-    uri: process.env.MONGO_URI || "mongodb://localhost:27018/express_ts_app",
+    uri: process.env.MONGO_URI || "mongodb://localhost:27017/express_ts_app",
     dbName: process.env.MONGODB_DB_NAME || "express_ts_app",
   },
   mysql: {

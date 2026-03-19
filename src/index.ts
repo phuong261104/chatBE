@@ -62,16 +62,16 @@ config();
     next();
   });
 
-  const swaggerDocument = YAML.load(path.join(process.cwd(), "swagger.yaml"));
+  // const swaggerDocument = YAML.load(path.join(process.cwd(), "swagger.yaml"));
 
-  app.use(
-    "/api-docs",
-    swaggerUi.serve,
-    swaggerUi.setup(swaggerDocument, {
-      customCss: ".swagger-ui .topbar { display: none }",
-      customSiteTitle: "BEMVP API Documentation",
-    }),
-  );
+  // app.use(
+  //   "/api-docs",
+  //   swaggerUi.serve,
+  //   swaggerUi.setup(swaggerDocument, {
+  //     customCss: ".swagger-ui .topbar { display: none }",
+  //     customSiteTitle: "BEMVP API Documentation",
+  //   }),
+  // );
 
   const introspector = new TokenIntrospectLocal(
     appConfig.accessToken.secretKey,
