@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const config = {
+  envName: process.env.NODE_ENV,
   rpc: {
     productBrand: process.env.RPC_PRODUCT_BRAND_URL || "http://localhost:3000",
     productCategory:
@@ -12,20 +13,11 @@ export const config = {
     uri: process.env.MONGO_URI || "mongodb://localhost:27017/express_ts_app",
     dbName: process.env.MONGODB_DB_NAME || "express_ts_app",
   },
-  mysql: {
-    database: process.env.DB_NAME || "",
-    username: process.env.DB_USERNAME || "",
-    password: process.env.DB_PASSWORD || "",
-    host: process.env.DB_HOST || "",
-    port: parseInt(process.env.DB_PORT as string),
-    dialect: "mysql",
-    pool: {
-      max: 20,
-      min: 2,
-      acquire: 30000,
-      idle: 60000,
-    },
-    logging: true,
+  redis: {
+    host: process.env.REDIS_HOST || "redis://localhost:6379",
+    port: process.env.REDIS_PORT,
+    password: process.env.REDIS_PASSWORD,
+    url: process.env.REDIS_URL,
   },
   accessToken: {
     secretKey: process.env.JWT_SECRET_KEY || "200L@b.io",

@@ -20,11 +20,15 @@ import { setupFriendshipHexagon } from "@modules/friendships";
 import path from "path";
 import YAML from "yamljs";
 import swaggerUi from "swagger-ui-express";
+import { RedisClient } from "./share/component/redis-pubsub/redis";
 
 config();
 
 (async () => {
   Logger.info(`Starting server in  mode...`);
+
+  const connectionUrl = appConfig.redis.url as string;
+  await RedisClient.init(connectionUrl);
 
   try {
     await mongoose.connect(appConfig.mongoose.uri);
