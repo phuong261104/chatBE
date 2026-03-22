@@ -1,5 +1,10 @@
-import { Schema, model } from 'mongoose';
-import { ConversationType, ConversationMemberRole, MessageType, MediaType } from '../../../model/model';
+import { Schema, model } from "mongoose";
+import {
+  ConversationType,
+  ConversationMemberRole,
+  MessageType,
+  MediaType,
+} from "../../../model/model";
 
 interface IConversationDocument {
   _id: string;
@@ -32,74 +37,74 @@ const ConversationSchema = new Schema<IConversationDocument>(
   {
     _id: {
       type: String,
-      required: true
+      required: true,
     },
     type: {
       type: String,
       enum: Object.values(ConversationType),
-      required: true
+      required: true,
     },
     pairKey: {
       type: String,
       required: false,
       unique: true,
-      sparse: true
+      sparse: true,
     },
     name: {
       type: String,
-      required: false
+      required: false,
     },
     avatarUrl: {
       type: String,
-      required: false
+      required: false,
     },
     createdBy: {
       type: String,
       required: false,
-      ref: 'User'
+      ref: "User",
     },
     admins: {
       type: [String],
       required: false,
-      default: []
+      default: [],
     },
     membersCount: {
       type: Number,
       required: true,
-      default: 0
+      default: 0,
     },
     lastMessage: {
       messageId: {
         type: String,
-        required: false
+        required: false,
       },
       senderId: {
         type: String,
-        required: false
+        required: false,
       },
       type: {
         type: String,
         enum: Object.values(MessageType),
-        required: false
+        required: false,
       },
       textPreview: {
         type: String,
-        required: false
+        required: false,
       },
       createdAt: {
         type: Date,
-        required: false
-      }
+        required: false,
+      },
     },
     lastMessageAt: {
       type: Date,
-      required: false
-    }
+      required: false,
+    },
   },
   {
     timestamps: true,
-    collection: 'conversations'
-  }
+    collection: "conversations",
+  },
 );
 
 ConversationSchema.index({ pairKey: 1 });
@@ -107,7 +112,10 @@ ConversationSchema.index({ type: 1 });
 ConversationSchema.index({ createdBy: 1 });
 ConversationSchema.index({ lastMessageAt: -1 });
 
-export const ConversationModel = model<IConversationDocument>('Conversation', ConversationSchema);
+export const ConversationModel = model<IConversationDocument>(
+  "Conversation",
+  ConversationSchema,
+);
 
 interface IConversationMemberDocument {
   _id: string;
@@ -135,82 +143,90 @@ const ConversationMemberSchema = new Schema<IConversationMemberDocument>(
   {
     _id: {
       type: String,
-      required: true
+      required: true,
     },
     conversationId: {
       type: String,
       required: true,
-      ref: 'Conversation'
+      ref: "Conversation",
     },
     userId: {
       type: String,
       required: true,
-      ref: 'User'
+      ref: "User",
     },
     role: {
       type: String,
       enum: Object.values(ConversationMemberRole),
       required: true,
-      default: ConversationMemberRole.MEMBER
+      default: ConversationMemberRole.MEMBER,
     },
     joinedAt: {
       type: Date,
       required: true,
-      default: Date.now
+      default: Date.now,
     },
     leftAt: {
       type: Date,
-      required: false
+      required: false,
     },
     unreadCount: {
       type: Number,
       required: true,
-      default: 0
+      default: 0,
     },
     lastReadMessageId: {
       type: String,
-      required: false
+      required: false,
     },
     lastReadAt: {
       type: Date,
-      required: false
+      required: false,
     },
     lastSeenMessageId: {
       type: String,
-      required: false
+      required: false,
     },
     lastDeliveredMessageId: {
       type: String,
-      required: false
+      required: false,
     },
     muteUntil: {
       type: Date,
-      required: false
+      required: false,
     },
     pinned: {
       type: Boolean,
       required: true,
-      default: false
+      default: false,
     },
     archived: {
       type: Boolean,
       required: true,
-      default: false
-    }
+      default: false,
+    },
   },
   {
     timestamps: { createdAt: false, updatedAt: true },
-    collection: 'conversation_members'
-  }
+    collection: "conversation_members",
+  },
 );
 
-ConversationMemberSchema.index({ conversationId: 1, userId: 1 }, { unique: true });
-ConversationMemberSchema.index({ userId: 1, archived: 1, pinned: -1, updatedAt: -1 });
+ConversationMemberSchema.index(
+  { conversationId: 1, userId: 1 },
+  { unique: true },
+);
+ConversationMemberSchema.index({
+  userId: 1,
+  archived: 1,
+  pinned: -1,
+  updatedAt: -1,
+});
 ConversationMemberSchema.index({ conversationId: 1, leftAt: 1 });
 
 export const ConversationMemberModel = model<IConversationMemberDocument>(
-  'ConversationMember',
-  ConversationMemberSchema
+  "ConversationMember",
+  ConversationMemberSchema,
 );
 
 interface IMessageDocument {
@@ -227,6 +243,7 @@ interface IMessageDocument {
     width?: number;
     height?: number;
   }>;
+  deletedForUserIds?: string[];
   createdAt: Date;
   editedAt?: Date;
   deletedAt?: Date;
@@ -236,73 +253,79 @@ const MessageSchema = new Schema<IMessageDocument>(
   {
     _id: {
       type: String,
-      required: true
+      required: true,
     },
     conversationId: {
       type: String,
       required: true,
-      ref: 'Conversation'
+      ref: "Conversation",
     },
     senderId: {
       type: String,
       required: true,
-      ref: 'User'
+      ref: "User",
     },
     type: {
       type: String,
       enum: Object.values(MessageType),
-      required: true
+      required: true,
     },
     text: {
       type: String,
-      required: false
+      required: false,
     },
     media: [
       {
         url: {
           type: String,
-          required: true
+          required: true,
         },
         mediaType: {
           type: String,
           enum: Object.values(MediaType),
-          required: true
+          required: true,
         },
         name: {
           type: String,
-          required: false
+          required: false,
         },
         size: {
           type: Number,
-          required: false
+          required: false,
         },
         width: {
           type: Number,
-          required: false
+          required: false,
         },
         height: {
           type: Number,
-          required: false
-        }
-      }
+          required: false,
+        },
+      },
     ],
+    deletedForUserIds: {
+      type: [String],
+      required: false,
+      default: [],
+    },
     editedAt: {
       type: Date,
-      required: false
+      required: false,
     },
     deletedAt: {
       type: Date,
-      required: false
-    }
+      required: false,
+    },
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
-    collection: 'messages'
-  }
+    collection: "messages",
+  },
 );
 
 MessageSchema.index({ conversationId: 1, createdAt: -1 });
 MessageSchema.index({ conversationId: 1, deletedAt: 1, createdAt: -1 });
+MessageSchema.index({ conversationId: 1, deletedForUserIds: 1, createdAt: -1 });
 MessageSchema.index({ senderId: 1, createdAt: -1 });
 
-export const MessageModel = model<IMessageDocument>('Message', MessageSchema);
+export const MessageModel = model<IMessageDocument>("Message", MessageSchema);

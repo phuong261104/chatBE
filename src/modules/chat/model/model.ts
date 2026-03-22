@@ -1,25 +1,25 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export enum ConversationType {
-  PRIVATE = 'private',
-  GROUP = 'group'
+  PRIVATE = "private",
+  GROUP = "group",
 }
 
 export enum ConversationMemberRole {
-  MEMBER = 'member',
-  ADMIN = 'admin'
+  MEMBER = "member",
+  ADMIN = "admin",
 }
 
 export enum MessageType {
-  TEXT = 'text',
-  IMAGE = 'image',
-  FILE = 'file',
-  SYSTEM = 'system'
+  TEXT = "text",
+  IMAGE = "image",
+  FILE = "file",
+  SYSTEM = "system",
 }
 
 export enum MediaType {
-  IMAGE = 'image',
-  FILE = 'file'
+  IMAGE = "image",
+  FILE = "file",
 }
 
 export const LastMessageSchema = z.object({
@@ -27,7 +27,7 @@ export const LastMessageSchema = z.object({
   senderId: z.string(),
   type: z.nativeEnum(MessageType),
   textPreview: z.string().optional(),
-  createdAt: z.date()
+  createdAt: z.date(),
 });
 
 export type LastMessage = z.infer<typeof LastMessageSchema>;
@@ -48,7 +48,7 @@ export const ConversationSchema = z.object({
   lastMessageAt: z.date().optional(),
 
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
 export type Conversation = z.infer<typeof ConversationSchema>;
@@ -72,7 +72,7 @@ export const ConversationMemberSchema = z.object({
   pinned: z.boolean().default(false),
   archived: z.boolean().default(false),
 
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
 export type ConversationMember = z.infer<typeof ConversationMemberSchema>;
@@ -81,7 +81,7 @@ export const MediaAttachmentSchema = z.object({
   url: z.string(),
   filename: z.string(),
   mimetype: z.string(),
-  size: z.number()
+  size: z.number(),
 });
 
 export type MediaAttachment = z.infer<typeof MediaAttachmentSchema>;
@@ -92,7 +92,7 @@ export const MessageMediaSchema = z.object({
   name: z.string().optional(),
   size: z.number().optional(),
   width: z.number().optional(),
-  height: z.number().optional()
+  height: z.number().optional(),
 });
 
 export type MessageMedia = z.infer<typeof MessageMediaSchema>;
@@ -104,23 +104,24 @@ export const MessageSchema = z.object({
   type: z.nativeEnum(MessageType),
   text: z.string().optional(),
   media: z.array(MessageMediaSchema).optional(),
+  deletedForUserIds: z.array(z.string()).optional(),
   createdAt: z.date(),
   editedAt: z.date().optional(),
-  deletedAt: z.date().optional()
+  deletedAt: z.date().optional(),
 });
 
 export type Message = z.infer<typeof MessageSchema>;
 
 export enum UserStatus {
-  ACTIVE = 'active',
-  DISABLED = 'disabled'
+  ACTIVE = "active",
+  DISABLED = "disabled",
 }
 
 export const UserInfoSchema = z.object({
   id: z.string(),
   displayName: z.string().optional(),
   avatarUrl: z.string().optional(),
-  status: z.nativeEnum(UserStatus)
+  status: z.nativeEnum(UserStatus),
 });
 
 export type UserInfo = z.infer<typeof UserInfoSchema>;

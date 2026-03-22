@@ -46,6 +46,9 @@ import {
   LoadMessagesQueryHandler,
   GetTotalUnreadCountQueryHandler,
   GetGroupMembersQueryHandler,
+  RevokeMessageHandler,
+  DeleteMessageForMeHandler,
+  ForwardMessagesHandler,
   MessagingUseCaseFacade,
 } from "./usecase";
 
@@ -165,6 +168,27 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
   );
 
+  const revokeMessageHandler = new RevokeMessageHandler(
+    messageRepo,
+    messageRepo,
+    conversationMemberRepo,
+  );
+
+  const deleteMessageForMeHandler = new DeleteMessageForMeHandler(
+    messageRepo,
+    messageRepo,
+    conversationMemberRepo,
+  );
+
+  const forwardMessagesHandler = new ForwardMessagesHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+    messageRepo,
+    messageRepo,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -182,6 +206,9 @@ export const setupMessagingHexagon = (
     loadMessagesQueryHandler,
     getTotalUnreadCountQueryHandler,
     getGroupMembersQueryHandler,
+    revokeMessageHandler,
+    deleteMessageForMeHandler,
+    forwardMessagesHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -221,6 +248,24 @@ export const setupMessagingHexagon = (
     "/conversations/:conversationId/messages",
     mdlFactory.auth,
     httpService.sendMessageAPI.bind(httpService),
+  );
+
+  router.post(
+    "/messages/:messageId/revoke",
+    mdlFactory.auth,
+    httpService.revokeMessageAPI.bind(httpService),
+  );
+
+  router.post(
+    "/messages/:messageId/delete",
+    mdlFactory.auth,
+    httpService.deleteMessageForMeAPI.bind(httpService),
+  );
+
+  router.post(
+    "/messages/forward",
+    mdlFactory.auth,
+    httpService.forwardMessagesAPI.bind(httpService),
   );
 
   router.post(

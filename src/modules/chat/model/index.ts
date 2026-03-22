@@ -17,8 +17,8 @@ export {
   MediaAttachment,
   MessageMedia,
   Message,
-  UserInfo
-} from './model';
+  UserInfo,
+} from "./model";
 
 export {
   ConversationCondDTOSchema,
@@ -55,9 +55,15 @@ export {
   MarkAsSeenDTO,
   markAsDeliveredDTOSchema,
   MarkAsDeliveredDTO,
+  revokeMessageDTOSchema,
+  RevokeMessageDTO,
+  deleteMessageForMeDTOSchema,
+  DeleteMessageForMeDTO,
+  forwardMessagesDTOSchema,
+  ForwardMessagesDTO,
   UserCondDTOSchema,
-  UserCondDTO
-} from './dto';
+  UserCondDTO,
+} from "./dto";
 
 export {
   ErrConversationNotFound,
@@ -102,5 +108,5 @@ export {
   ErrInvalidConversationId,
   ErrInvalidMemberIds,
   ErrGroupNameRequired,
-  ErrGroupNameTooLong
-} from './errors';
+  ErrGroupNameTooLong,
+} from "./errors";

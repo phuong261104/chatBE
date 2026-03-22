@@ -4,8 +4,8 @@ import {
   ConversationMemberRole,
   Message,
   UserInfo,
-  MediaAttachment
-} from '../model/model';
+  MediaAttachment,
+} from "../model/model";
 import {
   ConversationCondDTO,
   ConversationUpdateDTO,
@@ -13,9 +13,9 @@ import {
   ConversationMemberUpdateDTO,
   MessageCondDTO,
   MessageUpdateDTO,
-  UserCondDTO
-} from '../model/dto';
-import { PagingDTO } from '@share/model/paging';
+  UserCondDTO,
+} from "../model/dto";
+import { PagingDTO } from "@share/model/paging";
 
 export interface IUserQueryRepository {
   get(id: string): Promise<UserInfo | null>;
@@ -38,8 +38,13 @@ export interface IConversationCommandRepository {
 
 export interface IConversationMemberQueryRepository {
   get(id: string): Promise<ConversationMember | null>;
-  findByCond(cond: ConversationMemberCondDTO): Promise<ConversationMember | null>;
-  list(cond: ConversationMemberCondDTO, paging: PagingDTO): Promise<ConversationMember[]>;
+  findByCond(
+    cond: ConversationMemberCondDTO,
+  ): Promise<ConversationMember | null>;
+  list(
+    cond: ConversationMemberCondDTO,
+    paging: PagingDTO,
+  ): Promise<ConversationMember[]>;
 }
 
 export interface IConversationMemberCommandRepository {
@@ -53,7 +58,12 @@ export interface IMessageQueryRepository {
   findByCond(cond: MessageCondDTO): Promise<Message | null>;
   list(cond: MessageCondDTO, paging: PagingDTO): Promise<Message[]>;
 
-  listWithCursor(conversationId: string, cursor: string | undefined, limit: number): Promise<Message[]>;
+  listWithCursor(
+    conversationId: string,
+    cursor: string | undefined,
+    limit: number,
+    viewerUserId?: string,
+  ): Promise<Message[]>;
 }
 
 export interface IMessageCommandRepository {
@@ -69,15 +79,26 @@ export interface CreateGroupData {
 }
 
 export interface IMessagingUseCase {
-  getOrCreatePrivateConversation(currentUserId: string, targetUserId: string): Promise<Conversation>;
+  getOrCreatePrivateConversation(
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<Conversation>;
 
-  sendMessage(conversationId: string, senderId: string, text?: string, media?: MediaAttachment[]): Promise<Message>;
+  sendMessage(
+    conversationId: string,
+    senderId: string,
+    text?: string,
+    media?: MediaAttachment[],
+  ): Promise<Message>;
 
-  getConversationMembers(conversationId: string, excludeUserId?: string): Promise<string[]>;
+  getConversationMembers(
+    conversationId: string,
+    excludeUserId?: string,
+  ): Promise<string[]>;
 
   createGroup(
     creatorId: string,
-    data: CreateGroupData
+    data: CreateGroupData,
   ): Promise<{
     conversation: Conversation;
     members: ConversationMember[];
@@ -88,28 +109,38 @@ export interface IMessagingUseCase {
     conversationId: string,
     senderId: string,
     text?: string,
-    media?: MediaAttachment[]
+    media?: MediaAttachment[],
   ): Promise<Message>;
 
-  addMembersToGroup(conversationId: string, requesterId: string, memberIds: string[]): Promise<ConversationMember[]>;
+  addMembersToGroup(
+    conversationId: string,
+    requesterId: string,
+    memberIds: string[],
+  ): Promise<ConversationMember[]>;
 
-  removeMemberFromGroup(conversationId: string, requesterId: string, targetUserId: string): Promise<void>;
+  removeMemberFromGroup(
+    conversationId: string,
+    requesterId: string,
+    targetUserId: string,
+  ): Promise<void>;
 
   updateGroupInfo(
     conversationId: string,
     requesterId: string,
-    data: { name?: string; avatarUrl?: string }
+    data: { name?: string; avatarUrl?: string },
   ): Promise<Conversation>;
 
   getConversations(
     userId: string,
     page?: number,
-    limit?: number
-  ): Promise<Array<Conversation & { unreadCount: number; role: ConversationMemberRole }>>;
+    limit?: number,
+  ): Promise<
+    Array<Conversation & { unreadCount: number; role: ConversationMemberRole }>
+  >;
 
   getConversationDetail(
     conversationId: string,
-    userId: string
+    userId: string,
   ): Promise<{
     conversation: Conversation;
     members: ConversationMember[];
@@ -120,20 +151,41 @@ export interface IMessagingUseCase {
     conversationId: string,
     userId: string,
     cursor: string | undefined,
-    limit: number
+    limit: number,
   ): Promise<{
     messages: Message[];
     nextCursor: string;
     hasMore: boolean;
   }>;
 
-  markAsSeen(conversationId: string, userId: string, lastSeenMessageId: string): Promise<void>;
+  markAsSeen(
+    conversationId: string,
+    userId: string,
+    lastSeenMessageId: string,
+  ): Promise<void>;
 
-  markAsDelivered(conversationId: string, userId: string, lastDeliveredMessageId: string): Promise<void>;
+  markAsDelivered(
+    conversationId: string,
+    userId: string,
+    lastDeliveredMessageId: string,
+  ): Promise<void>;
 
   getTotalUnreadCount(userId: string): Promise<number>;
 
   leaveGroup(conversationId: string, userId: string): Promise<void>;
 
-  getGroupMembers(conversationId: string, userId: string): Promise<ConversationMember[]>;
+  getGroupMembers(
+    conversationId: string,
+    userId: string,
+  ): Promise<ConversationMember[]>;
+
+  revokeMessage(messageId: string, userId: string): Promise<Message>;
+
+  deleteMessageForMe(messageId: string, userId: string): Promise<void>;
+
+  forwardMessages(
+    userId: string,
+    messageIds: string[],
+    targetConversationIds: string[],
+  ): Promise<Message[]>;
 }

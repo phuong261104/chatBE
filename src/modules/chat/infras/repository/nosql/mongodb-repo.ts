@@ -4,29 +4,40 @@ import {
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
   IMessageQueryRepository,
-  IMessageCommandRepository
-} from '../../../interface';
+  IMessageCommandRepository,
+} from "../../../interface";
 
-import { Conversation, ConversationMember, Message } from '../../../model/model';
+import {
+  Conversation,
+  ConversationMember,
+  Message,
+} from "../../../model/model";
 import {
   ConversationCondDTO,
   ConversationUpdateDTO,
   ConversationMemberCondDTO,
   ConversationMemberUpdateDTO,
   MessageCondDTO,
-  MessageUpdateDTO
-} from '../../../model/dto';
+  MessageUpdateDTO,
+} from "../../../model/dto";
 
 import {
   BaseCommandRepositoryMongoose,
   BaseQueryRepositoryMongoose,
-  BaseRepositoryMongoose
-} from '@share/repository/repo-mongoose';
-import { PagingDTO } from '@share/model/paging';
+  BaseRepositoryMongoose,
+} from "@share/repository/repo-mongoose";
+import { PagingDTO } from "@share/model/paging";
 
-import { ConversationModel, ConversationMemberModel, MessageModel } from './schemas';
+import {
+  ConversationModel,
+  ConversationMemberModel,
+  MessageModel,
+} from "./schemas";
 
-export class MongoConversationQueryRepository extends BaseQueryRepositoryMongoose<Conversation, ConversationCondDTO> {
+export class MongoConversationQueryRepository extends BaseQueryRepositoryMongoose<
+  Conversation,
+  ConversationCondDTO
+> {
   constructor() {
     super(ConversationModel, { lastMessageAt: -1 });
   }
@@ -42,11 +53,18 @@ export class MongoConversationCommandRepository extends BaseCommandRepositoryMon
 }
 
 export class MongoConversationRepository
-  extends BaseRepositoryMongoose<Conversation, ConversationCondDTO, ConversationUpdateDTO>
+  extends BaseRepositoryMongoose<
+    Conversation,
+    ConversationCondDTO,
+    ConversationUpdateDTO
+  >
   implements IConversationQueryRepository, IConversationCommandRepository
 {
   constructor() {
-    super(new MongoConversationQueryRepository(), new MongoConversationCommandRepository());
+    super(
+      new MongoConversationQueryRepository(),
+      new MongoConversationCommandRepository(),
+    );
   }
 }
 
@@ -69,21 +87,36 @@ export class MongoConversationMemberCommandRepository extends BaseCommandReposit
 }
 
 export class MongoConversationMemberRepository
-  extends BaseRepositoryMongoose<ConversationMember, ConversationMemberCondDTO, ConversationMemberUpdateDTO>
-  implements IConversationMemberQueryRepository, IConversationMemberCommandRepository
+  extends BaseRepositoryMongoose<
+    ConversationMember,
+    ConversationMemberCondDTO,
+    ConversationMemberUpdateDTO
+  >
+  implements
+    IConversationMemberQueryRepository,
+    IConversationMemberCommandRepository
 {
   constructor() {
-    super(new MongoConversationMemberQueryRepository(), new MongoConversationMemberCommandRepository());
+    super(
+      new MongoConversationMemberQueryRepository(),
+      new MongoConversationMemberCommandRepository(),
+    );
   }
 }
 
-export class MongoMessageQueryRepository extends BaseQueryRepositoryMongoose<Message, MessageCondDTO> {
+export class MongoMessageQueryRepository extends BaseQueryRepositoryMongoose<
+  Message,
+  MessageCondDTO
+> {
   constructor() {
     super(MessageModel, { createdAt: -1 });
   }
 }
 
-export class MongoMessageCommandRepository extends BaseCommandRepositoryMongoose<Message, MessageUpdateDTO> {
+export class MongoMessageCommandRepository extends BaseCommandRepositoryMongoose<
+  Message,
+  MessageUpdateDTO
+> {
   constructor() {
     super(MessageModel);
   }
@@ -94,20 +127,45 @@ export class MongoMessageRepository
   implements IMessageQueryRepository, IMessageCommandRepository
 {
   constructor() {
-    super(new MongoMessageQueryRepository(), new MongoMessageCommandRepository());
+    super(
+      new MongoMessageQueryRepository(),
+      new MongoMessageCommandRepository(),
+    );
   }
 
-  async listWithCursor(conversationId: string, cursor: string | undefined, limit: number): Promise<Message[]> {
-    const cond: MessageCondDTO = {
-      conversationId: conversationId
+  async listWithCursor(
+    conversationId: string,
+    cursor: string | undefined,
+    limit: number,
+    viewerUserId?: string,
+  ): Promise<Message[]> {
+    const cond: any = {
+      conversationId,
     };
 
-    const messages = await this.list(cond, { page: 1, limit: limit });
+    if (viewerUserId) {
+      cond.deletedForUserIds = { $ne: viewerUserId };
+    }
 
-    return messages.sort((a, b) => {
-      const timeA = a.createdAt?.getTime() || 0;
-      const timeB = b.createdAt?.getTime() || 0;
-      return timeB - timeA;
+    if (cursor) {
+      const cursorMessage = await this.get(cursor);
+      if (cursorMessage) {
+        cond.createdAt = { $lt: cursorMessage.createdAt };
+      }
+    }
+
+    const rows = await MessageModel.find(cond)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean()
+      .exec();
+
+    return rows.map((row) => {
+      const { _id, __v, ...rest } = row as any;
+      return {
+        ...rest,
+        id: String(_id),
+      } as Message;
     });
   }
 }
