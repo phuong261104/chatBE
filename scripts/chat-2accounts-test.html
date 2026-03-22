@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat 2 Accounts Tester</title>
+    <style>
+      :root {
+        --bg: #f3f6fb;
+        --panel: #ffffff;
+        --border: #d8e0ee;
+        --text: #1f2a3d;
+        --muted: #667085;
+        --ok: #0f9960;
+        --warn: #b54708;
+        --bad: #c43232;
+        --brand: #0f4c81;
+        --brand-soft: #e6f0f8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: radial-gradient(
+          circle at top left,
+          #e8f0ff 0%,
+          var(--bg) 40%,
+          #edf4ea 100%
+        );
+        color: var(--text);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 24px;
+      }
+
+      .desc {
+        margin-bottom: 14px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .config {
+        display: flex;
+        gap: 10px;
+        align-items: end;
+        flex-wrap: wrap;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 14px;
+      }
+
+      .row {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 220px;
+        flex: 1;
+      }
+
+      .row-base-url {
+        max-width: 360px;
+      }
+
+      .row label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      input,
+      button,
+      textarea {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 14px;
+        font-family: inherit;
+        background: #fff;
+        color: var(--text);
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 64px;
+      }
+
+      button {
+        cursor: pointer;
+        border-color: #0e4a7e;
+        background: var(--brand);
+        color: #fff;
+        font-weight: 600;
+      }
+
+      button.secondary {
+        background: #fff;
+        color: var(--brand);
+      }
+
+      button:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(280px, 1fr));
+        gap: 14px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 460px;
+      }
+
+      .card h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .status {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 8px;
+        border-radius: 8px;
+        background: #f7f9fd;
+        border: 1px dashed var(--border);
+        white-space: pre-line;
+      }
+
+      .status .ok {
+        color: var(--ok);
+        font-weight: 700;
+      }
+      .status .warn {
+        color: var(--warn);
+        font-weight: 700;
+      }
+      .status .bad {
+        color: var(--bad);
+        font-weight: 700;
+      }
+
+      .chat-box {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        min-height: 190px;
+        max-height: 240px;
+        overflow-y: auto;
+        padding: 8px;
+        background: #fcfdff;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .typing {
+        font-size: 12px;
+        min-height: 18px;
+        color: var(--warn);
+        font-weight: 600;
+      }
+
+      .log {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        min-height: 120px;
+        max-height: 160px;
+        overflow-y: auto;
+        padding: 8px;
+        background: #f8fafc;
+        font-size: 12px;
+        line-height: 1.35;
+        color: #334;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      @media (max-width: 960px) {
+        .cards {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Test Chat 2 Tài Khoản</h1>
+    <div class="desc">
+      Dùng để test nhanh: đăng nhập 2 user, tạo private conversation, gửi tin
+      nhắn, trạng thái đang gõ và presence online/offline.
+    </div>
+
+    <div class="config">
+      <div class="row row-base-url">
+        <label>Backend Base URL</label>
+        <input
+          id="baseUrl"
+          value="http://localhost:3000"
+          title="Backend Base URL"
+          placeholder="http://localhost:3000"
+        />
+      </div>
+      <div class="actions">
+        <button id="linkConversationBtn">
+          Tạo/Lấy private conversation A ↔ B
+        </button>
+        <button id="refreshPresenceBtn" class="secondary">
+          Refresh Presence Ngay
+        </button>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card" id="cardA">
+        <h2>Tài khoản A</h2>
+        <div class="row">
+          <label>Email hoặc SĐT</label>
+          <input id="aIdentity" placeholder="email hoặc +849..." />
+        </div>
+        <div class="row">
+          <label>Mật khẩu</label>
+          <input id="aPassword" type="password" placeholder="password" />
+        </div>
+        <div class="actions">
+          <button id="aLoginBtn">Login A</button>
+          <button id="aDisconnectBtn" class="secondary">Disconnect A</button>
+        </div>
+        <div id="aStatus" class="status"></div>
+
+        <div class="typing" id="aTypingState"></div>
+        <div class="chat-box" id="aChatBox"></div>
+        <div class="row">
+          <label>Nhập tin nhắn (A gửi cho B)</label>
+          <textarea
+            id="aMessage"
+            placeholder="Nhập để phát typing_start/typing_stop..."
+          ></textarea>
+        </div>
+        <div class="actions">
+          <button id="aSendBtn">Gửi từ A</button>
+        </div>
+        <div class="log" id="aLog"></div>
+      </div>
+
+      <div class="card" id="cardB">
+        <h2>Tài khoản B</h2>
+        <div class="row">
+          <label>Email hoặc SĐT</label>
+          <input id="bIdentity" placeholder="email hoặc +849..." />
+        </div>
+        <div class="row">
+          <label>Mật khẩu</label>
+          <input id="bPassword" type="password" placeholder="password" />
+        </div>
+        <div class="actions">
+          <button id="bLoginBtn">Login B</button>
+          <button id="bDisconnectBtn" class="secondary">Disconnect B</button>
+        </div>
+        <div id="bStatus" class="status"></div>
+
+        <div class="typing" id="bTypingState"></div>
+        <div class="chat-box" id="bChatBox"></div>
+        <div class="row">
+          <label>Nhập tin nhắn (B gửi cho A)</label>
+          <textarea
+            id="bMessage"
+            placeholder="Nhập để phát typing_start/typing_stop..."
+          ></textarea>
+        </div>
+        <div class="actions">
+          <button id="bSendBtn">Gửi từ B</button>
+        </div>
+        <div class="log" id="bLog"></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+      const state = {
+        baseUrl: "http://localhost:3000",
+        conversationId: null,
+        users: {
+          a: createUserState("a"),
+          b: createUserState("b"),
+        },
+        presenceTimer: null,
+      };
+
+      function createUserState(side) {
+        return {
+          side,
+          token: null,
+          userId: null,
+          profile: null,
+          rootSocket: null,
+          msgSocket: null,
+          heartbeatTimer: null,
+          typingTimer: null,
+          typingVisibleTimer: null,
+          currentTypingFromUserId: null,
+          typingSent: false,
+        };
+      }
+
+      const els = {
+        baseUrl: document.getElementById("baseUrl"),
+        linkConversationBtn: document.getElementById("linkConversationBtn"),
+        refreshPresenceBtn: document.getElementById("refreshPresenceBtn"),
+
+        aIdentity: document.getElementById("aIdentity"),
+        aPassword: document.getElementById("aPassword"),
+        aLoginBtn: document.getElementById("aLoginBtn"),
+        aDisconnectBtn: document.getElementById("aDisconnectBtn"),
+        aStatus: document.getElementById("aStatus"),
+        aTypingState: document.getElementById("aTypingState"),
+        aChatBox: document.getElementById("aChatBox"),
+        aMessage: document.getElementById("aMessage"),
+        aSendBtn: document.getElementById("aSendBtn"),
+        aLog: document.getElementById("aLog"),
+
+        bIdentity: document.getElementById("bIdentity"),
+        bPassword: document.getElementById("bPassword"),
+        bLoginBtn: document.getElementById("bLoginBtn"),
+        bDisconnectBtn: document.getElementById("bDisconnectBtn"),
+        bStatus: document.getElementById("bStatus"),
+        bTypingState: document.getElementById("bTypingState"),
+        bChatBox: document.getElementById("bChatBox"),
+        bMessage: document.getElementById("bMessage"),
+        bSendBtn: document.getElementById("bSendBtn"),
+        bLog: document.getElementById("bLog"),
+      };
+
+      function nowTime() {
+        return new Date().toLocaleTimeString("vi-VN", { hour12: false });
+      }
+
+      function getUserLabelById(userId) {
+        if (!userId) {
+          return "User";
+        }
+
+        if (state.users.a.userId === userId) {
+          return "A";
+        }
+
+        if (state.users.b.userId === userId) {
+          return "B";
+        }
+
+        return userId;
+      }
+
+      function appendLine(el, text) {
+        const line = document.createElement("div");
+        line.textContent = `[${nowTime()}] ${text}`;
+        el.appendChild(line);
+        el.scrollTop = el.scrollHeight;
+      }
+
+      function setStatus(side, html) {
+        els[`${side}Status`].innerHTML = html;
+      }
+
+      function updateStatusPanel(side) {
+        const me = state.users[side];
+        const otherSide = side === "a" ? "b" : "a";
+        const other = state.users[otherSide];
+
+        const rootConnected = me.rootSocket && me.rootSocket.connected;
+        const msgConnected = me.msgSocket && me.msgSocket.connected;
+
+        const role = side.toUpperCase();
+        const idLabel = me.userId || "-";
+        const convo = state.conversationId || "-";
+        const otherId = other.userId || "-";
+
+        setStatus(
+          side,
+          `User ${role}: <b>${idLabel}</b>\n` +
+            `Socket root: <span class="${rootConnected ? "ok" : "bad"}">${rootConnected ? "connected" : "disconnected"}</span>\n` +
+            `Socket /messages: <span class="${msgConnected ? "ok" : "bad"}">${msgConnected ? "connected" : "disconnected"}</span>\n` +
+            `Private conversationId: <b>${convo}</b>\n` +
+            `Đối tượng presence check: <b>${otherId}</b>`,
+        );
+      }
+
+      async function api(side, path, options = {}) {
+        const me = state.users[side];
+        const headers = Object.assign(
+          { "Content-Type": "application/json" },
+          options.headers || {},
+        );
+        if (me.token) {
+          headers.Authorization = `Bearer ${me.token}`;
+        }
+
+        const res = await fetch(`${state.baseUrl}${path}`, {
+          method: options.method || "GET",
+          headers,
+          body: options.body ? JSON.stringify(options.body) : undefined,
+        });
+
+        let json = null;
+        try {
+          json = await res.json();
+        } catch (_) {
+          json = null;
+        }
+
+        if (!res.ok) {
+          const msg =
+            (json && (json.error || json.message)) || `HTTP ${res.status}`;
+          throw new Error(msg);
+        }
+        return json;
+      }
+
+      function normalizeIdentity(identity) {
+        const text = identity.trim();
+        if (text.includes("@")) {
+          return { email: text };
+        }
+        return { phone: text };
+      }
+
+      async function login(side) {
+        const identity = els[`${side}Identity`].value.trim();
+        const password = els[`${side}Password`].value.trim();
+
+        if (!identity || !password) {
+          appendLine(els[`${side}Log`], "Thiếu thông tin login");
+          return;
+        }
+
+        const body = Object.assign(normalizeIdentity(identity), { password });
+        const loginRes = await fetch(`${state.baseUrl}/v1/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        const loginJson = await loginRes.json();
+        if (!loginRes.ok) {
+          throw new Error(
+            loginJson.message || loginJson.error || `HTTP ${loginRes.status}`,
+          );
+        }
+
+        const token = loginJson && loginJson.data && loginJson.data.token;
+        if (!token) {
+          throw new Error("Login thành công nhưng không nhận được token");
+        }
+
+        state.users[side].token = token;
+
+        const profileRes = await api(side, "/v1/profile", { method: "GET" });
+        const profile = profileRes && profileRes.data;
+        if (!profile || !profile.id) {
+          throw new Error("Không lấy được profile hoặc user id");
+        }
+
+        state.users[side].profile = profile;
+        state.users[side].userId = profile.id;
+        appendLine(els[`${side}Log`], `Login OK: ${profile.id}`);
+
+        connectSockets(side);
+        updateStatusPanel("a");
+        updateStatusPanel("b");
+        startPresencePolling();
+      }
+
+      function safeDisconnectSocket(s) {
+        if (s && s.connected) {
+          s.disconnect();
+        }
+      }
+
+      function disconnect(side) {
+        const me = state.users[side];
+
+        if (me.typingSent) {
+          emitTyping(side, false);
+        }
+
+        safeDisconnectSocket(me.rootSocket);
+        safeDisconnectSocket(me.msgSocket);
+        me.rootSocket = null;
+        me.msgSocket = null;
+
+        if (me.heartbeatTimer) {
+          clearInterval(me.heartbeatTimer);
+          me.heartbeatTimer = null;
+        }
+
+        if (me.typingTimer) {
+          clearTimeout(me.typingTimer);
+          me.typingTimer = null;
+        }
+
+        if (me.typingVisibleTimer) {
+          clearTimeout(me.typingVisibleTimer);
+          me.typingVisibleTimer = null;
+        }
+
+        me.currentTypingFromUserId = null;
+        els[`${side}TypingState`].textContent = "";
+
+        me.token = null;
+        me.userId = null;
+        me.profile = null;
+        appendLine(els[`${side}Log`], "Đã disconnect + clear session");
+        updateStatusPanel("a");
+        updateStatusPanel("b");
+      }
+
+      function connectSockets(side) {
+        const me = state.users[side];
+        if (!me.token) {
+          return;
+        }
+
+        safeDisconnectSocket(me.rootSocket);
+        safeDisconnectSocket(me.msgSocket);
+
+        me.rootSocket = io(state.baseUrl, {
+          path: "/socket.io",
+          transports: ["websocket"],
+          auth: { token: me.token },
+        });
+
+        me.rootSocket.on("connect", () => {
+          appendLine(
+            els[`${side}Log`],
+            `Root socket connected: ${me.rootSocket.id}`,
+          );
+          updateStatusPanel("a");
+          updateStatusPanel("b");
+        });
+
+        me.rootSocket.on("connect_error", (err) => {
+          appendLine(els[`${side}Log`], `Root connect_error: ${err.message}`);
+          updateStatusPanel("a");
+          updateStatusPanel("b");
+        });
+
+        me.rootSocket.on("disconnect", (reason) => {
+          appendLine(els[`${side}Log`], `Root disconnected: ${reason}`);
+          updateStatusPanel("a");
+          updateStatusPanel("b");
+        });
+
+        if (me.heartbeatTimer) {
+          clearInterval(me.heartbeatTimer);
+        }
+        me.heartbeatTimer = setInterval(() => {
+          if (me.rootSocket && me.rootSocket.connected) {
+            me.rootSocket.emit("heartbeat");
+          }
+        }, 15000);
+
+        me.msgSocket = io(`${state.baseUrl}/messages`, {
+          path: "/socket.io",
+          transports: ["websocket"],
+          auth: { token: me.token },
+        });
+
+        me.msgSocket.on("connect", () => {
+          appendLine(
+            els[`${side}Log`],
+            `Message socket connected: ${me.msgSocket.id}`,
+          );
+          updateStatusPanel("a");
+          updateStatusPanel("b");
+        });
+
+        me.msgSocket.on("connect_error", (err) => {
+          appendLine(
+            els[`${side}Log`],
+            `Message connect_error: ${err.message}`,
+          );
+          updateStatusPanel("a");
+          updateStatusPanel("b");
+        });
+
+        me.msgSocket.on("disconnect", (reason) => {
+          appendLine(els[`${side}Log`], `Message disconnected: ${reason}`);
+          updateStatusPanel("a");
+          updateStatusPanel("b");
+        });
+
+        me.msgSocket.on("receiveMessage", (payload) => {
+          const msg = payload && payload.message ? payload.message : payload;
+          const from = msg && msg.senderId ? msg.senderId : "unknown";
+          const text = msg && msg.text ? msg.text : "(không có text)";
+          appendLine(els[`${side}ChatBox`], `Từ ${from}: ${text}`);
+        });
+
+        me.msgSocket.on("typing_start", (payload) => {
+          const fromUserId = payload && payload.userId ? payload.userId : null;
+          const toUserId =
+            payload && payload.toUserId ? payload.toUserId : null;
+
+          if (!fromUserId || fromUserId === me.userId) {
+            return;
+          }
+
+          if (toUserId && toUserId !== me.userId) {
+            return;
+          }
+
+          me.currentTypingFromUserId = fromUserId;
+          const label = getUserLabelById(fromUserId);
+          els[`${side}TypingState`].textContent = `${label} đang gõ...`;
+
+          if (me.typingVisibleTimer) {
+            clearTimeout(me.typingVisibleTimer);
+          }
+
+          // Fallback: auto clear nếu miss event typing_stop.
+          me.typingVisibleTimer = setTimeout(() => {
+            me.currentTypingFromUserId = null;
+            els[`${side}TypingState`].textContent = "";
+          }, 2200);
+        });
+
+        me.msgSocket.on("typing_stop", (payload) => {
+          const fromUserId = payload && payload.userId ? payload.userId : null;
+
+          if (
+            fromUserId &&
+            me.currentTypingFromUserId &&
+            fromUserId !== me.currentTypingFromUserId
+          ) {
+            return;
+          }
+
+          me.currentTypingFromUserId = null;
+          if (me.typingVisibleTimer) {
+            clearTimeout(me.typingVisibleTimer);
+            me.typingVisibleTimer = null;
+          }
+          els[`${side}TypingState`].textContent = "";
+        });
+      }
+
+      async function linkPrivateConversation() {
+        const a = state.users.a;
+        const b = state.users.b;
+
+        if (!a.token || !a.userId || !b.userId) {
+          throw new Error("Cần login cả A và B trước");
+        }
+
+        const res = await api("a", "/v1/conversations/private", {
+          method: "POST",
+          body: {
+            targetUserId: b.userId,
+          },
+        });
+
+        const convo = res && res.data;
+        if (!convo || !convo.id) {
+          throw new Error("Không lấy được conversationId");
+        }
+
+        state.conversationId = convo.id;
+        appendLine(els.aLog, `Conversation ready: ${convo.id}`);
+        appendLine(els.bLog, `Conversation ready: ${convo.id}`);
+        updateStatusPanel("a");
+        updateStatusPanel("b");
+      }
+
+      async function sendMessage(side) {
+        const me = state.users[side];
+        const text = els[`${side}Message`].value.trim();
+
+        if (!me.token || !me.userId) {
+          throw new Error(`Tài khoản ${side.toUpperCase()} chưa login`);
+        }
+        if (!state.conversationId) {
+          throw new Error(
+            "Chưa có conversation. Bấm nút Tạo/Lấy private conversation trước.",
+          );
+        }
+        if (!text) {
+          return;
+        }
+
+        const res = await api(
+          side,
+          `/v1/conversations/${state.conversationId}/messages`,
+          {
+            method: "POST",
+            body: {
+              text,
+            },
+          },
+        );
+
+        appendLine(els[`${side}ChatBox`], `Bạn: ${text}`);
+        appendLine(
+          els[`${side}Log`],
+          `Send OK: ${res && res.data && res.data.id ? res.data.id : "(no-message-id)"}`,
+        );
+        els[`${side}Message`].value = "";
+
+        emitTyping(side, false);
+      }
+
+      function getOtherSide(side) {
+        return side === "a" ? "b" : "a";
+      }
+
+      function emitTyping(side, isStart) {
+        const me = state.users[side];
+        const other = state.users[getOtherSide(side)];
+
+        if (!me.msgSocket || !me.msgSocket.connected || !other.userId) {
+          return;
+        }
+
+        if (isStart && !me.typingSent) {
+          me.typingSent = true;
+          me.msgSocket.emit("typing_start", { toUserId: other.userId });
+          appendLine(els[`${side}Log`], `Emit typing_start -> ${other.userId}`);
+        }
+
+        if (!isStart && me.typingSent) {
+          me.typingSent = false;
+          me.msgSocket.emit("typing_stop", { toUserId: other.userId });
+          appendLine(els[`${side}Log`], `Emit typing_stop -> ${other.userId}`);
+        }
+      }
+
+      function onTypingInput(side) {
+        const me = state.users[side];
+        emitTyping(side, true);
+
+        if (me.typingTimer) {
+          clearTimeout(me.typingTimer);
+        }
+
+        me.typingTimer = setTimeout(() => {
+          emitTyping(side, false);
+        }, 1200);
+      }
+
+      async function refreshPresenceOnce() {
+        const a = state.users.a;
+        const b = state.users.b;
+
+        if (a.token && b.userId) {
+          try {
+            const result = await api("a", `/v1/users/${b.userId}/presence`);
+            const p = result && result.data;
+            appendLine(
+              els.aLog,
+              `Presence(B): ${p.isOnline ? "online" : "offline"}, lastSeen=${p.lastSeen || "-"}`,
+            );
+          } catch (err) {
+            appendLine(els.aLog, `Presence(B) lỗi: ${err.message}`);
+          }
+        }
+
+        if (b.token && a.userId) {
+          try {
+            const result = await api("b", `/v1/users/${a.userId}/presence`);
+            const p = result && result.data;
+            appendLine(
+              els.bLog,
+              `Presence(A): ${p.isOnline ? "online" : "offline"}, lastSeen=${p.lastSeen || "-"}`,
+            );
+          } catch (err) {
+            appendLine(els.bLog, `Presence(A) lỗi: ${err.message}`);
+          }
+        }
+      }
+
+      function startPresencePolling() {
+        if (state.presenceTimer) {
+          clearInterval(state.presenceTimer);
+        }
+
+        state.presenceTimer = setInterval(() => {
+          refreshPresenceOnce();
+        }, 5000);
+      }
+
+      function wireEvents() {
+        els.baseUrl.addEventListener("change", () => {
+          state.baseUrl = els.baseUrl.value.trim().replace(/\/+$/, "");
+          appendLine(els.aLog, `Base URL = ${state.baseUrl}`);
+          appendLine(els.bLog, `Base URL = ${state.baseUrl}`);
+        });
+
+        els.aLoginBtn.addEventListener("click", async () => {
+          try {
+            state.baseUrl = els.baseUrl.value.trim().replace(/\/+$/, "");
+            await login("a");
+          } catch (err) {
+            appendLine(els.aLog, `Login lỗi: ${err.message}`);
+          }
+        });
+
+        els.bLoginBtn.addEventListener("click", async () => {
+          try {
+            state.baseUrl = els.baseUrl.value.trim().replace(/\/+$/, "");
+            await login("b");
+          } catch (err) {
+            appendLine(els.bLog, `Login lỗi: ${err.message}`);
+          }
+        });
+
+        els.aDisconnectBtn.addEventListener("click", () => disconnect("a"));
+        els.bDisconnectBtn.addEventListener("click", () => disconnect("b"));
+
+        els.linkConversationBtn.addEventListener("click", async () => {
+          try {
+            await linkPrivateConversation();
+          } catch (err) {
+            appendLine(els.aLog, `Tạo conversation lỗi: ${err.message}`);
+            appendLine(els.bLog, `Tạo conversation lỗi: ${err.message}`);
+          }
+        });
+
+        els.refreshPresenceBtn.addEventListener("click", async () => {
+          await refreshPresenceOnce();
+        });
+
+        els.aSendBtn.addEventListener("click", async () => {
+          try {
+            await sendMessage("a");
+          } catch (err) {
+            appendLine(els.aLog, `Send lỗi: ${err.message}`);
+          }
+        });
+
+        els.bSendBtn.addEventListener("click", async () => {
+          try {
+            await sendMessage("b");
+          } catch (err) {
+            appendLine(els.bLog, `Send lỗi: ${err.message}`);
+          }
+        });
+
+        els.aMessage.addEventListener("input", () => onTypingInput("a"));
+        els.bMessage.addEventListener("input", () => onTypingInput("b"));
+
+        els.aMessage.addEventListener("blur", () => emitTyping("a", false));
+        els.bMessage.addEventListener("blur", () => emitTyping("b", false));
+      }
+
+      function init() {
+        state.baseUrl = els.baseUrl.value.trim().replace(/\/+$/, "");
+        setStatus("a", "Chưa đăng nhập");
+        setStatus("b", "Chưa đăng nhập");
+        wireEvents();
+      }
+
+      init();
+    </script>
+  </body>
+</html>

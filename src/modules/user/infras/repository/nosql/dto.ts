@@ -1,5 +1,5 @@
-import { Schema, model } from 'mongoose';
-import { UserStatus } from '@modules/user/model/model';
+import { Schema, model } from "mongoose";
+import { UserStatus } from "@modules/user/model/model";
 
 interface IUserDocument {
   _id: string;
@@ -39,6 +39,7 @@ interface IUserDocument {
   };
 
   lastLoginAt?: Date;
+  lastSeen?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,7 +48,7 @@ const UserSchema = new Schema<IUserDocument>(
   {
     _id: {
       type: String,
-      required: true
+      required: true,
     },
     email: {
       type: String,
@@ -55,107 +56,112 @@ const UserSchema = new Schema<IUserDocument>(
       unique: true,
       sparse: true,
       trim: true,
-      lowercase: true
+      lowercase: true,
     },
     phone: {
       type: String,
       required: false,
       unique: true,
       sparse: true,
-      trim: true
+      trim: true,
     },
     username: {
       type: String,
       required: false,
       unique: true,
       sparse: true,
-      trim: true
+      trim: true,
     },
     password: {
       type: String,
-      required: true
+      required: true,
     },
     salt: {
       type: String,
-      required: true
+      required: true,
     },
     status: {
       type: String,
       enum: Object.values(UserStatus),
       required: true,
-      default: UserStatus.ACTIVE
+      default: UserStatus.ACTIVE,
     },
     verified: {
       email: {
         type: Boolean,
         required: true,
-        default: false
+        default: false,
       },
       phone: {
         type: Boolean,
         required: true,
-        default: false
-      }
+        default: false,
+      },
     },
     displayName: {
       type: String,
-      required: false
+      required: false,
     },
     avatarUrl: {
       type: String,
-      required: false
+      required: false,
     },
     bio: {
       type: String,
-      required: false
+      required: false,
     },
     privacy: {
       searchableByEmail: {
         type: Boolean,
         required: true,
-        default: true
+        default: true,
       },
       searchableByPhone: {
         type: Boolean,
         required: true,
-        default: true
+        default: true,
       },
       searchableByUsername: {
         type: Boolean,
         required: true,
-        default: true
-      }
+        default: true,
+      },
     },
     settings: {
       notifications: {
         push: {
           type: Boolean,
           required: true,
-          default: true
+          default: true,
         },
         inApp: {
           type: Boolean,
           required: true,
-          default: true
-        }
-      }
+          default: true,
+        },
+      },
     },
     lastLoginAt: {
       type: Date,
-      required: false
-    }
+      required: false,
+    },
+    lastSeen: {
+      type: Date,
+      required: false,
+    },
   },
   {
     timestamps: true,
-    collection: 'users'
-  }
+    collection: "users",
+  },
 );
 
 // Indexes
 UserSchema.index({ email: 1 });
 UserSchema.index({ phone: 1 });
 UserSchema.index({ username: 1 });
+UserSchema.index({ lastSeen: -1 });
 
-export const UserModel = model<IUserDocument>('User', UserSchema);
+export const UserModel = model<IUserDocument>("User", UserSchema);
 
-export const modelName = 'User';
+export const modelName = "User";

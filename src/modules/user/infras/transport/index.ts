@@ -1,4 +1,4 @@
-import { IUserUseCase } from "@modules/user/interface";
+import { IPresenceUseCase, IUserUseCase } from "@modules/user/interface";
 import { jwtProvider } from "@share/component/jwt";
 import { UserRole } from "@share/interface";
 import { BaseHttpService } from "@share/transport/http-server";
@@ -13,7 +13,10 @@ export class UserHTTPService extends BaseHttpService<
   UserUpdateDTO,
   UserCondDTO
 > {
-  constructor(readonly usecase: IUserUseCase) {
+  constructor(
+    readonly usecase: IUserUseCase,
+    private readonly presenceUseCase: IPresenceUseCase,
+  ) {
     super(usecase);
   }
 
@@ -136,6 +139,33 @@ export class UserHTTPService extends BaseHttpService<
       const { token } = req.body;
       const result = await this.usecase.verifyToken(token);
       res.status(200).json({ data: result });
+    } catch (error) {
+      res.status(400).json({
+        message: (error as Error).message,
+      });
+    }
+  }
+
+  async getPresenceAPI(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        res.status(422).json({
+          message: "id is required",
+        });
+        return;
+      }
+
+      const presence = await this.presenceUseCase.getUserPresence(id as string);
+
+      res.status(200).json({
+        data: {
+          userId: id,
+          isOnline: presence.isOnline,
+          lastSeen: presence.lastSeen,
+        },
+      });
     } catch (error) {
       res.status(400).json({
         message: (error as Error).message,

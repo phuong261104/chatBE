@@ -1,14 +1,26 @@
 import { UserRole } from "@share/interface";
 import { ServiceContext } from "@share/interface/service-context";
 import { Router } from "express";
+import { Server as SocketIOServer } from "socket.io";
 import { UserHTTPService } from "./infras/transport";
+import { UserSocketService } from "./infras/transport/socket-service";
 import { UserUseCase } from "./usecase";
+import { PresenceUseCase } from "./usecase/presence-usecase";
 import { MongoUserRepository } from "./infras/repository/nosql/mongodb-repo";
+import { RedisPresenceRepository } from "./infras/repository/redis/presence-repo";
 
-export const setupUserHexagon = (sctx: ServiceContext) => {
+export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
   const repository = new MongoUserRepository();
+  const presenceRepo = new RedisPresenceRepository();
+  const presenceUseCase = new PresenceUseCase(presenceRepo);
   const useCase = new UserUseCase(repository);
-  const httpService = new UserHTTPService(useCase);
+  const httpService = new UserHTTPService(useCase, presenceUseCase);
+
+  let socketService = null;
+
+  if (io) {
+    socketService = new UserSocketService(io, presenceUseCase);
+  }
 
   const router = Router();
   const mdlFactory = sctx.mdlFactory;
@@ -38,6 +50,11 @@ export const setupUserHexagon = (sctx: ServiceContext) => {
     mdlFactory.auth,
     httpService.searchByPhoneAPI.bind(httpService),
   );
+  router.get(
+    "/users/:id/presence",
+    mdlFactory.auth,
+    httpService.getPresenceAPI.bind(httpService),
+  );
   router.get("/users/:id", httpService.getDetailAPI.bind(httpService));
   router.get("/users", httpService.listAPI.bind(httpService));
   router.patch(
@@ -56,5 +73,5 @@ export const setupUserHexagon = (sctx: ServiceContext) => {
   // RPC API (use internally)
   router.post("/rpc/introspect", httpService.introspectAPI.bind(httpService));
 
-  return router;
+  return { router, socketService };
 };

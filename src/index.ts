@@ -84,9 +84,10 @@ config();
 
   app.use("/v1", responseFormatMiddleware);
 
-  const userRouter = setupUserHexagon(sctx);
-  const mediaRouter = setupMediaHexagon(sctx);
   const io = createSocketIOServer(httpServer);
+  const { router: userRouter, socketService: userSocketService } =
+    setupUserHexagon(sctx, io);
+  const mediaRouter = setupMediaHexagon(sctx);
   const { router: messagingRouter, socketService: messagingSocketService } =
     setupMessagingHexagon(io, sctx);
   const blockRouter = setupBlockHexagon(sctx);

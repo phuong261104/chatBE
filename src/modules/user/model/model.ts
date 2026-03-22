@@ -54,6 +54,7 @@ export const UserSchema = z.object({
   settings: UserSettingsSchema,
 
   lastLoginAt: z.date().optional(),
+  lastSeen: z.date().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

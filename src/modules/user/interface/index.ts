@@ -16,3 +16,26 @@ export interface IUserUseCase extends IUseCase<
   profile(userId: string): Promise<User>;
   verifyToken(token: string): Promise<TokenPayload>;
 }
+
+export interface IPresenceRepository {
+  setOnline(userId: string, ttlSeconds: number): Promise<void>;
+  setOffline(userId: string): Promise<void>;
+  updateLastSeen(userId: string, timestamp: number): Promise<void>;
+  isOnline(userId: string): Promise<boolean>;
+  getLastSeen(userId: string): Promise<number | null>;
+}
+
+export interface UserPresenceState {
+  isOnline: boolean;
+  lastSeen: number | null;
+}
+
+export interface IPresenceUseCase {
+  markUserOnline(userId: string): Promise<void>;
+  markUserOffline(userId: string): Promise<void>;
+  getUserPresence(userId: string): Promise<UserPresenceState>;
+}
+
+export interface IUserLastSeenSyncPort {
+  syncLastSeenToDB(userId: string, timestamp: number): Promise<boolean>;
+}
