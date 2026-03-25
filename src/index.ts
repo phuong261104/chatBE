@@ -17,6 +17,8 @@ import { setupMessagingHexagon } from "@modules/chat";
 import { setupBlockHexagon } from "@modules/blocks";
 import { setupFriendRequestHexagon } from "@modules/friend-requests";
 import { setupFriendshipHexagon } from "@modules/friendships";
+import { setupMyCloudHexagon } from "@modules/my-cloud";
+import { setupSearchHexagon } from "@modules/search";
 import path from "path";
 import YAML from "yamljs";
 import swaggerUi from "swagger-ui-express";
@@ -103,6 +105,11 @@ config();
   app.use("/v1", blockRouter);
   app.use("/v1", friendRequestRouter);
   app.use("/v1", friendshipRouter);
+
+  const myCloudRouter = setupMyCloudHexagon(sctx);
+  const searchRouter = setupSearchHexagon(sctx);
+  app.use("/v1", myCloudRouter);
+  app.use("/v1", searchRouter);
 
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     responseErr(err, res);
