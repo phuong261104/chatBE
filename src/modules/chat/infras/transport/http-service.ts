@@ -16,6 +16,10 @@ import {
   revokeMessageDTOSchema,
   deleteMessageForMeDTOSchema,
   forwardMessagesDTOSchema,
+  muteConversationDTOSchema,
+  pinConversationDTOSchema,
+  archiveConversationDTOSchema,
+  editMessageDTOSchema,
 } from "../../model/dto";
 import { z } from "zod";
 import { ConversationType } from "../../model/model";
@@ -859,6 +863,291 @@ export class MessagingHttpService {
       res.status(statusCode).json({
         error: err.message,
       });
+    }
+  }
+
+  async muteConversationAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+      const { muteUntil, duration } = req.body;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = muteConversationDTOSchema.parse({
+        conversationId,
+        userId: currentUserId,
+        muteUntil,
+        duration,
+      });
+
+      await this.useCase.muteConversation(
+        validatedData.conversationId,
+        validatedData.userId,
+        validatedData.muteUntil,
+        validatedData.duration,
+      );
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async unmuteConversationAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      await this.useCase.unmuteConversation(conversationId, currentUserId);
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async pinConversationAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = pinConversationDTOSchema.parse({
+        conversationId,
+        userId: currentUserId,
+      });
+
+      await this.useCase.pinConversation(
+        validatedData.conversationId,
+        validatedData.userId,
+      );
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async unpinConversationAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = pinConversationDTOSchema.parse({
+        conversationId,
+        userId: currentUserId,
+      });
+
+      await this.useCase.unpinConversation(
+        validatedData.conversationId,
+        validatedData.userId,
+      );
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async archiveConversationAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = archiveConversationDTOSchema.parse({
+        conversationId,
+        userId: currentUserId,
+      });
+
+      await this.useCase.archiveConversation(
+        validatedData.conversationId,
+        validatedData.userId,
+      );
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async unarchiveConversationAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = archiveConversationDTOSchema.parse({
+        conversationId,
+        userId: currentUserId,
+      });
+
+      await this.useCase.unarchiveConversation(
+        validatedData.conversationId,
+        validatedData.userId,
+      );
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async editMessageAPI(req: Request, res: Response) {
+    try {
+      const messageId = Array.isArray(req.params.messageId)
+        ? req.params.messageId[0]
+        : req.params.messageId;
+      const { text } = req.body;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = editMessageDTOSchema.parse({
+        messageId,
+        userId: currentUserId,
+        text,
+      });
+
+      const message = await this.useCase.editMessage(
+        validatedData.messageId,
+        validatedData.userId,
+        validatedData.text,
+      );
+
+      if (this.socketService) {
+        const memberUserIds = await this.useCase.getConversationMembers(
+          message.conversationId,
+        );
+
+        for (const memberId of memberUserIds) {
+          this.socketService.emitToUser(memberId, "messageEdited", {
+            conversationId: message.conversationId,
+            message,
+          });
+        }
+      }
+
+      res.status(200).json({ data: message });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
     }
   }
 }

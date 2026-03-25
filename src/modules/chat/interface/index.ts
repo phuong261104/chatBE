@@ -188,4 +188,23 @@ export interface IMessagingUseCase {
     messageIds: string[],
     targetConversationIds: string[],
   ): Promise<Message[]>;
+
+  muteConversation(
+    conversationId: string,
+    userId: string,
+    muteUntil?: string,
+    duration?: number,
+  ): Promise<void>;
+
+  unmuteConversation(conversationId: string, userId: string): Promise<void>;
+
+  pinConversation(conversationId: string, userId: string): Promise<void>;
+
+  unpinConversation(conversationId: string, userId: string): Promise<void>;
+
+  archiveConversation(conversationId: string, userId: string): Promise<void>;
+
+  unarchiveConversation(conversationId: string, userId: string): Promise<void>;
+
+  editMessage(messageId: string, userId: string, text: string): Promise<Message>;
 }

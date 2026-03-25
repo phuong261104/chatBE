@@ -46,3 +46,12 @@ export const ErrInvalidConversationId = new Error('Invalid conversation ID');
 export const ErrInvalidMemberIds = new Error('Invalid member IDs');
 export const ErrGroupNameRequired = new Error('Group name is required');
 export const ErrGroupNameTooLong = new Error('Group name is too long');
+
+export const ErrConversationAlreadyMuted = new Error('Conversation is already muted');
+export const ErrConversationNotMuted = new Error('Conversation is not muted');
+export const ErrConversationAlreadyPinned = new Error('Conversation is already pinned');
+export const ErrConversationNotPinned = new Error('Conversation is not pinned');
+export const ErrConversationAlreadyArchived = new Error('Conversation is already archived');
+export const ErrConversationNotArchived = new Error('Conversation is not archived');
+export const ErrMessageCannotEdit = new Error('Only text messages can be edited');
+export const ErrMessageEditTimeExpired = new Error('Message edit time limit exceeded (15 minutes)');

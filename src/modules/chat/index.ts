@@ -49,6 +49,13 @@ import {
   RevokeMessageHandler,
   DeleteMessageForMeHandler,
   ForwardMessagesHandler,
+  MuteConversationHandler,
+  UnmuteConversationHandler,
+  PinConversationHandler,
+  UnpinConversationHandler,
+  ArchiveConversationHandler,
+  UnarchiveConversationHandler,
+  EditMessageHandler,
   MessagingUseCaseFacade,
 } from "./usecase";
 
@@ -189,6 +196,42 @@ export const setupMessagingHexagon = (
     messageRepo,
   );
 
+  const muteConversationHandler = new MuteConversationHandler(
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
+  const unmuteConversationHandler = new UnmuteConversationHandler(
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
+  const pinConversationHandler = new PinConversationHandler(
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
+  const unpinConversationHandler = new UnpinConversationHandler(
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
+  const archiveConversationHandler = new ArchiveConversationHandler(
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
+  const unarchiveConversationHandler = new UnarchiveConversationHandler(
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
+  const editMessageHandler = new EditMessageHandler(
+    messageRepo,
+    messageRepo,
+    conversationMemberRepo,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -209,6 +252,13 @@ export const setupMessagingHexagon = (
     revokeMessageHandler,
     deleteMessageForMeHandler,
     forwardMessagesHandler,
+    muteConversationHandler,
+    unmuteConversationHandler,
+    pinConversationHandler,
+    unpinConversationHandler,
+    archiveConversationHandler,
+    unarchiveConversationHandler,
+    editMessageHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -308,6 +358,45 @@ export const setupMessagingHexagon = (
     "/groups/:groupId/members",
     mdlFactory.auth,
     httpService.getGroupMembersAPI.bind(httpService),
+  );
+
+  router.post(
+    "/conversations/:conversationId/mute",
+    mdlFactory.auth,
+    httpService.muteConversationAPI.bind(httpService),
+  );
+  router.delete(
+    "/conversations/:conversationId/mute",
+    mdlFactory.auth,
+    httpService.unmuteConversationAPI.bind(httpService),
+  );
+
+  router.post(
+    "/conversations/:conversationId/pin-conversation",
+    mdlFactory.auth,
+    httpService.pinConversationAPI.bind(httpService),
+  );
+  router.delete(
+    "/conversations/:conversationId/pin-conversation",
+    mdlFactory.auth,
+    httpService.unpinConversationAPI.bind(httpService),
+  );
+
+  router.post(
+    "/conversations/:conversationId/archive",
+    mdlFactory.auth,
+    httpService.archiveConversationAPI.bind(httpService),
+  );
+  router.delete(
+    "/conversations/:conversationId/archive",
+    mdlFactory.auth,
+    httpService.unarchiveConversationAPI.bind(httpService),
+  );
+
+  router.put(
+    "/messages/:messageId",
+    mdlFactory.auth,
+    httpService.editMessageAPI.bind(httpService),
   );
 
   return {

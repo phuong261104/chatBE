@@ -31,6 +31,10 @@ import { GetGroupMembersQueryHandler } from "./get-group-members";
 import { RevokeMessageHandler } from "./revoke-message";
 import { DeleteMessageForMeHandler } from "./delete-message-for-me";
 import { ForwardMessagesHandler } from "./forward-messages";
+import { MuteConversationHandler, UnmuteConversationHandler } from "./mute-conversation";
+import { PinConversationHandler, UnpinConversationHandler } from "./pin-conversation";
+import { ArchiveConversationHandler, UnarchiveConversationHandler } from "./archive-conversation";
+import { EditMessageHandler } from "./edit-message";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -53,6 +57,13 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly revokeMessageHandler: RevokeMessageHandler,
     private readonly deleteMessageForMeHandler: DeleteMessageForMeHandler,
     private readonly forwardMessagesHandler: ForwardMessagesHandler,
+    private readonly muteConversationHandler: MuteConversationHandler,
+    private readonly unmuteConversationHandler: UnmuteConversationHandler,
+    private readonly pinConversationHandler: PinConversationHandler,
+    private readonly unpinConversationHandler: UnpinConversationHandler,
+    private readonly archiveConversationHandler: ArchiveConversationHandler,
+    private readonly unarchiveConversationHandler: UnarchiveConversationHandler,
+    private readonly editMessageHandler: EditMessageHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -249,5 +260,38 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       messageIds,
       targetConversationIds,
     });
+  }
+
+  async muteConversation(
+    conversationId: string,
+    userId: string,
+    muteUntil?: string,
+    duration?: number,
+  ): Promise<void> {
+    return this.muteConversationHandler.execute({ conversationId, userId, muteUntil, duration });
+  }
+
+  async unmuteConversation(conversationId: string, userId: string): Promise<void> {
+    return this.unmuteConversationHandler.execute({ conversationId, userId });
+  }
+
+  async pinConversation(conversationId: string, userId: string): Promise<void> {
+    return this.pinConversationHandler.execute({ conversationId, userId });
+  }
+
+  async unpinConversation(conversationId: string, userId: string): Promise<void> {
+    return this.unpinConversationHandler.execute({ conversationId, userId });
+  }
+
+  async archiveConversation(conversationId: string, userId: string): Promise<void> {
+    return this.archiveConversationHandler.execute({ conversationId, userId });
+  }
+
+  async unarchiveConversation(conversationId: string, userId: string): Promise<void> {
+    return this.unarchiveConversationHandler.execute({ conversationId, userId });
+  }
+
+  async editMessage(messageId: string, userId: string, text: string): Promise<Message> {
+    return this.editMessageHandler.execute({ messageId, userId, text });
   }
 }

@@ -365,3 +365,72 @@ export interface GetGroupMembersQuery {
   conversationId: string;
   userId: string;
 }
+
+export const muteConversationDTOSchema = z.object({
+  conversationId: z.string().uuid("Invalid conversation ID"),
+  userId: z.string().uuid("Invalid user ID"),
+  muteUntil: z.string().datetime().optional(),
+  duration: z.number().positive().optional(),
+});
+
+export type MuteConversationDTO = z.infer<typeof muteConversationDTOSchema>;
+
+export const pinConversationDTOSchema = z.object({
+  conversationId: z.string().uuid("Invalid conversation ID"),
+  userId: z.string().uuid("Invalid user ID"),
+});
+
+export type PinConversationDTO = z.infer<typeof pinConversationDTOSchema>;
+
+export const archiveConversationDTOSchema = z.object({
+  conversationId: z.string().uuid("Invalid conversation ID"),
+  userId: z.string().uuid("Invalid user ID"),
+});
+
+export type ArchiveConversationDTO = z.infer<typeof archiveConversationDTOSchema>;
+
+export const editMessageDTOSchema = z.object({
+  messageId: z.string().uuid("Invalid message ID"),
+  userId: z.string().uuid("Invalid user ID"),
+  text: z.string().min(1, "Text is required").max(5000, "Message is too long"),
+});
+
+export type EditMessageDTO = z.infer<typeof editMessageDTOSchema>;
+
+export interface MuteConversationCommand {
+  conversationId: string;
+  userId: string;
+  muteUntil?: string;
+  duration?: number;
+}
+
+export interface UnmuteConversationCommand {
+  conversationId: string;
+  userId: string;
+}
+
+export interface PinConversationCommand {
+  conversationId: string;
+  userId: string;
+}
+
+export interface UnpinConversationCommand {
+  conversationId: string;
+  userId: string;
+}
+
+export interface ArchiveConversationCommand {
+  conversationId: string;
+  userId: string;
+}
+
+export interface UnarchiveConversationCommand {
+  conversationId: string;
+  userId: string;
+}
+
+export interface EditMessageCommand {
+  messageId: string;
+  userId: string;
+  text: string;
+}

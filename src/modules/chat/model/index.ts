@@ -63,6 +63,14 @@ export {
   ForwardMessagesDTO,
   UserCondDTOSchema,
   UserCondDTO,
+  muteConversationDTOSchema,
+  MuteConversationDTO,
+  pinConversationDTOSchema,
+  PinConversationDTO,
+  archiveConversationDTOSchema,
+  ArchiveConversationDTO,
+  editMessageDTOSchema,
+  EditMessageDTO,
 } from "./dto";
 
 export {
@@ -109,4 +117,12 @@ export {
   ErrInvalidMemberIds,
   ErrGroupNameRequired,
   ErrGroupNameTooLong,
+  ErrConversationAlreadyMuted,
+  ErrConversationNotMuted,
+  ErrConversationAlreadyPinned,
+  ErrConversationNotPinned,
+  ErrConversationAlreadyArchived,
+  ErrConversationNotArchived,
+  ErrMessageCannotEdit,
+  ErrMessageEditTimeExpired,
 } from "./errors";

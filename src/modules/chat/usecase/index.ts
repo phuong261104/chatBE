@@ -18,5 +18,9 @@ export { GetGroupMembersQueryHandler } from "./get-group-members";
 export { RevokeMessageHandler } from "./revoke-message";
 export { DeleteMessageForMeHandler } from "./delete-message-for-me";
 export { ForwardMessagesHandler } from "./forward-messages";
+export { MuteConversationHandler, UnmuteConversationHandler } from "./mute-conversation";
+export { PinConversationHandler, UnpinConversationHandler } from "./pin-conversation";
+export { ArchiveConversationHandler, UnarchiveConversationHandler } from "./archive-conversation";
+export { EditMessageHandler } from "./edit-message";
 
 export { MessagingUseCaseFacade } from "./messaging-usecase-facade";
