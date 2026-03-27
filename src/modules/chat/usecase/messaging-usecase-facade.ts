@@ -5,11 +5,13 @@ import {
   ConversationMemberRole,
   Message,
   MediaAttachment,
+  MessageReaction,
 } from "../model/model";
 import {
   ConversationWithMetadata,
   ConversationDetail,
   LoadMessagesResult,
+  ReactionResult,
 } from "../model/dto";
 
 import { GetOrCreatePrivateConversationHandler } from "./get-or-create-private-conversation";
@@ -38,6 +40,8 @@ import { EditMessageHandler } from "./edit-message";
 import { PinMessageHandler } from "./pin-message";
 import { UnpinMessageHandler } from "./unpin-message";
 import { GetPinnedMessagesHandler } from "./get-pinned-messages";
+import { AddReactionHandler, RemoveReactionHandler, RemoveAllReactionsHandler, GetReactionsHandler } from "./add-reaction";
+import { QuoteMessageHandler } from "./quote-message";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -70,6 +74,11 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly pinMessageHandler: PinMessageHandler,
     private readonly unpinMessageHandler: UnpinMessageHandler,
     private readonly getPinnedMessagesHandler: GetPinnedMessagesHandler,
+    private readonly addReactionHandler: AddReactionHandler,
+    private readonly removeReactionHandler: RemoveReactionHandler,
+    private readonly removeAllReactionsHandler: RemoveAllReactionsHandler,
+    private readonly getReactionsHandler: GetReactionsHandler,
+    private readonly quoteMessageHandler: QuoteMessageHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -311,5 +320,37 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
 
   async getPinnedMessages(conversationId: string, userId: string): Promise<Message[]> {
     return this.getPinnedMessagesHandler.query({ conversationId, userId });
+  }
+
+  async addReaction(messageId: string, userId: string, emoji: string): Promise<MessageReaction> {
+    return this.addReactionHandler.execute({ messageId, userId, emoji });
+  }
+
+  async removeReaction(messageId: string, userId: string, emoji?: string): Promise<number> {
+    return this.removeReactionHandler.execute(messageId, userId, emoji);
+  }
+
+  async removeAllReactions(messageId: string, userId: string): Promise<number> {
+    return this.removeAllReactionsHandler.execute(messageId, userId);
+  }
+
+  async getReactions(messageId: string): Promise<ReactionResult> {
+    return this.getReactionsHandler.execute(messageId);
+  }
+
+  async quoteMessage(
+    conversationId: string,
+    senderId: string,
+    text: string | undefined,
+    media: MediaAttachment[] | undefined,
+    quotedMessageId: string,
+  ): Promise<Message> {
+    return this.quoteMessageHandler.execute({
+      conversationId,
+      senderId,
+      text,
+      media,
+      quotedMessageId,
+    });
   }
 }

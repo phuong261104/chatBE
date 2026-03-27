@@ -9,6 +9,8 @@ import {
   ConversationMember,
   Message,
   MediaAttachmentSchema,
+  MessageReactionSchema,
+  MessageReaction,
 } from "./model";
 
 export const ConversationCondDTOSchema = z.object({
@@ -471,4 +473,74 @@ export interface UnpinMessageCommand {
 export interface GetPinnedMessagesQuery {
   conversationId: string;
   userId: string;
+}
+
+export const addReactionDTOSchema = z.object({
+  messageId: z.string().uuid("Invalid message ID"),
+  userId: z.string().uuid("Invalid user ID"),
+  emoji: z.string().min(1, "Emoji is required").max(10, "Emoji is too long"),
+});
+
+export type AddReactionDTO = z.infer<typeof addReactionDTOSchema>;
+
+export const removeReactionDTOSchema = z.object({
+  messageId: z.string().uuid("Invalid message ID"),
+  userId: z.string().uuid("Invalid user ID"),
+});
+
+export type RemoveReactionDTO = z.infer<typeof removeReactionDTOSchema>;
+
+export const removeAllReactionsDTOSchema = z.object({
+  messageId: z.string().uuid("Invalid message ID"),
+  userId: z.string().uuid("Invalid user ID"),
+});
+
+export type RemoveAllReactionsDTO = z.infer<typeof removeAllReactionsDTOSchema>;
+
+export const getReactionsDTOSchema = z.object({
+  messageId: z.string().uuid("Invalid message ID"),
+});
+
+export type GetReactionsDTO = z.infer<typeof getReactionsDTOSchema>;
+
+export interface AddReactionCommand {
+  messageId: string;
+  userId: string;
+  emoji: string;
+}
+
+export interface RemoveReactionCommand {
+  messageId: string;
+  userId: string;
+}
+
+export interface GetReactionsQuery {
+  messageId: string;
+}
+
+export interface ReactionResult {
+  reactions: MessageReaction[];
+  grouped: Record<string, number>;
+}
+
+export const quoteMessageDTOSchema = z
+  .object({
+    conversationId: z.string().uuid("Invalid conversation ID"),
+    senderId: z.string().uuid("Invalid sender ID"),
+    text: z.string().max(5000, "Message is too long").optional(),
+    media: z.array(MediaAttachmentSchema).optional(),
+    quotedMessageId: z.string().uuid("Invalid quoted message ID"),
+  })
+  .refine((data) => data.text || (data.media && data.media.length > 0), {
+    message: "Either text or media is required",
+  });
+
+export type QuoteMessageDTO = z.infer<typeof quoteMessageDTOSchema>;
+
+export interface QuoteMessageCommand {
+  conversationId: string;
+  senderId: string;
+  text?: string;
+  media?: MediaAttachment[];
+  quotedMessageId: string;
 }

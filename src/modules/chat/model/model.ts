@@ -97,6 +97,17 @@ export const MessageMediaSchema = z.object({
 
 export type MessageMedia = z.infer<typeof MessageMediaSchema>;
 
+export const MessageReactionSchema = z.object({
+  id: z.string(),
+  messageId: z.string(),
+  userId: z.string(),
+  emoji: z.string(),
+  count: z.number().default(1),
+  createdAt: z.date(),
+});
+
+export type MessageReaction = z.infer<typeof MessageReactionSchema>;
+
 export const MessageSchema = z.object({
   id: z.string(),
   conversationId: z.string(),
@@ -105,6 +116,8 @@ export const MessageSchema = z.object({
   text: z.string().optional(),
   media: z.array(MessageMediaSchema).optional(),
   deletedForUserIds: z.array(z.string()).optional(),
+  quotedMessageId: z.string().optional(),
+  quotedMessagePreview: z.string().optional(),
   createdAt: z.date(),
   editedAt: z.date().optional(),
   deletedAt: z.date().optional(),

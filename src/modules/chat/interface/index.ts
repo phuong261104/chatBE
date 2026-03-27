@@ -5,6 +5,7 @@ import {
   Message,
   UserInfo,
   MediaAttachment,
+  MessageReaction,
 } from "../model/model";
 import {
   ConversationCondDTO,
@@ -72,6 +73,22 @@ export interface IMessageCommandRepository {
   insert(message: Message): Promise<boolean>;
   update(id: string, data: MessageUpdateDTO): Promise<boolean>;
   delete(id: string, isHard: boolean): Promise<boolean>;
+}
+
+export interface IMessageReactionQueryRepository {
+  get(id: string): Promise<MessageReaction | null>;
+  findByMessageId(messageId: string): Promise<MessageReaction[]>;
+  findByUserAndMessage(messageId: string, userId: string): Promise<MessageReaction[]>;
+  findByUserMessageEmoji(messageId: string, userId: string, emoji: string): Promise<MessageReaction | null>;
+  getReactionSummary(messageId: string): Promise<Record<string, number>>;
+}
+
+export interface IMessageReactionCommandRepository {
+  upsertReaction(reaction: MessageReaction): Promise<MessageReaction>;
+  decrementReaction(messageId: string, userId: string, emoji: string): Promise<boolean>;
+  decrementAllByUserAndMessage(messageId: string, userId: string): Promise<number>;
+  deleteAllByUserAndMessage(messageId: string, userId: string): Promise<number>;
+  deleteByMessageId(messageId: string): Promise<void>;
 }
 
 export interface CreateGroupData {
@@ -215,4 +232,23 @@ export interface IMessagingUseCase {
   unpinMessage(messageId: string, userId: string): Promise<Message>;
 
   getPinnedMessages(conversationId: string, userId: string): Promise<Message[]>;
+
+  addReaction(messageId: string, userId: string, emoji: string): Promise<MessageReaction>;
+
+  removeReaction(messageId: string, userId: string, emoji?: string): Promise<number>;
+
+  removeAllReactions(messageId: string, userId: string): Promise<number>;
+
+  getReactions(messageId: string): Promise<{
+    reactions: MessageReaction[];
+    grouped: Record<string, number>;
+  }>;
+
+  quoteMessage(
+    conversationId: string,
+    senderId: string,
+    text: string | undefined,
+    media: MediaAttachment[] | undefined,
+    quotedMessageId: string,
+  ): Promise<Message>;
 }

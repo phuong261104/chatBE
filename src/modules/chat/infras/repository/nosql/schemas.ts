@@ -244,6 +244,8 @@ interface IMessageDocument {
     height?: number;
   }>;
   deletedForUserIds?: string[];
+  quotedMessageId?: string;
+  quotedMessagePreview?: string;
   createdAt: Date;
   editedAt?: Date;
   deletedAt?: Date;
@@ -310,6 +312,14 @@ const MessageSchema = new Schema<IMessageDocument>(
       required: false,
       default: [],
     },
+    quotedMessageId: {
+      type: String,
+      required: false,
+    },
+    quotedMessagePreview: {
+      type: String,
+      required: false,
+    },
     editedAt: {
       type: Date,
       required: false,
@@ -339,5 +349,64 @@ MessageSchema.index({ conversationId: 1, deletedAt: 1, createdAt: -1 });
 MessageSchema.index({ conversationId: 1, deletedForUserIds: 1, createdAt: -1 });
 MessageSchema.index({ conversationId: 1, pinned: 1, pinnedAt: -1 });
 MessageSchema.index({ senderId: 1, createdAt: -1 });
+MessageSchema.index({ quotedMessageId: 1 });
 
 export const MessageModel = model<IMessageDocument>("Message", MessageSchema);
+
+interface IMessageReactionDocument {
+  _id: string;
+  messageId: string;
+  userId: string;
+  emoji: string;
+  count: number;
+  createdAt: Date;
+}
+
+const MessageReactionSchema = new Schema<IMessageReactionDocument>(
+  {
+    _id: {
+      type: String,
+      required: true,
+    },
+    messageId: {
+      type: String,
+      required: true,
+      ref: "Message",
+    },
+    userId: {
+      type: String,
+      required: true,
+      ref: "User",
+    },
+    emoji: {
+      type: String,
+      required: true,
+    },
+    count: {
+      type: Number,
+      required: true,
+      default: 1,
+    },
+    createdAt: {
+      type: Date,
+      required: true,
+      default: Date.now,
+    },
+  },
+  {
+    timestamps: false,
+    collection: "message_reactions",
+  },
+);
+
+MessageReactionSchema.index(
+  { messageId: 1, userId: 1, emoji: 1 },
+  { unique: true },
+);
+MessageReactionSchema.index({ messageId: 1, createdAt: -1 });
+MessageReactionSchema.index({ userId: 1 });
+
+export const MessageReactionModel = model<IMessageReactionDocument>(
+  "MessageReaction",
+  MessageReactionSchema,
+);

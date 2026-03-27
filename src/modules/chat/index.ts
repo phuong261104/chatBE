@@ -23,6 +23,8 @@ import {
   MongoConversationRepository,
   MongoConversationMemberRepository,
   MongoMessageRepository,
+  MongoMessageReactionQueryRepository,
+  MongoMessageReactionCommandRepository,
   UserRepositoryAdapter,
   MessagingHttpService,
   MessagingSocketService,
@@ -60,6 +62,11 @@ import {
   UnpinMessageHandler,
   GetPinnedMessagesHandler,
   MessagingUseCaseFacade,
+  AddReactionHandler,
+  RemoveReactionHandler,
+  RemoveAllReactionsHandler,
+  GetReactionsHandler,
+  QuoteMessageHandler,
 } from "./usecase";
 
 export const setupMessagingHexagon = (
@@ -71,6 +78,8 @@ export const setupMessagingHexagon = (
   const conversationRepo = new MongoConversationRepository();
   const conversationMemberRepo = new MongoConversationMemberRepository();
   const messageRepo = new MongoMessageRepository();
+  const reactionQueryRepo = new MongoMessageReactionQueryRepository();
+  const reactionCmdRepo = new MongoMessageReactionCommandRepository();
 
   const userRepo = new MongoUserRepository();
   const userUseCase = new UserUseCase(userRepo);
@@ -252,6 +261,35 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
   );
 
+  const addReactionHandler = new AddReactionHandler(
+    messageRepo,
+    reactionQueryRepo,
+    reactionCmdRepo,
+    conversationMemberRepo,
+  );
+
+  const removeReactionHandler = new RemoveReactionHandler(
+    messageRepo,
+    reactionCmdRepo,
+  );
+
+  const removeAllReactionsHandler = new RemoveAllReactionsHandler(
+    messageRepo,
+    reactionCmdRepo,
+  );
+
+  const getReactionsHandler = new GetReactionsHandler(
+    messageRepo,
+    reactionQueryRepo,
+  );
+
+  const quoteMessageHandler = new QuoteMessageHandler(
+    messageRepo,
+    messageRepo,
+    conversationMemberRepo,
+    conversationRepo,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -282,6 +320,11 @@ export const setupMessagingHexagon = (
     pinMessageHandler,
     unpinMessageHandler,
     getPinnedMessagesHandler,
+    addReactionHandler,
+    removeReactionHandler,
+    removeAllReactionsHandler,
+    getReactionsHandler,
+    quoteMessageHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -440,6 +483,36 @@ export const setupMessagingHexagon = (
     httpService.getPinnedMessagesAPI.bind(httpService),
   );
 
+  router.post(
+    "/messages/:messageId/react",
+    mdlFactory.auth,
+    httpService.addReactionAPI.bind(httpService),
+  );
+
+  router.delete(
+    "/messages/:messageId/react",
+    mdlFactory.auth,
+    httpService.removeReactionAPI.bind(httpService),
+  );
+
+  router.delete(
+    "/messages/:messageId/reactions",
+    mdlFactory.auth,
+    httpService.removeAllReactionsAPI.bind(httpService),
+  );
+
+  router.get(
+    "/messages/:messageId/reactions",
+    mdlFactory.auth,
+    httpService.getReactionsAPI.bind(httpService),
+  );
+
+  router.post(
+    "/messages/:messageId/quote",
+    mdlFactory.auth,
+    httpService.quoteMessageAPI.bind(httpService),
+  );
+
   return {
     router,
     socketService,
@@ -460,7 +533,10 @@ export {
   MongoConversationRepository,
   MongoConversationMemberRepository,
   MongoMessageRepository,
+  MongoMessageReactionQueryRepository,
+  MongoMessageReactionCommandRepository,
   ConversationModel,
   ConversationMemberModel,
   MessageModel,
+  MessageReactionModel,
 } from "./infras";

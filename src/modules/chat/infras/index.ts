@@ -8,9 +8,13 @@ export {
   MongoMessageRepository,
   MongoMessageQueryRepository,
   MongoMessageCommandRepository,
+  MongoMessageReactionRepository,
+  MongoMessageReactionQueryRepository,
+  MongoMessageReactionCommandRepository,
   ConversationModel,
   ConversationMemberModel,
   MessageModel,
+  MessageReactionModel,
   UserRepositoryAdapter
 } from './repository';
 

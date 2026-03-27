@@ -25,5 +25,7 @@ export { EditMessageHandler } from "./edit-message";
 export { PinMessageHandler } from "./pin-message";
 export { UnpinMessageHandler } from "./unpin-message";
 export { GetPinnedMessagesHandler } from "./get-pinned-messages";
+export { AddReactionHandler, RemoveReactionHandler, RemoveAllReactionsHandler, GetReactionsHandler } from "./add-reaction";
+export { QuoteMessageHandler } from "./quote-message";
 
 export { MessagingUseCaseFacade } from "./messaging-usecase-facade";
