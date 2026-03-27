@@ -118,7 +118,8 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
       senderId: command.creatorId,
       type: MessageType.SYSTEM,
       text: systemMessageText,
-      createdAt: now
+      createdAt: now,
+      pinned: false,
     };
     await this.messageCommandRepo.insert(systemMessage);
 

@@ -64,6 +64,8 @@ export interface IMessageQueryRepository {
     limit: number,
     viewerUserId?: string,
   ): Promise<Message[]>;
+
+  findPinnedMessages(conversationId: string): Promise<Message[]>;
 }
 
 export interface IMessageCommandRepository {
@@ -207,4 +209,10 @@ export interface IMessagingUseCase {
   unarchiveConversation(conversationId: string, userId: string): Promise<void>;
 
   editMessage(messageId: string, userId: string, text: string): Promise<Message>;
+
+  pinMessage(messageId: string, userId: string): Promise<Message>;
+
+  unpinMessage(messageId: string, userId: string): Promise<Message>;
+
+  getPinnedMessages(conversationId: string, userId: string): Promise<Message[]>;
 }

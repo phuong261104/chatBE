@@ -247,6 +247,8 @@ interface IMessageDocument {
   createdAt: Date;
   editedAt?: Date;
   deletedAt?: Date;
+  pinned: boolean;
+  pinnedAt?: Date;
 }
 
 const MessageSchema = new Schema<IMessageDocument>(
@@ -316,6 +318,15 @@ const MessageSchema = new Schema<IMessageDocument>(
       type: Date,
       required: false,
     },
+    pinned: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+    pinnedAt: {
+      type: Date,
+      required: false,
+    },
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
@@ -326,6 +337,7 @@ const MessageSchema = new Schema<IMessageDocument>(
 MessageSchema.index({ conversationId: 1, createdAt: -1 });
 MessageSchema.index({ conversationId: 1, deletedAt: 1, createdAt: -1 });
 MessageSchema.index({ conversationId: 1, deletedForUserIds: 1, createdAt: -1 });
+MessageSchema.index({ conversationId: 1, pinned: 1, pinnedAt: -1 });
 MessageSchema.index({ senderId: 1, createdAt: -1 });
 
 export const MessageModel = model<IMessageDocument>("Message", MessageSchema);

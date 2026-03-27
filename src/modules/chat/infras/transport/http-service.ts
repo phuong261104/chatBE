@@ -20,6 +20,9 @@ import {
   pinConversationDTOSchema,
   archiveConversationDTOSchema,
   editMessageDTOSchema,
+  pinMessageDTOSchema,
+  unpinMessageDTOSchema,
+  getPinnedMessagesDTOSchema,
 } from "../../model/dto";
 import { z } from "zod";
 import { ConversationType } from "../../model/model";
@@ -1136,6 +1139,152 @@ export class MessagingHttpService {
       }
 
       res.status(200).json({ data: message });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async pinMessageAPI(req: Request, res: Response) {
+    try {
+      const messageId = Array.isArray(req.params.messageId)
+        ? req.params.messageId[0]
+        : req.params.messageId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = pinMessageDTOSchema.parse({
+        messageId,
+        userId: currentUserId,
+      });
+
+      const message = await this.useCase.pinMessage(
+        validatedData.messageId,
+        validatedData.userId,
+      );
+
+      if (this.socketService) {
+        const memberUserIds = await this.useCase.getConversationMembers(
+          message.conversationId,
+        );
+
+        for (const memberId of memberUserIds) {
+          this.socketService.emitToUser(memberId, "messagePinned", {
+            conversationId: message.conversationId,
+            message,
+          });
+        }
+      }
+
+      res.status(200).json({ data: message });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async unpinMessageAPI(req: Request, res: Response) {
+    try {
+      const messageId = Array.isArray(req.params.messageId)
+        ? req.params.messageId[0]
+        : req.params.messageId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = unpinMessageDTOSchema.parse({
+        messageId,
+        userId: currentUserId,
+      });
+
+      const message = await this.useCase.unpinMessage(
+        validatedData.messageId,
+        validatedData.userId,
+      );
+
+      if (this.socketService) {
+        const memberUserIds = await this.useCase.getConversationMembers(
+          message.conversationId,
+        );
+
+        for (const memberId of memberUserIds) {
+          this.socketService.emitToUser(memberId, "messageUnpinned", {
+            conversationId: message.conversationId,
+            message,
+          });
+        }
+      }
+
+      res.status(200).json({ data: message });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async getPinnedMessagesAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = getPinnedMessagesDTOSchema.parse({
+        conversationId,
+        userId: currentUserId,
+      });
+
+      const messages = await this.useCase.getPinnedMessages(
+        validatedData.conversationId,
+        validatedData.userId,
+      );
+
+      res.status(200).json({ data: messages });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(422).json({

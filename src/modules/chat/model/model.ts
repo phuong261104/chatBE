@@ -108,6 +108,8 @@ export const MessageSchema = z.object({
   createdAt: z.date(),
   editedAt: z.date().optional(),
   deletedAt: z.date().optional(),
+  pinned: z.boolean().default(false),
+  pinnedAt: z.date().optional(),
 });
 
 export type Message = z.infer<typeof MessageSchema>;

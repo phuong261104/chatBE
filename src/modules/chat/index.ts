@@ -56,6 +56,9 @@ import {
   ArchiveConversationHandler,
   UnarchiveConversationHandler,
   EditMessageHandler,
+  PinMessageHandler,
+  UnpinMessageHandler,
+  GetPinnedMessagesHandler,
   MessagingUseCaseFacade,
 } from "./usecase";
 
@@ -232,6 +235,23 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
   );
 
+  const pinMessageHandler = new PinMessageHandler(
+    messageRepo,
+    messageRepo,
+    conversationMemberRepo,
+  );
+
+  const unpinMessageHandler = new UnpinMessageHandler(
+    messageRepo,
+    messageRepo,
+    conversationMemberRepo,
+  );
+
+  const getPinnedMessagesHandler = new GetPinnedMessagesHandler(
+    messageRepo,
+    conversationMemberRepo,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -259,6 +279,9 @@ export const setupMessagingHexagon = (
     archiveConversationHandler,
     unarchiveConversationHandler,
     editMessageHandler,
+    pinMessageHandler,
+    unpinMessageHandler,
+    getPinnedMessagesHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -397,6 +420,24 @@ export const setupMessagingHexagon = (
     "/messages/:messageId",
     mdlFactory.auth,
     httpService.editMessageAPI.bind(httpService),
+  );
+
+  router.post(
+    "/messages/:messageId/pin",
+    mdlFactory.auth,
+    httpService.pinMessageAPI.bind(httpService),
+  );
+
+  router.delete(
+    "/messages/:messageId/pin",
+    mdlFactory.auth,
+    httpService.unpinMessageAPI.bind(httpService),
+  );
+
+  router.get(
+    "/conversations/:conversationId/pinned-messages",
+    mdlFactory.auth,
+    httpService.getPinnedMessagesAPI.bind(httpService),
   );
 
   return {

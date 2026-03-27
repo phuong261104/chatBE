@@ -64,6 +64,7 @@ export class ForwardMessagesHandler implements ICommandHandler<
           text: sourceMessage.text,
           media: sourceMessage.media,
           createdAt: now,
+          pinned: false,
         };
 
         await this.messageCommandRepo.insert(newMessage);

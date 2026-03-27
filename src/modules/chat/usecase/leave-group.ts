@@ -70,7 +70,8 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
       senderId: validatedInput.userId,
       type: MessageType.SYSTEM,
       text: systemMessageText,
-      createdAt: now
+      createdAt: now,
+      pinned: false,
     };
     await this.messageCommandRepo.insert(systemMessage);
 

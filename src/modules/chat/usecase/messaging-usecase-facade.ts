@@ -35,6 +35,9 @@ import { MuteConversationHandler, UnmuteConversationHandler } from "./mute-conve
 import { PinConversationHandler, UnpinConversationHandler } from "./pin-conversation";
 import { ArchiveConversationHandler, UnarchiveConversationHandler } from "./archive-conversation";
 import { EditMessageHandler } from "./edit-message";
+import { PinMessageHandler } from "./pin-message";
+import { UnpinMessageHandler } from "./unpin-message";
+import { GetPinnedMessagesHandler } from "./get-pinned-messages";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -64,6 +67,9 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly archiveConversationHandler: ArchiveConversationHandler,
     private readonly unarchiveConversationHandler: UnarchiveConversationHandler,
     private readonly editMessageHandler: EditMessageHandler,
+    private readonly pinMessageHandler: PinMessageHandler,
+    private readonly unpinMessageHandler: UnpinMessageHandler,
+    private readonly getPinnedMessagesHandler: GetPinnedMessagesHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -293,5 +299,17 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
 
   async editMessage(messageId: string, userId: string, text: string): Promise<Message> {
     return this.editMessageHandler.execute({ messageId, userId, text });
+  }
+
+  async pinMessage(messageId: string, userId: string): Promise<Message> {
+    return this.pinMessageHandler.execute({ messageId, userId });
+  }
+
+  async unpinMessage(messageId: string, userId: string): Promise<Message> {
+    return this.unpinMessageHandler.execute({ messageId, userId });
+  }
+
+  async getPinnedMessages(conversationId: string, userId: string): Promise<Message[]> {
+    return this.getPinnedMessagesHandler.query({ conversationId, userId });
   }
 }

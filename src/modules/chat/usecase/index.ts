@@ -22,5 +22,8 @@ export { MuteConversationHandler, UnmuteConversationHandler } from "./mute-conve
 export { PinConversationHandler, UnpinConversationHandler } from "./pin-conversation";
 export { ArchiveConversationHandler, UnarchiveConversationHandler } from "./archive-conversation";
 export { EditMessageHandler } from "./edit-message";
+export { PinMessageHandler } from "./pin-message";
+export { UnpinMessageHandler } from "./unpin-message";
+export { GetPinnedMessagesHandler } from "./get-pinned-messages";
 
 export { MessagingUseCaseFacade } from "./messaging-usecase-facade";

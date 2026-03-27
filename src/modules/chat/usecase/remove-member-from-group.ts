@@ -89,7 +89,8 @@ export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMembe
       senderId: validatedInput.requesterId,
       type: MessageType.SYSTEM,
       text: systemMessageText,
-      createdAt: now
+      createdAt: now,
+      pinned: false,
     };
     await this.messageCommandRepo.insert(systemMessage);
 

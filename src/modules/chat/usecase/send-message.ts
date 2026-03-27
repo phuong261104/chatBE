@@ -65,7 +65,8 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
       type: messageType,
       text: validatedInput.text,
       media: validatedInput.media ? mapMediaToDbFormat(validatedInput.media as any) : undefined,
-      createdAt: now
+      createdAt: now,
+      pinned: false,
     };
     await this.messageCommandRepo.insert(message);
 

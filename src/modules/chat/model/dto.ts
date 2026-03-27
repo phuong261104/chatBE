@@ -74,6 +74,8 @@ export const MessageUpdateDTOSchema = z.object({
   editedAt: z.date().optional(),
   deletedAt: z.date().optional(),
   deletedForUserIds: z.array(z.string()).optional(),
+  pinned: z.boolean().optional(),
+  pinnedAt: z.date().optional(),
 });
 
 export type MessageUpdateDTO = z.infer<typeof MessageUpdateDTOSchema>;
@@ -433,4 +435,40 @@ export interface EditMessageCommand {
   messageId: string;
   userId: string;
   text: string;
+}
+
+export const pinMessageDTOSchema = z.object({
+  messageId: z.string().uuid("Invalid message ID"),
+  userId: z.string().uuid("Invalid user ID"),
+});
+
+export type PinMessageDTO = z.infer<typeof pinMessageDTOSchema>;
+
+export const unpinMessageDTOSchema = z.object({
+  messageId: z.string().uuid("Invalid message ID"),
+  userId: z.string().uuid("Invalid user ID"),
+});
+
+export type UnpinMessageDTO = z.infer<typeof unpinMessageDTOSchema>;
+
+export const getPinnedMessagesDTOSchema = z.object({
+  conversationId: z.string().uuid("Invalid conversation ID"),
+  userId: z.string().uuid("Invalid user ID"),
+});
+
+export type GetPinnedMessagesDTO = z.infer<typeof getPinnedMessagesDTOSchema>;
+
+export interface PinMessageCommand {
+  messageId: string;
+  userId: string;
+}
+
+export interface UnpinMessageCommand {
+  messageId: string;
+  userId: string;
+}
+
+export interface GetPinnedMessagesQuery {
+  conversationId: string;
+  userId: string;
 }

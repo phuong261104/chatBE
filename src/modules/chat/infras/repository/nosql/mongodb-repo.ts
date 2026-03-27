@@ -168,4 +168,23 @@ export class MongoMessageRepository
       } as Message;
     });
   }
+
+  async findPinnedMessages(conversationId: string): Promise<Message[]> {
+    const rows = await MessageModel.find({
+      conversationId,
+      pinned: true,
+      deletedAt: { $exists: false },
+    })
+      .sort({ pinnedAt: -1 })
+      .lean()
+      .exec();
+
+    return rows.map((row) => {
+      const { _id, __v, ...rest } = row as any;
+      return {
+        ...rest,
+        id: String(_id),
+      } as Message;
+    });
+  }
 }
