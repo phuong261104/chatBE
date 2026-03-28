@@ -749,7 +749,7 @@ export class MessagingHttpService {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "messageRevoked", {
+          this.socketService.emitToUser(memberId, "message:revoked", {
             conversationId: message.conversationId,
             message,
           });
@@ -1136,7 +1136,7 @@ export class MessagingHttpService {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "messageEdited", {
+          this.socketService.emitToUser(memberId, "message:edited", {
             conversationId: message.conversationId,
             message,
           });
@@ -1189,7 +1189,7 @@ export class MessagingHttpService {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "messagePinned", {
+          this.socketService.emitToUser(memberId, "message:pinned", {
             conversationId: message.conversationId,
             message,
           });
@@ -1242,7 +1242,7 @@ export class MessagingHttpService {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "messageUnpinned", {
+          this.socketService.emitToUser(memberId, "message:unpinned", {
             conversationId: message.conversationId,
             message,
           });
@@ -1341,7 +1341,7 @@ export class MessagingHttpService {
             message.conversationId,
           );
           for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, "reactionAdded", {
+            this.socketService.emitToUser(memberId, "message:reaction", {
               messageId: validatedData.messageId,
               reaction,
             });
@@ -1400,7 +1400,7 @@ export class MessagingHttpService {
             message.conversationId,
           );
           for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, "reactionRemoved", {
+            this.socketService.emitToUser(memberId, "message:reaction:remove", {
               messageId: validatedData.messageId,
               userId: currentUserId,
               emoji,
@@ -1458,7 +1458,7 @@ export class MessagingHttpService {
             message.conversationId,
           );
           for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, "allReactionsRemoved", {
+            this.socketService.emitToUser(memberId, "message:reactions:clear", {
               messageId: validatedData.messageId,
               userId: currentUserId,
             });

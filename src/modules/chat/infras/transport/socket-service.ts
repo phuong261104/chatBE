@@ -64,12 +64,12 @@ export class MessagingSocketService {
         },
       );
 
-      socket.on("typing_start", async (payload: TypingPayload) => {
-        await this.handleTyping(socket, payload, "typing_start");
+      socket.on("typing:start", async (payload: TypingPayload) => {
+        await this.handleTyping(socket, payload, "typing:start");
       });
 
-      socket.on("typing_stop", async (payload: TypingPayload) => {
-        await this.handleTyping(socket, payload, "typing_stop");
+      socket.on("typing:stop", async (payload: TypingPayload) => {
+        await this.handleTyping(socket, payload, "typing:stop");
       });
 
       socket.on("disconnect", () => {});
@@ -259,7 +259,7 @@ export class MessagingSocketService {
   private async handleTyping(
     socket: AuthenticatedSocket,
     payload: TypingPayload,
-    eventName: "typing_start" | "typing_stop",
+    eventName: "typing:start" | "typing:stop",
   ) {
     try {
       const userId = socket.userId;
@@ -285,13 +285,13 @@ export class MessagingSocketService {
 
   public notifyNewGroup(memberUserIds: string[], groupData: any) {
     for (const userId of memberUserIds) {
-      this.namespace.to(`user:${userId}`).emit("newGroupCreated", groupData);
+      this.namespace.to(`user:${userId}`).emit("conversation:created", groupData);
     }
   }
 
   public notifyMembersAdded(conversationId: string, newMembers: any[]) {
     const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("membersAdded", {
+    this.namespace.to(groupRoomName).emit("conversation:members_added", {
       conversationId,
       newMembers,
     });
@@ -299,7 +299,7 @@ export class MessagingSocketService {
 
   public notifyMemberRemoved(conversationId: string, removedUserId: string) {
     const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("memberRemoved", {
+    this.namespace.to(groupRoomName).emit("conversation:member_removed", {
       conversationId,
       removedUserId,
     });
@@ -307,7 +307,7 @@ export class MessagingSocketService {
 
   public notifyGroupUpdated(conversationId: string, updatedData: any) {
     const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("groupUpdated", {
+    this.namespace.to(groupRoomName).emit("conversation:updated", {
       conversationId,
       data: updatedData,
     });

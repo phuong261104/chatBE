@@ -1,12 +1,13 @@
 import { Server as SocketIOServer, Socket } from "socket.io";
 import { IPresenceUseCase } from "../../interface";
-import Logger from "@share/utils/logger";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
 }
 
 export class UserSocketService {
+  private onlineUsers: Set<string> = new Set();
+
   constructor(
     private readonly io: SocketIOServer,
     private readonly presenceUseCase: IPresenceUseCase,
@@ -22,18 +23,28 @@ export class UserSocketService {
         return;
       }
 
-      // Mark user online immediately
+      this.onlineUsers.add(userId);
       await this.presenceUseCase.markUserOnline(userId);
 
-      // Listen for heartbeat to keep online status
+      this.io.emit("user:online", { userId });
+
       socket.on("heartbeat", async () => {
+        if (!this.onlineUsers.has(userId)) {
+          this.onlineUsers.add(userId);
+          this.io.emit("user:online", { userId });
+        }
         await this.presenceUseCase.markUserOnline(userId);
       });
 
-      // Handle disconnect
       socket.on("disconnect", async () => {
+        this.onlineUsers.delete(userId);
         await this.presenceUseCase.markUserOffline(userId);
+        this.io.emit("user:offline", { userId });
       });
     });
+  }
+
+  isUserOnline(userId: string): boolean {
+    return this.onlineUsers.has(userId);
   }
 }
