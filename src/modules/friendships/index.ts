@@ -30,6 +30,8 @@ export const setupFriendshipHexagon = (sctx: ServiceContext, socketService?: Fri
   router.get('/friendships', mdlFactory.auth, httpService.getFriendsListAPI.bind(httpService));
   router.delete('/friendships/:friendId', mdlFactory.auth, httpService.unfriendAPI.bind(httpService));
   router.get('/friendships/:friendId/check', mdlFactory.auth, httpService.checkFriendshipAPI.bind(httpService));
+  router.get('/users/:id/mutual-friends', mdlFactory.auth, httpService.getMutualFriendsAPI.bind(httpService));
+  router.get('/users/:id/suggestions', mdlFactory.auth, httpService.getFriendSuggestionsAPI.bind(httpService));
 
   return router;
 };

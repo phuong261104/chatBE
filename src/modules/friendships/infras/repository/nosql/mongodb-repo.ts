@@ -37,6 +37,21 @@ export class MongoFriendshipRepository extends BaseRepositoryMongoose<
       } as Friendship;
     });
   }
+
+  async getFriendIds(userId: string): Promise<string[]> {
+    const friendships = await this.findFriendshipsForUser(userId);
+    return friendships.map((f) => (f.userA === userId ? f.userB : f.userA));
+  }
+
+  async getMutualFriendIds(userId1: string, userId2: string): Promise<string[]> {
+    const [friends1, friends2] = await Promise.all([
+      this.getFriendIds(userId1),
+      this.getFriendIds(userId2)
+    ]);
+
+    const set2 = new Set(friends2);
+    return friends1.filter((id) => set2.has(id));
+  }
 }
 
 export class MongoFriendshipQueryRepository extends BaseQueryRepositoryMongoose<Friendship, FriendshipCondDTO> {

@@ -24,3 +24,22 @@ export const FriendshipCondDTOSchema = z.object({
 });
 
 export type FriendshipCondDTO = z.infer<typeof FriendshipCondDTOSchema>;
+
+export const MutualFriendDTOSchema = z.object({
+  id: z.string(),
+  displayName: z.string().optional(),
+  avatarUrl: z.string().optional(),
+  mutualFriendsCount: z.number()
+});
+
+export type MutualFriendDTO = z.infer<typeof MutualFriendDTOSchema>;
+
+export const FriendSuggestionDTOSchema = z.object({
+  id: z.string(),
+  displayName: z.string().optional(),
+  avatarUrl: z.string().optional(),
+  mutualFriendsCount: z.number(),
+  mutualFriendIds: z.array(z.string())
+});
+
+export type FriendSuggestionDTO = z.infer<typeof FriendSuggestionDTOSchema>;

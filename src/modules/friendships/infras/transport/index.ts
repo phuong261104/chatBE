@@ -62,13 +62,6 @@ export class FriendshipHTTPService extends BaseHttpService<
 
       await this.usecase.unfriend(userId, String(friendId));
 
-      // if (this.socketService) {
-      //   this.socketService.notifyUnfriended(String(friendId), {
-      //     unfriendedBy: userId,
-      //     userId: String(friendId)
-      //   });
-      // }
-
       res.status(204).send();
     } catch (error) {
       const err = error as Error;
@@ -87,6 +80,51 @@ export class FriendshipHTTPService extends BaseHttpService<
 
       const isFriend = await this.usecase.areFriends(userId, String(friendId));
       res.status(200).json({ data: { isFriend } });
+    } catch (error) {
+      res.status(400).json({
+        message: (error as Error).message,
+      });
+    }
+  }
+
+  async getMutualFriendsAPI(req: Request, res: Response) {
+    try {
+      const requester = res.locals["requester"];
+      const userId = requester.sub;
+      const targetUserId = req.params.id as string;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      const mutualFriends = await this.usecase.getMutualFriends(userId, targetUserId, limit);
+
+      res.status(200).json({
+        data: {
+          items: mutualFriends,
+          total: mutualFriends.length,
+        },
+      });
+    } catch (error) {
+      const err = error as Error;
+      const statusCode = err.message.includes("not found") ? 404 : 400;
+      res.status(statusCode).json({
+        message: err.message,
+      });
+    }
+  }
+
+  async getFriendSuggestionsAPI(req: Request, res: Response) {
+    try {
+      const requester = res.locals["requester"];
+      const userId = requester.sub;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      const suggestions = await this.usecase.getFriendSuggestions(userId, limit);
+
+      res.status(200).json({
+        data: {
+          items: suggestions,
+          total: suggestions.length,
+        },
+      });
     } catch (error) {
       res.status(400).json({
         message: (error as Error).message,

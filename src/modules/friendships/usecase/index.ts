@@ -12,7 +12,9 @@ import {
   ErrFriendshipAlreadyExists,
   ErrFriendshipNotFound,
   ErrFriendshipSelfFriendship,
-  ErrFriendshipUserNotFound
+  ErrFriendshipUserNotFound,
+  MutualFriendDTO,
+  FriendSuggestionDTO
 } from '../model';
 import { MongoFriendshipRepository } from '../infras/repository';
 import { MongoUserRepository } from '@modules/user/infras/repository/nosql/mongodb-repo';
@@ -130,5 +132,94 @@ export class FriendshipUseCase implements IFriendshipUseCase {
   async delete(id: string): Promise<boolean> {
     await this.repository.delete(id, true);
     return true;
+  }
+
+  async getMutualFriends(userId: string, targetUserId: string, limit: number = 20): Promise<MutualFriendDTO[]> {
+    if (userId === targetUserId) {
+      return [];
+    }
+
+    const targetUser = await this.userRepository.get(targetUserId);
+    if (!targetUser) {
+      throw AppError.from(ErrFriendshipUserNotFound, 404);
+    }
+
+    const mutualFriendIds = await this.repository.getMutualFriendIds(userId, targetUserId);
+    const limitedIds = mutualFriendIds.slice(0, limit);
+
+    const users = await Promise.all(
+      limitedIds.map((id) => this.userRepository.get(id))
+    );
+
+    return users
+      .filter((u): u is NonNullable<typeof u> => u !== null)
+      .map((u) => ({
+        id: u.id,
+        displayName: u.displayName,
+        avatarUrl: u.avatarUrl,
+        mutualFriendsCount: mutualFriendIds.length
+      }));
+  }
+
+  async getFriendSuggestions(userId: string, limit: number = 20): Promise<FriendSuggestionDTO[]> {
+    const myFriendIds = new Set(await this.repository.getFriendIds(userId));
+
+    const pendingRequests = await this.friendRequestRepository.list(
+      {
+        $or: [
+          { fromUserId: userId },
+          { toUserId: userId }
+        ],
+        status: FriendRequestStatus.PENDING
+      },
+      { page: 1, limit: 1000 }
+    );
+
+    const pendingUserIds = new Set<string>();
+    pendingUserIds.add(userId);
+    for (const req of pendingRequests) {
+      pendingUserIds.add(req.fromUserId);
+      pendingUserIds.add(req.toUserId);
+    }
+
+    const friendOfFriendsMap = new Map<string, Set<string>>();
+
+    for (const friendId of myFriendIds) {
+      const friendFriends = await this.repository.getFriendIds(friendId);
+      for (const fofId of friendFriends) {
+        if (!myFriendIds.has(fofId) && !pendingUserIds.has(fofId) && fofId !== userId) {
+          if (!friendOfFriendsMap.has(fofId)) {
+            friendOfFriendsMap.set(fofId, new Set());
+          }
+          friendOfFriendsMap.get(fofId)!.add(friendId);
+        }
+      }
+    }
+
+    const suggestions: FriendSuggestionDTO[] = [];
+    const processedUserIds = new Set<string>();
+
+    const sortedByMutual = Array.from(friendOfFriendsMap.entries())
+      .sort((a, b) => b[1].size - a[1].size);
+
+    for (const [suggestedUserId, mutualFriendIds] of sortedByMutual) {
+      if (processedUserIds.has(suggestedUserId) || suggestions.length >= limit) {
+        continue;
+      }
+
+      const user = await this.userRepository.get(suggestedUserId);
+      if (!user) continue;
+
+      processedUserIds.add(suggestedUserId);
+      suggestions.push({
+        id: user.id,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+        mutualFriendsCount: mutualFriendIds.size,
+        mutualFriendIds: Array.from(mutualFriendIds)
+      });
+    }
+
+    return suggestions;
   }
 }

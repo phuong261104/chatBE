@@ -18,7 +18,8 @@ export type FriendRequestUpdateDTO = z.infer<typeof FriendRequestUpdateSchema>;
 export const FriendRequestCondDTOSchema = z.object({
   fromUserId: z.string().optional(),
   toUserId: z.string().optional(),
-  status: z.nativeEnum(FriendRequestStatus).optional()
+  status: z.nativeEnum(FriendRequestStatus).optional(),
+  $or: z.array(z.record(z.string())).optional()
 });
 
 export type FriendRequestCondDTO = z.infer<typeof FriendRequestCondDTOSchema>;
