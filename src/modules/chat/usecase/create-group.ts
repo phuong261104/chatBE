@@ -13,6 +13,7 @@ import {
   ConversationType,
   ConversationMember,
   ConversationMemberRole,
+  ConversationMemberStatus,
   Message,
   MessageType,
   UserStatus
@@ -82,6 +83,7 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
       conversationId: conversationId,
       userId: command.creatorId,
       role: ConversationMemberRole.ADMIN,
+      status: ConversationMemberStatus.ACTIVE,
       joinedAt: now,
       unreadCount: 0,
       pinned: false,
@@ -97,6 +99,7 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
         conversationId: conversationId,
         userId: memberId,
         role: ConversationMemberRole.MEMBER,
+        status: ConversationMemberStatus.ACTIVE,
         joinedAt: now,
         unreadCount: 0,
         pinned: false,

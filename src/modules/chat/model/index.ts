@@ -1,6 +1,7 @@
 export {
   ConversationType,
   ConversationMemberRole,
+  ConversationMemberStatus,
   MessageType,
   MediaType,
   UserStatus,
@@ -18,6 +19,12 @@ export {
   MessageMedia,
   Message,
   UserInfo,
+  GroupSettingsSchema,
+  GroupSettings,
+  PollOptionSchema,
+  PollOption,
+  PollSchema,
+  Poll,
 } from "./model";
 
 export {

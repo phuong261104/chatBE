@@ -11,10 +11,14 @@ export {
   MongoMessageReactionRepository,
   MongoMessageReactionQueryRepository,
   MongoMessageReactionCommandRepository,
+  MongoPollRepository,
+  MongoPollQueryRepository,
+  MongoPollCommandRepository,
   ConversationModel,
   ConversationMemberModel,
   MessageModel,
   MessageReactionModel,
+  PollModel,
   UserRepositoryAdapter
 } from './repository';
 

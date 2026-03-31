@@ -25,6 +25,8 @@ import {
   MongoMessageRepository,
   MongoMessageReactionQueryRepository,
   MongoMessageReactionCommandRepository,
+  MongoPollQueryRepository,
+  MongoPollCommandRepository,
   UserRepositoryAdapter,
   MessagingHttpService,
   MessagingSocketService,
@@ -67,6 +69,17 @@ import {
   RemoveAllReactionsHandler,
   GetReactionsHandler,
   QuoteMessageHandler,
+  SetAdminHandler,
+  TransferOwnerHandler,
+  CreatePollHandler,
+  GetPollsHandler,
+  VotePollHandler,
+  GetPollResultsHandler,
+  GetPendingMembersHandler,
+  ApproveMemberHandler,
+  RejectMemberHandler,
+  UpdateGroupSettingsHandler,
+  GetGroupInfoHandler,
 } from "./usecase";
 
 export const setupMessagingHexagon = (
@@ -80,6 +93,8 @@ export const setupMessagingHexagon = (
   const messageRepo = new MongoMessageRepository();
   const reactionQueryRepo = new MongoMessageReactionQueryRepository();
   const reactionCmdRepo = new MongoMessageReactionCommandRepository();
+  const pollQueryRepo = new MongoPollQueryRepository();
+  const pollCmdRepo = new MongoPollCommandRepository();
 
   const userRepo = new MongoUserRepository();
   const userUseCase = new UserUseCase(userRepo);
@@ -290,6 +305,68 @@ export const setupMessagingHexagon = (
     conversationRepo,
   );
 
+  const setAdminHandler = new SetAdminHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
+  const transferOwnerHandler = new TransferOwnerHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
+  const createPollHandler = new CreatePollHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    pollCmdRepo,
+  );
+
+  const getPollsHandler = new GetPollsHandler(
+    pollQueryRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
+
+  const votePollHandler = new VotePollHandler(
+    pollQueryRepo,
+    pollCmdRepo,
+  );
+
+  const getPollResultsHandler = new GetPollResultsHandler(pollQueryRepo);
+
+  const getPendingMembersHandler = new GetPendingMembersHandler(
+    conversationRepo,
+    conversationMemberRepo,
+  );
+
+  const approveMemberHandler = new ApproveMemberHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
+  const rejectMemberHandler = new RejectMemberHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
+  const updateGroupSettingsHandler = new UpdateGroupSettingsHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
+
+  const getGroupInfoHandler = new GetGroupInfoHandler(
+    conversationRepo,
+    conversationMemberRepo,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -325,6 +402,17 @@ export const setupMessagingHexagon = (
     removeAllReactionsHandler,
     getReactionsHandler,
     quoteMessageHandler,
+    setAdminHandler,
+    transferOwnerHandler,
+    createPollHandler,
+    getPollsHandler,
+    votePollHandler,
+    getPollResultsHandler,
+    getPendingMembersHandler,
+    approveMemberHandler,
+    rejectMemberHandler,
+    updateGroupSettingsHandler,
+    getGroupInfoHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -513,6 +601,72 @@ export const setupMessagingHexagon = (
     httpService.quoteMessageAPI.bind(httpService),
   );
 
+  router.post(
+    "/groups/:groupId/set-admin",
+    mdlFactory.auth,
+    httpService.setAdminAPI.bind(httpService),
+  );
+
+  router.post(
+    "/groups/:groupId/transfer-owner",
+    mdlFactory.auth,
+    httpService.transferOwnerAPI.bind(httpService),
+  );
+
+  router.get(
+    "/groups/:groupId/members/pending",
+    mdlFactory.auth,
+    httpService.getPendingMembersAPI.bind(httpService),
+  );
+
+  router.patch(
+    "/groups/:groupId/members/:userId/approve",
+    mdlFactory.auth,
+    httpService.approveMemberAPI.bind(httpService),
+  );
+
+  router.patch(
+    "/groups/:groupId/members/:userId/reject",
+    mdlFactory.auth,
+    httpService.rejectMemberAPI.bind(httpService),
+  );
+
+  router.patch(
+    "/groups/:groupId/settings",
+    mdlFactory.auth,
+    httpService.updateGroupSettingsAPI.bind(httpService),
+  );
+
+  router.get(
+    "/groups/:groupId/info",
+    mdlFactory.auth,
+    httpService.getGroupInfoAPI.bind(httpService),
+  );
+
+  router.post(
+    "/groups/:groupId/polls",
+    mdlFactory.auth,
+    httpService.createPollAPI.bind(httpService),
+  );
+
+  router.get(
+    "/groups/:groupId/polls",
+    mdlFactory.auth,
+    httpService.getPollsAPI.bind(httpService),
+  );
+
+  router.post(
+    "/groups/:groupId/polls/:pollId/vote",
+    mdlFactory.auth,
+    httpService.votePollAPI.bind(httpService),
+  );
+
+  router.get(
+    "/groups/:groupId/polls/:pollId/results",
+    mdlFactory.auth,
+    httpService.getPollResultsAPI.bind(httpService),
+  );
+
   return {
     router,
     socketService,
@@ -535,8 +689,11 @@ export {
   MongoMessageRepository,
   MongoMessageReactionQueryRepository,
   MongoMessageReactionCommandRepository,
+  MongoPollQueryRepository,
+  MongoPollCommandRepository,
   ConversationModel,
   ConversationMemberModel,
   MessageModel,
   MessageReactionModel,
+  PollModel,
 } from "./infras";

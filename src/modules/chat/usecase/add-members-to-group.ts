@@ -12,6 +12,7 @@ import {
 import {
   ConversationMember,
   ConversationMemberRole,
+  ConversationMemberStatus,
   ConversationType,
   Message,
   MessageType,
@@ -84,6 +85,7 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
           conversationId: validatedInput.conversationId,
           userId: memberId,
           role: ConversationMemberRole.MEMBER,
+          status: ConversationMemberStatus.ACTIVE,
           joinedAt: now,
           unreadCount: 0,
           pinned: false,

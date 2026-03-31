@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   ConversationType,
   ConversationMemberRole,
+  ConversationMemberStatus,
   MessageType,
   LastMessageSchema,
   MessageMediaSchema,
@@ -24,8 +25,14 @@ export type ConversationCondDTO = z.infer<typeof ConversationCondDTOSchema>;
 export const ConversationUpdateDTOSchema = z.object({
   name: z.string().optional(),
   avatarUrl: z.string().optional(),
+  ownerId: z.string().optional(),
   admins: z.array(z.string()).optional(),
   membersCount: z.number().optional(),
+  settings: z.object({
+    allowSendLink: z.boolean().optional(),
+    requireApproval: z.boolean().optional(),
+    allowMemberInvite: z.boolean().optional(),
+  }).optional(),
   lastMessage: LastMessageSchema.optional(),
   lastMessageAt: z.date().optional(),
 });
@@ -36,6 +43,7 @@ export const ConversationMemberCondDTOSchema = z.object({
   conversationId: z.string().optional(),
   userId: z.string().optional(),
   role: z.nativeEnum(ConversationMemberRole).optional(),
+  status: z.nativeEnum(ConversationMemberStatus).optional(),
   pinned: z.boolean().optional(),
   archived: z.boolean().optional(),
 });
@@ -46,6 +54,7 @@ export type ConversationMemberCondDTO = z.infer<
 
 export const ConversationMemberUpdateDTOSchema = z.object({
   role: z.nativeEnum(ConversationMemberRole).optional(),
+  status: z.nativeEnum(ConversationMemberStatus).optional(),
   leftAt: z.date().optional(),
   unreadCount: z.number().optional(),
   lastReadMessageId: z.string().optional(),
@@ -543,4 +552,87 @@ export interface QuoteMessageCommand {
   text?: string;
   media?: MediaAttachment[];
   quotedMessageId: string;
+}
+
+// Set Admin
+export const setAdminDTOSchema = z.object({
+  groupId: z.string().uuid("Invalid group ID"),
+  targetUserId: z.string().uuid("Invalid user ID"),
+  isAdmin: z.boolean(),
+});
+
+export type SetAdminDTO = z.infer<typeof setAdminDTOSchema>;
+
+// Transfer Owner
+export const transferOwnerDTOSchema = z.object({
+  groupId: z.string().uuid("Invalid group ID"),
+  newOwnerId: z.string().uuid("Invalid user ID"),
+});
+
+export type TransferOwnerDTO = z.infer<typeof transferOwnerDTOSchema>;
+
+// Create Poll
+export const createPollDTOSchema = z.object({
+  conversationId: z.string().uuid("Invalid conversation ID"),
+  question: z.string().min(1, "Question is required").max(500),
+  options: z.array(z.string().min(1).max(200)).min(2, "At least 2 options required").max(10),
+  isMultipleChoice: z.boolean().default(false),
+  allowAddOption: z.boolean().default(false),
+  expiresAt: z.string().datetime().optional(),
+});
+
+export type CreatePollDTO = z.infer<typeof createPollDTOSchema>;
+
+// Vote Poll
+export const votePollDTOSchema = z.object({
+  pollId: z.string().uuid("Invalid poll ID"),
+  optionIds: z.array(z.string()).min(1, "Select at least one option"),
+});
+
+export type VotePollDTO = z.infer<typeof votePollDTOSchema>;
+
+// Group Settings
+export const updateGroupSettingsDTOSchema = z.object({
+  groupId: z.string().uuid("Invalid group ID"),
+  allowSendLink: z.boolean().optional(),
+  requireApproval: z.boolean().optional(),
+  allowMemberInvite: z.boolean().optional(),
+});
+
+export type UpdateGroupSettingsDTO = z.infer<typeof updateGroupSettingsDTOSchema>;
+
+// Commands & Queries
+export interface SetAdminCommand {
+  groupId: string;
+  targetUserId: string;
+  isAdmin: boolean;
+}
+
+export interface TransferOwnerCommand {
+  groupId: string;
+  newOwnerId: string;
+}
+
+export interface CreatePollCommand {
+  conversationId: string;
+  creatorId: string;
+  question: string;
+  options: string[];
+  isMultipleChoice?: boolean;
+  allowAddOption?: boolean;
+  expiresAt?: string;
+}
+
+export interface VotePollCommand {
+  pollId: string;
+  userId: string;
+  optionIds: string[];
+}
+
+export interface UpdateGroupSettingsCommand {
+  groupId: string;
+  requesterId: string;
+  allowSendLink?: boolean;
+  requireApproval?: boolean;
+  allowMemberInvite?: boolean;
 }

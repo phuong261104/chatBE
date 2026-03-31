@@ -6,6 +6,8 @@ import {
   UserInfo,
   MediaAttachment,
   MessageReaction,
+  Poll,
+  GroupSettings,
 } from "../model/model";
 import {
   ConversationCondDTO,
@@ -89,6 +91,18 @@ export interface IMessageReactionCommandRepository {
   decrementAllByUserAndMessage(messageId: string, userId: string): Promise<number>;
   deleteAllByUserAndMessage(messageId: string, userId: string): Promise<number>;
   deleteByMessageId(messageId: string): Promise<void>;
+}
+
+export interface IPollQueryRepository {
+  get(id: string): Promise<Poll | null>;
+  findByConversationId(conversationId: string): Promise<Poll[]>;
+  findActivePolls(conversationId: string): Promise<Poll[]>;
+}
+
+export interface IPollCommandRepository {
+  insert(poll: Poll): Promise<boolean>;
+  update(id: string, data: Partial<Poll>): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
 }
 
 export interface CreateGroupData {
@@ -251,4 +265,43 @@ export interface IMessagingUseCase {
     media: MediaAttachment[] | undefined,
     quotedMessageId: string,
   ): Promise<Message>;
+
+  setAdmin(groupId: string, targetUserId: string, isAdmin: boolean): Promise<Conversation>;
+
+  transferOwner(groupId: string, newOwnerId: string): Promise<Conversation>;
+
+  createPoll(
+    conversationId: string,
+    creatorId: string,
+    question: string,
+    options: string[],
+    isMultipleChoice?: boolean,
+    allowAddOption?: boolean,
+    expiresAt?: string,
+  ): Promise<Poll>;
+
+  getPolls(conversationId: string): Promise<Poll[]>;
+
+  votePoll(pollId: string, userId: string, optionIds: string[]): Promise<Poll>;
+
+  getPollResults(pollId: string): Promise<Poll>;
+
+  getPendingMembers(groupId: string): Promise<ConversationMember[]>;
+
+  approveMember(groupId: string, userId: string): Promise<ConversationMember>;
+
+  rejectMember(groupId: string, userId: string): Promise<void>;
+
+  updateGroupSettings(
+    groupId: string,
+    requesterId: string,
+    settings: { allowSendLink?: boolean; requireApproval?: boolean; allowMemberInvite?: boolean },
+  ): Promise<Conversation>;
+
+  getGroupInfo(groupId: string, userId: string): Promise<{
+    conversation: Conversation;
+    members: ConversationMember[];
+    currentUserRole: ConversationMemberRole;
+    settings: GroupSettings;
+  }>;
 }

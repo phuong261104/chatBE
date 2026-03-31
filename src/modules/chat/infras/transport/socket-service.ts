@@ -347,4 +347,69 @@ export class MessagingSocketService {
   public emitToUser(userId: string, event: string, data: any) {
     this.namespace.to(`user:${userId}`).emit(event, data);
   }
+
+  public notifyAdminChanged(conversationId: string, targetUserId: string, isAdmin: boolean) {
+    const groupRoomName = `group:${conversationId}`;
+    this.namespace.to(groupRoomName).emit("group:admin_changed", {
+      conversationId,
+      targetUserId,
+      isAdmin,
+    });
+  }
+
+  public notifyOwnerTransferred(conversationId: string, oldOwnerId: string, newOwnerId: string) {
+    const groupRoomName = `group:${conversationId}`;
+    this.namespace.to(groupRoomName).emit("group:owner_transferred", {
+      conversationId,
+      oldOwnerId,
+      newOwnerId,
+    });
+  }
+
+  public notifyPollCreated(conversationId: string, poll: any) {
+    const groupRoomName = `group:${conversationId}`;
+    this.namespace.to(groupRoomName).emit("poll:new", {
+      conversationId,
+      poll,
+    });
+  }
+
+  public notifyPollVoted(conversationId: string, pollId: string, userId: string, poll: any) {
+    const groupRoomName = `group:${conversationId}`;
+    this.namespace.to(groupRoomName).emit("poll:vote", {
+      conversationId,
+      pollId,
+      userId,
+      poll,
+    });
+  }
+
+  public notifyMemberApproved(conversationId: string, userId: string, member: any) {
+    const groupRoomName = `group:${conversationId}`;
+    this.namespace.to(groupRoomName).emit("group:member_approved", {
+      conversationId,
+      userId,
+      member,
+    });
+    this.namespace.to(`user:${userId}`).emit("group:member_approved", {
+      conversationId,
+      userId,
+      member,
+    });
+  }
+
+  public notifyMemberRejected(conversationId: string, userId: string) {
+    this.namespace.to(`user:${userId}`).emit("group:member_rejected", {
+      conversationId,
+      userId,
+    });
+  }
+
+  public notifyGroupSettingsUpdated(conversationId: string, settings: any) {
+    const groupRoomName = `group:${conversationId}`;
+    this.namespace.to(groupRoomName).emit("group:settings_updated", {
+      conversationId,
+      settings,
+    });
+  }
 }

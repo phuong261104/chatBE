@@ -11,8 +11,11 @@ export {
   MongoMessageReactionQueryRepository,
   MongoMessageReactionCommandRepository,
   MongoMessageReactionRepository,
+  MongoPollQueryRepository,
+  MongoPollCommandRepository,
+  MongoPollRepository,
 } from './nosql/mongodb-repo';
 
-export { ConversationModel, ConversationMemberModel, MessageModel, MessageReactionModel } from './nosql/schemas';
+export { ConversationModel, ConversationMemberModel, MessageModel, MessageReactionModel, PollModel } from './nosql/schemas';
 
 export { UserRepositoryAdapter } from './local/user-adapter';

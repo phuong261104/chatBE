@@ -1582,4 +1582,349 @@ export class MessagingHttpService {
       res.status(statusCode).json({ error: err.message });
     }
   }
+
+  async setAdminAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+      const { targetUserId, isAdmin } = req.body;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const updatedConversation = await this.useCase.setAdmin(groupId, targetUserId, isAdmin);
+
+      if (this.socketService) {
+        this.socketService.emitToGroupRoom(groupId, "group:admin_changed", {
+          conversationId: groupId,
+          targetUserId,
+          isAdmin,
+        });
+      }
+
+      res.status(200).json({ data: updatedConversation });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async transferOwnerAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+      const { newOwnerId } = req.body;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const updatedConversation = await this.useCase.transferOwner(groupId, newOwnerId);
+
+      if (this.socketService) {
+        this.socketService.emitToGroupRoom(groupId, "group:owner_transferred", {
+          conversationId: groupId,
+          oldOwnerId: currentUserId,
+          newOwnerId,
+        });
+      }
+
+      res.status(200).json({ data: updatedConversation });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async createPollAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+      const { question, options, isMultipleChoice, allowAddOption, expiresAt } = req.body;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const poll = await this.useCase.createPoll(
+        groupId,
+        currentUserId,
+        question,
+        options,
+        isMultipleChoice,
+        allowAddOption,
+        expiresAt,
+      );
+
+      if (this.socketService) {
+        this.socketService.emitToGroupRoom(groupId, "poll:new", {
+          conversationId: groupId,
+          poll,
+        });
+      }
+
+      res.status(201).json({ data: poll });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async getPollsAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const polls = await this.useCase.getPolls(groupId);
+
+      res.status(200).json({ data: polls });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async votePollAPI(req: Request, res: Response) {
+    try {
+      const pollId = Array.isArray(req.params.pollId)
+        ? req.params.pollId[0]
+        : req.params.pollId;
+      const { optionIds } = req.body;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const poll = await this.useCase.votePoll(pollId, currentUserId, optionIds);
+
+      if (this.socketService) {
+        this.socketService.emitToGroupRoom(poll.conversationId, "poll:vote", {
+          pollId,
+          userId: currentUserId,
+          poll,
+        });
+      }
+
+      res.status(200).json({ data: poll });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async getPollResultsAPI(req: Request, res: Response) {
+    try {
+      const pollId = Array.isArray(req.params.pollId)
+        ? req.params.pollId[0]
+        : req.params.pollId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const poll = await this.useCase.getPollResults(pollId);
+
+      res.status(200).json({ data: poll });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async getPendingMembersAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const pendingMembers = await this.useCase.getPendingMembers(groupId);
+
+      res.status(200).json({ data: pendingMembers });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async approveMemberAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+      const userId = Array.isArray(req.params.userId)
+        ? req.params.userId[0]
+        : req.params.userId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const approvedMember = await this.useCase.approveMember(groupId, userId);
+
+      if (this.socketService) {
+        this.socketService.emitToGroupRoom(groupId, "group:member_approved", {
+          conversationId: groupId,
+          userId,
+          member: approvedMember,
+        });
+        this.socketService.emitToUser(userId, "group:member_approved", {
+          conversationId: groupId,
+          userId,
+          member: approvedMember,
+        });
+      }
+
+      res.status(200).json({ data: approvedMember });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async rejectMemberAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+      const userId = Array.isArray(req.params.userId)
+        ? req.params.userId[0]
+        : req.params.userId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      await this.useCase.rejectMember(groupId, userId);
+
+      if (this.socketService) {
+        this.socketService.emitToUser(userId, "group:member_rejected", {
+          conversationId: groupId,
+          userId,
+        });
+      }
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async updateGroupSettingsAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+      const { allowSendLink, requireApproval, allowMemberInvite } = req.body;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const updatedConversation = await this.useCase.updateGroupSettings(
+        groupId,
+        currentUserId,
+        { allowSendLink, requireApproval, allowMemberInvite },
+      );
+
+      if (this.socketService) {
+        this.socketService.emitToGroupRoom(groupId, "group:settings_updated", {
+          conversationId: groupId,
+          settings: updatedConversation.settings,
+        });
+      }
+
+      res.status(200).json({ data: updatedConversation });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async getGroupInfoAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const groupInfo = await this.useCase.getGroupInfo(groupId, currentUserId);
+
+      res.status(200).json({ data: groupInfo });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
 }

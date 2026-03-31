@@ -6,6 +6,8 @@ import {
   Message,
   MediaAttachment,
   MessageReaction,
+  Poll,
+  GroupSettings,
 } from "../model/model";
 import {
   ConversationWithMetadata,
@@ -42,6 +44,17 @@ import { UnpinMessageHandler } from "./unpin-message";
 import { GetPinnedMessagesHandler } from "./get-pinned-messages";
 import { AddReactionHandler, RemoveReactionHandler, RemoveAllReactionsHandler, GetReactionsHandler } from "./add-reaction";
 import { QuoteMessageHandler } from "./quote-message";
+import { SetAdminHandler } from "./set-admin";
+import { TransferOwnerHandler } from "./transfer-owner";
+import { CreatePollHandler } from "./create-poll";
+import { GetPollsHandler } from "./get-polls";
+import { VotePollHandler } from "./vote-poll";
+import { GetPollResultsHandler } from "./get-poll-results";
+import { GetPendingMembersHandler } from "./get-pending-members";
+import { ApproveMemberHandler } from "./approve-member";
+import { RejectMemberHandler } from "./reject-member";
+import { UpdateGroupSettingsHandler } from "./update-group-settings";
+import { GetGroupInfoHandler } from "./get-group-info";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -79,6 +92,17 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly removeAllReactionsHandler: RemoveAllReactionsHandler,
     private readonly getReactionsHandler: GetReactionsHandler,
     private readonly quoteMessageHandler: QuoteMessageHandler,
+    private readonly setAdminHandler: SetAdminHandler,
+    private readonly transferOwnerHandler: TransferOwnerHandler,
+    private readonly createPollHandler: CreatePollHandler,
+    private readonly getPollsHandler: GetPollsHandler,
+    private readonly votePollHandler: VotePollHandler,
+    private readonly getPollResultsHandler: GetPollResultsHandler,
+    private readonly getPendingMembersHandler: GetPendingMembersHandler,
+    private readonly approveMemberHandler: ApproveMemberHandler,
+    private readonly rejectMemberHandler: RejectMemberHandler,
+    private readonly updateGroupSettingsHandler: UpdateGroupSettingsHandler,
+    private readonly getGroupInfoHandler: GetGroupInfoHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -352,5 +376,78 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       media,
       quotedMessageId,
     });
+  }
+
+  async setAdmin(groupId: string, targetUserId: string, isAdmin: boolean): Promise<Conversation> {
+    return this.setAdminHandler.execute({ groupId, targetUserId, isAdmin });
+  }
+
+  async transferOwner(groupId: string, newOwnerId: string): Promise<Conversation> {
+    return this.transferOwnerHandler.execute({ groupId, newOwnerId });
+  }
+
+  async createPoll(
+    conversationId: string,
+    creatorId: string,
+    question: string,
+    options: string[],
+    isMultipleChoice?: boolean,
+    allowAddOption?: boolean,
+    expiresAt?: string,
+  ): Promise<Poll> {
+    return this.createPollHandler.execute({
+      conversationId,
+      creatorId,
+      question,
+      options,
+      isMultipleChoice,
+      allowAddOption,
+      expiresAt,
+    });
+  }
+
+  async getPolls(conversationId: string): Promise<Poll[]> {
+    return this.getPollsHandler.query({ conversationId });
+  }
+
+  async votePoll(pollId: string, userId: string, optionIds: string[]): Promise<Poll> {
+    return this.votePollHandler.execute({ pollId, userId, optionIds });
+  }
+
+  async getPollResults(pollId: string): Promise<Poll> {
+    return this.getPollResultsHandler.query({ pollId });
+  }
+
+  async getPendingMembers(groupId: string): Promise<ConversationMember[]> {
+    return this.getPendingMembersHandler.query({ groupId });
+  }
+
+  async approveMember(groupId: string, userId: string): Promise<ConversationMember> {
+    return this.approveMemberHandler.execute({ groupId, userId });
+  }
+
+  async rejectMember(groupId: string, userId: string): Promise<void> {
+    return this.rejectMemberHandler.execute({ groupId, userId });
+  }
+
+  async updateGroupSettings(
+    groupId: string,
+    requesterId: string,
+    settings: { allowSendLink?: boolean; requireApproval?: boolean; allowMemberInvite?: boolean },
+  ): Promise<Conversation> {
+    return this.updateGroupSettingsHandler.execute({
+      groupId,
+      requesterId,
+      ...settings,
+    });
+  }
+
+  async getGroupInfo(groupId: string, userId: string): Promise<{
+    conversation: Conversation;
+    members: ConversationMember[];
+    currentUserRole: ConversationMemberRole;
+    settings: GroupSettings;
+  }> {
+    return this.getGroupInfoHandler.query({ groupId, userId });
   }
 }

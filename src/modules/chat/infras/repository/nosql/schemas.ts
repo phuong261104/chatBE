@@ -2,6 +2,7 @@ import { Schema, model } from "mongoose";
 import {
   ConversationType,
   ConversationMemberRole,
+  ConversationMemberStatus,
   MessageType,
   MediaType,
 } from "../../../model/model";
@@ -15,9 +16,14 @@ interface IConversationDocument {
   name?: string;
   avatarUrl?: string;
   createdBy?: string;
-
+  ownerId?: string;
   admins?: string[];
   membersCount: number;
+  settings?: {
+    allowSendLink: boolean;
+    requireApproval: boolean;
+    allowMemberInvite: boolean;
+  };
 
   lastMessage?: {
     messageId: string;
@@ -63,6 +69,11 @@ const ConversationSchema = new Schema<IConversationDocument>(
       required: false,
       ref: "User",
     },
+    ownerId: {
+      type: String,
+      required: false,
+      ref: "User",
+    },
     admins: {
       type: [String],
       required: false,
@@ -72,6 +83,11 @@ const ConversationSchema = new Schema<IConversationDocument>(
       type: Number,
       required: true,
       default: 0,
+    },
+    settings: {
+      allowSendLink: { type: Boolean, default: true },
+      requireApproval: { type: Boolean, default: false },
+      allowMemberInvite: { type: Boolean, default: true },
     },
     lastMessage: {
       messageId: {
@@ -122,6 +138,7 @@ interface IConversationMemberDocument {
   conversationId: string;
   userId: string;
   role: ConversationMemberRole;
+  status: ConversationMemberStatus;
 
   joinedAt: Date;
   leftAt?: Date;
@@ -160,6 +177,12 @@ const ConversationMemberSchema = new Schema<IConversationMemberDocument>(
       enum: Object.values(ConversationMemberRole),
       required: true,
       default: ConversationMemberRole.MEMBER,
+    },
+    status: {
+      type: String,
+      enum: Object.values(ConversationMemberStatus),
+      required: true,
+      default: ConversationMemberStatus.ACTIVE,
     },
     joinedAt: {
       type: Date,
@@ -410,3 +433,86 @@ export const MessageReactionModel = model<IMessageReactionDocument>(
   "MessageReaction",
   MessageReactionSchema,
 );
+
+interface IPollOption {
+  id: string;
+  text: string;
+  voteCount: number;
+  votedUserIds: string[];
+}
+
+interface IPollDocument {
+  _id: string;
+  conversationId: string;
+  question: string;
+  options: IPollOption[];
+  createdBy: string;
+  isMultipleChoice: boolean;
+  allowAddOption: boolean;
+  expiresAt?: Date;
+  totalVotes: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const PollOptionSchema = new Schema<IPollOption>(
+  {
+    id: { type: String, required: true },
+    text: { type: String, required: true },
+    voteCount: { type: Number, required: true, default: 0 },
+    votedUserIds: { type: [String], required: true, default: [] },
+  },
+  { _id: false },
+);
+
+const PollSchema = new Schema<IPollDocument>(
+  {
+    _id: {
+      type: String,
+      required: true,
+    },
+    conversationId: {
+      type: String,
+      required: true,
+      ref: "Conversation",
+    },
+    question: {
+      type: String,
+      required: true,
+    },
+    options: [PollOptionSchema],
+    createdBy: {
+      type: String,
+      required: true,
+      ref: "User",
+    },
+    isMultipleChoice: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+    allowAddOption: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+    expiresAt: {
+      type: Date,
+      required: false,
+    },
+    totalVotes: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+  },
+  {
+    timestamps: true,
+    collection: "polls",
+  },
+);
+
+PollSchema.index({ conversationId: 1, createdAt: -1 });
+PollSchema.index({ conversationId: 1, expiresAt: 1 });
+
+export const PollModel = model<IPollDocument>("Poll", PollSchema);

@@ -7,7 +7,7 @@ import {
   IConversationMemberCommandRepository,
   IUserQueryRepository
 } from '../interface';
-import { Conversation, ConversationType, ConversationMemberRole, UserStatus } from '../model/model';
+import { Conversation, ConversationType, ConversationMemberRole, ConversationMemberStatus, UserStatus } from '../model/model';
 import { getOrCreatePrivateConversationDTOSchema, GetOrCreatePrivateConversationCommand } from '../model/dto';
 
 export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
@@ -64,6 +64,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
         conversationId: conversationId,
         userId: validatedInput.currentUserId,
         role: ConversationMemberRole.MEMBER,
+        status: ConversationMemberStatus.ACTIVE,
         joinedAt: now,
         unreadCount: 0,
         pinned: false,
@@ -77,6 +78,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
         conversationId: conversationId,
         userId: validatedInput.targetUserId,
         role: ConversationMemberRole.MEMBER,
+        status: ConversationMemberStatus.ACTIVE,
         joinedAt: now,
         unreadCount: 0,
         pinned: false,

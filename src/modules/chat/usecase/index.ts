@@ -28,4 +28,16 @@ export { GetPinnedMessagesHandler } from "./get-pinned-messages";
 export { AddReactionHandler, RemoveReactionHandler, RemoveAllReactionsHandler, GetReactionsHandler } from "./add-reaction";
 export { QuoteMessageHandler } from "./quote-message";
 
+export { SetAdminHandler } from "./set-admin";
+export { TransferOwnerHandler } from "./transfer-owner";
+export { CreatePollHandler } from "./create-poll";
+export { GetPollsHandler } from "./get-polls";
+export { VotePollHandler } from "./vote-poll";
+export { GetPollResultsHandler } from "./get-poll-results";
+export { GetPendingMembersHandler } from "./get-pending-members";
+export { ApproveMemberHandler } from "./approve-member";
+export { RejectMemberHandler } from "./reject-member";
+export { UpdateGroupSettingsHandler } from "./update-group-settings";
+export { GetGroupInfoHandler } from "./get-group-info";
+
 export { MessagingUseCaseFacade } from "./messaging-usecase-facade";
