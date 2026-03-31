@@ -1,0 +1,1637 @@
+{
+  "info": {
+    "_postman_id": "50a5f031-53e0-46fc-bca4-dce3fce84656",
+    "name": "chatBE - Full API (generated from source)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "POST /v1/auth/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "POST /v1/auth/register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/profile"
+          }
+        },
+        {
+          "name": "PATCH /v1/profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/profile",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "POST /v1/rpc/introspect",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/rpc/introspect",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/users"
+          }
+        },
+        {
+          "name": "POST /v1/users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /v1/users/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/users/{{id}}"
+          }
+        },
+        {
+          "name": "GET /v1/users/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/users/{{id}}"
+          }
+        },
+        {
+          "name": "PATCH /v1/users/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/users/{{id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/users/:id/presence",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/users/{{id}}/presence"
+          }
+        },
+        {
+          "name": "GET /v1/users/search",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/users/search"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "GET /v1/conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations"
+          }
+        },
+        {
+          "name": "GET /v1/conversations/:conversationId",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}"
+          }
+        },
+        {
+          "name": "DELETE /v1/conversations/:conversationId/archive",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/archive"
+          }
+        },
+        {
+          "name": "POST /v1/conversations/:conversationId/archive",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/archive",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "POST /v1/conversations/:conversationId/delivered",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/delivered",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/conversations/:conversationId/messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/messages"
+          }
+        },
+        {
+          "name": "POST /v1/conversations/:conversationId/messages",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/messages",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /v1/conversations/:conversationId/mute",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/mute"
+          }
+        },
+        {
+          "name": "POST /v1/conversations/:conversationId/mute",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/mute",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /v1/conversations/:conversationId/pin-conversation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/pin-conversation"
+          }
+        },
+        {
+          "name": "POST /v1/conversations/:conversationId/pin-conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/pin-conversation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/conversations/:conversationId/pinned-messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/pinned-messages"
+          }
+        },
+        {
+          "name": "POST /v1/conversations/:conversationId/seen",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/{{conversationId}}/seen",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "POST /v1/conversations/private",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/private",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/conversations/unread-count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/conversations/unread-count"
+          }
+        },
+        {
+          "name": "POST /v1/groups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "PUT /v1/groups/:groupId",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/groups/:groupId/info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/info"
+          }
+        },
+        {
+          "name": "POST /v1/groups/:groupId/leave",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/leave",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/groups/:groupId/members",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/members"
+          }
+        },
+        {
+          "name": "POST /v1/groups/:groupId/members",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/members",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /v1/groups/:groupId/members/:userId",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/members/{{userId}}"
+          }
+        },
+        {
+          "name": "PATCH /v1/groups/:groupId/members/:userId/approve",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/members/{{userId}}/approve",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "PATCH /v1/groups/:groupId/members/:userId/reject",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/members/{{userId}}/reject",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/groups/:groupId/members/pending",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/members/pending"
+          }
+        },
+        {
+          "name": "GET /v1/groups/:groupId/polls",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/polls"
+          }
+        },
+        {
+          "name": "POST /v1/groups/:groupId/polls",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/polls",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/groups/:groupId/polls/:pollId/results",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/polls/{{pollId}}/results"
+          }
+        },
+        {
+          "name": "POST /v1/groups/:groupId/polls/:pollId/vote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/polls/{{pollId}}/vote",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "POST /v1/groups/:groupId/set-admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/set-admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "PATCH /v1/groups/:groupId/settings",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/settings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "POST /v1/groups/:groupId/transfer-owner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/groups/{{groupId}}/transfer-owner",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "PUT /v1/messages/:messageId",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/{{messageId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "POST /v1/messages/:messageId/delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/{{messageId}}/delete",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /v1/messages/:messageId/pin",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/{{messageId}}/pin"
+          }
+        },
+        {
+          "name": "POST /v1/messages/:messageId/pin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/{{messageId}}/pin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "POST /v1/messages/:messageId/quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/{{messageId}}/quote",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /v1/messages/:messageId/react",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/{{messageId}}/react"
+          }
+        },
+        {
+          "name": "POST /v1/messages/:messageId/react",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/{{messageId}}/react",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /v1/messages/:messageId/reactions",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/{{messageId}}/reactions"
+          }
+        },
+        {
+          "name": "GET /v1/messages/:messageId/reactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/{{messageId}}/reactions"
+          }
+        },
+        {
+          "name": "POST /v1/messages/:messageId/revoke",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/{{messageId}}/revoke",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "POST /v1/messages/forward",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/forward",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Media",
+      "item": [
+        {
+          "name": "DELETE /v1/media/:filename",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/media/{{filename}}"
+          }
+        },
+        {
+          "name": "POST /v1/media/upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/media/upload",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /v1/media/upload-multiple",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/media/upload-multiple",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Friend Requests",
+      "item": [
+        {
+          "name": "POST /v1/friend-requests/:receiverId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/friend-requests/{{receiverId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /v1/friend-requests/:requestId",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/friend-requests/{{requestId}}"
+          }
+        },
+        {
+          "name": "PATCH /v1/friend-requests/:requestId",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/friend-requests/{{requestId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/friend-requests/received",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/friend-requests/received"
+          }
+        },
+        {
+          "name": "GET /v1/friend-requests/sent",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/friend-requests/sent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Friendships",
+      "item": [
+        {
+          "name": "GET /v1/friendships",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/friendships"
+          }
+        },
+        {
+          "name": "DELETE /v1/friendships/:friendId",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/friendships/{{friendId}}"
+          }
+        },
+        {
+          "name": "GET /v1/friendships/:friendId/check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/friendships/{{friendId}}/check"
+          }
+        },
+        {
+          "name": "GET /v1/users/:id/mutual-friends",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/users/{{id}}/mutual-friends"
+          }
+        },
+        {
+          "name": "GET /v1/users/:id/suggestions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/users/{{id}}/suggestions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Blocks",
+      "item": [
+        {
+          "name": "GET /v1/blocks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/blocks"
+          }
+        },
+        {
+          "name": "DELETE /v1/blocks/:blockedUserId",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/blocks/{{blockedUserId}}"
+          }
+        },
+        {
+          "name": "POST /v1/blocks/:blockedUserId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/blocks/{{blockedUserId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/blocks/:blockedUserId/check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/blocks/{{blockedUserId}}/check"
+          }
+        }
+      ]
+    },
+    {
+      "name": "My Cloud",
+      "item": [
+        {
+          "name": "GET /v1/my-cloud",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/my-cloud"
+          }
+        },
+        {
+          "name": "POST /v1/my-cloud",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/my-cloud",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /v1/my-cloud/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/my-cloud/{{id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "item": [
+        {
+          "name": "GET /v1/search",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/search"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Static",
+      "item": [
+        {
+          "name": "GET /uploads/:path",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/uploads/{{path}}"
+          }
+        }
+      ]
+    }
+  ]
+}

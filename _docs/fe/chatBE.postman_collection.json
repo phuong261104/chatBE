@@ -1,0 +1,682 @@
+{
+  "info": {
+    "_postman_id": "a7d6a97f-4baa-4ef9-b033-c6c31c8f0d2f",
+    "name": "chatBE - Full API Collection",
+    "description": "Collection test full REST API for chatBE.\n\nBase URL mac dinh: {{baseUrl}}\nSau khi login thanh cong, token se tu dong luu vao bien {{token}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/v1"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "targetUserId",
+      "value": ""
+    },
+    {
+      "key": "blockedUserId",
+      "value": ""
+    },
+    {
+      "key": "receiverId",
+      "value": ""
+    },
+    {
+      "key": "requestId",
+      "value": ""
+    },
+    {
+      "key": "friendId",
+      "value": ""
+    },
+    {
+      "key": "conversationId",
+      "value": ""
+    },
+    {
+      "key": "groupId",
+      "value": ""
+    },
+    {
+      "key": "messageId",
+      "value": ""
+    },
+    {
+      "key": "anyUserId",
+      "value": ""
+    },
+    {
+      "key": "mediaFilename",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth & User",
+      "item": [
+        {
+          "name": "Auth - Register",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"user@example.com\",\"password\":\"123456\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/auth/register"
+          },
+          "response": []
+        },
+        {
+          "name": "Auth - Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const token = json?.data?.token || json?.data?.accessToken || json?.token;",
+                  "if (token) { pm.collectionVariables.set('token', token); }",
+                  "const userId = json?.data?.user?.id || json?.data?.userId;",
+                  "if (userId) { pm.collectionVariables.set('userId', userId); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"user@example.com\",\"password\":\"123456\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "response": []
+        },
+        {
+          "name": "User - Profile",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/profile"
+          },
+          "response": []
+        },
+        {
+          "name": "User - Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"displayName\":\"Updated Name\",\"avatarUrl\":\"https://example.com/avatar.jpg\",\"bio\":\"Hello world\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/profile"
+          },
+          "response": []
+        },
+        {
+          "name": "User - Create (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"new-user@example.com\",\"password\":\"123456\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/users"
+          },
+          "response": []
+        },
+        {
+          "name": "User - List",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/users?page=1&limit=20"
+          },
+          "response": []
+        },
+        {
+          "name": "User - Detail",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/users/{{anyUserId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "User - Update (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"displayName\":\"Updated By Admin\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/users/{{anyUserId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "User - Delete (Admin)",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/users/{{anyUserId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "RPC - Introspect",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"token\":\"{{token}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/rpc/introspect"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Blocks",
+      "item": [
+        {
+          "name": "Block User",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/blocks/{{blockedUserId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Unblock User",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/blocks/{{blockedUserId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Blocked Users",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/blocks?page=1&limit=20"
+          },
+          "response": []
+        },
+        {
+          "name": "Check Block Status",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/blocks/{{blockedUserId}}/check"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Friend Requests",
+      "item": [
+        {
+          "name": "Send Friend Request",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/friend-requests/{{receiverId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Friend Request Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\":\"accepted\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/friend-requests/{{requestId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Friend Request",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/friend-requests/{{requestId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Received Requests",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/friend-requests/received?page=1&limit=20"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sent Requests",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/friend-requests/sent?page=1&limit=20"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Friendships",
+      "item": [
+        {
+          "name": "Get Friends",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/friendships?page=1&limit=20"
+          },
+          "response": []
+        },
+        {
+          "name": "Unfriend",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/friendships/{{friendId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Check Friendship",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/friendships/{{friendId}}/check"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Conversations",
+      "item": [
+        {
+          "name": "Get Conversations",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/conversations?page=1&limit=20"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Or Create Private Conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"targetUserId\":\"{{targetUserId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/conversations/private"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Total Unread Count",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/conversations/unread-count"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation Detail",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/conversations/{{conversationId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Load Messages",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/conversations/{{conversationId}}/messages?limit=20"
+          },
+          "response": []
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"text\":\"Hello from Postman\",\"media\":[]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/conversations/{{conversationId}}/messages"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark As Seen",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"lastSeenMessageId\":\"{{messageId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/conversations/{{conversationId}}/seen"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark As Delivered",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"lastDeliveredMessageId\":\"{{messageId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/conversations/{{conversationId}}/delivered"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Groups",
+      "item": [
+        {
+          "name": "Create Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"My Group\",\"memberIds\":[\"{{targetUserId}}\"],\"avatarUrl\":\"https://example.com/group.jpg\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/groups"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Group",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Updated Group Name\",\"avatarUrl\":\"https://example.com/updated-group.jpg\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/groups/{{groupId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Group Members",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/groups/{{groupId}}/members"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Members To Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"memberIds\":[\"{{targetUserId}}\"]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/groups/{{groupId}}/members"
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Member From Group",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/groups/{{groupId}}/members/{{anyUserId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Leave Group",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/groups/{{groupId}}/leave"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Media",
+      "item": [
+        {
+          "name": "Upload Single Media",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/media/upload"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Multiple Media",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/media/upload-multiple"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Media",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/media/{{mediaFilename}}"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
