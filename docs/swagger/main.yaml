@@ -84,3 +84,29 @@ paths:
   # Search
   /search:
     $ref: './paths/search.yaml#/paths/~1search'
+
+  # Posts
+  /posts:
+    $ref: './paths/posts.yaml#/paths/~1posts'
+  /posts/{id}:
+    $ref: './paths/posts.yaml#/paths/~1posts~1{id}'
+  /posts/{id}/react:
+    $ref: './paths/posts.yaml#/paths/~1posts~1{id}~1react'
+  /posts/{id}/comments:
+    $ref: './paths/posts.yaml#/paths/~1posts~1{id}~1comments'
+  /posts/{id}/comments/{commentId}:
+    $ref: './paths/posts.yaml#/paths/~1posts~1{id}~1comments~1{commentId}'
+  /posts/{id}/share:
+    $ref: './paths/posts.yaml#/paths/~1posts~1{id}~1share'
+
+  # Stories
+  /stories:
+    $ref: './paths/stories.yaml#/paths/~1stories'
+  /stories/{id}:
+    $ref: './paths/stories.yaml#/paths/~1stories~1{id}'
+  /stories/{id}/view:
+    $ref: './paths/stories.yaml#/paths/~1stories~1{id}~1view'
+  /stories/{id}/views:
+    $ref: './paths/stories.yaml#/paths/~1stories~1{id}~1views'
+  /stories/{id}/reply:
+    $ref: './paths/stories.yaml#/paths/~1stories~1{id}~1reply'

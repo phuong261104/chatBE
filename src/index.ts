@@ -19,6 +19,8 @@ import { setupFriendRequestHexagon } from "@modules/friend-requests";
 import { setupFriendshipHexagon } from "@modules/friendships";
 import { setupMyCloudHexagon } from "@modules/my-cloud";
 import { setupSearchHexagon } from "@modules/search";
+import { setupPostHexagon } from "@modules/posts";
+import { setupStoryHexagon } from "@modules/stories";
 import path from "path";
 import YAML from "yamljs";
 import swaggerUi from "swagger-ui-express";
@@ -115,8 +117,12 @@ config();
 
   const myCloudRouter = setupMyCloudHexagon(sctx);
   const searchRouter = setupSearchHexagon(sctx);
+  const postRouter = setupPostHexagon(sctx);
+  const storyRouter = setupStoryHexagon(sctx);
   app.use("/v1", myCloudRouter);
   app.use("/v1", searchRouter);
+  app.use("/v1", postRouter);
+  app.use("/v1", storyRouter);
 
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     responseErr(err, res);

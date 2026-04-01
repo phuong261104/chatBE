@@ -1,0 +1,295 @@
+openapi: 3.0.0
+info:
+  title: Stories API
+  version: 1.0.0
+
+components:
+  schemas:
+    Story:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "story-123"
+        authorId:
+          type: string
+          example: "user-456"
+        type:
+          type: string
+          enum: [image, video, text]
+          example: "image"
+        content:
+          type: string
+          example: "Tâm trạng hôm nay thật tốt!"
+        mediaUrl:
+          type: string
+          example: "https://example.com/story.jpg"
+        backgroundColor:
+          type: string
+          example: "#FFFFFF"
+        textStyle:
+          type: string
+          example: "bold"
+        viewersCount:
+          type: integer
+          example: 15
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2026-04-02T10:00:00Z"
+        createdAt:
+          type: string
+          format: date-time
+    StoryView:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "view-123"
+        storyId:
+          type: string
+          example: "story-123"
+        userId:
+          type: string
+          example: "user-789"
+        viewedAt:
+          type: string
+          format: date-time
+    AuthorGroupedStories:
+      type: object
+      properties:
+        authorId:
+          type: string
+          example: "user-456"
+        stories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Story'
+
+paths:
+  /stories:
+    post:
+      summary: Tạo Story (24h)
+      description: Tạo story biến mất sau 24h. Cung cấp dạng text, ảnh, video.
+      tags:
+        - Stories
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum: [image, video, text]
+                  example: "image"
+                content:
+                  type: string
+                  example: "Đi dạo một vòng"
+                  description: "Nội dung text (bắt buộc nếu type=text)"
+                mediaUrl:
+                  type: string
+                  example: "https://example.com/story.jpg"
+                  description: "Địa chỉ media (bắt buộc nếu type=image/video)"
+                backgroundColor:
+                  type: string
+                  example: "#000000"
+                textStyle:
+                  type: string
+                  example: "italic"
+      responses:
+        '201':
+          description: Story created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Story'
+    get:
+      summary: Lấy danh sách stories (Home Stories)
+      description: Trả về danh sách stories đang active (còn hạn trong 24h) của bản thân và bạn bè. Được nhóm theo authorId, với story của chính mình luôn đứng đầu danh sách (nếu có).
+      tags:
+        - Stories
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Stories grouped by author
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuthorGroupedStories'
+
+  /stories/{id}:
+    get:
+      summary: Chi tiết story
+      description: Lấy nội dung đầy đủ của 1 story nếu nó chưa hết hạn.
+      tags:
+        - Stories
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Story'
+        '404':
+          description: Not found or expired
+    delete:
+      summary: Xóa story
+      description: Chủ story có thể gỡ bỏ story trước thời hạn 24h.
+      tags:
+        - Stories
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted successfully
+
+  /stories/{id}/view:
+    post:
+      summary: Đánh dấu đã xem story
+      description: Lưu lại lượt xem (idempotent, gọi nhiều lần với cùng 1 userID chỉ tính 1 view).
+      tags:
+        - Stories
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Viewed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Story viewed"
+
+  /stories/{id}/views:
+    get:
+      summary: Danh sách người đã xem story
+      description: Tính năng độc quyền cho chủ story, trả về list những userID đã xem qua story này với cơ chế phân trang.
+      tags:
+        - Stories
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Views list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      views:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/StoryView'
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      hasMore:
+                        type: boolean
+
+  /stories/{id}/reply:
+    post:
+      summary: Trả lời story (DM)
+      description: Viết bình luận vào story trực tiếp gửi về hộp thư DM như Zalo. Trả về `conversationId` để frontend tự mount chat box.
+      tags:
+        - Stories
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  example: "Ảnh đẹp quá bạn ơi!"
+                  description: "Nội dung phản hồi DM"
+      responses:
+        '200':
+          description: Returns target conversationId for DM
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversationId:
+                        type: string
+                        example: "usr_123_usr_456"
