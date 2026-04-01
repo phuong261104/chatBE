@@ -22,6 +22,7 @@ import { setupSearchHexagon } from "@modules/search";
 import path from "path";
 import YAML from "yamljs";
 import swaggerUi from "swagger-ui-express";
+import SwaggerParser from "@apidevtools/swagger-parser";
 import { RedisClient } from "./share/component/redis-pubsub/redis";
 
 config();
@@ -68,16 +69,22 @@ config();
     next();
   });
 
-  // const swaggerDocument = YAML.load(path.join(process.cwd(), "swagger.yaml"));
+  try {
+    const swaggerDocument = (await SwaggerParser.dereference(
+      path.join(process.cwd(), "docs/swagger/main.yaml"),
+    )) as any;
 
-  // app.use(
-  //   "/api-docs",
-  //   swaggerUi.serve,
-  //   swaggerUi.setup(swaggerDocument, {
-  //     customCss: ".swagger-ui .topbar { display: none }",
-  //     customSiteTitle: "BEMVP API Documentation",
-  //   }),
-  // );
+    app.use(
+      "/api-docs",
+      swaggerUi.serve,
+      swaggerUi.setup(swaggerDocument, {
+        customCss: ".swagger-ui .topbar { display: none }",
+        customSiteTitle: "BE Chat API Documentation",
+      }),
+    );
+  } catch (error) {
+    Logger.error("Failed to load swagger documentation: " + error);
+  }
 
   const introspector = new TokenIntrospectLocal(
     appConfig.accessToken.secretKey,

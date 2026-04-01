@@ -1,0 +1,240 @@
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: 
+                  type: string
+                  example: "0912345678"
+                  description: "Số điện thoại đăng ký (10 chữ số)"
+                password: 
+                  type: string
+                  example: "Password123!"
+                  description: "Mật khẩu bảo mật"
+                email: 
+                  type: string
+                  example: "phuong.boss@example.com"
+                username: 
+                  type: string
+                  example: "phuongboss2026"
+                displayName: 
+                  type: string
+                  example: "Boss Phương"
+      responses:
+        '201':
+          description: User registered successfully
+        '422':
+          description: Validation error
+
+  /auth/login:
+    post:
+      summary: Login user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: 
+                  type: string
+                  example: "0912345678"
+                password: 
+                  type: string
+                  example: "Password123!"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token: 
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI..."
+        '401':
+          description: Unauthorized
+
+  /profile:
+    get:
+      summary: Get user profile
+      tags: [Profile]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile data
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    _id: "660c1d..."
+                    displayName: "Boss Phương"
+                    phone: "0912345678"
+    patch:
+      summary: Update user profile
+      tags: [Profile]
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: 
+                  type: string
+                  example: "Phương Nguyễn Cập Nhật"
+                avatarUrl: 
+                  type: string
+                  example: "https://example.com/new-avatar.jpg"
+              example:
+                displayName: "Phương Nguyễn Cập Nhật"
+                avatarUrl: "https://example.com/new-avatar.jpg"
+      responses:
+        '200':
+          description: Profile updated
+
+  /users:
+    get:
+      summary: Get list of users (Admin)
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of users
+    post:
+      summary: Create user (Admin)
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: 
+                  type: string
+                  example: "0988776655"
+                password: 
+                  type: string
+                  example: "Secret123!"
+                role: 
+                  type: string
+                  example: "ADMIN"
+                  enum: [USER, ADMIN]
+      responses:
+        '201':
+          description: Created user
+
+  /users/search:
+    get:
+      summary: Search users by phone
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: phone
+          schema:
+            type: string
+            example: "0988776655"
+          required: true
+          description: "Tìm kiếm bằng SĐT chính xác"
+      responses:
+        '200':
+          description: User found
+
+  /users/{id}:
+    get:
+      summary: Get user details
+      tags: [Users]
+      parameters:
+        - in: path
+          name: id
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a109ca"
+          required: true
+      responses:
+        '200':
+          description: User details
+    patch:
+      summary: Update user (Admin)
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a109ca"
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                displayName: "Updated User"
+      responses:
+        '200':
+          description: User updated
+    delete:
+      summary: Delete user (Admin)
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a109ca"
+          required: true
+      responses:
+        '200':
+          description: User deleted
+
+  /users/{id}/presence:
+    get:
+      summary: Get user presence (online status)
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a109ca"
+          required: true
+      responses:
+        '200':
+          description: Presence info
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  data:
+                    userId: "60d0fe..."
+                    isOnline: true
+                    lastSeen: "2026-04-01T10:15:30Z"

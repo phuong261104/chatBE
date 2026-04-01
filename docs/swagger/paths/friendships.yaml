@@ -1,0 +1,108 @@
+paths:
+  /friendships:
+    get:
+      summary: Get list of friends
+      tags: [Friendships]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of friends
+          content:
+            application/json:
+              example:
+                data:
+                  - _id: "60d0fe4f..."
+                    userId: "60d0fe4f5311236168a1"
+                    friendId: "user-2"
+                    status: "ACCEPTED"
+
+  /friendships/{friendId}:
+    delete:
+      summary: Unfriend a user
+      tags: [Friendships]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: friendId
+          schema: 
+            type: string
+            example: "user-2"
+          required: true
+      responses:
+        '200':
+          description: Unfriended successfully
+          content:
+            application/json:
+              example:
+                data: true
+
+  /friendships/{friendId}/check:
+    get:
+      summary: Check friendship status
+      tags: [Friendships]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: friendId
+          schema: 
+            type: string
+            example: "user-2"
+          required: true
+      responses:
+        '200':
+          description: Friendship status
+          content:
+            application/json:
+              example:
+                data:
+                  isFriend: true
+                  status: "ACCEPTED"
+
+  /users/{id}/mutual-friends:
+    get:
+      summary: Get mutual friends
+      tags: [Friendships]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema: 
+            type: string
+            example: "user-2"
+          required: true
+      responses:
+        '200':
+          description: List of mutual friends
+          content:
+            application/json:
+              example:
+                data:
+                  - _id: "60d0fe4f5311236168a3"
+                    displayName: "Bạn chung 1"
+
+  /users/{id}/suggestions:
+    get:
+      summary: Get friend suggestions
+      tags: [Friendships]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a1"
+          required: true
+      responses:
+        '200':
+          description: List of friend suggestions
+          content:
+            application/json:
+              example:
+                data:
+                  - _id: "60d0fe4f5311236168a4"
+                    displayName: "Gợi ý kết bạn"

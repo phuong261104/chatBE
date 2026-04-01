@@ -1,0 +1,173 @@
+paths:
+  /conversations:
+    post:
+      summary: Create conversation (1-1 or group)
+      tags: [Chat]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: 
+                  type: string
+                  example: "Nhóm Chat Công Việc"
+                type: 
+                  type: string
+                  enum: [PRIVATE, GROUP]
+                  example: "GROUP"
+                participantIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["60d0fe4f5311236168a1", "60d0fe4f5311236168a2"]
+      responses:
+        '201':
+          description: Created
+    get:
+      summary: List user conversations
+      tags: [Chat]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              example:
+                data:
+                  - _id: "60d0..."
+                    name: "Nhóm Chat Công Việc"
+                    type: "GROUP"
+                    participantIds: ["user1", "user2"]
+
+  /conversations/{conversationId}/messages:
+    get:
+      summary: Get messages in conversation
+      tags: [Chat]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+        - in: query
+          name: limit
+          schema: 
+            type: integer
+            example: 50
+        - in: query
+          name: cursor
+          schema: 
+            type: string
+            example: "60d0fe..."
+      responses:
+        '200':
+          description: Success
+    post:
+      summary: Send message
+      tags: [Chat]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type: 
+                  type: string
+                  example: "TEXT"
+                  enum: [TEXT, MEDIA, FILE, SYSTEM]
+                text: 
+                  type: string
+                  example: "Xin chào mọi người!"
+                media:
+                  type: array
+                  items: 
+                    type: object
+                  example: []
+      responses:
+        '200':
+          description: Sent
+
+  /groups/{groupId}/members:
+    post:
+      summary: Add members to group
+      tags: [Chat Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                memberIds:
+                  type: array
+                  items: 
+                    type: string
+                  example: ["60d0fe4f5311236168a3"]
+      responses:
+        '200':
+          description: Success
+    delete:
+      summary: Remove member
+      tags: [Chat Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+        - in: query
+          name: memberId
+          required: true
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a3"
+      responses:
+        '200':
+          description: Success
+          
+  /groups/{groupId}/leave:
+    post:
+      summary: Leave group
+      tags: [Chat Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      responses:
+        '200':
+          description: Success

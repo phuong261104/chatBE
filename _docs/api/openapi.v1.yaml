@@ -1,0 +1,1514 @@
+openapi: 3.0.3
+info:
+  title: chatBE API
+  version: 1.0.0
+  description: API specification for frontend integration (derived from current backend implementation)
+servers:
+  - url: http://localhost:3000/v1
+    description: Local
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: User
+  - name: Chat
+  - name: Group
+  - name: Message
+  - name: FriendRequest
+  - name: Friendship
+  - name: Block
+  - name: Media
+  - name: MyCloud
+  - name: Search
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Register account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenUserResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /profile:
+    get:
+      tags: [User]
+      summary: Get current profile
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    patch:
+      tags: [User]
+      summary: Update current profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /users:
+    get:
+      tags: [User]
+      security: []
+      summary: List users
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    post:
+      tags: [User]
+      summary: Create user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /users/search:
+    get:
+      tags: [User]
+      summary: Search user by phone
+      parameters:
+        - name: phone
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /users/{id}:
+    get:
+      tags: [User]
+      security: []
+      summary: Get user detail
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    patch:
+      tags: [User]
+      summary: Update user
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    delete:
+      tags: [User]
+      summary: Delete user
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: No Content
+  /users/{id}/presence:
+    get:
+      tags: [User]
+      summary: Get user presence
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /rpc/introspect:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Token introspection (internal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+
+  /conversations/private:
+    post:
+      tags: [Chat]
+      summary: Get or create private conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetUserId]
+              properties:
+                targetUserId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /conversations/unread-count:
+    get:
+      tags: [Chat]
+      summary: Get unread total count
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /conversations:
+    get:
+      tags: [Chat]
+      summary: List conversations
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /conversations/{conversationId}:
+    get:
+      tags: [Chat]
+      summary: Get conversation detail
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /conversations/{conversationId}/messages:
+    get:
+      tags: [Message]
+      summary: Load messages by cursor
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    post:
+      tags: [Message]
+      summary: Send message
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /messages/{messageId}/revoke:
+    post:
+      tags: [Message]
+      summary: Revoke message
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /messages/{messageId}/delete:
+    post:
+      tags: [Message]
+      summary: Delete message for current user
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /messages/forward:
+    post:
+      tags: [Message]
+      summary: Forward messages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForwardMessagesRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+
+  /conversations/{conversationId}/seen:
+    post:
+      tags: [Message]
+      summary: Mark messages as seen
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lastSeenMessageId]
+              properties:
+                lastSeenMessageId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /conversations/{conversationId}/delivered:
+    post:
+      tags: [Message]
+      summary: Mark messages as delivered
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lastDeliveredMessageId]
+              properties:
+                lastDeliveredMessageId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+
+  /groups:
+    post:
+      tags: [Group]
+      summary: Create group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGroupRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /groups/{groupId}:
+    put:
+      tags: [Group]
+      summary: Update group
+      parameters:
+        - $ref: "#/components/parameters/GroupIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGroupRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /groups/{groupId}/members:
+    get:
+      tags: [Group]
+      summary: Get group members
+      parameters:
+        - $ref: "#/components/parameters/GroupIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    post:
+      tags: [Group]
+      summary: Add group members
+      parameters:
+        - $ref: "#/components/parameters/GroupIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [memberIds]
+              properties:
+                memberIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /groups/{groupId}/members/{userId}:
+    delete:
+      tags: [Group]
+      summary: Remove group member
+      parameters:
+        - $ref: "#/components/parameters/GroupIdPath"
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /groups/{groupId}/leave:
+    post:
+      tags: [Group]
+      summary: Leave group
+      parameters:
+        - $ref: "#/components/parameters/GroupIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+
+  /conversations/{conversationId}/mute:
+    post:
+      tags: [Chat]
+      summary: Mute conversation
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                muteUntil:
+                  type: string
+                  format: date-time
+                duration:
+                  type: number
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    delete:
+      tags: [Chat]
+      summary: Unmute conversation
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /conversations/{conversationId}/pin-conversation:
+    post:
+      tags: [Chat]
+      summary: Pin conversation
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    delete:
+      tags: [Chat]
+      summary: Unpin conversation
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /conversations/{conversationId}/archive:
+    post:
+      tags: [Chat]
+      summary: Archive conversation
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    delete:
+      tags: [Chat]
+      summary: Unarchive conversation
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+
+  /messages/{messageId}:
+    put:
+      tags: [Message]
+      summary: Edit message
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 5000
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /messages/{messageId}/pin:
+    post:
+      tags: [Message]
+      summary: Pin message
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    delete:
+      tags: [Message]
+      summary: Unpin message
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /conversations/{conversationId}/pinned-messages:
+    get:
+      tags: [Message]
+      summary: Get pinned messages
+      parameters:
+        - $ref: "#/components/parameters/ConversationIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+
+  /messages/{messageId}/react:
+    post:
+      tags: [Message]
+      summary: Add reaction
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [emoji]
+              properties:
+                emoji:
+                  type: string
+                  minLength: 1
+                  maxLength: 10
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    delete:
+      tags: [Message]
+      summary: Remove reaction
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emoji:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /messages/{messageId}/reactions:
+    get:
+      tags: [Message]
+      summary: Get reactions
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    delete:
+      tags: [Message]
+      summary: Remove all reactions of current user
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /messages/{messageId}/quote:
+    post:
+      tags: [Message]
+      summary: Quote message
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /blocks:
+    get:
+      tags: [Block]
+      summary: List blocked users
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /blocks/{blockedUserId}:
+    post:
+      tags: [Block]
+      summary: Block user
+      parameters:
+        - name: blockedUserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    delete:
+      tags: [Block]
+      summary: Unblock user
+      parameters:
+        - name: blockedUserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /blocks/{blockedUserId}/check:
+    get:
+      tags: [Block]
+      summary: Check block status
+      parameters:
+        - name: blockedUserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+
+  /friend-requests/{receiverId}:
+    post:
+      tags: [FriendRequest]
+      summary: Send friend request
+      parameters:
+        - name: receiverId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /friend-requests/{requestId}:
+    patch:
+      tags: [FriendRequest]
+      summary: Update friend request status
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, accepted, rejected, canceled]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [FriendRequest]
+      summary: Cancel friend request
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /friend-requests/received:
+    get:
+      tags: [FriendRequest]
+      summary: Get received friend requests
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /friend-requests/sent:
+    get:
+      tags: [FriendRequest]
+      summary: Get sent friend requests
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+
+  /friendships:
+    get:
+      tags: [Friendship]
+      summary: Get friends list
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+  /friendships/{friendId}:
+    delete:
+      tags: [Friendship]
+      summary: Unfriend
+      parameters:
+        - name: friendId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+  /friendships/{friendId}/check:
+    get:
+      tags: [Friendship]
+      summary: Check friendship
+      parameters:
+        - name: friendId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+
+  /media/upload:
+    post:
+      tags: [Media]
+      summary: Upload single file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+  /media/upload-multiple:
+    post:
+      tags: [Media]
+      summary: Upload multiple files
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+  /media/{filename}:
+    delete:
+      tags: [Media]
+      summary: Delete media file
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+
+  /my-cloud:
+    get:
+      tags: [MyCloud]
+      summary: Get cloud items
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [file, note]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+    post:
+      tags: [MyCloud]
+      summary: Create cloud item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCloudItemRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /my-cloud/{id}:
+    delete:
+      tags: [MyCloud]
+      summary: Delete cloud item
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: No Content
+
+  /search:
+    get:
+      tags: [Search]
+      summary: Global search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardSuccess"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    GroupIdPath:
+      name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ConversationIdPath:
+      name: conversationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MessageIdPath:
+      name: messageId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StandardError"
+          examples:
+            missingPhone:
+              summary: GET /users/search missing phone
+              value:
+                status: error
+                msg: phone is required
+                code: VALIDATION_ERROR
+            invalidUuid:
+              summary: POST /conversations/private invalid targetUserId
+              value:
+                status: error
+                msg: Validation error
+                code: VALIDATION_ERROR
+                details:
+                  - path: [targetUserId]
+                    message: Invalid target user ID
+            messageEmpty:
+              summary: POST /conversations/{conversationId}/messages missing text and media
+              value:
+                status: error
+                msg: Either text or media is required
+                code: VALIDATION_ERROR
+    UnauthorizedError:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StandardError"
+          examples:
+            tokenExpired:
+              summary: Missing or expired token
+              value:
+                status: error
+                msg: Unauthorized
+                code: UNAUTHORIZED
+    ForbiddenError:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StandardError"
+          examples:
+            blockedFriendRequest:
+              summary: POST /friend-requests/{receiverId} blocked relation
+              value:
+                status: error
+                msg: Cannot send friend request because one user has blocked the other
+                code: FORBIDDEN
+            unauthorizedAction:
+              summary: User is not allowed to update this resource
+              value:
+                status: error
+                msg: Unauthorized action
+                code: FORBIDDEN
+    NotFoundError:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StandardError"
+          examples:
+            userNotFound:
+              summary: GET /users/search user not found
+              value:
+                status: error
+                msg: User not found
+                code: NOT_FOUND
+            messageNotFound:
+              summary: POST /messages/{messageId}/quote message not found
+              value:
+                status: error
+                msg: Message not found
+                code: NOT_FOUND
+            requestNotFound:
+              summary: PATCH /friend-requests/{requestId} request not found
+              value:
+                status: error
+                msg: Friend request not found
+                code: NOT_FOUND
+    BadRequestError:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StandardError"
+
+  schemas:
+    StandardSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        msg:
+          type: string
+          example: OK
+        data:
+          type: object
+          additionalProperties: true
+        meta:
+          type: object
+          additionalProperties: true
+    StandardError:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        msg:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    RegisterRequest:
+      type: object
+      required: [phone, password]
+      properties:
+        phone:
+          type: string
+          pattern: '^\\+?[0-9]{8,15}$'
+        password:
+          type: string
+          minLength: 6
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [password]
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          pattern: '^\\+?[0-9]{8,15}$'
+        password:
+          type: string
+          minLength: 6
+
+    UserCreateRequest:
+      type: object
+      required: [password, salt]
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+        salt:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+        bio:
+          type: string
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+        salt:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+        bio:
+          type: string
+
+    TokenResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        msg:
+          type: string
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+
+    TokenUserResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        msg:
+          type: string
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            user:
+              type: object
+              properties:
+                id:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                username:
+                  type: string
+                displayName:
+                  type: string
+                avatarUrl:
+                  type: string
+
+    MediaAttachment:
+      type: object
+      required: [url, filename, mimetype, size]
+      properties:
+        url:
+          type: string
+        filename:
+          type: string
+        mimetype:
+          type: string
+        size:
+          type: number
+
+    SendMessageRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          maxLength: 5000
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaAttachment"
+      description: At least one of text or media is required.
+
+    ForwardMessagesRequest:
+      type: object
+      required: [messageIds, targetConversationIds]
+      properties:
+        messageIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+        targetConversationIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+
+    CreateGroupRequest:
+      type: object
+      required: [name, memberIds]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        memberIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+        avatarUrl:
+          type: string
+          format: uri
+
+    UpdateGroupRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        avatarUrl:
+          type: string
+          format: uri
+
+    CreateCloudItemRequest:
+      type: object
+      required: [type, title]
+      properties:
+        type:
+          type: string
+          enum: [file, note]
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content:
+          type: string
+          maxLength: 10000
+        fileUrl:
+          type: string
+        fileName:
+          type: string
+        fileSize:
+          type: number
+        mimetype:
+          type: string

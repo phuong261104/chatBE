@@ -1,0 +1,19 @@
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        data:
+          type: object
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Lỗi hệ thống hoặc lỗi dữ liệu đầu vào."

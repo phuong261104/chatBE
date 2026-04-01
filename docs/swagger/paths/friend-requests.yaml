@@ -1,0 +1,103 @@
+paths:
+  /friend-requests/{receiverId}:
+    post:
+      summary: Send a friend request
+      tags: [Friend Requests]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: receiverId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a10001"
+          required: true
+          description: "ID người dùng muốn kết bạn"
+      responses:
+        '200':
+          description: Request sent
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "60d0fe4f..."
+                  senderId: "60d0fe4f5311236168a10002"
+                  receiverId: "60d0fe4f5311236168a10001"
+                  status: "PENDING"
+
+  /friend-requests/{requestId}:
+    patch:
+      summary: Update friend request status (accept/decline)
+      tags: [Friend Requests]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a20000"
+          required: true
+          description: "ID của lời mời kết bạn"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [ACCEPTED, DECLINED]
+                  example: "ACCEPTED"
+      responses:
+        '200':
+          description: Request updated
+    delete:
+      summary: Cancel a sent friend request
+      tags: [Friend Requests]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a20000"
+          required: true
+          description: "ID của lời mời kết bạn muốn hủy"
+      responses:
+        '200':
+          description: Request cancelled
+          content:
+            application/json:
+              example:
+                data: true
+
+  /friend-requests/received:
+    get:
+      summary: Get received friend requests
+      tags: [Friend Requests]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of received requests
+          content:
+            application/json:
+              example:
+                data:
+                  - _id: "60d0fe..."
+                    senderId: "60d0fe4f5311236168a10002"
+                    status: "PENDING"
+                    createdAt: "2026-04-01T10:00:00Z"
+
+  /friend-requests/sent:
+    get:
+      summary: Get sent friend requests
+      tags: [Friend Requests]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of sent requests

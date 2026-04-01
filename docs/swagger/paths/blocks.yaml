@@ -1,0 +1,83 @@
+paths:
+  /blocks/{blockedUserId}:
+    post:
+      summary: Block a user
+      tags: [Blocks]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: blockedUserId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a2"
+          required: true
+          description: "ID người dùng muốn chặn"
+      responses:
+        '200':
+          description: User blocked successfully
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "60d0fe..."
+                  blockerId: "60d0fe4f5311236168a1"
+                  blockedId: "60d0fe4f5311236168a2"
+    delete:
+      summary: Unblock a user
+      tags: [Blocks]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: blockedUserId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a2"
+          required: true
+      responses:
+        '200':
+          description: User unblocked successfully
+          content:
+            application/json:
+              example:
+                data: true
+
+  /blocks:
+    get:
+      summary: Get list of blocked users
+      tags: [Blocks]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of blocked users
+          content:
+            application/json:
+              example:
+                data:
+                  - _id: "60d0fe..."
+                    blockedId: "60d0fe4f5311236168a2"
+                    createdAt: "2026-04-01T10:00:00Z"
+
+  /blocks/{blockedUserId}/check:
+    get:
+      summary: Check if a user is blocked
+      tags: [Blocks]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: blockedUserId
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a2"
+          required: true
+      responses:
+        '200':
+          description: Block status
+          content:
+            application/json:
+              example:
+                data:
+                  isBlocked: true

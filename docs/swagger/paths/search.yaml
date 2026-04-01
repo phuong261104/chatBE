@@ -1,0 +1,54 @@
+paths:
+  /search:
+    get:
+      summary: Global search (users, messages, groups, etc)
+      tags: [Search]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: query
+          schema: 
+            type: string
+            example: "Tài liệu mật"
+          required: true
+          description: "Từ khóa tìm kiếm"
+        - in: query
+          name: type
+          schema: 
+            type: string
+            example: "ALL"
+            enum: [ALL, USERS, MESSAGES, GROUPS]
+        - in: query
+          name: limit
+          schema: 
+            type: integer
+            example: 10
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      users:
+                        type: array
+                        items: 
+                          type: object
+                      messages:
+                        type: array
+                        items: 
+                          type: object
+              example:
+                data:
+                  users:
+                    - _id: "60d0fe4f5311236168a1"
+                      displayName: "Tài Liệu Cty"
+                  messages:
+                    - _id: "msg-id-1"
+                      text: "Đây là tài liệu mật của dự án"
+                  groups: []

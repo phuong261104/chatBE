@@ -1,0 +1,86 @@
+openapi: 3.0.0
+info:
+  title: BEMVP Chat API Documentation
+  version: 1.0.0
+  description: API Docs for Chat Application
+servers:
+  - url: http://localhost:3000/v1
+    description: Local Server
+
+components:
+  $ref: './components.yaml#/components'
+
+paths:
+  # User
+  /auth/register:
+    $ref: './paths/user.yaml#/paths/~1auth~1register'
+  /auth/login:
+    $ref: './paths/user.yaml#/paths/~1auth~1login'
+  /profile:
+    $ref: './paths/user.yaml#/paths/~1profile'
+  /users:
+    $ref: './paths/user.yaml#/paths/~1users'
+  /users/search:
+    $ref: './paths/user.yaml#/paths/~1users~1search'
+  /users/{id}:
+    $ref: './paths/user.yaml#/paths/~1users~1{id}'
+  /users/{id}/presence:
+    $ref: './paths/user.yaml#/paths/~1users~1{id}~1presence'
+
+  # Chat
+  /conversations:
+    $ref: './paths/chat.yaml#/paths/~1conversations'
+  /conversations/{conversationId}/messages:
+    $ref: './paths/chat.yaml#/paths/~1conversations~1{conversationId}~1messages'
+  /groups/{groupId}/members:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1members'
+  /groups/{groupId}/leave:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1leave'
+
+  # Media
+  /media/upload/image:
+    $ref: './paths/media.yaml#/paths/~1media~1upload~1image'
+  /media/upload/video:
+    $ref: './paths/media.yaml#/paths/~1media~1upload~1video'
+  /media/files/{id}:
+    $ref: './paths/media.yaml#/paths/~1media~1files~1{id}'
+
+  # Friendships
+  /friendships:
+    $ref: './paths/friendships.yaml#/paths/~1friendships'
+  /friendships/{friendId}:
+    $ref: './paths/friendships.yaml#/paths/~1friendships~1{friendId}'
+  /friendships/{friendId}/check:
+    $ref: './paths/friendships.yaml#/paths/~1friendships~1{friendId}~1check'
+  /users/{id}/mutual-friends:
+    $ref: './paths/friendships.yaml#/paths/~1users~1{id}~1mutual-friends'
+  /users/{id}/suggestions:
+    $ref: './paths/friendships.yaml#/paths/~1users~1{id}~1suggestions'
+
+  # Friend Requests
+  /friend-requests/{receiverId}:
+    $ref: './paths/friend-requests.yaml#/paths/~1friend-requests~1{receiverId}'
+  /friend-requests/{requestId}:
+    $ref: './paths/friend-requests.yaml#/paths/~1friend-requests~1{requestId}'
+  /friend-requests/received:
+    $ref: './paths/friend-requests.yaml#/paths/~1friend-requests~1received'
+  /friend-requests/sent:
+    $ref: './paths/friend-requests.yaml#/paths/~1friend-requests~1sent'
+
+  # Blocks
+  /blocks/{blockedUserId}:
+    $ref: './paths/blocks.yaml#/paths/~1blocks~1{blockedUserId}'
+  /blocks:
+    $ref: './paths/blocks.yaml#/paths/~1blocks'
+  /blocks/{blockedUserId}/check:
+    $ref: './paths/blocks.yaml#/paths/~1blocks~1{blockedUserId}~1check'
+
+  # My Cloud
+  /my-cloud:
+    $ref: './paths/my-cloud.yaml#/paths/~1my-cloud'
+  /my-cloud/{id}:
+    $ref: './paths/my-cloud.yaml#/paths/~1my-cloud~1{id}'
+
+  # Search
+  /search:
+    $ref: './paths/search.yaml#/paths/~1search'

@@ -1,0 +1,77 @@
+paths:
+  /my-cloud:
+    get:
+      summary: Get my cloud items
+      tags: [My Cloud]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of cloud items
+          content:
+            application/json:
+              example:
+                data:
+                  - _id: "60d0fe4f53..."
+                    name: "tailieu.pdf"
+                    url: "https://example.com/tailieu.pdf"
+                    type: "FILE"
+                    size: 1048576
+    post:
+      summary: Upload item to my cloud
+      tags: [My Cloud]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: 
+                  type: string
+                  example: "hinhanh.jpg"
+                type: 
+                  type: string
+                  example: "IMAGE"
+                  enum: [IMAGE, FILE, LINK, TEXT]
+                url: 
+                  type: string
+                  example: "https://example.com/hinhanh.jpg"
+                size: 
+                  type: number
+                  example: 5242880
+                metadata: 
+                  type: object
+                  example: { "resolution": "1920x1080" }
+      responses:
+        '201':
+          description: Item created
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "60d0fe4f5311236168a5"
+                  name: "hinhanh.jpg"
+
+  /my-cloud/{id}:
+    delete:
+      summary: Delete my cloud item
+      tags: [My Cloud]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema: 
+            type: string
+            example: "60d0fe4f5311236168a5"
+          required: true
+      responses:
+        '200':
+          description: Item deleted
+          content:
+            application/json:
+              example:
+                data: true

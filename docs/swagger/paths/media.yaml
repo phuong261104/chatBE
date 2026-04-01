@@ -1,0 +1,73 @@
+paths:
+  /media/upload/image:
+    post:
+      summary: Upload an image file
+      tags: [Media]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: "File ảnh (png, jpg, jpeg)"
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              example:
+                data:
+                  url: "https://example.com/uploads/image-123.jpg"
+
+  /media/upload/video:
+    post:
+      summary: Upload a video file
+      tags: [Media]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: "File video (mp4, mov, avi)"
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              example:
+                data:
+                  url: "https://example.com/uploads/video-123.mp4"
+
+  /media/files/{id}:
+    delete:
+      summary: Delete a file
+      tags: [Media]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema: 
+            type: string
+            example: "image-123.jpg"
+          required: true
+      responses:
+        '200':
+          description: Deleted successfully
+          content:
+            application/json:
+              example:
+                data: true
