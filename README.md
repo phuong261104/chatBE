@@ -51,54 +51,43 @@ MAX_FILE_SIZE=10485760
 
 ## Cách Chạy
 
-### Cách 1: Chạy với Docker (Khuyến nghị)
+### Bước 1: Khởi động Database và Cache bằng Docker
 
 ```bash
 docker-compose up -d
 ```
 
 Lệnh này sẽ khởi động:
-- **API** service trên port `3000`
 - **MongoDB** trên port `27018` (host) / `27017` (container)
 - **Redis** trên port `6379`
 
-Xem logs:
+### Bước 2: Chạy ứng dụng trên máy host
+
+```bash
+npm run start
+```
+
+Server sẽ chạy trên `http://localhost:3000`.
+
+### Xem logs Docker (tùy chọn)
 
 ```bash
 docker-compose logs -f
 ```
 
-Dừng services:
+### Dừng services
 
 ```bash
 docker-compose down
 ```
 
-### Cách 2: Chạy Local
+### Cách khác: Chạy hoàn toàn trong Docker (không khuyến nghị)
 
-#### Khởi động MongoDB và Redis
-
-Đảm bảo MongoDB và Redis đang chạy trên máy:
+Nếu muốn chạy cả API trong container, uncomment phần `api` service trong `docker-compose.yml` và sử dụng:
 
 ```bash
-# MongoDB
-mongod --dbpath /path/to/data
-
-# Redis
-redis-server
+docker-compose up -d --build
 ```
-
-#### Chạy server
-
-```bash
-# Development với hot-reload
-npm run start
-
-# Hoặc chạy một lần
-npm run demo
-```
-
-Server sẽ chạy trên `http://localhost:3000`.
 
 ## API Documentation
 
