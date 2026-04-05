@@ -9,6 +9,7 @@ import { config as appConfig } from "@share/component/config";
 import { TokenIntrospectLocal } from "./share/repository/verify-token.rpc";
 import { responseFormatMiddleware, setupMiddlewares } from "./share/middleware";
 import { setupUserHexagon } from "./modules/user";
+import { setupAuthHexagon } from "./modules/auth";
 import Logger from "./share/utils/logger";
 import { responseErr } from "./share/app-error";
 import { setupMediaHexagon } from "./modules/media";
@@ -63,7 +64,6 @@ config();
       "Origin, X-Requested-With, Content-Type, Accept, Authorization",
     );
 
-    // Handle preflight requests
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
     }
@@ -96,6 +96,7 @@ config();
   app.use("/v1", responseFormatMiddleware);
 
   const io = createSocketIOServer(httpServer);
+  const { router: authRouter, authUseCase } = setupAuthHexagon(sctx);
   const { router: userRouter, socketService: userSocketService } =
     setupUserHexagon(sctx, io);
   const mediaRouter = setupMediaHexagon(sctx);
@@ -108,6 +109,7 @@ config();
 
   const friendshipRouter = setupFriendshipHexagon(sctx, socketService);
 
+  app.use("/v1", authRouter);
   app.use("/v1", userRouter);
   app.use("/v1", mediaRouter);
   app.use("/v1", messagingRouter);

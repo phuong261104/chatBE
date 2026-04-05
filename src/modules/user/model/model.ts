@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-export const UserPhoneSchema = z
-  .string()
-  .trim()
-  .regex(/^\+?[0-9]{8,15}$/, "Phone number is invalid");
-
 export enum UserStatus {
   ACTIVE = "active",
   DISABLED = "disabled",
@@ -28,29 +23,29 @@ export const UserSettingsSchema = z.object({
   }),
 });
 
+export const UserPhoneSchema = z
+  .string()
+  .trim()
+  .regex(/^\+?[0-9]{8,15}$/, "Phone number is invalid");
+
 export const UserSchema = z.object({
   id: z.string(),
 
-  // Identity
   email: z.string().email().optional(),
   phone: UserPhoneSchema.optional(),
   username: z.string().optional(),
 
-  // Authentication
   password: z.string(),
   salt: z.string(),
   status: z.nativeEnum(UserStatus),
   verified: UserVerifiedSchema,
 
-  // Profile
   displayName: z.string().optional(),
   avatarUrl: z.string().optional(),
   bio: z.string().optional(),
 
-  // Privacy
   privacy: UserPrivacySchema,
 
-  // Preferences
   settings: UserSettingsSchema,
 
   lastLoginAt: z.date().optional(),
@@ -58,26 +53,6 @@ export const UserSchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date(),
 });
-
-export const UserRegistrationDTOSchema = z.object({
-  email: z.string().email().optional(),
-  phone: UserPhoneSchema,
-  password: z.string().min(6),
-  displayName: z.string().optional(),
-});
-
-export const UserLoginDTOSchema = z
-  .object({
-    email: z.string().email().optional(),
-    phone: UserPhoneSchema.optional(),
-    password: z.string().min(6),
-  })
-  .refine((data) => data.email || data.phone, {
-    message: "Either email or phone must be provided",
-  });
-
-export type UserRegistrationDTO = z.infer<typeof UserRegistrationDTOSchema>;
-export type UserLoginDTO = z.infer<typeof UserLoginDTOSchema>;
 
 export type User = z.infer<typeof UserSchema>;
 export type UserVerified = z.infer<typeof UserVerifiedSchema>;

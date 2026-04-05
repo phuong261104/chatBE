@@ -49,3 +49,11 @@ export const UserCondDTOSchema = z.object({
 });
 
 export type UserCondDTO = z.infer<typeof UserCondDTOSchema>;
+
+export const UserPhoneSearchSchema = z.object({
+  phone: z.string().optional(),
+  status: z.nativeEnum(UserStatus).optional(),
+  'privacy.searchableByPhone': z.boolean().optional()
+});
+
+export type UserPhoneSearchDTO = z.infer<typeof UserPhoneSearchSchema>;

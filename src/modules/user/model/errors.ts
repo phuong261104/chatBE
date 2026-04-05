@@ -11,10 +11,3 @@ export const ErrPasswordAtLeast6Chars = new Error(
 export const ErrBirthdayInvalid = new Error("Birthday is invalid");
 export const ErrGenderInvalid = new Error("Gender is invalid");
 export const ErrRoleInvalid = new Error("Role is invalid");
-export const ErrEmailExisted = new Error("Email is already existed");
-export const ErrPhoneExisted = new Error("Phone number is already existed");
-export const ErrInvalidEmailAndPassword = new Error(
-  "Invalid email and password",
-);
-export const ErrUserInactivated = new Error("User is inactivated or banned");
-export const ErrInvalidToken = new Error("Invalid token");

@@ -26,8 +26,6 @@ export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
   const mdlFactory = sctx.mdlFactory;
   const adminChecker = mdlFactory.allowRoles([UserRole.USER]);
 
-  router.post("/auth/register", httpService.registerAPI.bind(httpService));
-  router.post("/auth/login", httpService.loginAPI.bind(httpService));
   router.get(
     "/profile",
     mdlFactory.auth,
@@ -69,9 +67,6 @@ export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
     adminChecker,
     httpService.deleteAPI.bind(httpService),
   );
-
-  // RPC API (use internally)
-  router.post("/rpc/introspect", httpService.introspectAPI.bind(httpService));
 
   return { router, socketService };
 };

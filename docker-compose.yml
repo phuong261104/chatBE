@@ -1,14 +1,39 @@
 version: "3.8"
 
 services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chat-api
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    environment:
+      - PORT=3000
+      - MONGO_URI=mongodb://mongodb-chat:27017/chat_db
+      - REDIS_URL=redis://redis-chat:6379
+      - REDIS_HOST=redis://redis-chat:6379
+      - UPLOAD_BASE_URL=http://localhost:3000/uploads
+    networks:
+      - chat-network
+    depends_on:
+      - mongodb
+      - redis
+
   mongodb:
     image: mongo:latest
     container_name: mongodb-chat
     restart: always
     ports:
-      - "27018:27017"
-    # volumes:
-    #   - mongodb_data:/data/db
+      - "27018:27017" # Host mapping 27018 to avoid collision with local DB
+    volumes:
+      - mongodb_data:/data/db
     networks:
       - chat-network
 
@@ -19,8 +44,8 @@ services:
     ports:
       - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
-    # volumes:
-    #   - redis_data:/data
+    volumes:
+      - redis_data:/data
     networks:
       - chat-network
 
@@ -30,4 +55,4 @@ volumes:
 
 networks:
   chat-network:
-    # driver: bridge
+    driver: bridge

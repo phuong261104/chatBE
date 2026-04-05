@@ -1,20 +1,16 @@
-import { IUseCase, Requester, TokenPayload } from "@share/interface";
-import { User, UserLoginDTO, UserRegistrationDTO } from "../model/model";
+import { IUseCase, Requester } from "@share/interface";
+import { User } from "../model/model";
 import { UserCondDTO, UserUpdateDTO } from "../model/dto";
 
 export interface IUserUseCase extends IUseCase<
-  UserRegistrationDTO,
+  any,
   UserUpdateDTO,
   User,
   UserCondDTO
 > {
-  login(data: UserLoginDTO): Promise<string>;
-  register(data: UserRegistrationDTO): Promise<string>;
   searchByPhone(phone: string): Promise<User | null>;
   updateProfile(requester: Requester, data: UserUpdateDTO): Promise<boolean>;
-
   profile(userId: string): Promise<User>;
-  verifyToken(token: string): Promise<TokenPayload>;
 }
 
 export interface IPresenceRepository {
