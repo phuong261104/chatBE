@@ -11,11 +11,51 @@ components:
   $ref: './components.yaml#/components'
 
 paths:
-  # User
+  # Auth - Register & Login
   /auth/register:
-    $ref: './paths/user.yaml#/paths/~1auth~1register'
+    $ref: './paths/auth.yaml#/paths/~1auth~1register'
   /auth/login:
-    $ref: './paths/user.yaml#/paths/~1auth~1login'
+    $ref: './paths/auth.yaml#/paths/~1auth~1login'
+  /auth/refresh:
+    $ref: './paths/auth.yaml#/paths/~1auth~1refresh'
+  /auth/logout:
+    $ref: './paths/auth.yaml#/paths/~1auth~1logout'
+  /auth/logout-all:
+    $ref: './paths/auth.yaml#/paths/~1auth~1logout-all'
+  /auth/introspect:
+    $ref: './paths/auth.yaml#/paths/~1auth~1introspect'
+
+  # Auth - Email Verification
+  /auth/send-verification:
+    $ref: './paths/auth.yaml#/paths/~1auth~1send-verification'
+  /auth/verify-email:
+    $ref: './paths/auth.yaml#/paths/~1auth~1verify-email'
+  /auth/resend-verification:
+    $ref: './paths/auth.yaml#/paths/~1auth~1resend-verification'
+
+  # Auth - Password Management
+  /auth/forgot-password:
+    $ref: './paths/auth.yaml#/paths/~1auth~1forgot-password'
+  /auth/verify-reset-otp:
+    $ref: './paths/auth.yaml#/paths/~1auth~1verify-reset-otp'
+  /auth/resend-reset-otp:
+    $ref: './paths/auth.yaml#/paths/~1auth~1resend-reset-otp'
+  /auth/reset-password:
+    $ref: './paths/auth.yaml#/paths/~1auth~1reset-password'
+  /auth/change-password:
+    $ref: './paths/auth.yaml#/paths/~1auth~1change-password'
+
+  # Auth - Session Management
+  /auth/sessions:
+    $ref: './paths/auth.yaml#/paths/~1auth~1sessions'
+  /auth/sessions/{deviceId}:
+    $ref: './paths/auth.yaml#/paths/~1auth~1sessions~1{deviceId}'
+
+  # Auth - Avatar
+  /auth/avatar:
+    $ref: './paths/auth.yaml#/paths/~1auth~1avatar'
+
+  # User
   /profile:
     $ref: './paths/user.yaml#/paths/~1profile'
   /users:

@@ -4,33 +4,30 @@ import { UserStatus } from "@modules/user/model/model";
 interface IUserDocument {
   _id: string;
 
-  // Identity
   email?: string;
   phone?: string;
   username?: string;
 
-  // Authentication
   password: string;
   salt: string;
   status: UserStatus;
+  tokenVersion: number;
   verified: {
     email: boolean;
     phone: boolean;
   };
+  emailVerifiedAt?: Date;
 
-  // Profile
   displayName?: string;
   avatarUrl?: string;
   bio?: string;
 
-  // Privacy
   privacy: {
     searchableByEmail: boolean;
     searchableByPhone: boolean;
     searchableByUsername: boolean;
   };
 
-  // Preferences
   settings: {
     notifications: {
       push: boolean;
@@ -86,6 +83,11 @@ const UserSchema = new Schema<IUserDocument>(
       required: true,
       default: UserStatus.ACTIVE,
     },
+    tokenVersion: {
+      type: Number,
+      required: true,
+      default: 1,
+    },
     verified: {
       email: {
         type: Boolean,
@@ -97,6 +99,10 @@ const UserSchema = new Schema<IUserDocument>(
         required: true,
         default: false,
       },
+    },
+    emailVerifiedAt: {
+      type: Date,
+      required: false,
     },
     displayName: {
       type: String,
@@ -156,7 +162,6 @@ const UserSchema = new Schema<IUserDocument>(
   },
 );
 
-// Indexes
 UserSchema.index({ email: 1 });
 UserSchema.index({ phone: 1 });
 UserSchema.index({ username: 1 });

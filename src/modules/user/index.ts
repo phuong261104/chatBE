@@ -53,6 +53,7 @@ export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
     mdlFactory.auth,
     httpService.getPresenceAPI.bind(httpService),
   );
+  router.get("/users/:id/public", httpService.publicProfileAPI.bind(httpService));
   router.get("/users/:id", httpService.getDetailAPI.bind(httpService));
   router.get("/users", httpService.listAPI.bind(httpService));
   router.patch(

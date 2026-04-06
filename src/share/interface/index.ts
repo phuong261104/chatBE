@@ -1,5 +1,10 @@
 import { PagingDTO } from "@share/model/paging";
 
+export enum UserRole {
+  ADMIN = "admin",
+  USER = "user",
+}
+
 export interface IRepository<Entity, Cond, UpdateDTO>
   extends
     IQueryRepository<Entity, Cond>,
@@ -34,12 +39,6 @@ export interface IUseCase<CreateDTO, UpdateDTO, Entity, Cond> {
   delete(id: string): Promise<boolean>;
 }
 
-///
-export enum UserRole {
-  ADMIN = "admin",
-  USER = "user",
-}
-
 export interface TokenPayload {
   sub: string;
   role: UserRole;
@@ -52,7 +51,6 @@ export interface ITokenProvider {
   verifyToken(token: string): Promise<TokenPayload | null>;
 }
 
-// Authorization
 export type UserToken = {
   accessToken: string;
   refreshToken: string;
@@ -66,4 +64,61 @@ export type TokenIntrospectResult = {
 
 export interface ITokenIntrospect {
   introspect(token: string): Promise<TokenIntrospectResult>;
+}
+
+export interface AccessTokenPayload {
+  sub: string;
+  role: UserRole;
+  type: "access";
+  jti: string;
+  tokenVersion: number;
+}
+
+export interface RefreshTokenPayload {
+  sub: string;
+  type: "refresh";
+  jti: string;
+  deviceId: string;
+}
+
+export interface PasswordResetPayload {
+  sub: string;
+  type: "password-reset";
+  jti: string;
+  purpose: "reset-password";
+}
+
+export interface ITokenBlacklist {
+  add(tokenJti: string, expiresInSeconds: number): Promise<void>;
+  isBlacklisted(tokenJti: string): Promise<boolean>;
+}
+
+export interface DeviceInfo {
+  deviceId: string;
+  userAgent: string;
+  ip: string;
+}
+
+export interface Session {
+  userId: string;
+  deviceId: string;
+  deviceInfo: DeviceInfo;
+  refreshTokenJti: string;
+  createdAt: Date;
+  lastActive: Date;
+}
+
+export interface ISessionStore {
+  create(userId: string, deviceInfo: DeviceInfo, refreshTokenJti: string): Promise<Session>;
+  get(deviceId: string): Promise<Session | null>;
+  update(deviceId: string, data: Partial<Session>): Promise<void>;
+  delete(deviceId: string): Promise<void>;
+  deleteAllForUser(userId: string): Promise<void>;
+  listByUser(userId: string): Promise<Session[]>;
+}
+
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
 }

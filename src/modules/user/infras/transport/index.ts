@@ -1,9 +1,9 @@
 import { IPresenceUseCase, IUserUseCase } from "@modules/user/interface";
-import { UserRole } from "@share/interface";
+import { UserRole, Requester } from "@share/interface";
 import { BaseHttpService } from "@share/transport/http-server";
 import { Request, Response } from "express";
 import { User } from "../../model/model";
-import { UserCondDTO, UserUpdateDTO } from "../../model/dto";
+import { UserCondDTO, UserUpdateDTO, UpdateProfileDTO } from "../../model/dto";
 import { AppError } from "@share/app-error";
 
 export class UserHTTPService extends BaseHttpService<
@@ -56,7 +56,7 @@ export class UserHTTPService extends BaseHttpService<
 
   async profileAPI(req: Request, res: Response) {
     try {
-      const requester = res.locals["requester"];
+      const requester = res.locals["requester"] as Requester;
       const { sub } = requester;
 
       const user = await this.usecase.profile(sub);
@@ -71,17 +71,37 @@ export class UserHTTPService extends BaseHttpService<
   }
 
   async updateProfileAPI(req: Request, res: Response) {
-    const requester = res.locals["requester"];
-    const { sub } = requester;
+    try {
+      const requester = res.locals["requester"] as Requester;
+      const dto = req.body as UpdateProfileDTO;
 
-    await this.usecase.updateProfile(requester, req.body);
+      await this.usecase.updateProfile(requester, dto);
 
-    res.status(200).json({ data: true });
+      res.status(200).json({ data: true });
+    } catch (error) {
+      res.status(400).json({
+        message: (error as Error).message,
+      });
+    }
+  }
+
+  async publicProfileAPI(req: Request, res: Response) {
+    try {
+      const id = req.params.id as string;
+
+      const publicProfile = await this.usecase.getPublicProfile(id);
+
+      res.status(200).json({ data: publicProfile });
+    } catch (error) {
+      res.status(400).json({
+        message: (error as Error).message,
+      });
+    }
   }
 
   async getPresenceAPI(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       if (!id) {
         res.status(422).json({

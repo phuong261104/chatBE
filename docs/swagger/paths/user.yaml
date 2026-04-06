@@ -69,24 +69,65 @@ paths:
 
   /profile:
     get:
-      summary: Get user profile
+      summary: Xem profile tài khoản
       tags: [Profile]
       security:
         - BearerAuth: []
       responses:
         '200':
-          description: Profile data
+          description: Thông tin profile tài khoản
           content:
             application/json:
               schema:
                 type: object
-                example:
+                properties:
                   data:
-                    _id: "660c1d..."
-                    displayName: "Boss Phương"
-                    phone: "0912345678"
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "660c1d..."
+                      displayName:
+                        type: string
+                        example: "Boss Phương"
+                      avatarUrl:
+                        type: string
+                        example: "https://example.com/avatar.jpg"
+                      bio:
+                        type: string
+                        example: "Giới thiệu bản thân"
+                      phone:
+                        type: string
+                        example: "0912345678"
+                      email:
+                        type: string
+                        example: "phuong.boss@example.com"
+                      verified:
+                        type: object
+                        properties:
+                          email:
+                            type: boolean
+                          phone:
+                            type: boolean
+                      privacy:
+                        type: object
+                        properties:
+                          searchableByEmail:
+                            type: boolean
+                          searchableByPhone:
+                            type: boolean
+                          searchableByUsername:
+                            type: boolean
+                      settings:
+                        type: object
+                      createdAt:
+                        type: string
+                        format: date-time
+                      updatedAt:
+                        type: string
+                        format: date-time
     patch:
-      summary: Update user profile
+      summary: Cập nhật profile tài khoản
       tags: [Profile]
       security:
         - BearerAuth: []
@@ -96,18 +137,34 @@ paths:
             schema:
               type: object
               properties:
-                displayName: 
+                displayName:
                   type: string
+                  minLength: 1
+                  maxLength: 100
                   example: "Phương Nguyễn Cập Nhật"
-                avatarUrl: 
+                avatarUrl:
                   type: string
+                  format: uri
                   example: "https://example.com/new-avatar.jpg"
+                bio:
+                  type: string
+                  maxLength: 500
+                  example: "Giới thiệu bản thân"
               example:
                 displayName: "Phương Nguyễn Cập Nhật"
                 avatarUrl: "https://example.com/new-avatar.jpg"
+                bio: "Đây là bio mới của tôi"
       responses:
         '200':
-          description: Profile updated
+          description: Profile đã được cập nhật
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: boolean
+                    example: true
 
   /users:
     get:
