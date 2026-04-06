@@ -42,7 +42,7 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
         ExpressionAttributeValues: this.buildAttributeValues(cond),
         Limit: 1,
       }),
-    );
+    ) as any;
     return result.Items && result.Items.length > 0 ? this.toEntity(result.Items[0]) : null;
   }
 

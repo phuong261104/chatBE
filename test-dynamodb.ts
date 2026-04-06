@@ -35,10 +35,11 @@ async function testAuth(): Promise<void> {
     console.log("[PASS] Register:", registerRes.data?.data?.user?.email || "OK");
     testUserId = registerRes.data?.data?.user?.id || registerRes.data?.data?.id || "";
   } catch (err: any) {
-    if (err.response?.data?.message?.includes("already")) {
+    const msg = err.response?.data?.msg || err.response?.data?.message || "";
+    if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("exists")) {
       console.log("[INFO] User already exists, trying to login");
     } else {
-      console.log("[FAIL] Register:", err.response?.data || err.message);
+      console.log("[FAIL] Register:", JSON.stringify(err.response?.data) || err.message || err.toString());
     }
   }
 
@@ -53,10 +54,21 @@ async function testAuth(): Promise<void> {
     testUserId2 = registerRes2.data?.data?.user?.id || registerRes2.data?.data?.id || "";
     console.log("[PASS] Register User 2:", testUserId2 ? "OK" : "missing");
   } catch (err: any) {
-    if (err.response?.data?.message?.includes("already")) {
-      console.log("[INFO] User 2 already exists");
+    const msg = err.response?.data?.msg || err.response?.data?.message || "";
+    if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("exists")) {
+      console.log("[INFO] User 2 already exists, trying to login");
+      try {
+        const loginRes2 = await api.post("/auth/login", {
+          email: testEmail2,
+          password: testPassword,
+        });
+        testUserId2 = loginRes2.data?.data?.user?.id || loginRes2.data?.data?.id || "";
+        console.log("[PASS] Login User 2:", testUserId2 ? "OK" : "missing");
+      } catch (loginErr: any) {
+        console.log("[FAIL] Login User 2:", JSON.stringify(loginErr.response?.data) || loginErr.message);
+      }
     } else {
-      console.log("[FAIL] Register User 2:", err.response?.data || err.message);
+      console.log("[FAIL] Register User 2:", JSON.stringify(err.response?.data) || err.message || err.toString());
     }
   }
 
@@ -66,10 +78,25 @@ async function testAuth(): Promise<void> {
       password: testPassword,
     });
     accessToken = loginRes.data?.data?.accessToken;
-    testUserId = loginRes.data?.data?.user?.id || loginRes.data?.data?.id || testUserId;
+    if (!testUserId) {
+      testUserId = loginRes.data?.data?.user?.id || loginRes.data?.data?.id || testUserId;
+    }
     console.log("[PASS] Login:", accessToken ? "OK" : "missing token");
   } catch (err: any) {
-    console.log("[FAIL] Login:", err.response?.data || err.message);
+    console.log("[FAIL] Login:", JSON.stringify(err.response?.data) || err.message || err.toString());
+  }
+
+  if (!testUserId2) {
+    try {
+      const loginRes2 = await api.post("/auth/login", {
+        email: testEmail2,
+        password: testPassword,
+      });
+      testUserId2 = loginRes2.data?.data?.user?.id || loginRes2.data?.data?.id || "";
+      console.log("[PASS] Login User 2:", testUserId2 ? "OK" : "missing");
+    } catch (loginErr2: any) {
+      console.log("[FAIL] Login User 2:", JSON.stringify(loginErr2.response?.data) || loginErr2.message);
+    }
   }
 }
 
@@ -126,11 +153,12 @@ async function testMessaging(): Promise<void> {
 
   try {
     const res = await api.post("/conversations/private", {
-      participantId: testUserId2,
+      targetUserId: testUserId2,
     });
     console.log("[PASS] Get/Create Private Conversation:", res.data?.data ? "OK" : "missing data");
   } catch (err: any) {
-    console.log("[FAIL] Get/Create Private Conversation:", err.response?.data || err.message);
+    const resp = err.response?.data;
+    console.log("[FAIL] Get/Create Private Conversation:", `participantId=${testUserId2}, data=${JSON.stringify(resp)}`);
   }
 
   try {
@@ -150,7 +178,7 @@ async function testMessaging(): Promise<void> {
   try {
     const res = await api.post("/groups", {
       name: "Test DynamoDB Group",
-      memberIds: [testUserId2],
+      memberIds: [testUserId2, testUserId],
     });
     console.log("[PASS] Create Group:", res.data?.data ? "OK" : "missing data");
   } catch (err: any) {
