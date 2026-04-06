@@ -66,9 +66,20 @@ services:
     networks:
       - chat-network
 
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: dynamodb-local-chat
+    restart: always
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+    networks:
+      - chat-network
+
 volumes:
   mongodb_data:
   redis_data:
+  dynamodb_data:
 
 networks:
   chat-network:

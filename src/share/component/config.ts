@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const config = {
+  dbType: (process.env.DB_TYPE || "mongodb") as "mongodb" | "dynamodb",
   envName: process.env.NODE_ENV,
   rpc: {
     productBrand: process.env.RPC_PRODUCT_BRAND_URL || "http://localhost:3000",
@@ -12,6 +13,11 @@ export const config = {
   mongoose: {
     uri: process.env.MONGO_URI || "mongodb://localhost:27018/express_ts_app",
     dbName: process.env.MONGODB_DB_NAME || "express_ts_app",
+  },
+  dynamodb: {
+    region: process.env.DYNAMODB_REGION || "localhost",
+    endpoint: process.env.DYNAMODB_ENDPOINT || "http://localhost:8000",
+    tablePrefix: process.env.DYNAMODB_TABLE_PREFIX || "chatbe_",
   },
   redis: {
     host: process.env.REDIS_HOST || "redis://localhost:6379",

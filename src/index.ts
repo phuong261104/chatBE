@@ -36,12 +36,16 @@ config();
   await RedisClient.init(connectionUrl);
   const redisClient = RedisClient.getClient();
 
-  try {
-    await mongoose.connect(appConfig.mongoose.uri);
-    Logger.info("Connected to MongoDB successfully.");
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    process.exit(1);
+  if (appConfig.dbType !== "dynamodb") {
+    try {
+      await mongoose.connect(appConfig.mongoose.uri);
+      Logger.info("Connected to MongoDB successfully.");
+    } catch (error) {
+      console.error("MongoDB connection error:", error);
+      process.exit(1);
+    }
+  } else {
+    Logger.info("Using DynamoDB - skipping MongoDB connection.");
   }
 
   const app = express();

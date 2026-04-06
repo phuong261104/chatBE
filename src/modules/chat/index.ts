@@ -14,6 +14,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { ServiceContext } from "@/share/interface/service-context";
 
 // ==================== External Dependencies (User Module) ====================
+import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb/dynamodb-repo";
 import { MongoUserRepository } from "@modules/user/infras/repository/nosql/mongodb-repo";
 import { UserUseCase } from "@modules/user/usecase";
 
@@ -31,6 +32,19 @@ import {
   MessagingHttpService,
   MessagingSocketService,
 } from "./infras";
+
+// ==================== DynamoDB Repositories ====================
+import {
+  DynamoConversationRepository,
+  DynamoConversationMemberRepository,
+  DynamoMessageRepository,
+  DynamoMessageReactionQueryRepository,
+  DynamoMessageReactionCommandRepository,
+  DynamoPollQueryRepository,
+  DynamoPollCommandRepository,
+} from "./infras/repository/dynamodb";
+
+import { config } from "@share/component/config";
 
 // Use Cases: All handlers and facade
 import {
@@ -88,15 +102,33 @@ export const setupMessagingHexagon = (
 ) => {
   const mdlFactory = sctx.mdlFactory;
 
-  const conversationRepo = new MongoConversationRepository();
-  const conversationMemberRepo = new MongoConversationMemberRepository();
-  const messageRepo = new MongoMessageRepository();
-  const reactionQueryRepo = new MongoMessageReactionQueryRepository();
-  const reactionCmdRepo = new MongoMessageReactionCommandRepository();
-  const pollQueryRepo = new MongoPollQueryRepository();
-  const pollCmdRepo = new MongoPollCommandRepository();
+  const dbType = config.dbType;
 
-  const userRepo = new MongoUserRepository();
+  const conversationRepo = (dbType === "dynamodb"
+    ? new DynamoConversationRepository()
+    : new MongoConversationRepository()) as any;
+  const conversationMemberRepo = (dbType === "dynamodb"
+    ? new DynamoConversationMemberRepository()
+    : new MongoConversationMemberRepository()) as any;
+  const messageRepo = (dbType === "dynamodb"
+    ? new DynamoMessageRepository()
+    : new MongoMessageRepository()) as any;
+  const reactionQueryRepo = (dbType === "dynamodb"
+    ? new DynamoMessageReactionQueryRepository()
+    : new MongoMessageReactionQueryRepository()) as any;
+  const reactionCmdRepo = (dbType === "dynamodb"
+    ? new DynamoMessageReactionCommandRepository()
+    : new MongoMessageReactionCommandRepository()) as any;
+  const pollQueryRepo = (dbType === "dynamodb"
+    ? new DynamoPollQueryRepository()
+    : new MongoPollQueryRepository()) as any;
+  const pollCmdRepo = (dbType === "dynamodb"
+    ? new DynamoPollCommandRepository()
+    : new MongoPollCommandRepository()) as any;
+
+  const userRepo = (dbType === "dynamodb"
+    ? new DynamoUserRepository()
+    : new MongoUserRepository()) as any;
   const userUseCase = new UserUseCase(userRepo);
   const userAdapter = new UserRepositoryAdapter(userUseCase);
 
@@ -691,6 +723,13 @@ export {
   MongoMessageReactionCommandRepository,
   MongoPollQueryRepository,
   MongoPollCommandRepository,
+  DynamoConversationRepository,
+  DynamoConversationMemberRepository,
+  DynamoMessageRepository,
+  DynamoMessageReactionQueryRepository,
+  DynamoMessageReactionCommandRepository,
+  DynamoPollQueryRepository,
+  DynamoPollCommandRepository,
   ConversationModel,
   ConversationMemberModel,
   MessageModel,

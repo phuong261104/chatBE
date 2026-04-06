@@ -6,7 +6,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "demo": "ts-node src/index.ts",
     "start": "nodemon src/index.ts",
-    "test:messaging": "ts-node test-messaging-api.ts"
+    "test:messaging": "ts-node test-messaging-api.ts",
+    "dynamodb:init": "ts-node scripts/init-dynamodb-tables.ts",
+    "dynamodb:reset": "ts-node scripts/init-dynamodb-tables.ts --delete"
   },
   "author": "",
   "license": "ISC",
@@ -29,6 +31,9 @@
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "^12.1.0",
+    "@aws-sdk/client-dynamodb": "^3.1024.0",
+    "@aws-sdk/lib-dynamodb": "^3.1024.0",
+    "@aws-sdk/util-dynamodb": "^3.996.2",
     "@types/multer": "^2.0.0",
     "@types/nodemailer": "^8.0.0",
     "@types/socket.io": "^3.0.1",

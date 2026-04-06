@@ -6,11 +6,16 @@ import { UserHTTPService } from "./infras/transport";
 import { UserSocketService } from "./infras/transport/socket-service";
 import { UserUseCase } from "./usecase";
 import { PresenceUseCase } from "./usecase/presence-usecase";
-import { MongoUserRepository } from "./infras/repository/nosql/mongodb-repo";
 import { RedisPresenceRepository } from "./infras/repository/redis/presence-repo";
+import { MongoUserRepository } from "./infras/repository/nosql/mongodb-repo";
+import { DynamoUserRepository } from "./infras/repository/dynamodb/dynamodb-repo";
+import { config } from "@share/component/config";
 
 export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
-  const repository = new MongoUserRepository();
+  const dbType = config.dbType;
+  const repository = (dbType === "dynamodb"
+    ? new DynamoUserRepository()
+    : new MongoUserRepository()) as any;
   const presenceRepo = new RedisPresenceRepository();
   const presenceUseCase = new PresenceUseCase(presenceRepo);
   const useCase = new UserUseCase(repository);

@@ -7,10 +7,15 @@ import {
   FriendNotificationSocketService,
 } from "./infras";
 import { FriendRequestUseCase } from "./usecase";
-import { MongoFriendRequestRepository } from "./infras/repository";
+import { MongoFriendRequestRepository } from "./infras/repository/nosql/mongodb-repo";
+import { DynamoFriendRequestRepository } from "./infras/repository/dynamodb";
 import { MongoBlockRepository } from "@modules/blocks/infras/repository/nosql/mongodb-repo";
+import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
 import { MongoFriendshipRepository } from "@modules/friendships/infras/repository/nosql/mongodb-repo";
+import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
 import { MongoUserRepository } from "@modules/user/infras/repository/nosql/mongodb-repo";
+import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb";
+import { config } from "@share/component/config";
 
 export { FriendNotificationSocketService };
 export * from "./model";
@@ -22,10 +27,20 @@ export const setupFriendRequestHexagon = (
   sctx: ServiceContext,
   io?: SocketIOServer,
 ): { router: Router; socketService?: FriendNotificationSocketService } => {
-  const repository = new MongoFriendRequestRepository();
-  const blockRepository = new MongoBlockRepository();
-  const friendshipRepository = new MongoFriendshipRepository();
-  const userRepository = new MongoUserRepository();
+  const dbType = config.dbType;
+
+  const repository = (dbType === "dynamodb"
+    ? new DynamoFriendRequestRepository()
+    : new MongoFriendRequestRepository()) as any;
+  const blockRepository = (dbType === "dynamodb"
+    ? new DynamoBlockRepository()
+    : new MongoBlockRepository()) as any;
+  const friendshipRepository = (dbType === "dynamodb"
+    ? new DynamoFriendshipRepository()
+    : new MongoFriendshipRepository()) as any;
+  const userRepository = (dbType === "dynamodb"
+    ? new DynamoUserRepository()
+    : new MongoUserRepository()) as any;
   const useCase = new FriendRequestUseCase(
     repository,
     blockRepository,
