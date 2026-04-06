@@ -20,21 +20,46 @@ export const config = {
     url: process.env.REDIS_URL,
   },
   accessToken: {
-    secretKey: process.env.JWT_SECRET_KEY || "200L@b.io",
-    expiresIn: "7d",
+    secretKey: process.env.JWT_ACCESS_SECRET || "access-secret-key-change-in-production-min-32chars",
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
+  },
+  refreshToken: {
+    secretKey: process.env.JWT_REFRESH_SECRET || "refresh-secret-key-change-in-production-min-32chars",
+    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
+  },
+  passwordReset: {
+    secretKey: process.env.JWT_PASSWORD_RESET_SECRET || "reset-secret-key-change-in-production",
+    expiresIn: process.env.JWT_PASSWORD_RESET_EXPIRES_IN || "1h",
+  },
+  email: {
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: {
+      user: process.env.SMTP_USER || "hideonbush2611@gmail.com",
+      pass: process.env.SMTP_PASS || "qaiy paqo ijce xaox",
+    },
+    from: process.env.EMAIL_FROM || "noreply@chatbe.io",
+    fromName: process.env.EMAIL_FROM_NAME || "ChatBE",
+  },
+  app: {
+    url: process.env.APP_URL || "http://localhost:3000",
+    frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+  },
+  auth: {
+    requireEmailVerification: process.env.AUTH_REQUIRE_EMAIL_VERIFICATION === "true",
   },
   upload: {
-    maxFileSize: parseInt(process.env.UPLOAD_MAX_FILE_SIZE || "10485760"), // 10MB default
+    maxFileSize: parseInt(process.env.UPLOAD_MAX_FILE_SIZE || "10485760"),
     destination: process.env.UPLOAD_DESTINATION || "./uploads",
     baseUrl: process.env.UPLOAD_BASE_URL || "http://localhost:3000/uploads",
     allowedMimeTypes: (
       process.env.UPLOAD_ALLOWED_MIME_TYPES ||
       "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/mpeg,video/quicktime,audio/mpeg,audio/wav,application/pdf"
     ).split(","),
-    // Cloud storage settings (optional - for future use)
     cloud: {
       enabled: process.env.CLOUD_STORAGE_ENABLED === "true",
-      provider: process.env.CLOUD_STORAGE_PROVIDER || "aws", // 'aws', 'azure', 'gcp'
+      provider: process.env.CLOUD_STORAGE_PROVIDER || "aws",
       bucketName: process.env.CLOUD_BUCKET_NAME || "",
       region: process.env.CLOUD_REGION || "",
       accessKeyId: process.env.CLOUD_ACCESS_KEY_ID || "",

@@ -30,6 +30,10 @@ export class RedisClient implements IEventPublisher {
     return this.instance;
   }
 
+  public static getClient(): RedisClientType {
+    return this.getInstance().redisClient;
+  }
+
   private async _connect(): Promise<void> {
     try {
       await this.redisClient.connect();

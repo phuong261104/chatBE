@@ -20,6 +20,10 @@ import {
   UserPhoneSearchSchema,
   UserUpdateDTO,
   UserUpdateSchema,
+  UpdateProfileDTO,
+  UpdateProfileDTOSchema,
+  UserPublic,
+  UserPublicSchema,
 } from "../model/dto";
 
 export class UserUseCase implements IUserUseCase {
@@ -34,6 +38,23 @@ export class UserUseCase implements IUserUseCase {
     }
 
     return user;
+  }
+
+  async getPublicProfile(userId: string): Promise<UserPublic> {
+    const user = await this.repository.get(userId);
+    if (!user) {
+      throw ErrDataNotFound;
+    }
+
+    const publicData: UserPublic = {
+      id: user.id,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio,
+      verified: user.verified,
+    };
+
+    return UserPublicSchema.parse(publicData);
   }
 
   async searchByPhone(phone: string): Promise<User | null> {
@@ -54,7 +75,33 @@ export class UserUseCase implements IUserUseCase {
     return otherProps as User;
   }
 
-  updateProfile(requester: Requester, data: UserUpdateDTO): Promise<boolean> {
+  async updateProfile(requester: Requester, data: UpdateProfileDTO): Promise<boolean> {
+    const dto = UpdateProfileDTOSchema.parse(data);
+
+    const user = await this.repository.get(requester.sub);
+    if (!user) {
+      throw ErrDataNotFound;
+    }
+
+    const updateData: any = {};
+    if (dto.displayName !== undefined) {
+      updateData.displayName = dto.displayName;
+    }
+    if (dto.bio !== undefined) {
+      updateData.bio = dto.bio;
+    }
+    if (dto.avatarUrl !== undefined) {
+      updateData.avatarUrl = dto.avatarUrl;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return true;
+    }
+
+    return this.repository.update(requester.sub, updateData);
+  }
+
+  updateProfile_old(requester: Requester, data: UserUpdateDTO): Promise<boolean> {
     const dto = UserUpdateSchema.parse(data);
 
     const user = this.repository.get(requester.sub);

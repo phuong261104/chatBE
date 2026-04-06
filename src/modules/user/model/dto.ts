@@ -39,6 +39,14 @@ export const UserUpdateSchema = z.object({
 
 export type UserUpdateDTO = z.infer<typeof UserUpdateSchema>;
 
+export const UpdateProfileDTOSchema = z.object({
+  displayName: z.string().min(1).max(100).optional(),
+  avatarUrl: z.string().url().optional().nullable(),
+  bio: z.string().max(500).optional(),
+});
+
+export type UpdateProfileDTO = z.infer<typeof UpdateProfileDTOSchema>;
+
 export const UserCondDTOSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
@@ -57,3 +65,13 @@ export const UserPhoneSearchSchema = z.object({
 });
 
 export type UserPhoneSearchDTO = z.infer<typeof UserPhoneSearchSchema>;
+
+export const UserPublicSchema = z.object({
+  id: z.string(),
+  displayName: z.string().optional(),
+  avatarUrl: z.string().optional(),
+  bio: z.string().optional(),
+  verified: UserVerifiedSchema,
+});
+
+export type UserPublic = z.infer<typeof UserPublicSchema>;

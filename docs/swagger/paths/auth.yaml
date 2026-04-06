@@ -1,0 +1,907 @@
+paths:
+  /auth/register:
+    post:
+      summary: Đăng ký tài khoản mới
+      tags: [Auth]
+      description: |
+        Đăng ký tài khoản mới với số điện thoại và mật khẩu.
+        Hỗ trợ 2 luồng:
+        - Luồng A (bắt buộc xác thực): Đặt `sendVerificationEmail: true` HOẶC đặt env `AUTH_REQUIRE_EMAIL_VERIFICATION=true`.
+          Sau khi đăng ký, user PHẢI verify email trước khi login. Response trả về `pendingVerification: true`.
+        - Luồng B (mặc định): Không đặt `sendVerificationEmail` hoặc đặt `false`.
+          Đăng ký xong là login được ngay, đồng thời gửi mã xác thực email (tùy chọn verify).
+        Mặc định `refreshToken` LUÔN được trả về trong response (không cần X-Device-Id header).
+        Email được gửi BẤT ĐỒNG BỘ - không ảnh hưởng tốc độ response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+                - password
+              properties:
+                phone:
+                  type: string
+                  pattern: '^[0-9]{8,15}$'
+                  example: "0912345678"
+                  description: "Số điện thoại đăng ký (8-15 chữ số)"
+                password:
+                  type: string
+                  minLength: 6
+                  maxLength: 128
+                  example: "Password123!"
+                  description: "Mật khẩu bảo mật (6-128 ký tự)"
+                email:
+                  type: string
+                  format: email
+                  example: "phuong.boss@example.com"
+                  description: "Email (tùy chọn, dùng để xác thực)"
+                displayName:
+                  type: string
+                  maxLength: 100
+                  example: "Boss Phương"
+                  description: "Tên hiển thị (tùy chọn)"
+                sendVerificationEmail:
+                  type: boolean
+                  example: true
+                  description: "true = bắt buộc verify email trước khi login (Luồng A)"
+            example:
+              phone: "0912345678"
+              password: "Password123!"
+              email: "phuong.boss@example.com"
+              displayName: "Boss Phương"
+              sendVerificationEmail: true
+      responses:
+        '200':
+          description: Đăng ký thành công - Chờ xác thực email (Luồng A)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterPendingResponse'
+              example:
+                data:
+                  pendingVerification: true
+                  userId: "660c1d..."
+                  email: "phuong.boss@example.com"
+                  expiresIn: 300
+                  message: "Verification code has been sent to your email. Please verify before logging in."
+        '201':
+          description: Đăng ký thành công - Login ngay (Luồng B)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                data:
+                  accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  expiresIn: 900
+                  user:
+                    id: "660c1d..."
+                    phone: "0912345678"
+                    email: "phuong.boss@example.com"
+                    displayName: "Boss Phương"
+                    verified:
+                      email: false
+                      phone: false
+        '422':
+          description: Lỗi validation (số điện thoại/email đã tồn tại)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Phone already existed"
+
+  /auth/login:
+    post:
+      summary: Đăng nhập tài khoản
+      tags: [Auth]
+      description: |
+        Đăng nhập bằng số điện thoại hoặc email kèm mật khẩu.
+        Header X-Device-Id (UUID) được khuyến nghị để quản lý phiên đăng nhập.
+        **QUAN TRỌNG**: `refreshToken` LUÔN được trả về trong response, không cần X-Device-Id header.
+        Response trả về X-Device-Id header chứa deviceId đã sử dụng (từ header hoặc tự tạo).
+      parameters:
+        - in: header
+          name: X-Device-Id
+          schema:
+            type: string
+            format: uuid
+          description: "UUID thiết bị (tùy chọn, khuyến nghị)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                  pattern: '^[0-9]{10}$'
+                  example: "0912345678"
+                password:
+                  type: string
+                  example: "Password123!"
+            example:
+              phone: "0912345678"
+              password: "Password123!"
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          headers:
+            X-Device-Id:
+              schema:
+                type: string
+                description: "UUID thiết bị đã đăng nhập"
+              example: "550e8400-e29b-41d4-a716-446655440000"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Thông tin đăng nhập không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid credentials"
+
+  /auth/refresh:
+    post:
+      summary: Làm mới access token
+      tags: [Auth]
+      description: Sử dụng refresh token để lấy cặp token mới
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            example:
+              refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Token được làm mới thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      refreshToken:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      expiresIn:
+                        type: integer
+                        example: 900
+        '401':
+          description: Refresh token không hợp lệ hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      summary: Đăng xuất
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      description: Đăng xuất khỏi phiên hiện tại
+      parameters:
+        - in: header
+          name: X-Device-Id
+          schema:
+            type: string
+          description: "UUID thiết bị cần đăng xuất"
+      responses:
+        '200':
+          description: Đăng xuất thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: boolean
+                    example: true
+
+  /auth/logout-all:
+    post:
+      summary: Đăng xuất tất cả các phiên
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      description: Đăng xuất khỏi tất cả các thiết bị
+      responses:
+        '200':
+          description: Đăng xuất thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: boolean
+                    example: true
+
+  /auth/introspect:
+    post:
+      summary: Kiểm tra token
+      tags: [Auth]
+      description: Kiểm tra tính hợp lệ của access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Kết quả kiểm tra token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      isOk:
+                        type: boolean
+                      payload:
+                        type: object
+
+  /auth/send-verification:
+    post:
+      summary: Gửi mã xác thực email
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      description: |
+        Gửi mã xác thực 6 số đến email.
+        Có rate limit: tối đa 5 lần gửi mỗi giờ.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "phuong.boss@example.com"
+      responses:
+        '200':
+          description: Mã xác thực đã được gửi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Verification code sent successfully"
+        '404':
+          description: Email không tồn tại trong hệ thống
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Too many requests. Please try again later."
+
+  /auth/verify-email:
+    post:
+      summary: Xác thực email
+      tags: [Auth]
+      description: |
+        Xác thực email bằng mã 6 số.
+        Mã có hiệu lực trong 5 phút.
+        Tối đa 3 lần nhập sai.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - code
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "phuong.boss@example.com"
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: "123456"
+                  description: "Mã xác thực 6 chữ số"
+      responses:
+        '200':
+          description: Xác thực thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      verified:
+                        type: boolean
+                        example: true
+                  message:
+                    type: string
+                    example: "Email verified successfully"
+        '400':
+          description: Mã xác thực không hợp lệ hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Quá nhiều lần thử sai
+
+  /auth/resend-verification:
+    post:
+      summary: Gửi lại mã xác thực email
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      description: Gửi lại mã xác thực email (cùng rate limit với send-verification)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "phuong.boss@example.com"
+      responses:
+        '200':
+          description: Mã xác thực đã được gửi lại
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Verification code resent successfully"
+        '429':
+          description: Rate limit exceeded
+
+  /auth/forgot-password:
+    post:
+      summary: Quên mật khẩu - Gửi mã OTP
+      tags: [Auth]
+      description: |
+        Gửi mã OTP 6 số qua email để đặt lại mật khẩu.
+        OTP có hiệu lực trong 5 phút.
+        Rate limit: tối đa 5 lần gửi trong 1 giờ.
+        Sau khi nhận OTP, gọi /auth/verify-reset-otp để lấy tempToken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "phuong.boss@example.com"
+      responses:
+        '200':
+          description: OTP đã được gửi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Verification code has been sent to your email"
+                  expiresIn:
+                    type: integer
+                    example: 300
+        '404':
+          description: Email không tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/verify-reset-otp:
+    post:
+      summary: Xác thực OTP đặt lại mật khẩu
+      tags: [Auth]
+      description: |
+        Xác thực mã OTP nhận được qua email.
+        Nếu OTP đúng, trả về tempToken dùng để đặt lại mật khẩu.
+        tempToken có hiệu lực 5 phút.
+        Tối đa 3 lần nhập sai OTP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "phuong.boss@example.com"
+                otp:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: "123456"
+                  description: "Mã OTP 6 chữ số"
+      responses:
+        '200':
+          description: OTP hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetOTPVerifyResponse'
+              example:
+                data:
+                  tempToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  expiresIn: 300
+                message: "OTP verified successfully"
+        '400':
+          description: OTP không đúng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid verification code"
+        '404':
+          description: Email không tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: OTP đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Verification code has expired"
+        '429':
+          description: Quá số lần thử
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Too many attempts"
+
+  /auth/resend-reset-otp:
+    post:
+      summary: Gửi lại mã OTP đặt lại mật khẩu
+      tags: [Auth]
+      description: |
+        Gửi lại mã OTP mới qua email.
+        Áp dụng cùng rate limit với /auth/forgot-password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "phuong.boss@example.com"
+      responses:
+        '200':
+          description: OTP mới đã được gửi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Verification code has been resent to your email"
+                  expiresIn:
+                    type: integer
+                    example: 300
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/reset-password:
+    post:
+      summary: Đặt lại mật khẩu
+      tags: [Auth]
+      description: |
+        Đặt lại mật khẩu mới.
+        Hỗ trợ 2 cách:
+        1. Dùng tempToken (từ /auth/verify-reset-otp) - khuyến nghị cho Mobile
+        2. Dùng token (link email trực tiếp) - dùng cho Web/Email
+        Sau khi đặt lại, tất cả phiên đăng nhập sẽ bị vô hiệu hóa.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newPassword
+              properties:
+                tempToken:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  description: "Temp token từ verify-reset-otp (Mobile - khuyến nghị)"
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  description: "Token từ link email (Web - legacy)"
+                newPassword:
+                  type: string
+                  minLength: 6
+                  maxLength: 128
+                  example: "NewPassword123!"
+                  description: "Mật khẩu mới (6-128 ký tự)"
+      responses:
+        '200':
+          description: Đặt lại mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  message:
+                    type: string
+                    example: "Password has been reset successfully"
+        '400':
+          description: Token không hợp lệ hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/change-password:
+    post:
+      summary: Thay đổi mật khẩu
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      description: |
+        Thay đổi mật khẩu khi đã đăng nhập.
+        Yêu cầu nhập mật khẩu hiện tại.
+        Sau khi thay đổi, tất cả phiên đăng nhập sẽ bị vô hiệu hóa.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  minLength: 6
+                  example: "OldPassword123!"
+                  description: "Mật khẩu hiện tại"
+                newPassword:
+                  type: string
+                  minLength: 6
+                  maxLength: 128
+                  example: "NewPassword123!"
+                  description: "Mật khẩu mới (6-128 ký tự)"
+      responses:
+        '200':
+          description: Thay đổi mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  message:
+                    type: string
+                    example: "Password changed successfully"
+        '400':
+          description: Mật khẩu hiện tại không đúng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/sessions:
+    get:
+      summary: Lấy danh sách phiên đăng nhập
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      description: Lấy danh sách tất cả các phiên đăng nhập trên các thiết bị
+      parameters:
+        - in: header
+          name: X-Device-Id
+          schema:
+            type: string
+          description: "UUID thiết bị hiện tại (để đánh dấu phiên hiện tại)"
+      responses:
+        '200':
+          description: Danh sách phiên đăng nhập
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        deviceId:
+                          type: string
+                          example: "550e8400-e29b-41d4-a716-446655440000"
+                        deviceInfo:
+                          type: object
+                          properties:
+                            userAgent:
+                              type: string
+                              example: "Mozilla/5.0..."
+                            ip:
+                              type: string
+                              example: "192.168.1.1"
+                        createdAt:
+                          type: string
+                          format: date-time
+                        lastActive:
+                          type: string
+                          format: date-time
+                        isCurrent:
+                          type: boolean
+    delete:
+      summary: Xóa tất cả phiên đăng nhập (trừ phiên hiện tại)
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      description: Xóa tất cả phiên đăng nhập ngoại trừ phiên hiện tại
+      responses:
+        '200':
+          description: Xóa tất cả phiên thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: boolean
+                    example: true
+
+  /auth/sessions/{deviceId}:
+    delete:
+      summary: Xóa một phiên đăng nhập
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: deviceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Xóa phiên thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: boolean
+                    example: true
+        '404':
+          description: Phiên không tồn tại
+
+  /auth/avatar:
+    patch:
+      summary: Thay đổi hình ảnh tài khoản
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      description: |
+        Cập nhật avatar URL cho tài khoản người dùng.
+        URL có thể từ upload lên server hoặc từ cloud storage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - avatarUrl
+              properties:
+                avatarUrl:
+                  type: string
+                  format: uri
+                  example: "https://example.com/uploads/avatar.jpg"
+                  description: "URL của hình ảnh avatar"
+      responses:
+        '200':
+          description: Cập nhật avatar thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                  message:
+                    type: string
+                    example: "Avatar updated successfully"
+        '400':
+          description: URL không hợp lệ
+        '401':
+          description: Chưa đăng nhập
+
+components:
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            accessToken:
+              type: string
+              description: "JWT access token"
+            refreshToken:
+              type: string
+              description: "JWT refresh token"
+            expiresIn:
+              type: integer
+              description: "Thời gian hết hạn access token (giây)"
+            user:
+              type: object
+              properties:
+                id:
+                  type: string
+                  example: "660c1d..."
+                phone:
+                  type: string
+                  example: "0912345678"
+                email:
+                  type: string
+                  example: "phuong.boss@example.com"
+                displayName:
+                  type: string
+                  example: "Boss Phương"
+                avatarUrl:
+                  type: string
+                  example: "https://example.com/avatar.jpg"
+                verified:
+                  type: object
+                  properties:
+                    email:
+                      type: boolean
+                      example: false
+                    phone:
+                      type: boolean
+                      example: false
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Lỗi hệ thống hoặc lỗi dữ liệu đầu vào."
+
+    RegisterPendingResponse:
+      type: object
+      description: "Response khi đăng ký với xác thực email bắt buộc (Luồng A)"
+      properties:
+        data:
+          type: object
+          properties:
+            pendingVerification:
+              type: boolean
+              example: true
+            userId:
+              type: string
+              example: "660c1d..."
+            email:
+              type: string
+              example: "phuong.boss@example.com"
+            expiresIn:
+              type: integer
+              example: 300
+              description: "Thời gian hiệu lực của mã xác thực (giây)"
+            message:
+              type: string
+              example: "Verification code has been sent to your email. Please verify before logging in."
+
+    ResetOTPVerifyResponse:
+      type: object
+      description: "Response khi verify OTP đặt lại mật khẩu"
+      properties:
+        data:
+          type: object
+          properties:
+            tempToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              description: "Temp token dùng để đặt lại mật khẩu"
+            expiresIn:
+              type: integer
+              example: 300
+              description: "Thời gian hiệu lực của tempToken (giây)"

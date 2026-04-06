@@ -23,7 +23,6 @@ import { setupSearchHexagon } from "@modules/search";
 import { setupPostHexagon } from "@modules/posts";
 import { setupStoryHexagon } from "@modules/stories";
 import path from "path";
-import YAML from "yamljs";
 import swaggerUi from "swagger-ui-express";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { RedisClient } from "./share/component/redis-pubsub/redis";
@@ -35,6 +34,7 @@ config();
 
   const connectionUrl = appConfig.redis.url as string;
   await RedisClient.init(connectionUrl);
+  const redisClient = RedisClient.getClient();
 
   try {
     await mongoose.connect(appConfig.mongoose.uri);
@@ -55,14 +55,8 @@ config();
 
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    );
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept, Authorization",
-    );
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Device-Id");
 
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
@@ -88,25 +82,19 @@ config();
     Logger.error("Failed to load swagger documentation: " + error);
   }
 
-  const introspector = new TokenIntrospectLocal(
-    appConfig.accessToken.secretKey,
-  );
+  const introspector = new TokenIntrospectLocal(appConfig.accessToken.secretKey);
   const sctx = { mdlFactory: setupMiddlewares(introspector) };
 
   app.use("/v1", responseFormatMiddleware);
 
   const io = createSocketIOServer(httpServer);
-  const { router: authRouter, authUseCase } = setupAuthHexagon(sctx);
-  const { router: userRouter, socketService: userSocketService } =
-    setupUserHexagon(sctx, io);
+
+  const { router: authRouter } = setupAuthHexagon(sctx, redisClient);
+  const { router: userRouter } = setupUserHexagon(sctx, io);
   const mediaRouter = setupMediaHexagon(sctx);
-  const { router: messagingRouter, socketService: messagingSocketService } =
-    setupMessagingHexagon(io, sctx);
+  const { router: messagingRouter } = setupMessagingHexagon(io, sctx);
   const blockRouter = setupBlockHexagon(sctx);
-
-  const { router: friendRequestRouter, socketService } =
-    setupFriendRequestHexagon(sctx, io);
-
+  const { router: friendRequestRouter, socketService } = setupFriendRequestHexagon(sctx, io);
   const friendshipRouter = setupFriendshipHexagon(sctx, socketService);
 
   app.use("/v1", authRouter);

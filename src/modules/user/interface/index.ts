@@ -1,6 +1,6 @@
 import { IUseCase, Requester } from "@share/interface";
 import { User } from "../model/model";
-import { UserCondDTO, UserUpdateDTO } from "../model/dto";
+import { UserCondDTO, UserUpdateDTO, UpdateProfileDTO, UserPublic } from "../model/dto";
 
 export interface IUserUseCase extends IUseCase<
   any,
@@ -9,8 +9,9 @@ export interface IUserUseCase extends IUseCase<
   UserCondDTO
 > {
   searchByPhone(phone: string): Promise<User | null>;
-  updateProfile(requester: Requester, data: UserUpdateDTO): Promise<boolean>;
+  updateProfile(requester: Requester, data: UpdateProfileDTO): Promise<boolean>;
   profile(userId: string): Promise<User>;
+  getPublicProfile(userId: string): Promise<UserPublic>;
 }
 
 export interface IPresenceRepository {
