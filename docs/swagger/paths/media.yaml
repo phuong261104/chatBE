@@ -1,7 +1,7 @@
 paths:
-  /media/upload/image:
+  /media/upload:
     post:
-      summary: Upload an image file
+      summary: Upload a single file
       tags: [Media]
       security:
         - BearerAuth: []
@@ -15,19 +15,44 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: "File ảnh (png, jpg, jpeg)"
+                  description: "Single file (image, video, document)"
       responses:
         '200':
           description: Upload successful
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                        description: "Name of the uploaded file"
+                      url:
+                        type: string
+                        description: "URL of the uploaded file"
+                      originalName:
+                        type: string
+                        description: "Original name of the file"
+                      size:
+                        type: number
+                        description: "File size in bytes"
+                      mimetype:
+                        type: string
+                        description: "MIME type of the file"
               example:
                 data:
-                  url: "https://example.com/uploads/image-123.jpg"
+                  filename: "abc123-uuid.jpg"
+                  url: "https://storage.example.com/uploads/abc123-uuid.jpg"
+                  originalName: "photo.jpg"
+                  size: 102400
+                  mimetype: "image/jpeg"
 
-  /media/upload/video:
+  /media/upload-multiple:
     post:
-      summary: Upload a video file
+      summary: Upload multiple files
       tags: [Media]
       security:
         - BearerAuth: []
@@ -38,20 +63,49 @@ paths:
             schema:
               type: object
               properties:
-                file:
-                  type: string
-                  format: binary
-                  description: "File video (mp4, mov, avi)"
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: "Multiple files (max 10 files)"
       responses:
         '200':
           description: Upload successful
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        filename:
+                          type: string
+                        url:
+                          type: string
+                        originalName:
+                          type: string
+                        size:
+                          type: number
+                        mimetype:
+                          type: string
               example:
                 data:
-                  url: "https://example.com/uploads/video-123.mp4"
+                  - filename: "abc123-uuid1.jpg"
+                    url: "https://storage.example.com/uploads/abc123-uuid1.jpg"
+                    originalName: "photo1.jpg"
+                    size: 102400
+                    mimetype: "image/jpeg"
+                  - filename: "def456-uuid2.png"
+                    url: "https://storage.example.com/uploads/def456-uuid2.png"
+                    originalName: "photo2.png"
+                    size: 204800
+                    mimetype: "image/png"
 
-  /media/files/{id}:
+  /media/{filename}:
     delete:
       summary: Delete a file
       tags: [Media]
@@ -59,15 +113,30 @@ paths:
         - BearerAuth: []
       parameters:
         - in: path
-          name: id
-          schema: 
+          name: filename
+          schema:
             type: string
-            example: "image-123.jpg"
+            example: "abc123-uuid.jpg"
           required: true
+          description: "Name of the file to delete"
       responses:
         '200':
           description: Deleted successfully
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: boolean
+                    example: true
               example:
                 data: true
+        '404':
+          description: File not found
+          content:
+            application/json:
+              example:
+                error:
+                  code: "NOT_FOUND"
+                  message: "File not found"
