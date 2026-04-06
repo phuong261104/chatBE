@@ -653,7 +653,11 @@ export class AuthUseCase implements IAuthUseCase {
     const sessions = await this.sessionStore.listByUser(userId);
     return sessions.map((s) => ({
       deviceId: s.deviceId,
-      deviceInfo: { userAgent: s.deviceInfo.userAgent, ip: s.deviceInfo.ip },
+      deviceInfo: {
+        userAgent: s.deviceInfo?.userAgent || "Unknown",
+        ip: s.deviceInfo?.ip || "unknown",
+      },
+
       createdAt: s.createdAt,
       lastActive: s.lastActive,
       isCurrent: s.deviceId === currentDeviceId,

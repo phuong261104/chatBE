@@ -78,12 +78,12 @@ paths:
     $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1leave'
 
   # Media
-  /media/upload/image:
-    $ref: './paths/media.yaml#/paths/~1media~1upload~1image'
-  /media/upload/video:
-    $ref: './paths/media.yaml#/paths/~1media~1upload~1video'
-  /media/files/{id}:
-    $ref: './paths/media.yaml#/paths/~1media~1files~1{id}'
+  /media/upload:
+    $ref: './paths/media.yaml#/paths/~1media~1upload'
+  /media/upload-multiple:
+    $ref: './paths/media.yaml#/paths/~1media~1upload-multiple'
+  /media/{filename}:
+    $ref: './paths/media.yaml#/paths/~1media~1{filename}'
 
   # Friendships
   /friendships:
