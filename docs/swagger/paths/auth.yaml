@@ -1,17 +1,109 @@
+x-test-credentials:
+  summary: "Test Users for Swagger UI Testing"
+  description: |
+    ## Quick Test Credentials
+    
+    The following users are auto-created when the server starts in development mode:
+    
+    | User | Phone | Email | Password |
+    |------|-------|-------|----------|
+    | Test User 1 | `0912345678` | `test1@chatbe.io` | `Test123456!` |
+    | Test User 2 | `0987654321` | `test2@chatbe.io` | `Test123456!` |
+    
+    ## Quick Test Flow with Swagger UI
+    
+    1. **Login**: Use `/auth/login` with phone `0912345678` and password `Test123456!`
+    2. **Copy Access Token**: From response, copy the `accessToken` value
+    3. **Authorize**: Click "Authorize" button, enter `Bearer {accessToken}`
+    4. **Test Protected Endpoints**: Try `/auth/sessions`, `/auth/change-password`, etc.
+    
+    ## Device Headers for Testing
+    
+    | Header | Value | Purpose |
+    |--------|-------|---------|
+    | X-Device-Id | `550e8400-e29b-41d4-a716-446655440000` | Simulate specific device |
+    | X-Device-Type | `laptop-web` | Test device type detection |
+    | X-Device-Platform | `app` | Test platform detection |
+
 paths:
   /auth/register:
     post:
-      summary: Đăng ký tài khoản mới
+      summary: "Register new account"
       tags: [Auth]
       description: |
-        Đăng ký tài khoản mới với số điện thoại và mật khẩu.
-        Hỗ trợ 2 luồng:
-        - Luồng A (bắt buộc xác thực): Đặt `sendVerificationEmail: true` HOẶC đặt env `AUTH_REQUIRE_EMAIL_VERIFICATION=true`.
-          Sau khi đăng ký, user PHẢI verify email trước khi login. Response trả về `pendingVerification: true`.
-        - Luồng B (mặc định): Không đặt `sendVerificationEmail` hoặc đặt `false`.
-          Đăng ký xong là login được ngay, đồng thời gửi mã xác thực email (tùy chọn verify).
-        Mặc định `refreshToken` LUÔN được trả về trong response (không cần X-Device-Id header).
-        Email được gửi BẤT ĐỒNG BỘ - không ảnh hưởng tốc độ response.
+        Create a new account with phone number and password.
+        
+        ## Registration Flows
+        
+        **Flow A (Require Email Verification)**: Set `sendVerificationEmail: true` OR set env `AUTH_REQUIRE_EMAIL_VERIFICATION=true`.
+        - After registration, user MUST verify email before login.
+        - Response returns `pendingVerification: true`.
+        - Email verification code expires in 5 minutes.
+        
+        **Flow B (Default)**: Do not set `sendVerificationEmail` or set to `false`.
+        - Registration completes and user can login immediately.
+        - Verification code is sent to email (optional to verify).
+        
+        ## Device Headers (Recommended)
+        
+        | Header | Required | Description | Example |
+        |--------|----------|-------------|---------|
+        | X-Device-Id | No | UUID for device identification | `550e8400-e29b-41d4-a716-446655440000` |
+        | X-Device-Type | No | Device type + platform combination | `laptop-web`, `mobile-app`, `tablet-app` |
+        | X-Device-Platform | No | Platform type: `app` or `web` | `app`, `web` |
+        
+        ## Device Type Values
+        
+        Format: `{device}-{platform}` (e.g., `laptop-web`, `mobile-app`)
+        
+        | Value | Description |
+        |-------|-------------|
+        | `mobile-app` | Mobile native application |
+        | `mobile-web` | Mobile web browser |
+        | `tablet-app` | Tablet native application |
+        | `tablet-web` | Tablet web browser |
+        | `laptop-app` | Desktop/Laptop native application |
+        | `laptop-web` | Desktop/Laptop web browser |
+        | `desktop-app` | Desktop native application |
+        | `desktop-web` | Desktop web browser |
+        | `other` | Other or unknown device |
+        
+        **How to determine device type**:
+        - If client sends `X-Device-Type` header → use that value
+        - If only `X-Device-Platform` is sent → combine with User-Agent to detect
+        - If neither header is sent → auto-detect from User-Agent
+        
+        ## Important Notes
+        
+        - When logging in with the same device type, previous sessions of that type are automatically deleted.
+        - `refreshToken` is ALWAYS returned in the response.
+        - Response headers contain `X-Device-Id` and `X-Device-Type` with device info used.
+        - Email is sent ASYNCHRONOUSLY - does not affect response speed.
+      parameters:
+        - in: header
+          name: X-Device-Id
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "UUID device identifier. If not provided, a new UUID will be generated."
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        - in: header
+          name: X-Device-Type
+          required: false
+          schema:
+            type: string
+            enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
+          description: "Device type + platform combination. Auto-detected from User-Agent if not provided."
+          example: "laptop-web"
+        - in: header
+          name: X-Device-Platform
+          required: false
+          schema:
+            type: string
+            enum: [app, web]
+          description: "Platform type. If sent with X-Device-Type missing, will be combined with User-Agent detection."
+          example: "web"
       requestBody:
         required: true
         content:
@@ -52,10 +144,22 @@ paths:
               password: "Password123!"
               email: "phuong.boss@example.com"
               displayName: "Boss Phương"
-              sendVerificationEmail: true
+              sendVerificationEmail: false
       responses:
         '200':
-          description: Đăng ký thành công - Chờ xác thực email (Luồng A)
+          description: "Registration successful - Awaiting email verification (Flow A)"
+          headers:
+            X-Device-Id:
+              schema:
+                type: string
+              description: "UUID of the registered device"
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Device-Type:
+              schema:
+                type: string
+                enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
+              description: "Device type detected"
+              example: "mobile-web"
           content:
             application/json:
               schema:
@@ -63,12 +167,24 @@ paths:
               example:
                 data:
                   pendingVerification: true
-                  userId: "660c1d..."
+                  userId: "660c1d8e-4f9a-4b2e-9c1a-7d3e5f8a9b0c"
                   email: "phuong.boss@example.com"
                   expiresIn: 300
                   message: "Verification code has been sent to your email. Please verify before logging in."
         '201':
-          description: Đăng ký thành công - Login ngay (Luồng B)
+          description: "Registration successful - Immediate login (Flow B)"
+          headers:
+            X-Device-Id:
+              schema:
+                type: string
+              description: "UUID of the registered device"
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Device-Type:
+              schema:
+                type: string
+                enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
+              description: "Device type detected"
+              example: "mobile-web"
           content:
             application/json:
               schema:
@@ -78,16 +194,18 @@ paths:
                   accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   expiresIn: 900
+                  deviceType: "mobile-web"
                   user:
-                    id: "660c1d..."
+                    id: "660c1d8e-4f9a-4b2e-9c1a-7d3e5f8a9b0c"
                     phone: "0912345678"
                     email: "phuong.boss@example.com"
                     displayName: "Boss Phương"
+                    avatarUrl: null
                     verified:
                       email: false
                       phone: false
         '422':
-          description: Lỗi validation (số điện thoại/email đã tồn tại)
+          description: "Validation error - phone or email already exists"
           content:
             application/json:
               schema:
@@ -97,20 +215,90 @@ paths:
 
   /auth/login:
     post:
-      summary: Đăng nhập tài khoản
+      summary: "Login to account"
       tags: [Auth]
       description: |
-        Đăng nhập bằng số điện thoại hoặc email kèm mật khẩu.
-        Header X-Device-Id (UUID) được khuyến nghị để quản lý phiên đăng nhập.
-        **QUAN TRỌNG**: `refreshToken` LUÔN được trả về trong response, không cần X-Device-Id header.
-        Response trả về X-Device-Id header chứa deviceId đã sử dụng (từ header hoặc tự tạo).
+        Authenticate using phone number OR email with password.
+        
+        ## Device Headers (Recommended)
+        
+        | Header | Required | Description | Example |
+        |--------|----------|-------------|---------|
+        | X-Device-Id | No | UUID for device identification | `550e8400-e29b-41d4-a716-446655440000` |
+        | X-Device-Type | No | Device type + platform combination | `laptop-web`, `mobile-app` |
+        | X-Device-Platform | No | Platform type: `app` or `web` | `app`, `web` |
+        
+        ## Device Type Values
+        
+        Format: `{device}-{platform}` (e.g., `laptop-web`, `mobile-app`)
+        
+        | Value | Description |
+        |-------|-------------|
+        | `mobile-app` | Mobile native application |
+        | `mobile-web` | Mobile web browser |
+        | `tablet-app` | Tablet native application |
+        | `tablet-web` | Tablet web browser |
+        | `laptop-app` | Desktop/Laptop native application |
+        | `laptop-web` | Desktop/Laptop web browser |
+        | `desktop-app` | Desktop native application |
+        | `desktop-web` | Desktop web browser |
+        | `other` | Other or unknown device |
+        
+        ## Important Notes
+        
+        - When logging in with the same device type, previous sessions of that type are automatically deleted.
+        - `refreshToken` is ALWAYS returned in the response.
+        - Response headers contain `X-Device-Id` and `X-Device-Type` with device info used.
+        - Store the `X-Device-Id` from response headers for future logout/session management.
+        
+        ## Frontend Integration Guide
+        
+        **Mobile App (React Native / Flutter)**:
+        ```javascript
+        // On app start, generate or retrieve device UUID
+        const deviceId = await AsyncStorage.getItem('deviceId') || uuid();
+        await AsyncStorage.setItem('deviceId', deviceId);
+        
+        // On login
+        const response = await fetch('/auth/login', {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Device-Id': deviceId,
+            'X-Device-Type': 'mobile-app',
+            'X-Device-Platform': 'app'
+          },
+          body: JSON.stringify({ phone, password })
+        });
+        const { data } = await response.json();
+        // Store tokens securely
+        await SecureStore.setItemAsync('accessToken', data.accessToken);
+        await SecureStore.setItemAsync('refreshToken', data.refreshToken);
+        ```
       parameters:
         - in: header
           name: X-Device-Id
+          required: false
           schema:
             type: string
             format: uuid
-          description: "UUID thiết bị (tùy chọn, khuyến nghị)"
+          description: "UUID device identifier. Recommended for session management."
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        - in: header
+          name: X-Device-Type
+          required: false
+          schema:
+            type: string
+            enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
+          description: "Device type + platform combination. Auto-detected if not provided."
+          example: "laptop-web"
+        - in: header
+          name: X-Device-Platform
+          required: false
+          schema:
+            type: string
+            enum: [app, web]
+          description: "Platform type (app/web). Will be combined with User-Agent if X-Device-Type missing."
+          example: "web"
       requestBody:
         required: true
         content:
@@ -122,27 +310,50 @@ paths:
                   type: string
                   pattern: '^[0-9]{10}$'
                   example: "0912345678"
+                  description: "Test: `0912345678` or `0987654321`"
                 password:
                   type: string
-                  example: "Password123!"
+                  example: "Test123456!"
+                  description: "Test: `Test123456!`"
             example:
               phone: "0912345678"
-              password: "Password123!"
+              password: "Test123456!"
       responses:
         '200':
-          description: Đăng nhập thành công
+          description: "Login successful"
           headers:
             X-Device-Id:
               schema:
                 type: string
-                description: "UUID thiết bị đã đăng nhập"
+                description: "UUID of logged in device - SAVE THIS for logout and session management"
               example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Device-Type:
+              schema:
+                type: string
+                enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
+                description: "Device type used for login"
+              example: "laptop-web"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+              example:
+                data:
+                  accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  expiresIn: 900
+                  deviceType: "laptop-web"
+                  user:
+                    id: "660c1d8e-4f9a-4b2e-9c1a-7d3e5f8a9b0c"
+                    phone: "0912345678"
+                    email: "phuong.boss@example.com"
+                    displayName: "Boss Phương"
+                    avatarUrl: null
+                    verified:
+                      email: false
+                      phone: false
         '401':
-          description: Thông tin đăng nhập không hợp lệ
+          description: "Invalid credentials"
           content:
             application/json:
               schema:
@@ -152,9 +363,35 @@ paths:
 
   /auth/refresh:
     post:
-      summary: Làm mới access token
+      summary: "Refresh access token"
       tags: [Auth]
-      description: Sử dụng refresh token để lấy cặp token mới
+      description: |
+        Use refresh token to get a new access token and refresh token pair.
+        
+        ## Frontend Integration Guide
+        
+        **When to call**:
+        - When access token is about to expire (check `expiresIn` value)
+        - When API call returns 401 Unauthorized
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function refreshToken() {
+          const refreshToken = await SecureStore.getItemAsync('refreshToken');
+          const response = await fetch('/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken })
+          });
+          const { data } = await response.json();
+          // Store new tokens
+          await SecureStore.setItemAsync('accessToken', data.accessToken);
+          await SecureStore.setItemAsync('refreshToken', data.refreshToken);
+          return data;
+        }
+        ```
+        
+        **Note**: Old refresh token is invalidated after use. The new refresh token must be used for subsequent refreshes.
       requestBody:
         required: true
         content:
@@ -171,7 +408,7 @@ paths:
               refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
         '200':
-          description: Token được làm mới thành công
+          description: "Token refreshed successfully"
           content:
             application/json:
               schema:
@@ -189,8 +426,9 @@ paths:
                       expiresIn:
                         type: integer
                         example: 900
+                        description: "New access token expiration in seconds"
         '401':
-          description: Refresh token không hợp lệ hoặc đã hết hạn
+          description: "Invalid or expired refresh token"
           content:
             application/json:
               schema:
@@ -198,20 +436,52 @@ paths:
 
   /auth/logout:
     post:
-      summary: Đăng xuất
+      summary: "Logout from current device"
       tags: [Auth]
       security:
         - BearerAuth: []
-      description: Đăng xuất khỏi phiên hiện tại
+      description: |
+        Logout from the current device session.
+        
+        ## Headers
+        
+        | Header | Required | Description |
+        |--------|----------|-------------|
+        | Authorization | Yes | Bearer token (accessToken from login response) |
+        | X-Device-Id | No | UUID of device to logout |
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function logout() {
+          const deviceId = await AsyncStorage.getItem('deviceId');
+          await fetch('/auth/logout', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'X-Device-Id': deviceId
+            }
+          });
+          // Clear stored tokens
+          await SecureStore.deleteItemAsync('accessToken');
+          await SecureStore.deleteItemAsync('refreshToken');
+        }
+        ```
+        
+        **Note**: If X-Device-Id is provided, only that device's session is deleted. If not provided, no session is deleted (auth token is just blacklisted).
       parameters:
         - in: header
           name: X-Device-Id
+          required: false
           schema:
             type: string
-          description: "UUID thiết bị cần đăng xuất"
+            format: uuid
+          description: "UUID of device to logout. If not provided, only token blacklist is updated."
+          example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         '200':
-          description: Đăng xuất thành công
+          description: "Logout successful"
           content:
             application/json:
               schema:
@@ -223,14 +493,35 @@ paths:
 
   /auth/logout-all:
     post:
-      summary: Đăng xuất tất cả các phiên
+      summary: "Logout from all devices"
       tags: [Auth]
       security:
         - BearerAuth: []
-      description: Đăng xuất khỏi tất cả các thiết bị
+      description: |
+        Logout and invalidate all sessions across all devices.
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function logoutAll() {
+          await fetch('/auth/logout-all', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+          // Clear all stored data
+          await SecureStore.deleteItemAsync('accessToken');
+          await SecureStore.deleteItemAsync('refreshToken');
+          await AsyncStorage.clear();
+        }
+        ```
+        
+        **Use case**: When user wants to secure their account, or change password, all other sessions are invalidated.
       responses:
         '200':
-          description: Đăng xuất thành công
+          description: "Logout from all devices successful"
           content:
             application/json:
               schema:
@@ -242,9 +533,35 @@ paths:
 
   /auth/introspect:
     post:
-      summary: Kiểm tra token
+      summary: "Verify access token validity"
       tags: [Auth]
-      description: Kiểm tra tính hợp lệ của access token
+      description: |
+        Check if an access token is valid and get its payload.
+        
+        ## Use Cases
+        
+        - Validate token before making API calls
+        - Check token expiration
+        - Debug authentication issues
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function verifyToken(token) {
+          const response = await fetch('/auth/introspect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+          });
+          const { data } = await response.json();
+          return data.isOk && data.payload;
+        }
+        ```
+        
+        **Response**:
+        - `isOk: true` + `payload` = Token is valid
+        - `isOk: false` + `payload: null` = Token is invalid/expired/blacklisted
       requestBody:
         required: true
         content:
@@ -259,7 +576,7 @@ paths:
                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
         '200':
-          description: Kết quả kiểm tra token
+          description: "Token validity check result"
           content:
             application/json:
               schema:
@@ -270,18 +587,68 @@ paths:
                     properties:
                       isOk:
                         type: boolean
+                        example: true
+                        description: "True if token is valid, false otherwise"
                       payload:
                         type: object
+                        nullable: true
+                        properties:
+                          sub:
+                            type: string
+                            description: "User ID"
+                            example: "660c1d8e-4f9a-4b2e-9c1a-7d3e5f8a9b0c"
+                          role:
+                            type: string
+                            description: "User role (admin/user)"
+                            example: "user"
+                          type:
+                            type: string
+                            description: "Token type (access/refresh)"
+                            example: "access"
+                          jti:
+                            type: string
+                            description: "Unique token ID"
+                            example: "abc123..."
+                          tokenVersion:
+                            type: integer
+                            description: "Token version for revocation tracking"
+                            example: 1
 
   /auth/send-verification:
     post:
-      summary: Gửi mã xác thực email
+      summary: "Send email verification code"
       tags: [Auth]
       security:
         - BearerAuth: []
       description: |
-        Gửi mã xác thực 6 số đến email.
-        Có rate limit: tối đa 5 lần gửi mỗi giờ.
+        Send a 6-digit verification code to email address.
+        
+        ## Rate Limiting
+        
+        - Maximum 5 requests per hour per email
+        - Returns 429 if limit exceeded
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function sendVerification(email) {
+          const response = await fetch('/auth/send-verification', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({ email })
+          });
+          if (response.status === 429) {
+            // Show "Too many requests" message
+            // Disable resend button for remaining time
+          }
+        }
+        ```
+        
+        **UI Recommendation**: Show countdown timer before allowing resend.
       requestBody:
         required: true
         content:
@@ -297,7 +664,7 @@ paths:
                   example: "phuong.boss@example.com"
       responses:
         '200':
-          description: Mã xác thực đã được gửi
+          description: "Verification code sent successfully"
           content:
             application/json:
               schema:
@@ -307,9 +674,9 @@ paths:
                     type: string
                     example: "Verification code sent successfully"
         '404':
-          description: Email không tồn tại trong hệ thống
+          description: "Email not found in the system"
         '429':
-          description: Rate limit exceeded
+          description: "Rate limit exceeded - too many requests"
           content:
             application/json:
               schema:
@@ -319,12 +686,47 @@ paths:
 
   /auth/verify-email:
     post:
-      summary: Xác thực email
+      summary: "Verify email with code"
       tags: [Auth]
       description: |
-        Xác thực email bằng mã 6 số.
-        Mã có hiệu lực trong 5 phút.
-        Tối đa 3 lần nhập sai.
+        Verify email address using 6-digit code.
+        
+        ## Constraints
+        
+        - Code expires in 5 minutes (300 seconds)
+        - Maximum 3 failed attempts before code is invalidated
+        - After max attempts, user must request a new code
+        
+        ## Response Codes
+        
+        | Status | Description |
+        |--------|-------------|
+        | 200 | Email verified successfully |
+        | 400 | Invalid code or code expired |
+        | 429 | Too many failed attempts |
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function verifyEmail(email, code) {
+          const response = await fetch('/auth/verify-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code })
+          });
+          const result = await response.json();
+          if (response.ok) {
+            // Navigate to login/home
+          } else if (response.status === 429) {
+            // Show "Too many attempts" and request new code
+          } else {
+            // Show error message from result.message
+          }
+        }
+        ```
+        
+        **UI Recommendation**: Show remaining attempts count to user.
       requestBody:
         required: true
         content:
@@ -346,7 +748,7 @@ paths:
                   description: "Mã xác thực 6 chữ số"
       responses:
         '200':
-          description: Xác thực thành công
+          description: "Email verified successfully"
           content:
             application/json:
               schema:
@@ -362,21 +764,67 @@ paths:
                     type: string
                     example: "Email verified successfully"
         '400':
-          description: Mã xác thực không hợp lệ hoặc đã hết hạn
+          description: "Invalid verification code or code expired"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidCode:
+                  summary: "Invalid code"
+                  value:
+                    message: "Invalid verification code"
+                expired:
+                  summary: "Code expired"
+                  value:
+                    message: "Verification code has expired"
         '429':
-          description: Quá nhiều lần thử sai
+          description: "Too many failed attempts - code is invalidated"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Too many attempts"
 
   /auth/resend-verification:
     post:
-      summary: Gửi lại mã xác thực email
+      summary: "Resend email verification code"
       tags: [Auth]
       security:
         - BearerAuth: []
-      description: Gửi lại mã xác thực email (cùng rate limit với send-verification)
+      description: |
+        Resend verification code to email.
+        Uses same rate limit as `/auth/send-verification` (5 requests/hour).
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function resendVerification(email) {
+          // Check local countdown before making request
+          const lastSent = localStorage.getItem('lastVerificationSent');
+          if (lastSent && Date.now() - lastSent < 60000) {
+            return { error: 'Please wait before resending' };
+          }
+          
+          const response = await fetch('/auth/resend-verification', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({ email })
+          });
+          
+          if (response.ok) {
+            localStorage.setItem('lastVerificationSent', Date.now());
+          }
+          return response.json();
+        }
+        ```
+        
+        **UI Recommendation**: Disable resend button for 60 seconds after sending.
       requestBody:
         required: true
         content:
@@ -392,7 +840,7 @@ paths:
                   example: "phuong.boss@example.com"
       responses:
         '200':
-          description: Mã xác thực đã được gửi lại
+          description: "Verification code resent successfully"
           content:
             application/json:
               schema:
@@ -402,17 +850,54 @@ paths:
                     type: string
                     example: "Verification code resent successfully"
         '429':
-          description: Rate limit exceeded
+          description: "Rate limit exceeded"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /auth/forgot-password:
     post:
-      summary: Quên mật khẩu - Gửi mã OTP
+      summary: "Send password reset OTP"
       tags: [Auth]
       description: |
-        Gửi mã OTP 6 số qua email để đặt lại mật khẩu.
-        OTP có hiệu lực trong 5 phút.
-        Rate limit: tối đa 5 lần gửi trong 1 giờ.
-        Sau khi nhận OTP, gọi /auth/verify-reset-otp để lấy tempToken.
+        Send a 6-digit OTP to email for password reset.
+        
+        ## Flow
+        
+        1. Call `/auth/forgot-password` → receive OTP via email
+        2. Call `/auth/verify-reset-otp` → verify OTP → receive `tempToken`
+        3. Call `/auth/reset-password` with `tempToken` → set new password
+        
+        ## Rate Limiting
+        
+        - Maximum 5 requests per hour per email
+        - OTP expires in 5 minutes (300 seconds)
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript) - Mobile**:
+        ```javascript
+        async function requestPasswordReset(email) {
+          const response = await fetch('/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          
+          if (response.ok) {
+            // Navigate to OTP verification screen
+            // Pass email to next step
+          }
+          return response.json();
+        }
+        ```
+        
+        **UI Flow**:
+        1. User enters email
+        2. Show loading state
+        3. Navigate to OTP input screen
+        4. Show countdown timer (5 minutes)
       requestBody:
         required: true
         content:
@@ -428,7 +913,7 @@ paths:
                   example: "phuong.boss@example.com"
       responses:
         '200':
-          description: OTP đã được gửi
+          description: "OTP sent to email"
           content:
             application/json:
               schema:
@@ -440,14 +925,15 @@ paths:
                   expiresIn:
                     type: integer
                     example: 300
+                    description: "OTP expiration time in seconds"
         '404':
-          description: Email không tồn tại
+          description: "Email not found"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '429':
-          description: Rate limit exceeded
+          description: "Rate limit exceeded"
           content:
             application/json:
               schema:
@@ -455,13 +941,52 @@ paths:
 
   /auth/verify-reset-otp:
     post:
-      summary: Xác thực OTP đặt lại mật khẩu
+      summary: "Verify password reset OTP"
       tags: [Auth]
       description: |
-        Xác thực mã OTP nhận được qua email.
-        Nếu OTP đúng, trả về tempToken dùng để đặt lại mật khẩu.
-        tempToken có hiệu lực 5 phút.
-        Tối đa 3 lần nhập sai OTP.
+        Verify OTP received via email for password reset.
+        If OTP is correct, returns `tempToken` for use in password reset.
+        
+        ## Flow
+        
+        1. Call `/auth/forgot-password` → receive OTP via email
+        2. Call `/auth/verify-reset-otp` → **returns tempToken**
+        3. Call `/auth/reset-password` with `tempToken` → set new password
+        
+        ## Constraints
+        
+        - OTP expires in 5 minutes (300 seconds)
+        - Maximum 3 failed attempts before OTP is invalidated
+        - After max attempts, user must request new OTP
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript) - Mobile**:
+        ```javascript
+        async function verifyResetOTP(email, otp) {
+          const response = await fetch('/auth/verify-reset-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp })
+          });
+          
+          if (response.ok) {
+            const { data } = await response.json();
+            // Navigate to new password screen
+            // Pass tempToken securely to next step
+            return { tempToken: data.tempToken, expiresIn: data.expiresIn };
+          } else {
+            const { message } = await response.json();
+            // Handle error: invalid, expired, or too many attempts
+          }
+        }
+        ```
+        
+        **UI Flow**:
+        1. User enters 6-digit OTP
+        2. Show loading state
+        3. On success → navigate to new password screen
+        4. On failure → show error message
       requestBody:
         required: true
         content:
@@ -483,7 +1008,7 @@ paths:
                   description: "Mã OTP 6 chữ số"
       responses:
         '200':
-          description: OTP hợp lệ
+          description: "OTP verified successfully - returns tempToken"
           content:
             application/json:
               schema:
@@ -494,7 +1019,7 @@ paths:
                   expiresIn: 300
                 message: "OTP verified successfully"
         '400':
-          description: OTP không đúng
+          description: "Invalid OTP"
           content:
             application/json:
               schema:
@@ -502,13 +1027,13 @@ paths:
               example:
                 message: "Invalid verification code"
         '404':
-          description: Email không tồn tại
+          description: "Email not found"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '410':
-          description: OTP đã hết hạn
+          description: "OTP has expired"
           content:
             application/json:
               schema:
@@ -516,7 +1041,7 @@ paths:
               example:
                 message: "Verification code has expired"
         '429':
-          description: Quá số lần thử
+          description: "Too many failed attempts - OTP is invalidated"
           content:
             application/json:
               schema:
@@ -526,11 +1051,31 @@ paths:
 
   /auth/resend-reset-otp:
     post:
-      summary: Gửi lại mã OTP đặt lại mật khẩu
+      summary: "Resend password reset OTP"
       tags: [Auth]
       description: |
-        Gửi lại mã OTP mới qua email.
-        Áp dụng cùng rate limit với /auth/forgot-password.
+        Resend new OTP to email for password reset.
+        Uses same rate limit as `/auth/forgot-password` (5 requests/hour).
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function resendResetOTP(email) {
+          const response = await fetch('/auth/resend-reset-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          
+          if (response.status === 429) {
+            // Show rate limit message
+          }
+          return response.json();
+        }
+        ```
+        
+        **UI Recommendation**: Disable resend button for 60 seconds after sending.
       requestBody:
         required: true
         content:
@@ -546,7 +1091,7 @@ paths:
                   example: "phuong.boss@example.com"
       responses:
         '200':
-          description: OTP mới đã được gửi
+          description: "New OTP sent to email"
           content:
             application/json:
               schema:
@@ -559,7 +1104,7 @@ paths:
                     type: integer
                     example: 300
         '429':
-          description: Rate limit exceeded
+          description: "Rate limit exceeded"
           content:
             application/json:
               schema:
@@ -567,14 +1112,58 @@ paths:
 
   /auth/reset-password:
     post:
-      summary: Đặt lại mật khẩu
+      summary: "Reset password with tempToken"
       tags: [Auth]
       description: |
-        Đặt lại mật khẩu mới.
-        Hỗ trợ 2 cách:
-        1. Dùng tempToken (từ /auth/verify-reset-otp) - khuyến nghị cho Mobile
-        2. Dùng token (link email trực tiếp) - dùng cho Web/Email
-        Sau khi đặt lại, tất cả phiên đăng nhập sẽ bị vô hiệu hóa.
+        Set a new password using the `tempToken` obtained from `/auth/verify-reset-otp`.
+        
+        ## Two Password Reset Methods
+        
+        | Method | Use Case | Token Source |
+        |--------|----------|-------------|
+        | `tempToken` | Mobile App (Recommended) | From `/auth/verify-reset-otp` response |
+        | `token` | Web/Email Link (Legacy) | From password reset email link |
+        
+        ## Complete Password Reset Flow (Mobile - Recommended)
+        
+        1. User enters email → `/auth/forgot-password`
+        2. User enters OTP → `/auth/verify-reset-otp` → receives `tempToken`
+        3. User enters new password + `tempToken` → `/auth/reset-password`
+        
+        ## Important
+        
+        - After password reset, ALL sessions are invalidated
+        - User must login again on all devices
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript) - Mobile**:
+        ```javascript
+        async function resetPassword(tempToken, newPassword) {
+          const response = await fetch('/auth/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tempToken, newPassword })
+          });
+          
+          if (response.ok) {
+            // Clear any stored user data
+            await SecureStore.deleteItemAsync('accessToken');
+            await SecureStore.deleteItemAsync('refreshToken');
+            // Navigate to login screen
+            // Show success message
+          }
+          return response.json();
+        }
+        ```
+        
+        **UI Flow**:
+        1. User enters new password (with confirmation)
+        2. Validate password strength
+        3. Submit with tempToken
+        4. Clear all stored tokens
+        5. Navigate to login screen
+        6. Show success message "Password reset successfully. Please login again."
       requestBody:
         required: true
         content:
@@ -600,7 +1189,7 @@ paths:
                   description: "Mật khẩu mới (6-128 ký tự)"
       responses:
         '200':
-          description: Đặt lại mật khẩu thành công
+          description: "Password reset successful"
           content:
             application/json:
               schema:
@@ -616,7 +1205,7 @@ paths:
                     type: string
                     example: "Password has been reset successfully"
         '400':
-          description: Token không hợp lệ hoặc đã hết hạn
+          description: "Invalid or expired token"
           content:
             application/json:
               schema:
@@ -624,14 +1213,58 @@ paths:
 
   /auth/change-password:
     post:
-      summary: Thay đổi mật khẩu
+      summary: "Change password (authenticated)"
       tags: [Auth]
       security:
         - BearerAuth: []
       description: |
-        Thay đổi mật khẩu khi đã đăng nhập.
-        Yêu cầu nhập mật khẩu hiện tại.
-        Sau khi thay đổi, tất cả phiên đăng nhập sẽ bị vô hiệu hóa.
+        Change password for authenticated user.
+        
+        ## Requirements
+        
+        - User must be logged in (Bearer token required)
+        - Must provide current password for verification
+        - New password must be 6-128 characters
+        
+        ## Important
+        
+        - After password change, ALL sessions are invalidated
+        - User must login again on all devices
+        - This is different from `/auth/reset-password` (which is for unauthenticated users)
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function changePassword(currentPassword, newPassword) {
+          const response = await fetch('/auth/change-password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({ currentPassword, newPassword })
+          });
+          
+          if (response.ok) {
+            // All sessions are now invalid
+            // Clear all stored data
+            await SecureStore.deleteItemAsync('accessToken');
+            await SecureStore.deleteItemAsync('refreshToken');
+            // Navigate to login screen
+            // Show message "Password changed. Please login again."
+          }
+          return response.json();
+        }
+        ```
+        
+        **UI Flow**:
+        1. User enters current password
+        2. User enters new password (with confirmation)
+        3. Validate password strength
+        4. Submit request
+        5. On success → clear all tokens, navigate to login
+        6. On failure → show error (e.g., "Current password is incorrect")
       requestBody:
         required: true
         content:
@@ -655,7 +1288,7 @@ paths:
                   description: "Mật khẩu mới (6-128 ký tự)"
       responses:
         '200':
-          description: Thay đổi mật khẩu thành công
+          description: "Password changed successfully"
           content:
             application/json:
               schema:
@@ -671,7 +1304,7 @@ paths:
                     type: string
                     example: "Password changed successfully"
         '400':
-          description: Mật khẩu hiện tại không đúng
+          description: "Current password is incorrect"
           content:
             application/json:
               schema:
@@ -679,20 +1312,62 @@ paths:
 
   /auth/sessions:
     get:
-      summary: Lấy danh sách phiên đăng nhập
+      summary: "Get all login sessions"
       tags: [Auth]
       security:
         - BearerAuth: []
-      description: Lấy danh sách tất cả các phiên đăng nhập trên các thiết bị
+      description: |
+        Get list of all active sessions across all devices.
+        
+        ## Response
+        
+        Returns an array of session objects with device information.
+        The current session is marked with `isCurrent: true`.
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function getSessions() {
+          const response = await fetch('/auth/sessions', {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'X-Device-Id': deviceId  // To mark current session
+            }
+          });
+          const { data } = await response.json();
+          return data; // Array of sessions
+        }
+        
+        // Display sessions in UI
+        function displaySessions(sessions) {
+          sessions.forEach(session => {
+            console.log(`${session.deviceId} - ${session.isCurrent ? 'Current' : ''}`);
+            console.log(`UA: ${session.deviceInfo.userAgent}`);
+            console.log(`IP: ${session.deviceInfo.ip}`);
+            console.log(`Last active: ${new Date(session.lastActive)}`);
+          });
+        }
+        ```
+        
+        **Use cases**:
+        - Show user list of all logged in devices
+        - Allow user to logout from specific device
+        - Security audit - see all active sessions
+        
+        **UI Recommendation**: Show device type icon, last active time, and IP address for each session.
       parameters:
         - in: header
           name: X-Device-Id
+          required: false
           schema:
             type: string
-          description: "UUID thiết bị hiện tại (để đánh dấu phiên hiện tại)"
+            format: uuid
+          description: "Current device UUID to mark current session in response"
+          example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         '200':
-          description: Danh sách phiên đăng nhập
+          description: "List of active sessions"
           content:
             application/json:
               schema:
@@ -701,37 +1376,68 @@ paths:
                   data:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        deviceId:
-                          type: string
-                          example: "550e8400-e29b-41d4-a716-446655440000"
-                        deviceInfo:
-                          type: object
-                          properties:
-                            userAgent:
-                              type: string
-                              example: "Mozilla/5.0..."
-                            ip:
-                              type: string
-                              example: "192.168.1.1"
-                        createdAt:
-                          type: string
-                          format: date-time
-                        lastActive:
-                          type: string
-                          format: date-time
-                        isCurrent:
-                          type: boolean
+                      $ref: '#/components/schemas/SessionInfo'
+              example:
+                data:
+                  - deviceId: "550e8400-e29b-41d4-a716-446655440000"
+                    deviceType: "mobile-app"
+                    deviceInfo:
+                      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)..."
+                      ip: "192.168.1.100"
+                    createdAt: "2026-04-07T08:30:00Z"
+                    lastActive: "2026-04-07T12:45:00Z"
+                    isCurrent: true
+                  - deviceId: "7f3b2c1d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
+                    deviceType: "laptop-web"
+                    deviceInfo:
+                      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
+                      ip: "192.168.1.50"
+                    createdAt: "2026-04-06T10:00:00Z"
+                    lastActive: "2026-04-07T06:00:00Z"
+                    isCurrent: false
     delete:
-      summary: Xóa tất cả phiên đăng nhập (trừ phiên hiện tại)
+      summary: "Logout from all other devices"
       tags: [Auth]
       security:
         - BearerAuth: []
-      description: Xóa tất cả phiên đăng nhập ngoại trừ phiên hiện tại
+      description: |
+        Logout from all devices except the current one.
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function logoutOtherSessions() {
+          const response = await fetch('/auth/sessions', {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'X-Device-Id': deviceId  // Keep this device logged in
+            }
+          });
+          
+          if (response.ok) {
+            // Only current device remains logged in
+          }
+          return response.json();
+        }
+        ```
+        
+        **Use case**: "Logout from all other devices" button in account security settings.
+        
+        **Note**: The device making the request (identified by X-Device-Id header) will remain logged in.
+      parameters:
+        - in: header
+          name: X-Device-Id
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "Current device UUID - this device will remain logged in"
+          example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         '200':
-          description: Xóa tất cả phiên thành công
+          description: "All other sessions deleted successfully"
           content:
             application/json:
               schema:
@@ -743,10 +1449,46 @@ paths:
 
   /auth/sessions/{deviceId}:
     delete:
-      summary: Xóa một phiên đăng nhập
+      summary: "Logout from specific device"
       tags: [Auth]
       security:
         - BearerAuth: []
+      description: |
+        Logout from a specific device session by device ID.
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function revokeSession(deviceId) {
+          const response = await fetch(`/auth/sessions/${deviceId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+          
+          if (response.status === 404) {
+            // Session not found or doesn't belong to user
+          }
+          return response.json();
+        }
+        
+        // In session list UI
+        function renderSessionItem(session) {
+          return `
+            <div>
+              <span>${session.deviceType}</span>
+              <span>${session.deviceInfo.ip}</span>
+              ${!session.isCurrent ? `<button onclick="revokeSession('${session.deviceId}')">Logout</button>` : ''}
+            </div>
+          `;
+        }
+        ```
+        
+        **Use case**: Allow user to remotely logout from a specific device in their session list.
+        
+        **Note**: Cannot revoke current session using this endpoint. Use `/auth/logout` instead.
       parameters:
         - in: path
           name: deviceId
@@ -755,9 +1497,10 @@ paths:
             type: string
             format: uuid
           example: "550e8400-e29b-41d4-a716-446655440000"
+          description: "UUID of the device session to revoke"
       responses:
         '200':
-          description: Xóa phiên thành công
+          description: "Session revoked successfully"
           content:
             application/json:
               schema:
@@ -767,18 +1510,54 @@ paths:
                     type: boolean
                     example: true
         '404':
-          description: Phiên không tồn tại
+          description: "Session not found or does not belong to user"
 
   /auth/avatar:
     patch:
-      summary: Thay đổi hình ảnh tài khoản
+      summary: "Update user avatar"
       tags: [Auth]
       security:
         - BearerAuth: []
       description: |
-        Cập nhật avatar URL cho tài khoản người dùng.
-        URL có thể từ upload lên server hoặc từ cloud storage.
-      requestBody:
+        Update the user's profile avatar image URL.
+        
+        ## Frontend Integration Guide
+        
+        **Example (JavaScript)**:
+        ```javascript
+        async function updateAvatar(avatarUrl) {
+          const response = await fetch('/auth/avatar', {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({ avatarUrl })
+          });
+          
+          if (response.ok) {
+            // Update local user state with new avatar
+            setUser({ ...user, avatarUrl });
+          }
+          return response.json();
+        }
+        
+        // Upload flow (assuming image upload is handled separately)
+        async function uploadAndSetAvatar(file) {
+          // 1. Upload image first (to your media service)
+          const { url } = await uploadImage(file);
+          
+          // 2. Update avatar URL
+          await updateAvatar(url);
+        }
+        ```
+        
+        **Note**: The avatar URL can be from:
+        - Uploaded to your media service
+        - External URL (e.g., cloud storage like S3, Cloudinary)
+        - Gravatar or other external service
+        
+        **UI Recommendation**: Show image preview before confirming upload.
         required: true
         content:
           application/json:
@@ -794,7 +1573,7 @@ paths:
                   description: "URL của hình ảnh avatar"
       responses:
         '200':
-          description: Cập nhật avatar thành công
+          description: "Avatar updated successfully"
           content:
             application/json:
               schema:
@@ -810,12 +1589,37 @@ paths:
                     type: string
                     example: "Avatar updated successfully"
         '400':
-          description: URL không hợp lệ
+          description: "Invalid URL"
         '401':
-          description: Chưa đăng nhập
+          description: "Unauthorized - valid token required"
 
 components:
   schemas:
+    DeviceTypeEnum:
+      type: string
+      enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
+      description: |
+        Device type combined with platform.
+        
+        ## Format
+        `{device}-{platform}`
+        
+        ## Values
+        
+        | Value | Description |
+        |-------|-------------|
+        | mobile-app | Mobile native application (iOS, Android) |
+        | mobile-web | Mobile web browser |
+        | tablet-app | Tablet native application |
+        | tablet-web | Tablet web browser |
+        | laptop-app | Desktop/Laptop application (Electron, etc.) |
+        | laptop-web | Desktop/Laptop web browser |
+        | desktop-app | Desktop native application |
+        | desktop-web | Desktop web browser |
+        | other | Other or unknown device |
+      
+      example: "mobile-app"
+
     AuthResponse:
       type: object
       properties:
@@ -824,30 +1628,43 @@ components:
           properties:
             accessToken:
               type: string
-              description: "JWT access token"
+              description: "JWT access token for API authentication"
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
             refreshToken:
               type: string
-              description: "JWT refresh token"
+              description: "JWT refresh token for getting new access token"
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
             expiresIn:
               type: integer
-              description: "Thời gian hết hạn access token (giây)"
+              description: "Access token expiration time in seconds"
+              example: 900
+            deviceType:
+              $ref: '#/components/schemas/DeviceTypeEnum'
             user:
               type: object
+              description: "Authenticated user information"
               properties:
                 id:
                   type: string
-                  example: "660c1d..."
+                  format: uuid
+                  example: "660c1d8e-4f9a-4b2e-9c1a-7d3e5f8a9b0c"
                 phone:
                   type: string
+                  nullable: true
                   example: "0912345678"
                 email:
                   type: string
+                  format: email
+                  nullable: true
                   example: "phuong.boss@example.com"
                 displayName:
                   type: string
+                  nullable: true
                   example: "Boss Phương"
                 avatarUrl:
                   type: string
+                  format: uri
+                  nullable: true
                   example: "https://example.com/avatar.jpg"
                 verified:
                   type: object
@@ -859,49 +1676,107 @@ components:
                       type: boolean
                       example: false
 
+    SessionInfo:
+      type: object
+      description: "Information about a login session"
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+          description: "Unique device identifier"
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        deviceType:
+          $ref: '#/components/schemas/DeviceTypeEnum'
+        deviceInfo:
+          type: object
+          properties:
+            userAgent:
+              type: string
+              description: "Browser or app user agent string"
+              example: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)..."
+            ip:
+              type: string
+              description: "IP address of the device"
+              example: "192.168.1.100"
+        createdAt:
+          type: string
+          format: date-time
+          description: "Session creation timestamp"
+          example: "2026-04-07T08:30:00Z"
+        lastActive:
+          type: string
+          format: date-time
+          description: "Last activity timestamp"
+          example: "2026-04-07T12:45:00Z"
+        isCurrent:
+          type: boolean
+          description: "True if this is the current session"
+          example: true
+
     ErrorResponse:
       type: object
       properties:
         message:
           type: string
-          example: "Lỗi hệ thống hoặc lỗi dữ liệu đầu vào."
+          description: "Error message describing what went wrong"
+          example: "Invalid credentials"
 
     RegisterPendingResponse:
       type: object
-      description: "Response khi đăng ký với xác thực email bắt buộc (Luồng A)"
+      description: "Response when registration requires email verification (Flow A)"
       properties:
         data:
           type: object
           properties:
             pendingVerification:
               type: boolean
+              description: "Always true for this response type"
               example: true
             userId:
               type: string
-              example: "660c1d..."
+              format: uuid
+              description: "Created user ID"
+              example: "660c1d8e-4f9a-4b2e-9c1a-7d3e5f8a9b0c"
             email:
               type: string
+              format: email
+              description: "Email address where verification code was sent"
               example: "phuong.boss@example.com"
             expiresIn:
               type: integer
+              description: "Verification code expiration time in seconds"
               example: 300
-              description: "Thời gian hiệu lực của mã xác thực (giây)"
             message:
               type: string
+              description: "Instruction message for user"
               example: "Verification code has been sent to your email. Please verify before logging in."
 
     ResetOTPVerifyResponse:
       type: object
-      description: "Response khi verify OTP đặt lại mật khẩu"
+      description: "Response when password reset OTP is verified successfully"
       properties:
         data:
           type: object
           properties:
             tempToken:
               type: string
+              description: "Temporary token for password reset. Use this in /auth/reset-password"
               example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-              description: "Temp token dùng để đặt lại mật khẩu"
             expiresIn:
               type: integer
+              description: "tempToken expiration time in seconds"
               example: 300
-              description: "Thời gian hiệu lực của tempToken (giây)"
+        message:
+          type: string
+          example: "OTP verified successfully"
+
+    SuccessResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          description: "Response data (varies by endpoint)"
+        message:
+          type: string
+          description: "Success message"
+          example: "Operation completed successfully"

@@ -93,8 +93,18 @@ export interface ITokenBlacklist {
   isBlacklisted(tokenJti: string): Promise<boolean>;
 }
 
+export type Platform = "app" | "web";
+
+export type DeviceType =
+  | "mobile-app" | "mobile-web"
+  | "tablet-app" | "tablet-web"
+  | "laptop-app" | "laptop-web"
+  | "desktop-app" | "desktop-web"
+  | "other";
+
 export interface DeviceInfo {
   deviceId: string;
+  deviceType: DeviceType;
   userAgent: string;
   ip: string;
 }
@@ -102,6 +112,7 @@ export interface DeviceInfo {
 export interface Session {
   userId: string;
   deviceId: string;
+  deviceType: DeviceType;
   deviceInfo: DeviceInfo;
   refreshTokenJti: string;
   createdAt: Date;
@@ -114,6 +125,7 @@ export interface ISessionStore {
   update(deviceId: string, data: Partial<Session>): Promise<void>;
   delete(deviceId: string): Promise<void>;
   deleteAllForUser(userId: string): Promise<void>;
+  deleteByDeviceType(userId: string, deviceType: DeviceType, excludeDeviceId: string): Promise<void>;
   listByUser(userId: string): Promise<Session[]>;
 }
 

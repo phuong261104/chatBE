@@ -6,6 +6,7 @@ import {
   UserRole,
   AccessTokenPayload,
   DeviceInfo,
+  DeviceType,
   ISessionStore,
   ITokenBlacklist,
   PasswordResetPayload,
@@ -63,6 +64,7 @@ export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  deviceType: DeviceType;
   user: {
     id: string;
     email?: string;
@@ -151,14 +153,14 @@ export class AuthUseCase implements IAuthUseCase {
     } as SignOptions);
   }
 
-  private generateRefreshToken(userId: string, deviceId: string): string {
+  private generateRefreshTokenPair(userId: string, deviceId: string): { token: string; jti: string } {
     const jti = uuidv7();
     const payload = { sub: userId, type: "refresh", jti, deviceId };
     const token = jwt.sign(payload, config.refreshToken.secretKey, {
       expiresIn: config.refreshToken.expiresIn as any,
     } as SignOptions);
     this.storeRefreshToken(jti, userId, deviceId);
-    return token;
+    return { token, jti };
   }
 
   private async storeRefreshToken(jti: string, userId: string, deviceId: string): Promise<void> {
@@ -181,6 +183,72 @@ export class AuthUseCase implements IAuthUseCase {
 
   private normalizePhone(phone: string): string {
     return phone.replace(/\s+/g, "");
+  }
+
+  private detectPlatform(userAgent: string): "app" | "web" {
+    const ua = userAgent.toLowerCase();
+    const appPatterns = [
+      /app\/[\d.]+\s*/i,
+      /com\.\w+\.\w+/i,
+      /\bwv\b/i,
+      /webview/i,
+      /;\s*wb\s*/i,
+      /\[FBAN|FBIOS|FB4A\]/i,
+      /MobileConfig/i,
+    ];
+    for (const pattern of appPatterns) {
+      if (pattern.test(ua)) {
+        return "app";
+      }
+    }
+    return "web";
+  }
+
+  private detectBaseDeviceType(userAgent: string): string {
+    const ua = userAgent.toLowerCase();
+    const mobilePattern = new RegExp("android|iphone|ipod|blackberry|windows phone|mobile", "i");
+    const tabletPattern = new RegExp("tablet|ipad|playbook|silk|kindle|nexus 7", "i");
+    const osPattern = new RegExp("mac os|windows nt|linux|x11|ubuntu", "i");
+    const laptopPattern = new RegExp("macbook|portable|laptop|notebook", "i");
+
+    if (mobilePattern.test(ua)) {
+      return "mobile";
+    }
+    if (tabletPattern.test(ua)) {
+      return "tablet";
+    }
+    if (osPattern.test(ua) && !mobilePattern.test(ua) && !tabletPattern.test(ua)) {
+      if (laptopPattern.test(ua)) {
+        return "laptop";
+      }
+      return "desktop";
+    }
+    if (laptopPattern.test(ua)) {
+      return "laptop";
+    }
+    return "mobile";
+  }
+
+  private detectDeviceType(userAgent: string): DeviceType {
+    const base = this.detectBaseDeviceType(userAgent);
+    const platform = this.detectPlatform(userAgent);
+    return `${base}-${platform}` as DeviceType;
+  }
+
+  private resolveDeviceType(headerType?: string, userAgent?: string): DeviceType {
+    if (headerType) {
+      const validTypes: DeviceType[] = [
+        "mobile-app", "mobile-web",
+        "tablet-app", "tablet-web",
+        "laptop-app", "laptop-web",
+        "desktop-app", "desktop-web",
+        "other",
+      ];
+      if (validTypes.includes(headerType as DeviceType)) {
+        return headerType as DeviceType;
+      }
+    }
+    return this.detectDeviceType(userAgent || "");
   }
 
   private extractUserPublic(user: any): LoginResponse["user"] {
@@ -234,18 +302,23 @@ export class AuthUseCase implements IAuthUseCase {
     const accessToken = this.generateAccessToken(user.id, UserRole.USER, tokenVersion);
 
     const effectiveDeviceId = deviceInfo?.deviceId || uuidv7();
-    const refreshToken = this.generateRefreshToken(user.id, effectiveDeviceId);
+    const effectiveDeviceType = this.resolveDeviceType(deviceInfo?.deviceType, deviceInfo?.userAgent);
+    const { token: refreshToken, jti: refreshTokenJti } = this.generateRefreshTokenPair(user.id, effectiveDeviceId);
 
     await this.sessionStore.create(user.id, {
       deviceId: effectiveDeviceId,
+      deviceType: effectiveDeviceType,
       userAgent: deviceInfo?.userAgent || "Unknown",
       ip: deviceInfo?.ip || "unknown",
-    }, uuidv7());
+    }, refreshTokenJti);
+
+    await this.sessionStore.deleteByDeviceType(user.id, effectiveDeviceType, effectiveDeviceId);
 
     return {
       accessToken,
       refreshToken,
       expiresIn: this.parseExpiresIn(config.accessToken.expiresIn),
+      deviceType: effectiveDeviceType,
       user: this.extractUserPublic(user),
     };
   }
@@ -344,18 +417,23 @@ export class AuthUseCase implements IAuthUseCase {
     const accessToken = this.generateAccessToken(newId, UserRole.USER, 1);
 
     const effectiveDeviceId = deviceInfo?.deviceId || uuidv7();
-    const refreshToken = this.generateRefreshToken(newId, effectiveDeviceId);
+    const effectiveDeviceType = this.resolveDeviceType(deviceInfo?.deviceType, deviceInfo?.userAgent);
+    const { token: refreshToken, jti: refreshTokenJti } = this.generateRefreshTokenPair(newId, effectiveDeviceId);
 
     await this.sessionStore.create(newId, {
       deviceId: effectiveDeviceId,
+      deviceType: effectiveDeviceType,
       userAgent: deviceInfo?.userAgent || "Unknown",
       ip: deviceInfo?.ip || "unknown",
-    }, uuidv7());
+    }, refreshTokenJti);
+
+    await this.sessionStore.deleteByDeviceType(newId, effectiveDeviceType, effectiveDeviceId);
 
     return {
       accessToken,
       refreshToken,
       expiresIn: this.parseExpiresIn(config.accessToken.expiresIn),
+      deviceType: effectiveDeviceType,
       user: this.extractUserPublic(newUser),
     };
   }
@@ -398,9 +476,12 @@ export class AuthUseCase implements IAuthUseCase {
 
       const tokenVersion = user.tokenVersion || 1;
       const newAccessToken = this.generateAccessToken(user.id, UserRole.USER, tokenVersion);
-      const newRefreshToken = this.generateRefreshToken(user.id, payload.deviceId);
+      const { token: newRefreshToken, jti: newRefreshTokenJti } = this.generateRefreshTokenPair(user.id, payload.deviceId);
 
-      await this.sessionStore.update(payload.deviceId, { refreshTokenJti: newRefreshToken, lastActive: new Date() });
+      const existingSession = await this.sessionStore.get(payload.deviceId);
+      if (existingSession) {
+        await this.sessionStore.update(payload.deviceId, { refreshTokenJti: newRefreshTokenJti, lastActive: new Date() });
+      }
 
       return {
         accessToken: newAccessToken,
@@ -681,5 +762,44 @@ export class AuthUseCase implements IAuthUseCase {
 
     await this.userRepository.update(userId, { avatarUrl } as any);
     return true;
+  }
+
+  async seedTestUsers(): Promise<void> {
+    const testUsers = [
+      { phone: "0912345678", email: "test1@chatbe.io", displayName: "Test User 1" },
+      { phone: "0987654321", email: "test2@chatbe.io", displayName: "Test User 2" },
+    ];
+    const password = "Test123456!";
+
+    for (const userData of testUsers) {
+      const existing = await this.userRepository.findByCond({ phone: userData.phone } as any);
+      const salt = bcrypt.genSaltSync(10);
+      const hashPassword = bcrypt.hashSync(`${password}.${salt}`, 10);
+
+      if (!existing) {
+        const newUser = {
+          id: uuidv7(),
+          email: userData.email,
+          phone: userData.phone,
+          password: hashPassword,
+          salt,
+          status: UserStatus.ACTIVE,
+          tokenVersion: 1,
+          displayName: userData.displayName,
+          verified: { email: true, phone: true },
+          privacy: { searchableByEmail: true, searchableByPhone: true, searchableByUsername: true },
+          settings: { notifications: { push: true, inApp: true } },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        await this.userRepository.insert(newUser);
+        console.log(`[TEST] Created test user: ${userData.phone} / ${userData.email}`);
+      } else {
+        await this.userRepository.update(existing.id, { password: hashPassword, salt } as any);
+        console.log(`[TEST] Updated test user: ${userData.phone} / ${userData.email}`);
+      }
+    }
+    console.log(`[TEST] Test users ready - login with phone + "Test123456!"`);
   }
 }

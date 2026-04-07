@@ -1,5 +1,5 @@
 import { IAuthUseCase, RegisterPendingResponse } from "../../usecase";
-import { Requester } from "@share/interface";
+import { Requester, DeviceType } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
@@ -15,15 +15,82 @@ import {
   ChangePasswordDTO,
 } from "../../model/dto";
 
+const VALID_DEVICE_TYPES: DeviceType[] = [
+  "mobile-app", "mobile-web",
+  "tablet-app", "tablet-web",
+  "laptop-app", "laptop-web",
+  "desktop-app", "desktop-web",
+  "other",
+];
+
 export class AuthHTTPService {
   constructor(private readonly usecase: IAuthUseCase) {}
 
-  private extractDeviceInfo(req: Request): { deviceId: string; userAgent: string; ip: string } | undefined {
+  private detectPlatform(userAgent: string): "app" | "web" {
+    const ua = userAgent.toLowerCase();
+    const appPatterns = [
+      /app\/[\d.]+\s*/i,
+      /com\.\w+\.\w+/i,
+      /\bwv\b/i,
+      /webview/i,
+      /;\s*wb\s*/i,
+      /\[FBAN|FBIOS|FB4A\]/i,
+      /MobileConfig/i,
+    ];
+    for (const pattern of appPatterns) {
+      if (pattern.test(ua)) {
+        return "app";
+      }
+    }
+    return "web";
+  }
+
+  private detectBaseDeviceType(userAgent: string): string {
+    const ua = userAgent.toLowerCase();
+    const mobilePattern = new RegExp("android|iphone|ipod|blackberry|windows phone|mobile", "i");
+    const tabletPattern = new RegExp("tablet|ipad|playbook|silk|kindle|nexus 7", "i");
+    const osPattern = new RegExp("mac os|windows nt|linux|x11|ubuntu", "i");
+    const laptopPattern = new RegExp("macbook|portable|laptop|notebook", "i");
+
+    if (mobilePattern.test(ua)) {
+      return "mobile";
+    }
+    if (tabletPattern.test(ua)) {
+      return "tablet";
+    }
+    if (osPattern.test(ua) && !mobilePattern.test(ua) && !tabletPattern.test(ua)) {
+      if (laptopPattern.test(ua)) {
+        return "laptop";
+      }
+      return "desktop";
+    }
+    if (laptopPattern.test(ua)) {
+      return "laptop";
+    }
+    return "mobile";
+  }
+
+  private detectDeviceType(userAgent: string): DeviceType {
+    const base = this.detectBaseDeviceType(userAgent);
+    const platform = this.detectPlatform(userAgent);
+    return `${base}-${platform}` as DeviceType;
+  }
+
+  private extractDeviceInfo(req: Request): { deviceId: string; deviceType: DeviceType; userAgent: string; ip: string } | undefined {
     const deviceId = req.headers["x-device-id"] as string;
+    const headerDeviceType = req.headers["x-device-type"] as string | undefined;
     const userAgent = req.headers["user-agent"] || "Unknown";
     const ip = req.ip || req.socket.remoteAddress || "unknown";
+
+    let deviceType: DeviceType;
+    if (headerDeviceType && VALID_DEVICE_TYPES.includes(headerDeviceType as DeviceType)) {
+      deviceType = headerDeviceType as DeviceType;
+    } else {
+      deviceType = this.detectDeviceType(userAgent);
+    }
+
     if (deviceId) {
-      return { deviceId, userAgent, ip };
+      return { deviceId, deviceType, userAgent, ip };
     }
     return undefined;
   }
@@ -39,6 +106,7 @@ export class AuthHTTPService {
         const effectiveDeviceId = deviceInfo?.deviceId || this.extractDeviceIdFromToken(result.refreshToken);
         if (effectiveDeviceId) {
           res.setHeader("X-Device-Id", effectiveDeviceId);
+          res.setHeader("X-Device-Type", result.deviceType);
         }
         res.status(201).json({ data: result });
       }
@@ -58,6 +126,7 @@ export class AuthHTTPService {
       const effectiveDeviceId = deviceInfo?.deviceId || (result.refreshToken ? this.extractDeviceIdFromToken(result.refreshToken) : "");
       if (effectiveDeviceId) {
         res.setHeader("X-Device-Id", effectiveDeviceId);
+        res.setHeader("X-Device-Type", result.deviceType);
       }
       res.status(200).json({ data: result });
     } catch (error) {

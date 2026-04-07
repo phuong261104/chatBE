@@ -93,7 +93,15 @@ config();
 
   const io = createSocketIOServer(httpServer);
 
-  const { router: authRouter } = setupAuthHexagon(sctx, redisClient);
+  const { router: authRouter, authUseCase } = setupAuthHexagon(sctx, redisClient);
+
+  if (appConfig.envName === "development") {
+    setTimeout(() => {
+      if (authUseCase) {
+        authUseCase.seedTestUsers().catch(console.error);
+      }
+    }, 2000);
+  }
   const { router: userRouter } = setupUserHexagon(sctx, io);
   const mediaRouter = setupMediaHexagon(sctx);
   const { router: messagingRouter } = setupMessagingHexagon(io, sctx);

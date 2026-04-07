@@ -1,4 +1,4 @@
-import { ISessionStore, DeviceInfo, Session } from "@share/interface";
+import { ISessionStore, DeviceInfo, Session, DeviceType } from "@share/interface";
 
 const SESSION_PREFIX = "session:";
 const USER_SESSIONS_PREFIX = "user:sessions:";
@@ -15,6 +15,7 @@ export class RedisSessionStore implements ISessionStore {
     const session: Session = {
       userId,
       deviceId: deviceInfo.deviceId,
+      deviceType: deviceInfo.deviceType,
       deviceInfo,
       refreshTokenJti,
       createdAt: new Date(),
@@ -36,7 +37,7 @@ export class RedisSessionStore implements ISessionStore {
     const result = await this.redisClient.get(sessionKey);
     if (!result) return null;
     try {
-      return JSON.parse(result);
+      return JSON.parse(result) as Session;
     } catch {
       return null;
     }
@@ -78,6 +79,32 @@ export class RedisSessionStore implements ISessionStore {
     }
 
     await this.redisClient.del(userSessionsKey);
+  }
+
+  async deleteByDeviceType(userId: string, deviceType: DeviceType, excludeDeviceId: string): Promise<void> {
+    const userSessionsKey = `${USER_SESSIONS_PREFIX}${userId}`;
+    const deviceIds = await this.redisClient.sMembers(userSessionsKey);
+
+    for (const deviceId of deviceIds) {
+      if (deviceId === excludeDeviceId) continue;
+
+      const sessionKey = `${SESSION_PREFIX}${deviceId}`;
+      const sessionData = await this.redisClient.get(sessionKey);
+      if (!sessionData) {
+        await this.redisClient.sRem(userSessionsKey, deviceId);
+        continue;
+      }
+
+      try {
+        const session: Session = JSON.parse(sessionData) as Session;
+        if (session.deviceType === deviceType) {
+          await this.redisClient.del(sessionKey);
+          await this.redisClient.sRem(userSessionsKey, deviceId);
+        }
+      } catch {
+        await this.redisClient.sRem(userSessionsKey, deviceId);
+      }
+    }
   }
 
   async listByUser(userId: string): Promise<Session[]> {
