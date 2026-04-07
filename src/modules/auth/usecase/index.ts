@@ -738,6 +738,7 @@ export class AuthUseCase implements IAuthUseCase {
         userAgent: s.deviceInfo?.userAgent || "Unknown",
         ip: s.deviceInfo?.ip || "unknown",
       },
+
       createdAt: s.createdAt,
       lastActive: s.lastActive,
       isCurrent: s.deviceId === currentDeviceId,

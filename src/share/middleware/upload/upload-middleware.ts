@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction, Handler } from "express";
 import multer from "multer";
+import { v4 as uuidv4 } from "uuid";
+import path from "path";
 import {
   IStorageStrategy,
   IUploadConfig,
   UploadedFile,
 } from "./storage-interface";
 import { LocalStorage } from "./local-storage";
-import path from "path";
+import { CloudStorage } from "./cloud-storage";
 
 export class UploadMiddleware {
   private upload: multer.Multer;
@@ -42,18 +44,40 @@ export class UploadMiddleware {
     }
   }
 
+  private generateFilename(originalName: string): string {
+    const ext = path.extname(originalName);
+    const basename = path.basename(originalName, ext);
+    return `${basename}-${uuidv4()}-${Date.now()}${ext}`;
+  }
+
+  private async processFile(file: Express.Multer.File): Promise<string> {
+    const cloudStorage = this.storage as CloudStorage;
+    if (
+      cloudStorage &&
+      typeof cloudStorage.uploadToS3 === "function"
+    ) {
+      const filename = this.generateFilename(file.originalname);
+      return cloudStorage.uploadToS3(
+        file.buffer,
+        filename,
+        file.mimetype,
+      );
+    }
+    return this.storage.getFileUrl(file.filename);
+  }
+
   single(fieldName: string): Handler {
     return (req: Request, res: Response, next: NextFunction) => {
       const uploadHandler = this.upload.single(fieldName);
 
-      uploadHandler(req, res, (err: any) => {
+      uploadHandler(req, res, async (err: any) => {
         if (err) {
           return this.handleError(err, res);
         }
 
         if (req.file) {
           const file = req.file as UploadedFile;
-          file.url = this.storage.getFileUrl(file.filename);
+          file.url = await this.processFile(file);
         }
 
         next();
@@ -65,15 +89,16 @@ export class UploadMiddleware {
     return (req: Request, res: Response, next: NextFunction) => {
       const uploadHandler = this.upload.array(fieldName, maxCount);
 
-      uploadHandler(req, res, (err: any) => {
+      uploadHandler(req, res, async (err: any) => {
         if (err) {
           return this.handleError(err, res);
         }
 
         if (req.files && Array.isArray(req.files)) {
-          req.files.forEach((file: Express.Multer.File) => {
-            (file as UploadedFile).url = this.storage.getFileUrl(file.filename);
-          });
+          for (const file of req.files) {
+            const uf = file as UploadedFile;
+            uf.url = await this.processFile(file);
+          }
         }
 
         next();
@@ -85,22 +110,19 @@ export class UploadMiddleware {
     return (req: Request, res: Response, next: NextFunction) => {
       const uploadHandler = this.upload.fields(fields);
 
-      uploadHandler(req, res, (err: any) => {
+      uploadHandler(req, res, async (err: any) => {
         if (err) {
           return this.handleError(err, res);
         }
 
         if (req.files && !Array.isArray(req.files)) {
-          Object.keys(req.files).forEach((fieldName) => {
-            const files = (
-              req.files as { [fieldname: string]: Express.Multer.File[] }
-            )[fieldName];
-            files.forEach((file: Express.Multer.File) => {
-              (file as UploadedFile).url = this.storage.getFileUrl(
-                file.filename,
-              );
-            });
-          });
+          const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] };
+          for (const fieldName of Object.keys(filesMap)) {
+            for (const file of filesMap[fieldName]) {
+              const uf = file as UploadedFile;
+              uf.url = await this.processFile(file);
+            }
+          }
         }
 
         next();
@@ -112,15 +134,16 @@ export class UploadMiddleware {
     return (req: Request, res: Response, next: NextFunction) => {
       const uploadHandler = this.upload.any();
 
-      uploadHandler(req, res, (err: any) => {
+      uploadHandler(req, res, async (err: any) => {
         if (err) {
           return this.handleError(err, res);
         }
 
         if (req.files && Array.isArray(req.files)) {
-          req.files.forEach((file: Express.Multer.File) => {
-            (file as UploadedFile).url = this.storage.getFileUrl(file.filename);
-          });
+          for (const file of req.files) {
+            const uf = file as UploadedFile;
+            uf.url = await this.processFile(file);
+          }
         }
 
         next();
@@ -193,9 +216,10 @@ export function createUploadMiddleware(
 
   const storageStrategy =
     storage ||
-    new LocalStorage(
+    new CloudStorage(
       finalConfig,
-      process.env.UPLOAD_BASE_URL || "http://localhost:3000/uploads",
+      process.env.AWS_S3_BUCKET || "your-bucket-name",
+      process.env.AWS_REGION || "us-east-1",
     );
 
   return new UploadMiddleware(storageStrategy, finalConfig);

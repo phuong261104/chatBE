@@ -23,12 +23,12 @@ export class UploadMultipleMediaCmdHandler implements ICommandHandler<
     }
 
     const uploadedFiles: MediaUploadResponseDTO[] = files.map((file) => ({
-      filename: file.filename,
+      filename: file.filename || file.originalname,
       originalName: file.originalname,
       mimetype: file.mimetype,
       size: file.size,
       url: (file as any).url || "",
-      path: file.path,
+      path: (file as any).url || "",
       uploadedAt: new Date(),
     }));
 
