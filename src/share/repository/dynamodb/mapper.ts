@@ -12,7 +12,7 @@ export function toEntityList<T extends Record<string, any>>(
   docs: Record<string, any>[],
   removeKeys: string[] = []
 ): T[] {
-  return docs.map((doc) => toEntity<T>(doc, removeKeys));
+  return docs.map((doc) => toEntity<T>(doc, removeKeys)).filter((item): item is T => item !== null);
 }
 
 export function convertToNumber(value: any): number | undefined {
