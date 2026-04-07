@@ -26,6 +26,7 @@ import path from "path";
 import swaggerUi from "swagger-ui-express";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { RedisClient } from "./share/component/redis-pubsub/redis";
+import { initDynamoDBTables } from "./share/repository/dynamodb/auto-init";
 
 config();
 
@@ -45,7 +46,13 @@ config();
       process.exit(1);
     }
   } else {
-    Logger.info("Using DynamoDB - skipping MongoDB connection.");
+    try {
+      await initDynamoDBTables();
+      Logger.info("DynamoDB tables initialized successfully.");
+    } catch (error) {
+      console.error("DynamoDB tables initialization error:", error);
+      process.exit(1);
+    }
   }
 
   const app = express();
