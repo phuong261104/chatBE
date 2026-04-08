@@ -1,5 +1,5 @@
 import { IAuthUseCase, RegisterPendingResponse } from "../../usecase";
-import { Requester, DeviceType, DeviceDetails, Platform } from "@share/interface";
+import { Requester, DeviceType, DeviceDetails, Platform, DeviceInfo } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
@@ -14,6 +14,7 @@ import {
   VerifyResetOTPDTO,
   ResetPasswordDTO,
   ChangePasswordDTO,
+  RegistrationDTOSchema,
 } from "../../model/dto";
 
 const VALID_DEVICE_TYPES: DeviceType[] = [
@@ -87,19 +88,25 @@ export class AuthHTTPService {
 
   async registerAPI(req: Request, res: Response) {
     try {
-      const deviceInfo = this.extractDeviceInfo(req);
-      const result = await this.usecase.register(req.body as RegistrationDTO, deviceInfo);
+      const dto = RegistrationDTOSchema.parse(req.body);
+      const requireVerification = dto.sendVerificationEmail;
+
+      let deviceInfo: { deviceId: string; deviceType: DeviceType; userAgent: string; ip: string; details?: DeviceDetails } | undefined;
+
+      if (!requireVerification) {
+        deviceInfo = this.extractDeviceInfo(req);
+      }
+
+      const result = await this.usecase.register(dto, deviceInfo);
 
       if ("pendingVerification" in result) {
         res.status(200).json({ data: result });
       } else {
-        const effectiveDeviceId = deviceInfo?.deviceId || this.extractDeviceIdFromToken(result.refreshToken);
-        if (effectiveDeviceId) {
-          res.setHeader("X-Device-Id", effectiveDeviceId);
-          res.setHeader("X-Device-Type", result.deviceType);
-          if (result.displayLabel) res.setHeader("X-Display-Label", result.displayLabel);
-          if (result.platform) res.setHeader("X-Device-Platform", result.platform);
-        }
+        const deviceId = this.extractDeviceIdFromToken(result.refreshToken);
+        res.setHeader("X-Device-Id", deviceId);
+        res.setHeader("X-Device-Type", result.deviceType);
+        if (result.displayLabel) res.setHeader("X-Display-Label", result.displayLabel);
+        if (result.platform) res.setHeader("X-Device-Platform", result.platform);
         res.status(201).json({ data: result });
       }
     } catch (error) {

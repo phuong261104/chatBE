@@ -32,18 +32,22 @@ paths:
         - User MUST verify email before login
         - Response returns `pendingVerification: true`
         - Verification code expires in **5 minutes**
-        - After verification, user can login normally
+        - After verification, user can login normally via `/auth/login`
+        - **Device headers are NOT needed for this flow**
         
-        **Flow B - Immediate Login (Development default)**:
+        **Flow B - Immediate Login (Development only)**:
         - Do NOT set `sendVerificationEmail` or set to `false`
-        - Registration completes instantly
-        - User can login immediately
+        - Registration completes instantly with tokens returned
+        - **Device headers are RECOMMENDED for this flow** (used for session management)
         - Verification code is still sent to email (optional to verify)
         
         ## Device Information
         
-        Backend automatically detects device info from headers or User-Agent.
-        Client CAN send device info for accurate tracking.
+        ### Flow A (Verify Email):
+        Device headers are **NOT needed** - no session is created.
+        
+        ### Flow B (Immediate Login):
+        Backend uses device headers for session management. Client CAN send device info for accurate tracking.
         
         ### Recommended Headers
         
