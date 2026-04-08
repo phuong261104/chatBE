@@ -102,11 +102,17 @@ export type DeviceType =
   | "desktop-app" | "desktop-web"
   | "other";
 
+export interface DeviceDetails {
+  displayLabel: string;
+  platform: Platform;
+}
+
 export interface DeviceInfo {
   deviceId: string;
   deviceType: DeviceType;
   userAgent: string;
   ip: string;
+  details?: DeviceDetails;
 }
 
 export interface Session {

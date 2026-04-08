@@ -7,6 +7,7 @@ import {
   AccessTokenPayload,
   DeviceInfo,
   DeviceType,
+  DeviceDetails,
   ISessionStore,
   ITokenBlacklist,
   PasswordResetPayload,
@@ -47,6 +48,7 @@ import {
 } from "../model/errors";
 import { EmailTemplateService } from "../infras/email/templates";
 import { getEmailProvider } from "../infras/email/nodemailer";
+import { parseUserAgent } from "../infras/device/device-parser";
 
 const VERIFY_PREFIX = "verify:email:";
 const VERIFY_RATE_PREFIX = "verify:rate:";
@@ -65,6 +67,8 @@ export interface LoginResponse {
   refreshToken: string;
   expiresIn: number;
   deviceType: DeviceType;
+  displayLabel?: string;
+  platform?: "app" | "web";
   user: {
     id: string;
     email?: string;
@@ -185,70 +189,40 @@ export class AuthUseCase implements IAuthUseCase {
     return phone.replace(/\s+/g, "");
   }
 
-  private detectPlatform(userAgent: string): "app" | "web" {
-    const ua = userAgent.toLowerCase();
+  private resolveDeviceDetails(deviceInfo?: DeviceInfo): DeviceDetails | undefined {
+    if (deviceInfo?.details) {
+      return deviceInfo.details;
+    }
+    if (deviceInfo?.userAgent) {
+      return parseUserAgent(deviceInfo.userAgent);
+    }
+    return undefined;
+  }
+
+  private detectDeviceTypeFallback(userAgent: string): DeviceType {
+    const lowerUA = userAgent.toLowerCase();
+    const mobilePattern = /android|iphone|ipod|blackberry|windows phone|mobile/i;
+    const tabletPattern = /tablet|ipad|playbook|silk|kindle|nexus 7/i;
+    const osPattern = /mac os|windows nt|linux|x11|ubuntu/i;
+    const laptopPattern = /macbook|portable|laptop|notebook/i;
     const appPatterns = [
-      /app\/[\d.]+\s*/i,
-      /com\.\w+\.\w+/i,
-      /\bwv\b/i,
-      /webview/i,
-      /;\s*wb\s*/i,
-      /\[FBAN|FBIOS|FB4A\]/i,
-      /MobileConfig/i,
+      /app\/[\d.]+\s*/i, /com\.\w+\.\w+/i, /\bwv\b/i, /webview/i,
+      /;\s*wb\s*/i, /\[FBAN|FBIOS|FB4A\]/i, /MobileConfig/i,
     ];
-    for (const pattern of appPatterns) {
-      if (pattern.test(ua)) {
-        return "app";
-      }
-    }
-    return "web";
-  }
 
-  private detectBaseDeviceType(userAgent: string): string {
-    const ua = userAgent.toLowerCase();
-    const mobilePattern = new RegExp("android|iphone|ipod|blackberry|windows phone|mobile", "i");
-    const tabletPattern = new RegExp("tablet|ipad|playbook|silk|kindle|nexus 7", "i");
-    const osPattern = new RegExp("mac os|windows nt|linux|x11|ubuntu", "i");
-    const laptopPattern = new RegExp("macbook|portable|laptop|notebook", "i");
+    let base: string;
+    if (mobilePattern.test(lowerUA)) {
+      base = "mobile";
+    } else if (tabletPattern.test(lowerUA)) {
+      base = "tablet";
+    } else if (osPattern.test(lowerUA)) {
+      base = laptopPattern.test(lowerUA) ? "laptop" : "desktop";
+    } else {
+      base = laptopPattern.test(lowerUA) ? "laptop" : "mobile";
+    }
 
-    if (mobilePattern.test(ua)) {
-      return "mobile";
-    }
-    if (tabletPattern.test(ua)) {
-      return "tablet";
-    }
-    if (osPattern.test(ua) && !mobilePattern.test(ua) && !tabletPattern.test(ua)) {
-      if (laptopPattern.test(ua)) {
-        return "laptop";
-      }
-      return "desktop";
-    }
-    if (laptopPattern.test(ua)) {
-      return "laptop";
-    }
-    return "mobile";
-  }
-
-  private detectDeviceType(userAgent: string): DeviceType {
-    const base = this.detectBaseDeviceType(userAgent);
-    const platform = this.detectPlatform(userAgent);
+    const platform: "app" | "web" = appPatterns.some((p) => p.test(lowerUA)) ? "app" : "web";
     return `${base}-${platform}` as DeviceType;
-  }
-
-  private resolveDeviceType(headerType?: string, userAgent?: string): DeviceType {
-    if (headerType) {
-      const validTypes: DeviceType[] = [
-        "mobile-app", "mobile-web",
-        "tablet-app", "tablet-web",
-        "laptop-app", "laptop-web",
-        "desktop-app", "desktop-web",
-        "other",
-      ];
-      if (validTypes.includes(headerType as DeviceType)) {
-        return headerType as DeviceType;
-      }
-    }
-    return this.detectDeviceType(userAgent || "");
   }
 
   private extractUserPublic(user: any): LoginResponse["user"] {
@@ -302,7 +276,8 @@ export class AuthUseCase implements IAuthUseCase {
     const accessToken = this.generateAccessToken(user.id, UserRole.USER, tokenVersion);
 
     const effectiveDeviceId = deviceInfo?.deviceId || uuidv7();
-    const effectiveDeviceType = this.resolveDeviceType(deviceInfo?.deviceType, deviceInfo?.userAgent);
+    const effectiveDeviceType = deviceInfo?.deviceType || this.detectDeviceTypeFallback(deviceInfo?.userAgent || "");
+    const deviceDetails = this.resolveDeviceDetails(deviceInfo);
     const { token: refreshToken, jti: refreshTokenJti } = this.generateRefreshTokenPair(user.id, effectiveDeviceId);
 
     await this.sessionStore.create(user.id, {
@@ -310,6 +285,7 @@ export class AuthUseCase implements IAuthUseCase {
       deviceType: effectiveDeviceType,
       userAgent: deviceInfo?.userAgent || "Unknown",
       ip: deviceInfo?.ip || "unknown",
+      details: deviceDetails,
     }, refreshTokenJti);
 
     await this.sessionStore.deleteByDeviceType(user.id, effectiveDeviceType, effectiveDeviceId);
@@ -319,6 +295,8 @@ export class AuthUseCase implements IAuthUseCase {
       refreshToken,
       expiresIn: this.parseExpiresIn(config.accessToken.expiresIn),
       deviceType: effectiveDeviceType,
+      displayLabel: deviceDetails?.displayLabel,
+      platform: deviceDetails?.platform,
       user: this.extractUserPublic(user),
     };
   }
@@ -417,7 +395,8 @@ export class AuthUseCase implements IAuthUseCase {
     const accessToken = this.generateAccessToken(newId, UserRole.USER, 1);
 
     const effectiveDeviceId = deviceInfo?.deviceId || uuidv7();
-    const effectiveDeviceType = this.resolveDeviceType(deviceInfo?.deviceType, deviceInfo?.userAgent);
+    const effectiveDeviceType = deviceInfo?.deviceType || this.detectDeviceTypeFallback(deviceInfo?.userAgent || "");
+    const deviceDetails = this.resolveDeviceDetails(deviceInfo);
     const { token: refreshToken, jti: refreshTokenJti } = this.generateRefreshTokenPair(newId, effectiveDeviceId);
 
     await this.sessionStore.create(newId, {
@@ -425,6 +404,7 @@ export class AuthUseCase implements IAuthUseCase {
       deviceType: effectiveDeviceType,
       userAgent: deviceInfo?.userAgent || "Unknown",
       ip: deviceInfo?.ip || "unknown",
+      details: deviceDetails,
     }, refreshTokenJti);
 
     await this.sessionStore.deleteByDeviceType(newId, effectiveDeviceType, effectiveDeviceId);
@@ -434,6 +414,8 @@ export class AuthUseCase implements IAuthUseCase {
       refreshToken,
       expiresIn: this.parseExpiresIn(config.accessToken.expiresIn),
       deviceType: effectiveDeviceType,
+      displayLabel: deviceDetails?.displayLabel,
+      platform: deviceDetails?.platform,
       user: this.extractUserPublic(newUser),
     };
   }
@@ -734,11 +716,10 @@ export class AuthUseCase implements IAuthUseCase {
     const sessions = await this.sessionStore.listByUser(userId);
     return sessions.map((s) => ({
       deviceId: s.deviceId,
-      deviceInfo: {
-        userAgent: s.deviceInfo?.userAgent || "Unknown",
-        ip: s.deviceInfo?.ip || "unknown",
-      },
-
+      deviceType: s.deviceType,
+      displayLabel: s.deviceInfo.details?.displayLabel || "Unknown",
+      platform: s.deviceInfo.details?.platform || "web",
+      ip: s.deviceInfo.ip || "unknown",
       createdAt: s.createdAt,
       lastActive: s.lastActive,
       isCurrent: s.deviceId === currentDeviceId,

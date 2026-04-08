@@ -7,6 +7,8 @@ export { UserStatus };
 export const DeviceInfoSchema = z.object({
   deviceId: z.string().uuid(),
   userAgent: z.string().optional(),
+  displayLabel: z.string().optional(),
+  platform: z.enum(["app", "web"]).optional(),
 });
 
 export type DeviceInfo = z.infer<typeof DeviceInfoSchema>;

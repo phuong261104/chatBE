@@ -16,14 +16,6 @@ x-test-credentials:
     2. **Copy Access Token**: From response, copy the `accessToken` value
     3. **Authorize**: Click "Authorize" button, enter `Bearer {accessToken}`
     4. **Test Protected Endpoints**: Try `/auth/sessions`, `/auth/change-password`, etc.
-    
-    ## Device Headers for Testing
-    
-    | Header | Value | Purpose |
-    |--------|-------|---------|
-    | X-Device-Id | `550e8400-e29b-41d4-a716-446655440000` | Simulate specific device |
-    | X-Device-Type | `laptop-web` | Test device type detection |
-    | X-Device-Platform | `app` | Test platform detection |
 
 paths:
   /auth/register:
@@ -31,54 +23,98 @@ paths:
       summary: "Register new account"
       tags: [Auth]
       description: |
-        Create a new account with phone number and password.
+        Create a new user account with phone number and password.
         
         ## Registration Flows
         
-        **Flow A (Require Email Verification)**: Set `sendVerificationEmail: true` OR set env `AUTH_REQUIRE_EMAIL_VERIFICATION=true`.
-        - After registration, user MUST verify email before login.
-        - Response returns `pendingVerification: true`.
-        - Email verification code expires in 5 minutes.
+        **Flow A - Require Email Verification (Recommended for production)**:
+        - Set `sendVerificationEmail: true` OR env `AUTH_REQUIRE_EMAIL_VERIFICATION=true`
+        - User MUST verify email before login
+        - Response returns `pendingVerification: true`
+        - Verification code expires in **5 minutes**
+        - After verification, user can login normally
         
-        **Flow B (Default)**: Do not set `sendVerificationEmail` or set to `false`.
-        - Registration completes and user can login immediately.
-        - Verification code is sent to email (optional to verify).
+        **Flow B - Immediate Login (Development default)**:
+        - Do NOT set `sendVerificationEmail` or set to `false`
+        - Registration completes instantly
+        - User can login immediately
+        - Verification code is still sent to email (optional to verify)
         
-        ## Device Headers (Recommended)
+        ## Device Information
+        
+        Backend automatically detects device info from headers or User-Agent.
+        Client CAN send device info for accurate tracking.
+        
+        ### Recommended Headers
         
         | Header | Required | Description | Example |
         |--------|----------|-------------|---------|
-        | X-Device-Id | No | UUID for device identification | `550e8400-e29b-41d4-a716-446655440000` |
-        | X-Device-Type | No | Device type + platform combination | `laptop-web`, `mobile-app`, `tablet-app` |
-        | X-Device-Platform | No | Platform type: `app` or `web` | `app`, `web` |
+        | `X-Device-Id` | No | UUID device identifier | `550e8400-e29b-41d4-a716-446655440000` |
+        | `X-Device-Type` | No | Full device type | `mobile-app`, `laptop-web` |
+        | `X-Device-Platform` | No | Platform: `app` or `web` | `app`, `web` |
+        | `X-Display-Label` | No | Human-readable device name | `Chrome - Windows`, `iPhone 15 Pro` |
         
-        ## Device Type Values
+        ### Device Type Values
         
-        Format: `{device}-{platform}` (e.g., `laptop-web`, `mobile-app`)
+        Format: `{device}-{platform}`
         
         | Value | Description |
         |-------|-------------|
-        | `mobile-app` | Mobile native application |
+        | `mobile-app` | Native mobile app (React Native, Flutter, etc.) |
         | `mobile-web` | Mobile web browser |
-        | `tablet-app` | Tablet native application |
+        | `tablet-app` | Native tablet app |
         | `tablet-web` | Tablet web browser |
-        | `laptop-app` | Desktop/Laptop native application |
+        | `laptop-app` | Desktop/Laptop app (Electron) |
         | `laptop-web` | Desktop/Laptop web browser |
-        | `desktop-app` | Desktop native application |
+        | `desktop-app` | Desktop native app |
         | `desktop-web` | Desktop web browser |
-        | `other` | Other or unknown device |
+        | `other` | Unknown device |
         
-        **How to determine device type**:
-        - If client sends `X-Device-Type` header → use that value
-        - If only `X-Device-Platform` is sent → combine with User-Agent to detect
-        - If neither header is sent → auto-detect from User-Agent
+        ### Display Label Format
+        
+        | Platform | Format | Example |
+        |----------|--------|---------|
+        | Web | `Browser - OS` | `Chrome - Windows`, `Safari - macOS` |
+        | App | Device model | `iPhone 15 Pro`, `Samsung SM-S928B` |
+        
+        ### How Device Info Detection Works
+        
+        Priority order (highest to lowest):
+        1. Client sends ALL device headers (`X-Display-Label` + `X-Device-Platform`) → use directly
+        2. Client sends partial headers → fallback to User-Agent parsing
+        3. No headers → auto-detect from `User-Agent` header
+        
+        ### Frontend Implementation (JavaScript)
+        
+        ```javascript
+        // Generate or retrieve persistent device ID
+        const deviceId = localStorage.getItem('deviceId') || crypto.randomUUID();
+        localStorage.setItem('deviceId', deviceId);
+        
+        // Get device info
+        const getDeviceHeaders = () => ({
+          'X-Device-Id': deviceId,
+          'X-Device-Platform': 'app',
+          'X-Display-Label': await getDeviceModel(), // e.g., "iPhone 15 Pro"
+        });
+        
+        // Register
+        const response = await fetch('/auth/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getDeviceHeaders(),
+          },
+          body: JSON.stringify({ phone, password, email })
+        });
+        ```
         
         ## Important Notes
         
-        - When logging in with the same device type, previous sessions of that type are automatically deleted.
-        - `refreshToken` is ALWAYS returned in the response.
-        - Response headers contain `X-Device-Id` and `X-Device-Type` with device info used.
-        - Email is sent ASYNCHRONOUSLY - does not affect response speed.
+        - Same device type login: Previous sessions of that type are **automatically deleted**
+        - `refreshToken` is **always** returned in response
+        - Response headers include `X-Device-Id`, `X-Device-Type`, `X-Display-Label`, `X-Device-Platform`
+        - Email is sent **asynchronously** - does NOT slow down response
       parameters:
         - in: header
           name: X-Device-Id
@@ -86,7 +122,7 @@ paths:
           schema:
             type: string
             format: uuid
-          description: "UUID device identifier. If not provided, a new UUID will be generated."
+          description: "UUID device identifier. If not provided, a new UUID will be generated by server."
           example: "550e8400-e29b-41d4-a716-446655440000"
         - in: header
           name: X-Device-Type
@@ -94,16 +130,23 @@ paths:
           schema:
             type: string
             enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
-          description: "Device type + platform combination. Auto-detected from User-Agent if not provided."
-          example: "laptop-web"
+          description: "Device type. Auto-detected from User-Agent if not provided."
+          example: "mobile-app"
         - in: header
           name: X-Device-Platform
           required: false
           schema:
             type: string
             enum: [app, web]
-          description: "Platform type. If sent with X-Device-Type missing, will be combined with User-Agent detection."
-          example: "web"
+          description: "Platform type. Combined with User-Agent if X-Device-Type missing."
+          example: "app"
+        - in: header
+          name: X-Display-Label
+          required: false
+          schema:
+            type: string
+          description: "Human-readable device name. For web: 'Browser - OS'. For app: device model."
+          example: "iPhone 15 Pro"
       requestBody:
         required: true
         content:
@@ -124,21 +167,21 @@ paths:
                   minLength: 6
                   maxLength: 128
                   example: "Password123!"
-                  description: "Mật khẩu bảo mật (6-128 ký tự)"
+                  description: "Mật khẩu (6-128 ký tự)"
                 email:
                   type: string
                   format: email
                   example: "phuong.boss@example.com"
-                  description: "Email (tùy chọn, dùng để xác thực)"
+                  description: "Email (tùy chọn). Nếu có, sẽ gửi mã xác thực."
                 displayName:
                   type: string
                   maxLength: 100
                   example: "Boss Phương"
-                  description: "Tên hiển thị (tùy chọn)"
+                  description: "Tên hiển thị (tùy chọn). Mặc định dùng email hoặc phone."
                 sendVerificationEmail:
                   type: boolean
                   example: true
-                  description: "true = bắt buộc verify email trước khi login (Luồng A)"
+                  description: "`true` = bắt buộc verify email trước khi login. Default: `false`."
             example:
               phone: "0912345678"
               password: "Password123!"
@@ -157,9 +200,18 @@ paths:
             X-Device-Type:
               schema:
                 type: string
-                enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
               description: "Device type detected"
-              example: "mobile-web"
+              example: "mobile-app"
+            X-Display-Label:
+              schema:
+                type: string
+              description: "Device display name"
+              example: "iPhone 15 Pro"
+            X-Device-Platform:
+              schema:
+                type: string
+              description: "Platform: app or web"
+              example: "app"
           content:
             application/json:
               schema:
@@ -177,14 +229,23 @@ paths:
             X-Device-Id:
               schema:
                 type: string
-              description: "UUID of the registered device"
+              description: "UUID of the registered device - SAVE THIS for future requests"
               example: "550e8400-e29b-41d4-a716-446655440000"
             X-Device-Type:
               schema:
                 type: string
-                enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
               description: "Device type detected"
-              example: "mobile-web"
+              example: "mobile-app"
+            X-Display-Label:
+              schema:
+                type: string
+              description: "Device display name"
+              example: "iPhone 15 Pro"
+            X-Device-Platform:
+              schema:
+                type: string
+              description: "Platform: app or web"
+              example: "app"
           content:
             application/json:
               schema:
@@ -194,7 +255,9 @@ paths:
                   accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   expiresIn: 900
-                  deviceType: "mobile-web"
+                  deviceType: "mobile-app"
+                  displayLabel: "iPhone 15 Pro"
+                  platform: "app"
                   user:
                     id: "660c1d8e-4f9a-4b2e-9c1a-7d3e5f8a9b0c"
                     phone: "0912345678"
@@ -220,60 +283,68 @@ paths:
       description: |
         Authenticate using phone number OR email with password.
         
-        ## Device Headers (Recommended)
+        ## Device Information
+        
+        Backend automatically detects device info. Client can send headers for accurate tracking.
+        
+        ### Recommended Headers
         
         | Header | Required | Description | Example |
         |--------|----------|-------------|---------|
-        | X-Device-Id | No | UUID for device identification | `550e8400-e29b-41d4-a716-446655440000` |
-        | X-Device-Type | No | Device type + platform combination | `laptop-web`, `mobile-app` |
-        | X-Device-Platform | No | Platform type: `app` or `web` | `app`, `web` |
+        | `X-Device-Id` | **Yes** | UUID device identifier | `550e8400-e29b-41d4-a716-446655440000` |
+        | `X-Device-Type` | No | Full device type | `mobile-app`, `laptop-web` |
+        | `X-Device-Platform` | No | Platform: `app` or `web` | `app`, `web` |
+        | `X-Display-Label` | No | Human-readable device name | `Chrome - Windows`, `iPhone 15 Pro` |
         
-        ## Device Type Values
+        ### Display Label Format
         
-        Format: `{device}-{platform}` (e.g., `laptop-web`, `mobile-app`)
+        | Platform | Format | Example |
+        |----------|--------|---------|
+        | Web | `Browser - OS` | `Chrome - Windows`, `Safari - macOS`, `Mobile Safari - iOS` |
+        | App | Device model | `iPhone 15 Pro`, `Samsung SM-S928B`, `iPhone` |
         
-        | Value | Description |
-        |-------|-------------|
-        | `mobile-app` | Mobile native application |
-        | `mobile-web` | Mobile web browser |
-        | `tablet-app` | Tablet native application |
-        | `tablet-web` | Tablet web browser |
-        | `laptop-app` | Desktop/Laptop native application |
-        | `laptop-web` | Desktop/Laptop web browser |
-        | `desktop-app` | Desktop native application |
-        | `desktop-web` | Desktop web browser |
-        | `other` | Other or unknown device |
+        ### How Detection Works
         
-        ## Important Notes
+        Priority order:
+        1. Client sends `X-Display-Label` + `X-Device-Platform` → use directly
+        2. Otherwise → parse from `User-Agent` header
         
-        - When logging in with the same device type, previous sessions of that type are automatically deleted.
-        - `refreshToken` is ALWAYS returned in the response.
-        - Response headers contain `X-Device-Id` and `X-Device-Type` with device info used.
-        - Store the `X-Device-Id` from response headers for future logout/session management.
+        ### Frontend Implementation (JavaScript)
         
-        ## Frontend Integration Guide
-        
-        **Mobile App (React Native / Flutter)**:
         ```javascript
-        // On app start, generate or retrieve device UUID
-        const deviceId = await AsyncStorage.getItem('deviceId') || uuid();
-        await AsyncStorage.setItem('deviceId', deviceId);
+        // Get persistent device ID
+        const deviceId = localStorage.getItem('deviceId') || crypto.randomUUID();
+        localStorage.setItem('deviceId', deviceId);
         
-        // On login
+        // Login
         const response = await fetch('/auth/login', {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-Device-Id': deviceId,
-            'X-Device-Type': 'mobile-app',
-            'X-Device-Platform': 'app'
+            'X-Device-Platform': 'app',
+            'X-Display-Label': 'iPhone 15 Pro',  // or get from device API
           },
-          body: JSON.stringify({ phone, password })
+          body: JSON.stringify({ phone: '0912345678', password: 'Test123456!' })
         });
+        
         const { data } = await response.json();
+        
         // Store tokens securely
         await SecureStore.setItemAsync('accessToken', data.accessToken);
         await SecureStore.setItemAsync('refreshToken', data.refreshToken);
+        
+        console.log('Logged in from:', data.displayLabel);  // "iPhone 15 Pro"
+        console.log('Platform:', data.platform);             // "app"
         ```
+        
+        ## Important Notes
+        
+        - **Save `X-Device-Id` from response headers** - needed for logout and session management
+        - Same device type login: Previous sessions of that type are **automatically deleted**
+        - `refreshToken` is **always** returned
+        - Response headers include `X-Device-Id`, `X-Device-Type`, `X-Display-Label`, `X-Device-Platform`
+        - The `displayLabel` and `platform` in response body match what was sent or detected
       parameters:
         - in: header
           name: X-Device-Id
@@ -281,7 +352,7 @@ paths:
           schema:
             type: string
             format: uuid
-          description: "UUID device identifier. Recommended for session management."
+          description: "UUID device identifier. Recommended - needed for logout/session management."
           example: "550e8400-e29b-41d4-a716-446655440000"
         - in: header
           name: X-Device-Type
@@ -289,7 +360,7 @@ paths:
           schema:
             type: string
             enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
-          description: "Device type + platform combination. Auto-detected if not provided."
+          description: "Device type. Auto-detected from User-Agent if not provided."
           example: "laptop-web"
         - in: header
           name: X-Device-Platform
@@ -297,8 +368,15 @@ paths:
           schema:
             type: string
             enum: [app, web]
-          description: "Platform type (app/web). Will be combined with User-Agent if X-Device-Type missing."
+          description: "Platform type (app/web)."
           example: "web"
+        - in: header
+          name: X-Display-Label
+          required: false
+          schema:
+            type: string
+          description: "Human-readable device name. For web: 'Browser - OS'. For app: device model."
+          example: "Chrome - Windows"
       requestBody:
         required: true
         content:
@@ -310,11 +388,16 @@ paths:
                   type: string
                   pattern: '^[0-9]{10}$'
                   example: "0912345678"
-                  description: "Test: `0912345678` or `0987654321`"
+                  description: "Test: `0912345678` hoặc `0987654321`"
+                email:
+                  type: string
+                  format: email
+                  example: "test1@chatbe.io"
+                  description: "Email đăng nhập (thay thế phone)"
                 password:
                   type: string
                   example: "Test123456!"
-                  description: "Test: `Test123456!`"
+                  description: "Mật khẩu"
             example:
               phone: "0912345678"
               password: "Test123456!"
@@ -325,14 +408,23 @@ paths:
             X-Device-Id:
               schema:
                 type: string
-                description: "UUID of logged in device - SAVE THIS for logout and session management"
+              description: "UUID of logged in device - **SAVE THIS** for logout and session management"
               example: "550e8400-e29b-41d4-a716-446655440000"
             X-Device-Type:
               schema:
                 type: string
-                enum: [mobile-app, mobile-web, tablet-app, tablet-web, laptop-app, laptop-web, desktop-app, desktop-web, other]
-                description: "Device type used for login"
-              example: "laptop-web"
+              description: "Device type used for login"
+              example: "mobile-app"
+            X-Display-Label:
+              schema:
+                type: string
+              description: "Human-readable device name"
+              example: "iPhone 15 Pro"
+            X-Device-Platform:
+              schema:
+                type: string
+              description: "Platform: app or web"
+              example: "app"
           content:
             application/json:
               schema:
@@ -342,7 +434,9 @@ paths:
                   accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   expiresIn: 900
-                  deviceType: "laptop-web"
+                  deviceType: "mobile-app"
+                  displayLabel: "iPhone 15 Pro"
+                  platform: "app"
                   user:
                     id: "660c1d8e-4f9a-4b2e-9c1a-7d3e5f8a9b0c"
                     phone: "0912345678"
@@ -366,32 +460,50 @@ paths:
       summary: "Refresh access token"
       tags: [Auth]
       description: |
-        Use refresh token to get a new access token and refresh token pair.
+        Use refresh token to get a new access token + refresh token pair.
         
-        ## Frontend Integration Guide
+        ## When to Call
         
-        **When to call**:
-        - When access token is about to expire (check `expiresIn` value)
-        - When API call returns 401 Unauthorized
+        - When `expiresIn` countdown reaches near zero
+        - When API call returns `401 Unauthorized`
         
-        **Example (JavaScript)**:
+        ## Important
+        
+        - **Old refresh token is invalidated** after use
+        - **New refresh token** must be used for next refresh
+        - Old tokens cannot be reused
+        
+        ## Frontend Implementation (JavaScript)
+        
         ```javascript
-        async function refreshToken() {
-          const refreshToken = await SecureStore.getItemAsync('refreshToken');
+        // Auto-refresh before token expires
+        const refreshToken = await SecureStore.getItemAsync('refreshToken');
+        
+        async function refreshAccessToken() {
           const response = await fetch('/auth/refresh', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken })
           });
+          
+          if (!response.ok) {
+            // Refresh failed - force logout
+            await logout();
+            return;
+          }
+          
           const { data } = await response.json();
-          // Store new tokens
           await SecureStore.setItemAsync('accessToken', data.accessToken);
           await SecureStore.setItemAsync('refreshToken', data.refreshToken);
           return data;
         }
-        ```
         
-        **Note**: Old refresh token is invalidated after use. The new refresh token must be used for subsequent refreshes.
+        // Call before token expires (e.g., 1 minute before)
+        const timeUntilExpiry = getTokenExpiry() - Date.now();
+        if (timeUntilExpiry < 60000) {
+          await refreshAccessToken();
+        }
+        ```
       requestBody:
         required: true
         content:
@@ -404,6 +516,7 @@ paths:
                 refreshToken:
                   type: string
                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  description: "Refresh token từ response login"
             example:
               refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
@@ -426,7 +539,7 @@ paths:
                       expiresIn:
                         type: integer
                         example: 900
-                        description: "New access token expiration in seconds"
+                        description: "Access token expiration time in seconds"
         '401':
           description: "Invalid or expired refresh token"
           content:
@@ -443,19 +556,19 @@ paths:
       description: |
         Logout from the current device session.
         
-        ## Headers
+        ## Required Headers
         
         | Header | Required | Description |
         |--------|----------|-------------|
-        | Authorization | Yes | Bearer token (accessToken from login response) |
+        | Authorization | **Yes** | Bearer token (accessToken) |
         | X-Device-Id | No | UUID of device to logout |
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript)**:
         ```javascript
         async function logout() {
-          const deviceId = await AsyncStorage.getItem('deviceId');
+          const deviceId = localStorage.getItem('deviceId');
+          
           await fetch('/auth/logout', {
             method: 'POST',
             headers: {
@@ -463,13 +576,22 @@ paths:
               'X-Device-Id': deviceId
             }
           });
-          // Clear stored tokens
+          
+          // Clear all stored data
           await SecureStore.deleteItemAsync('accessToken');
           await SecureStore.deleteItemAsync('refreshToken');
+          localStorage.removeItem('deviceId');
+          
+          // Navigate to login screen
+          navigate('/login');
         }
         ```
         
-        **Note**: If X-Device-Id is provided, only that device's session is deleted. If not provided, no session is deleted (auth token is just blacklisted).
+        ## Behavior
+        
+        - If `X-Device-Id` is provided → delete that device's session
+        - If `X-Device-Id` is NOT provided → only token blacklist is updated (no session deleted)
+        - Access token is added to blacklist (cannot be reused)
       parameters:
         - in: header
           name: X-Device-Id
@@ -498,27 +620,39 @@ paths:
       security:
         - BearerAuth: []
       description: |
-        Logout and invalidate all sessions across all devices.
+        Logout and invalidate all sessions across ALL devices.
         
-        ## Frontend Integration Guide
+        ## Use Cases
         
-        **Example (JavaScript)**:
+        - User wants to secure their account
+        - After changing password, all sessions are invalidated
+        - Security feature: "Logout from all devices" in settings
+        
+        ## Frontend Implementation (JavaScript)
+        
         ```javascript
-        async function logoutAll() {
+        async function logoutAllDevices() {
+          const confirmed = await showConfirmDialog(
+            'Logout from all devices?',
+            'You will be logged out from all devices. Please login again.'
+          );
+          
+          if (!confirmed) return;
+          
           await fetch('/auth/logout-all', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`
             }
           });
-          // Clear all stored data
-          await SecureStore.deleteItemAsync('accessToken');
-          await SecureStore.deleteItemAsync('refreshToken');
+          
+          // Clear ALL stored data
+          await SecureStore.clear();
           await AsyncStorage.clear();
+          
+          navigate('/login');
         }
         ```
-        
-        **Use case**: When user wants to secure their account, or change password, all other sessions are invalidated.
       responses:
         '200':
           description: "Logout from all devices successful"
@@ -541,12 +675,11 @@ paths:
         ## Use Cases
         
         - Validate token before making API calls
-        - Check token expiration
+        - Check token expiration time
         - Debug authentication issues
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript)**:
         ```javascript
         async function verifyToken(token) {
           const response = await fetch('/auth/introspect', {
@@ -554,14 +687,27 @@ paths:
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token })
           });
+          
           const { data } = await response.json();
-          return data.isOk && data.payload;
+          
+          if (data.isOk && data.payload) {
+            console.log('Token is valid');
+            console.log('User ID:', data.payload.sub);
+            console.log('Role:', data.payload.role);
+            return true;
+          }
+          
+          console.log('Token is invalid or expired');
+          return false;
         }
         ```
         
-        **Response**:
-        - `isOk: true` + `payload` = Token is valid
-        - `isOk: false` + `payload: null` = Token is invalid/expired/blacklisted
+        ## Response Meaning
+        
+        | `isOk` | `payload` | Meaning |
+        |--------|-----------|---------|
+        | `true` | object | Token is valid |
+        | `false` | `null` | Token is invalid/expired/blacklisted |
       requestBody:
         required: true
         content:
@@ -574,6 +720,9 @@ paths:
                 token:
                   type: string
                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  description: "Access token cần kiểm tra"
+            example:
+              token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
         '200':
           description: "Token validity check result"
@@ -588,7 +737,7 @@ paths:
                       isOk:
                         type: boolean
                         example: true
-                        description: "True if token is valid, false otherwise"
+                        description: "`true` = token hợp lệ, `false` = token không hợp lệ"
                       payload:
                         type: object
                         nullable: true
@@ -603,7 +752,7 @@ paths:
                             example: "user"
                           type:
                             type: string
-                            description: "Token type (access/refresh)"
+                            description: "Token type (access)"
                             example: "access"
                           jti:
                             type: string
@@ -625,12 +774,12 @@ paths:
         
         ## Rate Limiting
         
-        - Maximum 5 requests per hour per email
-        - Returns 429 if limit exceeded
+        - Maximum **5 requests per hour** per email
+        - Returns `429` if limit exceeded
+        - Show countdown to user before allowing resend
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript)**:
         ```javascript
         async function sendVerification(email) {
           const response = await fetch('/auth/send-verification', {
@@ -641,14 +790,18 @@ paths:
             },
             body: JSON.stringify({ email })
           });
+          
           if (response.status === 429) {
-            // Show "Too many requests" message
-            // Disable resend button for remaining time
+            showToast('Too many requests. Please try again later.');
+            return { success: false, waitTime: 3600 };
+          }
+          
+          if (response.ok) {
+            showToast('Verification code sent to your email');
+            return { success: true };
           }
         }
         ```
-        
-        **UI Recommendation**: Show countdown timer before allowing resend.
       requestBody:
         required: true
         content:
@@ -689,25 +842,24 @@ paths:
       summary: "Verify email with code"
       tags: [Auth]
       description: |
-        Verify email address using 6-digit code.
+        Verify email address using 6-digit code received via email.
         
         ## Constraints
         
-        - Code expires in 5 minutes (300 seconds)
-        - Maximum 3 failed attempts before code is invalidated
-        - After max attempts, user must request a new code
+        - Code expires in **5 minutes** (300 seconds)
+        - Maximum **3 failed attempts** before code is invalidated
+        - After max attempts → must request new code
         
         ## Response Codes
         
-        | Status | Description |
-        |--------|-------------|
+        | Status | Meaning |
+        |--------|---------|
         | 200 | Email verified successfully |
         | 400 | Invalid code or code expired |
-        | 429 | Too many failed attempts |
+        | 429 | Too many failed attempts - code invalidated |
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript)**:
         ```javascript
         async function verifyEmail(email, code) {
           const response = await fetch('/auth/verify-email', {
@@ -715,18 +867,24 @@ paths:
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, code })
           });
-          const result = await response.json();
+          
           if (response.ok) {
-            // Navigate to login/home
-          } else if (response.status === 429) {
-            // Show "Too many attempts" and request new code
-          } else {
-            // Show error message from result.message
+            showToast('Email verified successfully!');
+            navigate('/home');
+            return { success: true };
           }
+          
+          const { message } = await response.json();
+          
+          if (response.status === 429) {
+            showToast('Too many attempts. Please request a new code.');
+            return { success: false, needNewCode: true };
+          }
+          
+          showToast(message);
+          return { success: false };
         }
         ```
-        
-        **UI Recommendation**: Show remaining attempts count to user.
       requestBody:
         required: true
         content:
@@ -769,15 +927,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                invalidCode:
-                  summary: "Invalid code"
-                  value:
-                    message: "Invalid verification code"
-                expired:
-                  summary: "Code expired"
-                  value:
-                    message: "Verification code has expired"
         '429':
           description: "Too many failed attempts - code is invalidated"
           content:
@@ -797,15 +946,16 @@ paths:
         Resend verification code to email.
         Uses same rate limit as `/auth/send-verification` (5 requests/hour).
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript)**:
         ```javascript
         async function resendVerification(email) {
-          // Check local countdown before making request
+          // Check local cooldown first
           const lastSent = localStorage.getItem('lastVerificationSent');
           if (lastSent && Date.now() - lastSent < 60000) {
-            return { error: 'Please wait before resending' };
+            const remaining = Math.ceil((60000 - (Date.now() - lastSent)) / 1000);
+            showToast(`Please wait ${remaining}s before resending`);
+            return;
           }
           
           const response = await fetch('/auth/resend-verification', {
@@ -819,12 +969,10 @@ paths:
           
           if (response.ok) {
             localStorage.setItem('lastVerificationSent', Date.now());
+            showToast('New verification code sent');
           }
-          return response.json();
         }
         ```
-        
-        **UI Recommendation**: Disable resend button for 60 seconds after sending.
       requestBody:
         required: true
         content:
@@ -863,20 +1011,21 @@ paths:
       description: |
         Send a 6-digit OTP to email for password reset.
         
-        ## Flow
+        ## Password Reset Flow
         
-        1. Call `/auth/forgot-password` → receive OTP via email
-        2. Call `/auth/verify-reset-otp` → verify OTP → receive `tempToken`
-        3. Call `/auth/reset-password` with `tempToken` → set new password
+        ```
+        1. /auth/forgot-password     → receive OTP via email
+        2. /auth/verify-reset-otp     → verify OTP → receive tempToken
+        3. /auth/reset-password      → set new password with tempToken
+        ```
         
         ## Rate Limiting
         
-        - Maximum 5 requests per hour per email
-        - OTP expires in 5 minutes (300 seconds)
+        - Maximum **5 requests per hour** per email
+        - OTP expires in **5 minutes** (300 seconds)
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript) - Mobile**:
         ```javascript
         async function requestPasswordReset(email) {
           const response = await fetch('/auth/forgot-password', {
@@ -886,17 +1035,19 @@ paths:
           });
           
           if (response.ok) {
-            // Navigate to OTP verification screen
-            // Pass email to next step
+            // Navigate to OTP input screen
+            navigate('/reset-password/verify', { email });
           }
+          
           return response.json();
         }
         ```
         
-        **UI Flow**:
+        ## UI Flow
+        
         1. User enters email
         2. Show loading state
-        3. Navigate to OTP input screen
+        3. On success → navigate to OTP input screen
         4. Show countdown timer (5 minutes)
       requestBody:
         required: true
@@ -945,23 +1096,23 @@ paths:
       tags: [Auth]
       description: |
         Verify OTP received via email for password reset.
-        If OTP is correct, returns `tempToken` for use in password reset.
         
-        ## Flow
+        ## Password Reset Flow
         
-        1. Call `/auth/forgot-password` → receive OTP via email
-        2. Call `/auth/verify-reset-otp` → **returns tempToken**
-        3. Call `/auth/reset-password` with `tempToken` → set new password
+        ```
+        1. /auth/forgot-password     → receive OTP via email
+        2. /auth/verify-reset-otp    → verify OTP → receive tempToken  ← THIS ENDPOINT
+        3. /auth/reset-password      → set new password with tempToken
+        ```
         
         ## Constraints
         
-        - OTP expires in 5 minutes (300 seconds)
-        - Maximum 3 failed attempts before OTP is invalidated
-        - After max attempts, user must request new OTP
+        - OTP expires in **5 minutes** (300 seconds)
+        - Maximum **3 failed attempts** before OTP is invalidated
+        - After max attempts → must request new OTP
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript) - Mobile**:
         ```javascript
         async function verifyResetOTP(email, otp) {
           const response = await fetch('/auth/verify-reset-otp', {
@@ -972,21 +1123,18 @@ paths:
           
           if (response.ok) {
             const { data } = await response.json();
-            // Navigate to new password screen
-            // Pass tempToken securely to next step
-            return { tempToken: data.tempToken, expiresIn: data.expiresIn };
-          } else {
-            const { message } = await response.json();
-            // Handle error: invalid, expired, or too many attempts
+            // Navigate to new password screen with tempToken
+            navigate('/reset-password/set', { 
+              tempToken: data.tempToken,
+              email 
+            });
+            return { success: true };
           }
+          
+          const { message } = await response.json();
+          return { success: false, message };
         }
         ```
-        
-        **UI Flow**:
-        1. User enters 6-digit OTP
-        2. Show loading state
-        3. On success → navigate to new password screen
-        4. On failure → show error message
       requestBody:
         required: true
         content:
@@ -1024,8 +1172,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              example:
-                message: "Invalid verification code"
         '404':
           description: "Email not found"
           content:
@@ -1038,16 +1184,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              example:
-                message: "Verification code has expired"
         '429':
           description: "Too many failed attempts - OTP is invalidated"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              example:
-                message: "Too many attempts"
 
   /auth/resend-reset-otp:
     post:
@@ -1057,9 +1199,8 @@ paths:
         Resend new OTP to email for password reset.
         Uses same rate limit as `/auth/forgot-password` (5 requests/hour).
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript)**:
         ```javascript
         async function resendResetOTP(email) {
           const response = await fetch('/auth/resend-reset-otp', {
@@ -1068,14 +1209,13 @@ paths:
             body: JSON.stringify({ email })
           });
           
-          if (response.status === 429) {
-            // Show rate limit message
+          if (response.ok) {
+            showToast('New OTP sent to your email');
           }
+          
           return response.json();
         }
         ```
-        
-        **UI Recommendation**: Disable resend button for 60 seconds after sending.
       requestBody:
         required: true
         content:
@@ -1115,29 +1255,30 @@ paths:
       summary: "Reset password with tempToken"
       tags: [Auth]
       description: |
-        Set a new password using the `tempToken` obtained from `/auth/verify-reset-otp`.
+        Set a new password using the `tempToken` from `/auth/verify-reset-otp`.
         
         ## Two Password Reset Methods
         
         | Method | Use Case | Token Source |
         |--------|----------|-------------|
-        | `tempToken` | Mobile App (Recommended) | From `/auth/verify-reset-otp` response |
+        | `tempToken` | **Mobile App (Recommended)** | From `/auth/verify-reset-otp` response |
         | `token` | Web/Email Link (Legacy) | From password reset email link |
         
         ## Complete Password Reset Flow (Mobile - Recommended)
         
-        1. User enters email → `/auth/forgot-password`
-        2. User enters OTP → `/auth/verify-reset-otp` → receives `tempToken`
-        3. User enters new password + `tempToken` → `/auth/reset-password`
+        ```
+        1. /auth/forgot-password       → User enters email → OTP sent
+        2. /auth/verify-reset-otp     → User enters OTP → receives tempToken
+        3. /auth/reset-password       → User enters new password + tempToken
+        ```
         
-        ## Important
+        ## IMPORTANT
         
-        - After password reset, ALL sessions are invalidated
+        - After password reset, **ALL sessions are invalidated**
         - User must login again on all devices
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript) - Mobile**:
         ```javascript
         async function resetPassword(tempToken, newPassword) {
           const response = await fetch('/auth/reset-password', {
@@ -1147,23 +1288,19 @@ paths:
           });
           
           if (response.ok) {
-            // Clear any stored user data
-            await SecureStore.deleteItemAsync('accessToken');
-            await SecureStore.deleteItemAsync('refreshToken');
-            // Navigate to login screen
-            // Show success message
+            // Clear all stored tokens and data
+            await SecureStore.clear();
+            await AsyncStorage.clear();
+            
+            showToast('Password reset successfully. Please login again.');
+            navigate('/login');
+            return { success: true };
           }
-          return response.json();
+          
+          const { message } = await response.json();
+          return { success: false, message };
         }
         ```
-        
-        **UI Flow**:
-        1. User enters new password (with confirmation)
-        2. Validate password strength
-        3. Submit with tempToken
-        4. Clear all stored tokens
-        5. Navigate to login screen
-        6. Show success message "Password reset successfully. Please login again."
       requestBody:
         required: true
         content:
@@ -1187,6 +1324,9 @@ paths:
                   maxLength: 128
                   example: "NewPassword123!"
                   description: "Mật khẩu mới (6-128 ký tự)"
+            example:
+              tempToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              newPassword: "NewPassword123!"
       responses:
         '200':
           description: "Password reset successful"
@@ -1213,7 +1353,7 @@ paths:
 
   /auth/change-password:
     post:
-      summary: "Change password (authenticated)"
+      summary: "Change password (authenticated user)"
       tags: [Auth]
       security:
         - BearerAuth: []
@@ -1222,19 +1362,17 @@ paths:
         
         ## Requirements
         
-        - User must be logged in (Bearer token required)
-        - Must provide current password for verification
-        - New password must be 6-128 characters
+        - User must be **logged in** (Bearer token required)
+        - Must provide **current password** for verification
+        - New password must be **6-128 characters**
         
-        ## Important
+        ## IMPORTANT
         
-        - After password change, ALL sessions are invalidated
+        - After password change, **ALL sessions are invalidated**
         - User must login again on all devices
-        - This is different from `/auth/reset-password` (which is for unauthenticated users)
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript)**:
         ```javascript
         async function changePassword(currentPassword, newPassword) {
           const response = await fetch('/auth/change-password', {
@@ -1247,24 +1385,19 @@ paths:
           });
           
           if (response.ok) {
-            // All sessions are now invalid
-            // Clear all stored data
-            await SecureStore.deleteItemAsync('accessToken');
-            await SecureStore.deleteItemAsync('refreshToken');
-            // Navigate to login screen
-            // Show message "Password changed. Please login again."
+            // All sessions are now invalid - clear everything
+            await SecureStore.clear();
+            await AsyncStorage.clear();
+            
+            showToast('Password changed successfully. Please login again.');
+            navigate('/login');
+            return { success: true };
           }
-          return response.json();
+          
+          const { message } = await response.json();
+          return { success: false, message };
         }
         ```
-        
-        **UI Flow**:
-        1. User enters current password
-        2. User enters new password (with confirmation)
-        3. Validate password strength
-        4. Submit request
-        5. On success → clear all tokens, navigate to login
-        6. On failure → show error (e.g., "Current password is incorrect")
       requestBody:
         required: true
         content:
@@ -1319,43 +1452,61 @@ paths:
       description: |
         Get list of all active sessions across all devices.
         
-        ## Response
-        
-        Returns an array of session objects with device information.
         The current session is marked with `isCurrent: true`.
         
-        ## Frontend Integration Guide
+        ## Device Information in Response
         
-        **Example (JavaScript)**:
+        Each session includes `displayLabel` and `platform` for easy identification:
+        
+        | Field | Description | Example |
+        |-------|-------------|---------|
+        | `displayLabel` | Human-readable device name | `iPhone 15 Pro`, `Chrome - Windows` |
+        | `platform` | Platform type | `app`, `web` |
+        | `deviceType` | Full device type | `mobile-app`, `laptop-web` |
+        | `ip` | IP address | `192.168.1.100` |
+        | `createdAt` | Login time | `2026-04-07T08:30:00Z` |
+        | `lastActive` | Last activity | `2026-04-07T12:45:00Z` |
+        
+        ## Frontend Implementation (JavaScript)
+        
         ```javascript
         async function getSessions() {
+          const deviceId = localStorage.getItem('deviceId');
+          
           const response = await fetch('/auth/sessions', {
             headers: {
               'Authorization': `Bearer ${accessToken}`,
               'X-Device-Id': deviceId  // To mark current session
             }
           });
+          
           const { data } = await response.json();
           return data; // Array of sessions
         }
         
-        // Display sessions in UI
+        // Display sessions with device info
         function displaySessions(sessions) {
           sessions.forEach(session => {
-            console.log(`${session.deviceId} - ${session.isCurrent ? 'Current' : ''}`);
-            console.log(`UA: ${session.deviceInfo.userAgent}`);
-            console.log(`IP: ${session.deviceInfo.ip}`);
-            console.log(`Last active: ${new Date(session.lastActive)}`);
+            const icon = session.platform === 'app' ? '📱' : '🌐';
+            const isCurrent = session.isCurrent ? ' (Current)' : '';
+            
+            console.log(`${icon} ${session.displayLabel}${isCurrent}`);
+            console.log(`   IP: ${session.ip}`);
+            console.log(`   Last active: ${formatTime(session.lastActive)}`);
+            
+            if (!session.isCurrent) {
+              showLogoutButton(session.deviceId);
+            }
           });
         }
         ```
         
-        **Use cases**:
+        ## Use Cases
+        
         - Show user list of all logged in devices
+        - Display device name (e.g., "iPhone 15 Pro") and platform
         - Allow user to logout from specific device
         - Security audit - see all active sessions
-        
-        **UI Recommendation**: Show device type icon, last active time, and IP address for each session.
       parameters:
         - in: header
           name: X-Device-Id
@@ -1363,7 +1514,7 @@ paths:
           schema:
             type: string
             format: uuid
-          description: "Current device UUID to mark current session in response"
+          description: "Current device UUID to mark current session in response (`isCurrent: true`)"
           example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         '200':
@@ -1381,17 +1532,17 @@ paths:
                 data:
                   - deviceId: "550e8400-e29b-41d4-a716-446655440000"
                     deviceType: "mobile-app"
-                    deviceInfo:
-                      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)..."
-                      ip: "192.168.1.100"
+                    displayLabel: "iPhone 15 Pro"
+                    platform: "app"
+                    ip: "192.168.1.100"
                     createdAt: "2026-04-07T08:30:00Z"
                     lastActive: "2026-04-07T12:45:00Z"
                     isCurrent: true
                   - deviceId: "7f3b2c1d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
                     deviceType: "laptop-web"
-                    deviceInfo:
-                      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
-                      ip: "192.168.1.50"
+                    displayLabel: "Chrome - Windows"
+                    platform: "web"
+                    ip: "192.168.1.50"
                     createdAt: "2026-04-06T10:00:00Z"
                     lastActive: "2026-04-07T06:00:00Z"
                     isCurrent: false
@@ -1401,14 +1552,22 @@ paths:
       security:
         - BearerAuth: []
       description: |
-        Logout from all devices except the current one.
+        Logout from all devices EXCEPT the current one.
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript)**:
         ```javascript
         async function logoutOtherSessions() {
-          const response = await fetch('/auth/sessions', {
+          const confirmed = await showConfirmDialog(
+            'Logout from other devices?',
+            'All sessions on other devices will be logged out.'
+          );
+          
+          if (!confirmed) return;
+          
+          const deviceId = localStorage.getItem('deviceId');
+          
+          await fetch('/auth/sessions', {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -1416,16 +1575,15 @@ paths:
             }
           });
           
-          if (response.ok) {
-            // Only current device remains logged in
-          }
-          return response.json();
+          // Refresh session list
+          const sessions = await getSessions();
+          displaySessions(sessions);
         }
         ```
         
-        **Use case**: "Logout from all other devices" button in account security settings.
+        ## Use Case
         
-        **Note**: The device making the request (identified by X-Device-Id header) will remain logged in.
+        "Logout from all other devices" button in account security settings.
       parameters:
         - in: header
           name: X-Device-Id
@@ -1456,11 +1614,17 @@ paths:
       description: |
         Logout from a specific device session by device ID.
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript)**:
         ```javascript
         async function revokeSession(deviceId) {
+          const confirmed = await showConfirmDialog(
+            'Logout this device?',
+            'This device will be logged out.'
+          );
+          
+          if (!confirmed) return;
+          
           const response = await fetch(`/auth/sessions/${deviceId}`, {
             method: 'DELETE',
             headers: {
@@ -1469,26 +1633,36 @@ paths:
           });
           
           if (response.status === 404) {
-            // Session not found or doesn't belong to user
+            showToast('Session not found or already logged out');
+            return;
           }
-          return response.json();
+          
+          showToast('Device logged out successfully');
+          
+          // Refresh session list
+          const sessions = await getSessions();
+          displaySessions(sessions);
         }
         
-        // In session list UI
+        // Render session list with logout button
         function renderSessionItem(session) {
           return `
-            <div>
-              <span>${session.deviceType}</span>
-              <span>${session.deviceInfo.ip}</span>
-              ${!session.isCurrent ? `<button onclick="revokeSession('${session.deviceId}')">Logout</button>` : ''}
+            <div class="session-item">
+              <span>${session.displayLabel}</span>
+              <span>${session.isCurrent ? 'Current' : ''}</span>
+              ${!session.isCurrent ? `
+                <button onclick="revokeSession('${session.deviceId}')">
+                  Logout
+                </button>
+              ` : ''}
             </div>
           `;
         }
         ```
         
-        **Use case**: Allow user to remotely logout from a specific device in their session list.
+        ## Note
         
-        **Note**: Cannot revoke current session using this endpoint. Use `/auth/logout` instead.
+        Cannot revoke current session using this endpoint. Use `/auth/logout` instead.
       parameters:
         - in: path
           name: deviceId
@@ -1521,43 +1695,37 @@ paths:
       description: |
         Update the user's profile avatar image URL.
         
-        ## Frontend Integration Guide
+        ## Frontend Implementation (JavaScript)
         
-        **Example (JavaScript)**:
         ```javascript
-        async function updateAvatar(avatarUrl) {
-          const response = await fetch('/auth/avatar', {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`
-            },
-            body: JSON.stringify({ avatarUrl })
-          });
-          
-          if (response.ok) {
-            // Update local user state with new avatar
-            setUser({ ...user, avatarUrl });
-          }
-          return response.json();
-        }
+        // Step 1: Upload image first (to your media service)
+        const file = await pickImage();
+        const { url } = await uploadImage(file);
         
-        // Upload flow (assuming image upload is handled separately)
-        async function uploadAndSetAvatar(file) {
-          // 1. Upload image first (to your media service)
-          const { url } = await uploadImage(file);
-          
-          // 2. Update avatar URL
-          await updateAvatar(url);
+        // Step 2: Update avatar URL
+        const response = await fetch('/auth/avatar', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({ avatarUrl: url })
+        });
+        
+        if (response.ok) {
+          // Update local user state
+          setUser({ ...user, avatarUrl: url });
+          showToast('Avatar updated successfully');
         }
         ```
         
-        **Note**: The avatar URL can be from:
-        - Uploaded to your media service
-        - External URL (e.g., cloud storage like S3, Cloudinary)
-        - Gravatar or other external service
+        ## Note
         
-        **UI Recommendation**: Show image preview before confirming upload.
+        The avatar URL can be from:
+        - Uploaded to your media service
+        - External URL (S3, Cloudinary, etc.)
+        - Gravatar or other external service
+      requestBody:
         required: true
         content:
           application/json:
@@ -1571,6 +1739,8 @@ paths:
                   format: uri
                   example: "https://example.com/uploads/avatar.jpg"
                   description: "URL của hình ảnh avatar"
+            example:
+              avatarUrl: "https://example.com/uploads/avatar.jpg"
       responses:
         '200':
           description: "Avatar updated successfully"
@@ -1601,24 +1771,36 @@ components:
       description: |
         Device type combined with platform.
         
-        ## Format
-        `{device}-{platform}`
+        Format: `{device}-{platform}`
         
         ## Values
         
         | Value | Description |
         |-------|-------------|
-        | mobile-app | Mobile native application (iOS, Android) |
+        | mobile-app | Native mobile app (iOS, Android) |
         | mobile-web | Mobile web browser |
-        | tablet-app | Tablet native application |
+        | tablet-app | Native tablet app |
         | tablet-web | Tablet web browser |
-        | laptop-app | Desktop/Laptop application (Electron, etc.) |
+        | laptop-app | Desktop/Laptop app (Electron) |
         | laptop-web | Desktop/Laptop web browser |
-        | desktop-app | Desktop native application |
+        | desktop-app | Desktop native app |
         | desktop-web | Desktop web browser |
         | other | Other or unknown device |
       
       example: "mobile-app"
+
+    PlatformEnum:
+      type: string
+      enum: [app, web]
+      description: |
+        Platform type.
+        
+        | Value | Description |
+        |-------|-------------|
+        | app | Native application (iOS, Android, Electron) |
+        | web | Web browser |
+      
+      example: "app"
 
     AuthResponse:
       type: object
@@ -1640,6 +1822,12 @@ components:
               example: 900
             deviceType:
               $ref: '#/components/schemas/DeviceTypeEnum'
+            displayLabel:
+              type: string
+              description: "Human-readable device name. For web: 'Browser - OS'. For app: device model."
+              example: "iPhone 15 Pro"
+            platform:
+              $ref: '#/components/schemas/PlatformEnum'
             user:
               type: object
               description: "Authenticated user information"
@@ -1687,17 +1875,16 @@ components:
           example: "550e8400-e29b-41d4-a716-446655440000"
         deviceType:
           $ref: '#/components/schemas/DeviceTypeEnum'
-        deviceInfo:
-          type: object
-          properties:
-            userAgent:
-              type: string
-              description: "Browser or app user agent string"
-              example: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)..."
-            ip:
-              type: string
-              description: "IP address of the device"
-              example: "192.168.1.100"
+        displayLabel:
+          type: string
+          description: "Human-readable device name. For web: 'Browser - OS'. For app: device model."
+          example: "iPhone 15 Pro"
+        platform:
+          $ref: '#/components/schemas/PlatformEnum'
+        ip:
+          type: string
+          description: "IP address of the device"
+          example: "192.168.1.100"
         createdAt:
           type: string
           format: date-time
@@ -1710,7 +1897,7 @@ components:
           example: "2026-04-07T12:45:00Z"
         isCurrent:
           type: boolean
-          description: "True if this is the current session"
+          description: "True if this is the current session (matches X-Device-Id header)"
           example: true
 
     ErrorResponse:
