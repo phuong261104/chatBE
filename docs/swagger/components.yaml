@@ -14,6 +14,97 @@ components:
     ErrorResponse:
       type: object
       properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "Lỗi hệ thống hoặc lỗi dữ liệu đầu vào."
+
+    MediaFileType:
+      type: string
+      enum: [IMAGE, VIDEO, AUDIO, DOCUMENT]
+      description: "Loại file media"
+      example: "IMAGE"
+
+    UploadMethod:
+      type: string
+      enum: [PUT, POST]
+      description: "HTTP method để upload lên S3"
+      example: "PUT"
+
+    UploadStatus:
+      type: string
+      enum: [PENDING, CONFIRMED, EXPIRED]
+      description: "Trạng thái upload"
+      example: "PENDING"
+
+    ApiError:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "ERROR_CODE"
         message:
           type: string
-          example: "Lỗi hệ thống hoặc lỗi dữ liệu đầu vào."
+          example: "Error message"
+
+    MediaUploadResponse:
+      type: object
+      properties:
+        fileId:
+          type: string
+          format: uuid
+          description: "UUID của file"
+        url:
+          type: string
+          format: uri
+          description: "URL công khai của file"
+        filename:
+          type: string
+          description: "Tên file trên S3"
+        originalName:
+          type: string
+          description: "Tên file gốc"
+        mimetype:
+          type: string
+          description: "MIME type của file"
+        size:
+          type: integer
+          format: int64
+          description: "Kích thước file (bytes)"
+        uploadedAt:
+          type: string
+          format: date-time
+          description: "Thời điểm upload thành công"
+
+    PresignedUrlResponse:
+      type: object
+      properties:
+        fileId:
+          type: string
+          format: uuid
+          description: "UUID để tracking upload"
+        filename:
+          type: string
+          description: "Tên file trên S3"
+        presignedUrl:
+          type: string
+          format: uri
+          description: "URL để PUT file lên S3"
+        uploadMethod:
+          type: string
+          enum: [PUT, POST]
+          description: "HTTP method (mặc định PUT)"
+        expiresAt:
+          type: string
+          format: date-time
+          description: "Thời điểm presigned URL hết hạn"
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: "Headers cần gửi kèm request upload"

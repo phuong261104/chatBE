@@ -8,7 +8,39 @@ servers:
     description: Local Server
 
 components:
-  $ref: './components.yaml#/components'
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        data:
+          type: object
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "Lỗi hệ thống hoặc lỗi dữ liệu đầu vào."
+    ApiError:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "ERROR_CODE"
+        message:
+          type: string
+          example: "Error message"
 
 paths:
   # Auth - Register & Login
@@ -84,6 +116,12 @@ paths:
     $ref: './paths/media.yaml#/paths/~1media~1upload-multiple'
   /media/{filename}:
     $ref: './paths/media.yaml#/paths/~1media~1{filename}'
+  /media/request-upload-url:
+    $ref: './paths/media.yaml#/paths/~1media~1request-upload-url'
+  /media/confirm-upload:
+    $ref: './paths/media.yaml#/paths/~1media~1confirm-upload'
+  /media/upload-methods:
+    $ref: './paths/media.yaml#/paths/~1media~1upload-methods'
 
   # Friendships
   /friendships:

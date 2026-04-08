@@ -17,7 +17,7 @@ paths:
                   format: binary
                   description: "Single file (image, video, document)"
       responses:
-        '200':
+        '201':
           description: Upload successful
           content:
             application/json:
@@ -30,25 +30,51 @@ paths:
                       filename:
                         type: string
                         description: "Name of the uploaded file"
+                        example: "abc123-uuid.jpg"
                       url:
                         type: string
+                        format: uri
                         description: "URL of the uploaded file"
+                        example: "https://storage.example.com/uploads/abc123-uuid.jpg"
+                      path:
+                        type: string
+                        description: "Path of the uploaded file on storage"
+                        example: "uploads/abc123-uuid.jpg"
                       originalName:
                         type: string
                         description: "Original name of the file"
-                      size:
-                        type: number
-                        description: "File size in bytes"
+                        example: "photo.jpg"
                       mimetype:
                         type: string
                         description: "MIME type of the file"
+                        example: "image/jpeg"
+                      size:
+                        type: integer
+                        format: int64
+                        description: "File size in bytes"
+                        example: 102400
+                      uploadedAt:
+                        type: string
+                        format: date-time
+                        description: "Upload timestamp"
+                        example: "2026-04-08T10:30:00.000Z"
               example:
                 data:
                   filename: "abc123-uuid.jpg"
                   url: "https://storage.example.com/uploads/abc123-uuid.jpg"
+                  path: "uploads/abc123-uuid.jpg"
                   originalName: "photo.jpg"
-                  size: 102400
                   mimetype: "image/jpeg"
+                  size: 102400
+                  uploadedAt: "2026-04-08T10:30:00.000Z"
+        '400':
+          description: "Bad Request - No file was uploaded"
+          content:
+            application/json:
+              example:
+                error:
+                  code: "VALIDATION_ERROR"
+                  message: "No file was uploaded"
 
   /media/upload-multiple:
     post:
@@ -70,7 +96,7 @@ paths:
                     format: binary
                   description: "Multiple files (max 10 files)"
       responses:
-        '200':
+        '201':
           description: Upload successful
           content:
             application/json:
@@ -78,32 +104,67 @@ paths:
                 type: object
                 properties:
                   data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        filename:
-                          type: string
-                        url:
-                          type: string
-                        originalName:
-                          type: string
-                        size:
-                          type: number
-                        mimetype:
-                          type: string
+                    type: object
+                    properties:
+                      files:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            filename:
+                              type: string
+                              description: "Name of the uploaded file"
+                            url:
+                              type: string
+                              format: uri
+                              description: "URL of the uploaded file"
+                            path:
+                              type: string
+                              description: "Path of the uploaded file on storage"
+                            originalName:
+                              type: string
+                              description: "Original name of the file"
+                            mimetype:
+                              type: string
+                              description: "MIME type of the file"
+                            size:
+                              type: integer
+                              format: int64
+                              description: "File size in bytes"
+                            uploadedAt:
+                              type: string
+                              format: date-time
+                              description: "Upload timestamp"
+                      count:
+                        type: integer
+                        description: "Total number of uploaded files"
+                        example: 2
               example:
                 data:
-                  - filename: "abc123-uuid1.jpg"
-                    url: "https://storage.example.com/uploads/abc123-uuid1.jpg"
-                    originalName: "photo1.jpg"
-                    size: 102400
-                    mimetype: "image/jpeg"
-                  - filename: "def456-uuid2.png"
-                    url: "https://storage.example.com/uploads/def456-uuid2.png"
-                    originalName: "photo2.png"
-                    size: 204800
-                    mimetype: "image/png"
+                  files:
+                    - filename: "abc123-uuid1.jpg"
+                      url: "https://storage.example.com/uploads/abc123-uuid1.jpg"
+                      path: "uploads/abc123-uuid1.jpg"
+                      originalName: "photo1.jpg"
+                      mimetype: "image/jpeg"
+                      size: 102400
+                      uploadedAt: "2026-04-08T10:30:00.000Z"
+                    - filename: "def456-uuid2.png"
+                      url: "https://storage.example.com/uploads/def456-uuid2.png"
+                      path: "uploads/def456-uuid2.png"
+                      originalName: "photo2.png"
+                      mimetype: "image/png"
+                      size: 204800
+                      uploadedAt: "2026-04-08T10:30:05.000Z"
+                  count: 2
+        '400':
+          description: "Bad Request - No files were uploaded"
+          content:
+            application/json:
+              example:
+                error:
+                  code: "VALIDATION_ERROR"
+                  message: "No file was uploaded"
 
   /media/{filename}:
     delete:
@@ -120,18 +181,16 @@ paths:
           required: true
           description: "Name of the file to delete"
       responses:
-        '200':
-          description: Deleted successfully
+        '204':
+          description: Deleted successfully (no content)
+        '403':
+          description: "Forbidden - No permission to delete this file"
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: boolean
-                    example: true
               example:
-                data: true
+                error:
+                  code: "FORBIDDEN"
+                  message: "You do not have permission to delete this file"
         '404':
           description: File not found
           content:
@@ -140,3 +199,537 @@ paths:
                 error:
                   code: "NOT_FOUND"
                   message: "File not found"
+
+  /media/request-upload-url:
+    post:
+      summary: Request a pre-signed URL for direct file upload to S3
+      tags: [Media]
+      security:
+        - BearerAuth: []
+      description: |
+        **Luồng Upload Tối Ưu (Pre-signed URL)**
+
+        Backend đóng vai trò "cấp giấy phép", Frontend là người "trực tiếp đi giao hàng".
+
+        **Bước 1 (Backend):** Nhận request từ Frontend, kiểm tra quyền và giới hạn file, sinh Pre-signed URL.
+        **Bước 2 (Frontend):** Nhận Pre-signed URL, PUT file trực tiếp lên S3 (bypass Backend).
+        **Bước 3 (Frontend):** Sau khi upload thành công, gọi `/media/confirm-upload` để xác nhận.
+
+        **Frontend Responsibilities (Quan trọng):**
+        - Nén ảnh trước khi gửi (JPEG quality 80%, max 1920px)
+        - Convert video sang H.264/MP4
+        - Với file lớn (>100MB): chia thành chunks 5MB và upload song song
+        - Tạo Blurhash/Base64 thumbnail trước khi gửi message
+        - Retry với exponential backoff nếu upload thất bại
+
+        **Giới hạn file size:**
+        - IMAGE, AUDIO: tối đa 100MB
+        - VIDEO: tối đa 1GB
+        - DOCUMENT: tối đa 50MB
+
+        **Pre-signed URL hết hạn sau 5 phút (mặc định).** Nếu hết hạn, gọi lại API này để lấy URL mới.
+
+        **Bảng MIME Type theo từng loại file:**
+
+        | fileType   | mimeType                                          | extension         |
+        |------------|---------------------------------------------------|-------------------|
+        | IMAGE      | image/jpeg, image/png, image/gif, image/webp    | .jpg, .png, .gif  |
+        | VIDEO      | video/mp4, video/mpeg, video/quicktime, video/webm | .mp4, .mov, .webm |
+        | AUDIO      | audio/mpeg, audio/wav, audio/ogg, audio/mp3      | .mp3, .wav, .ogg  |
+        | DOCUMENT   | application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document | .pdf, .doc, .docx |
+      operationId: requestPresignedUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fileType, mimeType, fileSize]
+              properties:
+                fileType:
+                  type: string
+                  enum: [IMAGE, VIDEO, AUDIO, DOCUMENT]
+                  description: "Loại file cần upload"
+                  example: "IMAGE"
+                mimeType:
+                  type: string
+                  description: "MIME type của file (phải match với fileType)"
+                  example: "image/jpeg"
+                fileSize:
+                  type: integer
+                  format: int64
+                  description: "Kích thước file tính bằng bytes"
+                  example: 2048000
+                originalName:
+                  type: string
+                  description: "Tên file gốc (tùy chọn, dùng để xác định extension)"
+                  example: "vacation.jpg"
+                expiresIn:
+                  type: integer
+                  description: "Thời gian hiệu lực của presigned URL (60-3600 giây), mặc định 300"
+                  default: 300
+                  minimum: 60
+                  maximum: 3600
+                  example: 300
+                conversationId:
+                  type: string
+                  format: uuid
+                  description: "ID cuộc trò chuyện (tùy chọn, dùng để phân loại file theo conversation)"
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+            examples:
+              upload_image:
+                summary: "Upload ảnh JPG (2MB)"
+                value:
+                  fileType: "IMAGE"
+                  mimeType: "image/jpeg"
+                  fileSize: 2048000
+                  originalName: "vacation.jpg"
+                  expiresIn: 300
+                  conversationId: "550e8400-e29b-41d4-a716-446655440000"
+              upload_video:
+                summary: "Upload video MP4 (50MB)"
+                value:
+                  fileType: "VIDEO"
+                  mimeType: "video/mp4"
+                  fileSize: 52428800
+                  originalName: "presentation.mp4"
+                  expiresIn: 600
+              upload_audio:
+                summary: "Upload audio MP3 (5MB)"
+                value:
+                  fileType: "AUDIO"
+                  mimeType: "audio/mpeg"
+                  fileSize: 5242880
+                  originalName: "voice-note.mp3"
+              upload_document:
+                summary: "Upload document PDF (10MB)"
+                value:
+                  fileType: "DOCUMENT"
+                  mimeType: "application/pdf"
+                  fileSize: 10485760
+                  originalName: "contract.pdf"
+      responses:
+        '200':
+          description: "Pre-signed URL đã được tạo thành công"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      fileId:
+                        type: string
+                        format: uuid
+                        description: "UUID để tracking upload, dùng khi confirm"
+                        example: "7a3f8b2d-4e9c-11ef-a716-446655440000"
+                      filename:
+                        type: string
+                        description: "Tên file trên S3"
+                        example: "image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                      presignedUrl:
+                        type: string
+                        format: uri
+                        description: "URL để PUT file trực tiếp lên S3"
+                        example: "https://bucket.s3.amazonaws.com/image/user123/7a3f8b2d...jpg?X-Amz-Algorithm=..."
+                      uploadMethod:
+                        type: string
+                        enum: [PUT, POST]
+                        description: "HTTP method dùng để upload (mặc định PUT)"
+                        example: "PUT"
+                      expiresAt:
+                        type: string
+                        format: date-time
+                        description: "Thời điểm presigned URL hết hạn"
+                        example: "2026-04-07T12:10:00.000Z"
+                      headers:
+                        type: object
+                        description: "Headers cần gửi kèm request upload"
+                        additionalProperties:
+                          type: string
+                        example:
+                          Content-Type: "image/jpeg"
+              example:
+                data:
+                  fileId: "7a3f8b2d-4e9c-11ef-a716-446655440000"
+                  filename: "image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                  presignedUrl: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=300"
+                  uploadMethod: "PUT"
+                  expiresAt: "2026-04-07T12:10:00.000Z"
+                  headers:
+                    Content-Type: "image/jpeg"
+        '400':
+          description: "Invalid request - file type/size không hợp lệ"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "VALIDATION_ERROR"
+                      message:
+                        type: string
+                        example: "Lỗi hệ thống hoặc lỗi dữ liệu đầu vào."
+              examples:
+                invalid_mime_type:
+                  summary: "MIME type không match với fileType"
+                  value:
+                    error:
+                      code: "VALIDATION_ERROR"
+                      message: "MIME type image/png is not allowed for IMAGE. Allowed: image/jpeg, image/png, image/gif, image/webp"
+                file_too_large:
+                  summary: "File size vượt giới hạn"
+                  value:
+                    error:
+                      code: "VALIDATION_ERROR"
+                      message: "File size exceeds maximum allowed for IMAGE: 104857600 bytes"
+        '401':
+          description: "Unauthorized - Token không hợp lệ hoặc hết hạn"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "UNAUTHORIZED"
+                      message:
+                        type: string
+                        example: "User authentication required"
+
+  /media/confirm-upload:
+    post:
+      summary: Confirm successful upload and get final file URL
+      tags: [Media]
+      security:
+        - BearerAuth: []
+      description: |
+        **Tại sao cần API này?**
+
+        Khi dùng Pre-signed URL, Frontend upload trực tiếp lên S3 mà **không qua Backend**:
+
+        ```
+        Frontend ----> PUT presignedUrl (file) ----> AWS S3
+                                                   |
+                                                   v
+                                              HTTP 200 (upload thành công)
+        ```
+
+        **Vấn đề:** S3 không gửi thông báo về cho Backend. Sau khi upload:
+        - Backend **không biết** file đã được upload thành công
+        - Backend **không lưu** thông tin file vào database
+        - Frontend **không có** thông tin file để gửi message
+
+        **API confirm-upload giải quyết 3 vấn đề:**
+
+        | Vấn đề | Giải pháp |
+        |--------|-----------|
+        | 1. Xác nhận upload thực sự thành công | Backend kiểm tra file đã tồn tại trên S3 |
+        | 2. Lưu thông tin file vào database | Backend đánh dấu upload hoàn tất |
+        | 3. Trả thông tin file cho Frontend | Backend trả về `{ url, filename, mimetype, size }` |
+
+        **Luồng hoàn chỉnh:**
+
+        ```
+        1. Frontend  -->POST /media/request-upload-url     --> Backend
+        2. Frontend  <-- { fileId, presignedUrl }          <-- Backend
+        3. Frontend  -->PUT presignedUrl (file data)       --> AWS S3
+        4. Frontend  <-- HTTP 200 (upload success)          <-- AWS S3
+        5. Frontend  -->POST /media/confirm-upload        --> Backend
+        6. Frontend  <-- { url, filename, mimetype, size } <-- Backend
+        7. Frontend  sử dụng thông tin file gửi message
+        ```
+
+        **Tiếp theo:** Frontend sử dụng thông tin file (`url`, `filename`, `mimetype`, `size`)
+        để gửi message qua WebSocket hoặc POST `/conversations/{id}/messages`.
+
+        **Lưu ý:**
+        - Chỉ người đã request presigned URL mới được confirm upload đó
+        - Presigned URL có thời hạn 5 phút, nếu hết hạn sẽ trả về 410 Gone
+        - Mỗi presigned URL chỉ confirm được một lần
+      operationId: confirmUpload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fileId, uploadedUrl]
+              properties:
+                fileId:
+                  type: string
+                  format: uuid
+                  description: "UUID nhận được từ `/media/request-upload-url`"
+                  example: "7a3f8b2d-4e9c-11ef-a716-446655440000"
+                uploadedUrl:
+                  type: string
+                  format: uri
+                  description: "URL đầy đủ của file đã upload lên S3 (URL nhận được sau khi upload thành công)"
+                  example: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+            examples:
+              confirm_image:
+                summary: "Confirm upload ảnh"
+                value:
+                  fileId: "7a3f8b2d-4e9c-11ef-a716-446655440000"
+                  uploadedUrl: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+              confirm_video:
+                summary: "Confirm upload video"
+                value:
+                  fileId: "8b4f9c3e-5f0-12ef-b827-557766551111"
+                  uploadedUrl: "https://your-bucket.s3.us-east-1.amazonaws.com/video/user123/8b4f9c3e-5f0-12ef-b827-557766551111.mp4"
+      responses:
+        '200':
+          description: "Upload đã được xác nhận thành công"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      fileId:
+                        type: string
+                        format: uuid
+                        description: "UUID của file"
+                        example: "7a3f8b2d-4e9c-11ef-a716-446655440000"
+                      url:
+                        type: string
+                        format: uri
+                        description: "URL công khai của file để sử dụng trong message"
+                        example: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                      filename:
+                        type: string
+                        description: "Tên file trên S3"
+                        example: "image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                      mimetype:
+                        type: string
+                        description: "MIME type của file"
+                        example: "image/jpeg"
+                      size:
+                        type: integer
+                        format: int64
+                        description: "Kích thước file tính bằng bytes"
+                        example: 2048000
+                      originalName:
+                        type: string
+                        description: "Tên file gốc (nếu có)"
+                        example: "vacation.jpg"
+              example:
+                data:
+                  fileId: "7a3f8b2d-4e9c-11ef-a716-446655440000"
+                  url: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                  filename: "image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                  mimetype: "image/jpeg"
+                  size: 2048000
+                  originalName: "vacation.jpg"
+        '400':
+          description: "Invalid request - Dữ liệu không hợp lệ"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "VALIDATION_ERROR"
+                      message:
+                        type: string
+                        example: "Invalid request: Invalid uuid"
+        '401':
+          description: "Unauthorized - Token không hợp lệ"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "UNAUTHORIZED"
+                      message:
+                        type: string
+                        example: "User authentication required"
+        '403':
+          description: "Forbidden - Không có quyền confirm upload này"
+          content:
+            application/json:
+              example:
+                error:
+                  code: "FORBIDDEN"
+                  message: "Unauthorized: You did not request this upload"
+        '404':
+          description: "Not Found - Upload không tìm thấy hoặc đã expired"
+          content:
+            application/json:
+              example:
+                error:
+                  code: "NOT_FOUND"
+                  message: "Upload file not found or expired"
+        '409':
+          description: "Conflict - Upload đã được confirm trước đó"
+          content:
+            application/json:
+              example:
+                error:
+                  code: "CONFLICT"
+                  message: "Upload already confirmed"
+        '410':
+          description: "Gone - Presigned URL đã hết hạn, cần gọi lại `/media/request-upload-url`"
+          content:
+            application/json:
+              example:
+                error:
+                  code: "GONE"
+                  message: "Upload presigned URL has expired"
+
+  /media/upload-methods:
+    get:
+      summary: Get supported upload methods and file constraints
+      tags: [Media]
+      security:
+        - BearerAuth: []
+      description: |
+        Trả về thông tin các phương thức upload được hỗ trợ và giới hạn file.
+
+        **Frontend nên gọi API này khi app khởi động** để lấy:
+        - Các MIME type được phép theo từng loại file
+        - Kích thước file tối đa
+        - Các bước upload (Pre-signed URL vs Direct)
+      operationId: getUploadMethods
+      responses:
+        '200':
+          description: "Thông tin upload methods"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      recommendedMethod:
+                        type: string
+                        enum: [PRESIGNED_URL, DIRECT_UPLOAD]
+                        description: "Phương thức upload được khuyến nghị"
+                        example: "PRESIGNED_URL"
+                      fileTypes:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          properties:
+                            allowedMimeTypes:
+                              type: array
+                              items:
+                                type: string
+                              example: ["image/jpeg", "image/png"]
+                            maxSizeBytes:
+                              type: integer
+                              format: int64
+                              description: "Kích thước tối đa tính bằng bytes"
+                              example: 104857600
+                            description:
+                              type: string
+                              example: "Hình ảnh (jpg, png, gif, webp)"
+                      presignedUrlConfig:
+                        type: object
+                        properties:
+                          defaultExpirySeconds:
+                            type: integer
+                            description: "Thời gian hiệu lực mặc định của presigned URL"
+                            example: 300
+                          maxExpirySeconds:
+                            type: integer
+                            description: "Thời gian hiệu lực tối đa"
+                            example: 3600
+                          chunkedUploadThreshold:
+                            type: integer
+                            format: int64
+                            description: "Ngưỡng file cần chunked upload (100MB)"
+                            example: 104857600
+                          chunkSize:
+                            type: integer
+                            format: int64
+                            description: "Kích thước mỗi chunk (5MB)"
+                            example: 5242880
+                      compression:
+                        type: object
+                        description: "Khuyến nghị nén file phía client"
+                        properties:
+                          image:
+                            type: object
+                            properties:
+                              maxWidth:
+                                type: integer
+                                description: "Chiều rộng tối đa (px)"
+                                example: 1920
+                              maxHeight:
+                                type: integer
+                                description: "Chiều cao tối đa (px)"
+                                example: 1920
+                              quality:
+                                type: number
+                                description: "Chất lượng JPEG (0.0-1.0)"
+                                example: 0.8
+                          video:
+                            type: object
+                            properties:
+                              codec:
+                                type: string
+                                description: "Codec khuyến nghị"
+                                example: "H.264"
+                              format:
+                                type: string
+                                description: "Format khuyến nghị"
+                                example: "MP4"
+                              maxBitrate:
+                                type: string
+                                description: "Bitrate tối đa"
+                                example: "5Mbps"
+              example:
+                data:
+                  recommendedMethod: "PRESIGNED_URL"
+                  fileTypes:
+                    IMAGE:
+                      allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"]
+                      maxSizeBytes: 104857600
+                      description: "Hình ảnh (jpg, png, gif, webp)"
+                    VIDEO:
+                      allowedMimeTypes: ["video/mp4", "video/mpeg", "video/quicktime", "video/webm"]
+                      maxSizeBytes: 1073741824
+                      description: "Video (mp4, mpeg, mov, webm)"
+                    AUDIO:
+                      allowedMimeTypes: ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp3"]
+                      maxSizeBytes: 104857600
+                      description: "Âm thanh (mp3, wav, ogg)"
+                    DOCUMENT:
+                      allowedMimeTypes: ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+                      maxSizeBytes: 52428800
+                      description: "Tài liệu (pdf, doc, docx)"
+                  presignedUrlConfig:
+                    defaultExpirySeconds: 300
+                    maxExpirySeconds: 3600
+                    chunkedUploadThreshold: 104857600
+                    chunkSize: 5242880
+                  compression:
+                    image:
+                      maxWidth: 1920
+                      maxHeight: 1920
+                      quality: 0.8
+                    video:
+                      codec: "H.264"
+                      format: "MP4"
+                      maxBitrate: "5Mbps"

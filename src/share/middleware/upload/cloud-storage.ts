@@ -3,9 +3,12 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { IStorageStrategy, IUploadConfig } from "./storage-interface";
+import { v4 as uuidv4 } from "uuid";
+import path from "path";
 
 export class CloudStorage implements IStorageStrategy {
   private config: IUploadConfig;
@@ -68,12 +71,40 @@ export class CloudStorage implements IStorageStrategy {
     return `${this.getBaseUrl()}/${filename}`;
   }
 
-  getPresignedUrl(filename: string, expiresIn: number = 3600): Promise<string> {
+  async getPresignedUploadUrl(
+    filename: string,
+    contentType: string,
+    expiresIn: number = 300,
+  ): Promise<string> {
     const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: filename,
+      ContentType: contentType,
+    });
+
+    return getSignedUrl(this.s3Client, command, { expiresIn });
+  }
+
+  generateFilename(originalName: string): string {
+    const ext = path.extname(originalName);
+    const basename = path.basename(originalName, ext);
+    return `${basename}-${uuidv4()}${ext}`;
+  }
+
+  getPresignedUrl(filename: string, expiresIn: number = 3600): Promise<string> {
+    const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: filename,
     });
 
     return getSignedUrl(this.s3Client, command, { expiresIn });
+  }
+
+  isMimeTypeAllowed(mimeType: string): boolean {
+    return this.config.allowedMimeTypes.includes(mimeType);
+  }
+
+  getAllowedMimeTypes(): string[] {
+    return this.config.allowedMimeTypes;
   }
 }
