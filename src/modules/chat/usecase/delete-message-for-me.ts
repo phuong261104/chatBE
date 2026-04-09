@@ -10,10 +10,11 @@ import {
   DeleteMessageForMeCommand,
 } from "../model/dto";
 import { ErrMessageNotFound, ErrNotMember } from "../model/errors";
+import { Message } from "../model/model";
 
 export class DeleteMessageForMeHandler implements ICommandHandler<
   DeleteMessageForMeCommand,
-  void
+  Message
 > {
   constructor(
     private readonly messageQueryRepo: IMessageQueryRepository,
@@ -21,7 +22,11 @@ export class DeleteMessageForMeHandler implements ICommandHandler<
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
   ) {}
 
-  async execute(command: DeleteMessageForMeCommand): Promise<void> {
+  async getMessage(messageId: string): Promise<Message | null> {
+    return this.messageQueryRepo.get(messageId);
+  }
+
+  async execute(command: DeleteMessageForMeCommand): Promise<Message> {
     const { success, data, error } =
       deleteMessageForMeDTOSchema.safeParse(command);
 
@@ -54,5 +59,7 @@ export class DeleteMessageForMeHandler implements ICommandHandler<
         deletedForUserIds: Array.from(deletedForUserIds),
       });
     }
+
+    return message;
   }
 }

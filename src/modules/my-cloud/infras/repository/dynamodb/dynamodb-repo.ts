@@ -29,6 +29,12 @@ class DynamoCloudItemQueryRepository extends BaseQueryRepositoryDynamoDB<
     return conditions.join(" AND ");
   }
 
+  protected buildAttributeNames(cond: CloudItemCondDTO): Record<string, string> {
+    const names: Record<string, string> = {};
+    if (cond.type) names["#type"] = "type";
+    return names;
+  }
+
   protected buildAttributeValues(cond: CloudItemCondDTO): Record<string, any> {
     const values: Record<string, any> = {};
     if (cond.userId) values[":userId"] = cond.userId;

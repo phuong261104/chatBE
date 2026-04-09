@@ -636,3 +636,34 @@ export interface UpdateGroupSettingsCommand {
   requireApproval?: boolean;
   allowMemberInvite?: boolean;
 }
+
+// Connection State Types
+export enum ConnectionState {
+  CONNECTING = "connecting",
+  CONNECTED = "connected",
+  DISCONNECTED = "disconnected",
+  RECONNECTING = "reconnecting",
+}
+
+export interface OnlineStatusPayload {
+  userId: string;
+  status: ConnectionState;
+  timestamp: number;
+  deviceId?: string;
+}
+
+export interface ConnectionInfo {
+  socketId: string;
+  userId: string;
+  deviceId?: string;
+  platform?: string;
+  connectedAt: number;
+  lastActivityAt: number;
+}
+
+export const deleteMessageForEveryoneDTOSchema = z.object({
+  messageId: z.string().uuid("Invalid message ID"),
+  userId: z.string().uuid("Invalid user ID"),
+});
+
+export type DeleteMessageForEveryoneDTO = z.infer<typeof deleteMessageForEveryoneDTOSchema>;

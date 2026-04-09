@@ -50,40 +50,39 @@ export class ForwardMessagesHandler implements ICommandHandler<
 
     const uniqueTargetIds = Array.from(new Set(data.targetConversationIds));
     const result: Message[] = [];
+    const now = new Date();
 
     for (const conversationId of uniqueTargetIds) {
       await this.ensureConversationMember(conversationId, data.userId);
 
-      for (const sourceMessage of sourceMessages) {
-        const now = new Date();
-        const newMessage: Message = {
-          id: v7(),
-          conversationId,
+      const messagesToInsert: Message[] = sourceMessages.map((sourceMessage) => ({
+        id: v7(),
+        conversationId,
+        senderId: data.userId,
+        type: sourceMessage.type,
+        text: sourceMessage.text,
+        media: sourceMessage.media,
+        createdAt: now,
+        pinned: false,
+      }));
+
+      await this.messageCommandRepo.batchInsert(messagesToInsert);
+
+      const lastMessage = messagesToInsert[messagesToInsert.length - 1];
+      await this.conversationCommandRepo.update(conversationId, {
+        lastMessage: {
+          messageId: lastMessage.id,
           senderId: data.userId,
-          type: sourceMessage.type,
-          text: sourceMessage.text,
-          media: sourceMessage.media,
+          type: lastMessage.type,
+          textPreview: this.getTextPreview(lastMessage),
           createdAt: now,
-          pinned: false,
-        };
+        },
+        lastMessageAt: now,
+      });
 
-        await this.messageCommandRepo.insert(newMessage);
+      await this.increaseUnreadForOtherMembers(conversationId, data.userId);
 
-        await this.conversationCommandRepo.update(conversationId, {
-          lastMessage: {
-            messageId: newMessage.id,
-            senderId: data.userId,
-            type: newMessage.type,
-            textPreview: this.getTextPreview(newMessage),
-            createdAt: now,
-          },
-          lastMessageAt: now,
-        });
-
-        await this.increaseUnreadForOtherMembers(conversationId, data.userId);
-
-        result.push(newMessage);
-      }
+      result.push(...messagesToInsert);
     }
 
     return result;

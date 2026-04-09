@@ -47,6 +47,7 @@ export abstract class BaseQueryRepositoryDynamoDB<
       new ScanCommand({
         TableName: this.getTableName(),
         FilterExpression: this.buildFilterExpression(cond),
+        ExpressionAttributeNames: this.buildAttributeNames(cond),
         ExpressionAttributeValues: this.buildAttributeValues(cond),
         Limit: 1,
       }),
@@ -71,6 +72,7 @@ export abstract class BaseQueryRepositoryDynamoDB<
           IndexName: this.gsi,
           KeyConditionExpression: this.buildKeyCondition(cond),
           FilterExpression: this.buildFilterExpression(cond),
+          ExpressionAttributeNames: this.buildAttributeNames(cond),
           ExpressionAttributeValues: {
             ...this.buildAttributeValues(cond),
           },
@@ -84,6 +86,7 @@ export abstract class BaseQueryRepositoryDynamoDB<
         new ScanCommand({
           TableName: this.getTableName(),
           FilterExpression: this.buildFilterExpression(cond),
+          ExpressionAttributeNames: this.buildAttributeNames(cond),
           ExpressionAttributeValues: this.buildAttributeValues(cond),
           Limit: limit,
           ExclusiveStartKey: exclusiveStartKey,
@@ -130,6 +133,10 @@ export abstract class BaseQueryRepositoryDynamoDB<
 
   protected buildKeyCondition(_cond: Cond): string | undefined {
     return undefined;
+  }
+
+  protected buildAttributeNames(_cond: Cond): Record<string, string> {
+    return {};
   }
 
   protected buildAttributeValues(_cond: Cond): Record<string, any> {

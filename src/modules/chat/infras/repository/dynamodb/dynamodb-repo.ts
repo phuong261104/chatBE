@@ -50,6 +50,12 @@ class DynamoConversationQueryRepository extends BaseQueryRepositoryDynamoDB<
     return conditions.join(" AND ");
   }
 
+  protected buildAttributeNames(cond: ConversationCondDTO): Record<string, string> {
+    const names: Record<string, string> = {};
+    if (cond.type) names["#type"] = "type";
+    return names;
+  }
+
   protected buildAttributeValues(cond: ConversationCondDTO): Record<string, any> {
     const values: Record<string, any> = {};
     if (cond.type) values[":type"] = cond.type;
@@ -323,6 +329,35 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     if (data.pinned !== undefined) updateData.pinned = data.pinned;
     if (data.pinnedAt !== undefined) updateData.pinnedAt = data.pinnedAt.toISOString();
     return updateData;
+  }
+
+  async batchInsert(messages: Message[]): Promise<boolean> {
+    if (messages.length === 0) return true;
+
+    const docClient = getDocClient();
+    const tableName = getTableName(TABLE_NAMES.MESSAGES);
+    const BATCH_SIZE = 25;
+
+    const chunks = [];
+    for (let i = 0; i < messages.length; i += BATCH_SIZE) {
+      chunks.push(messages.slice(i, i + BATCH_SIZE));
+    }
+
+    for (const chunk of chunks) {
+      const putRequests = chunk.map((msg) => ({
+        PutRequest: { Item: this.beforeInsert(msg) },
+      }));
+
+      await docClient.send(
+        new (await import("@aws-sdk/client-dynamodb")).BatchWriteItemCommand({
+          RequestItems: {
+            [tableName]: putRequests,
+          },
+        }),
+      );
+    }
+
+    return true;
   }
 }
 

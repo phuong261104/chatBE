@@ -57,3 +57,4 @@ export const ErrMessageCannotEdit = new Error('Only text messages can be edited'
 export const ErrMessageEditTimeExpired = new Error('Message edit time limit exceeded (15 minutes)');
 export const ErrMessageAlreadyPinned = new Error('Message is already pinned');
 export const ErrMessageNotPinned = new Error('Message is not pinned');
+export const ErrMessageRecallTimeExpired = new Error('Message can only be recalled within 1 day');

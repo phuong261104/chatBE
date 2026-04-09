@@ -6,17 +6,16 @@ import {
   IConversationMemberQueryRepository,
 } from "../interface";
 import { Message, MessageType } from "../model/model";
-import { revokeMessageDTOSchema, RevokeMessageCommand } from "../model/dto";
+import { DeleteMessageForEveryoneDTO } from "../model/dto";
 import {
-  ErrMessageAlreadyDeleted,
   ErrMessageNotFound,
   ErrMessageRecallTimeExpired,
   ErrMessageUnauthorized,
   ErrNotMember,
 } from "../model/errors";
 
-export class RevokeMessageHandler implements ICommandHandler<
-  RevokeMessageCommand,
+export class DeleteMessageForEveryoneHandler implements ICommandHandler<
+  DeleteMessageForEveryoneDTO,
   Message
 > {
   constructor(
@@ -25,60 +24,53 @@ export class RevokeMessageHandler implements ICommandHandler<
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
   ) {}
 
-  async execute(command: RevokeMessageCommand): Promise<Message> {
-    const { success, data, error } = revokeMessageDTOSchema.safeParse(command);
+  async execute(dto: DeleteMessageForEveryoneDTO): Promise<Message> {
+    const { messageId, userId } = dto;
 
-    if (!success) {
-      throw AppError.from(new Error("Invalid data"), 400).withDetail(
-        "validationErrors",
-        error.errors,
-      );
-    }
-
-    const message = await this.messageQueryRepo.get(data.messageId);
+    const message = await this.messageQueryRepo.get(messageId);
     if (!message) {
       throw AppError.from(ErrMessageNotFound, 404);
     }
 
     const member = await this.conversationMemberQueryRepo.findByCond({
       conversationId: message.conversationId,
-      userId: data.userId,
+      userId,
     });
 
     if (!member || member.leftAt) {
       throw AppError.from(ErrNotMember, 403);
     }
 
-    if (message.senderId !== data.userId) {
+    if (message.senderId !== userId) {
       throw AppError.from(ErrMessageUnauthorized, 403);
     }
 
     if (message.deletedAt) {
-      throw AppError.from(ErrMessageAlreadyDeleted, 400);
+      throw AppError.from(new Error("Message is already deleted"), 400);
     }
 
-    const createdAt = new Date(message.createdAt).getTime();
-    const now = Date.now();
+    const createdAtMs = new Date(message.createdAt).getTime();
+    const nowMs = Date.now();
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-    if (now - createdAt > ONE_DAY_MS) {
+    if (nowMs - createdAtMs > ONE_DAY_MS) {
       throw AppError.from(ErrMessageRecallTimeExpired, 403);
     }
 
-    const revokedAt = new Date();
+    const deletedAt = new Date();
 
-    await this.messageCommandRepo.update(message.id, {
+    await this.messageCommandRepo.update(messageId, {
       type: MessageType.SYSTEM,
-      text: "Đã thu hồi",
+      text: "Tin nhắn đã bị xóa",
       media: [],
-      deletedAt: revokedAt,
+      deletedAt,
     });
 
     return {
       ...message,
       type: MessageType.SYSTEM,
-      text: "Đã thu hồi",
+      text: "Tin nhắn đã bị xóa",
       media: [],
-      deletedAt: revokedAt,
+      deletedAt,
     };
   }
 }

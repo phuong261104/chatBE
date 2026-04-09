@@ -13,7 +13,7 @@ import { setupAuthHexagon } from "./modules/auth";
 import Logger from "./share/utils/logger";
 import { responseErr } from "./share/app-error";
 import { setupMediaHexagon } from "./modules/media";
-import { createSocketIOServer } from "@share/component/socket-io";
+import { createSocketIOServer, connectionRegistry } from "@share/component/socket-io";
 import { setupMessagingHexagon } from "@modules/chat";
 import { setupBlockHexagon } from "@modules/blocks";
 import { setupFriendRequestHexagon } from "@modules/friend-requests";
@@ -140,5 +140,6 @@ config();
 
   httpServer.listen(port, () => {
     console.log(`Server is running on port ${port}`);
+    console.log(`[Socket.IO] Initialized with ${connectionRegistry.getOnlineUsers().length} online users (from previous session)`);
   });
 })();

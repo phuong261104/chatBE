@@ -15,6 +15,7 @@ import {
   sendMessageDTOSchema,
   revokeMessageDTOSchema,
   deleteMessageForMeDTOSchema,
+  deleteMessageForEveryoneDTOSchema,
   forwardMessagesDTOSchema,
   muteConversationDTOSchema,
   pinConversationDTOSchema,
@@ -799,6 +800,62 @@ export class MessagingHttpService {
       );
 
       res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message,
+      });
+    }
+  }
+
+  async deleteMessageForEveryoneAPI(req: Request, res: Response) {
+    try {
+      const messageId = Array.isArray(req.params.messageId)
+        ? req.params.messageId[0]
+        : req.params.messageId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = deleteMessageForEveryoneDTOSchema.parse({
+        messageId,
+        userId: currentUserId,
+      });
+
+      const message = await this.useCase.deleteMessageForEveryone(
+        validatedData.messageId,
+        validatedData.userId,
+      );
+
+      if (this.socketService) {
+        const memberUserIds = await this.useCase.getConversationMembers(
+          message.conversationId,
+        );
+
+        for (const memberId of memberUserIds) {
+          this.socketService.emitToUser(memberId, "message:deleted_for_everyone", {
+            conversationId: message.conversationId,
+            messageId: validatedData.messageId,
+            deletedBy: currentUserId,
+          });
+        }
+      }
+
+      res.status(200).json({ data: message });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(422).json({

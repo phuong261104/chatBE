@@ -17,6 +17,7 @@ export { GetTotalUnreadCountQueryHandler } from "./get-total-unread-count";
 export { GetGroupMembersQueryHandler } from "./get-group-members";
 export { RevokeMessageHandler } from "./revoke-message";
 export { DeleteMessageForMeHandler } from "./delete-message-for-me";
+export { DeleteMessageForEveryoneHandler } from "./delete-message-for-everyone";
 export { ForwardMessagesHandler } from "./forward-messages";
 export { MuteConversationHandler, UnmuteConversationHandler } from "./mute-conversation";
 export { PinConversationHandler, UnpinConversationHandler } from "./pin-conversation";

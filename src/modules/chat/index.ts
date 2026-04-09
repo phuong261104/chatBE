@@ -66,6 +66,7 @@ import {
   GetGroupMembersQueryHandler,
   RevokeMessageHandler,
   DeleteMessageForMeHandler,
+  DeleteMessageForEveryoneHandler,
   ForwardMessagesHandler,
   MuteConversationHandler,
   UnmuteConversationHandler,
@@ -246,6 +247,12 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
   );
 
+  const deleteMessageForEveryoneHandler = new DeleteMessageForEveryoneHandler(
+    messageRepo,
+    messageRepo,
+    conversationMemberRepo,
+  );
+
   const forwardMessagesHandler = new ForwardMessagesHandler(
     conversationRepo,
     conversationRepo,
@@ -418,6 +425,7 @@ export const setupMessagingHexagon = (
     getGroupMembersQueryHandler,
     revokeMessageHandler,
     deleteMessageForMeHandler,
+    deleteMessageForEveryoneHandler,
     forwardMessagesHandler,
     muteConversationHandler,
     unmuteConversationHandler,
@@ -496,6 +504,12 @@ export const setupMessagingHexagon = (
     "/messages/:messageId/delete",
     mdlFactory.auth,
     httpService.deleteMessageForMeAPI.bind(httpService),
+  );
+
+  router.post(
+    "/messages/:messageId/delete-for-everyone",
+    mdlFactory.auth,
+    httpService.deleteMessageForEveryoneAPI.bind(httpService),
   );
 
   router.post(

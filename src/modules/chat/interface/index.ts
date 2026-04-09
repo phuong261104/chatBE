@@ -73,6 +73,7 @@ export interface IMessageQueryRepository {
 
 export interface IMessageCommandRepository {
   insert(message: Message): Promise<boolean>;
+  batchInsert(messages: Message[]): Promise<boolean>;
   update(id: string, data: MessageUpdateDTO): Promise<boolean>;
   delete(id: string, isHard: boolean): Promise<boolean>;
 }
@@ -214,13 +215,17 @@ export interface IMessagingUseCase {
 
   revokeMessage(messageId: string, userId: string): Promise<Message>;
 
-  deleteMessageForMe(messageId: string, userId: string): Promise<void>;
+  deleteMessageForMe(messageId: string, userId: string): Promise<Message>;
+
+  deleteMessageForEveryone(messageId: string, userId: string): Promise<Message>;
 
   forwardMessages(
     userId: string,
     messageIds: string[],
     targetConversationIds: string[],
   ): Promise<Message[]>;
+
+  getMessage(messageId: string): Promise<Message | null>;
 
   muteConversation(
     conversationId: string,

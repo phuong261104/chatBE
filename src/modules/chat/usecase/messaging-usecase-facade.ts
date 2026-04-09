@@ -34,6 +34,7 @@ import { GetTotalUnreadCountQueryHandler } from "./get-total-unread-count";
 import { GetGroupMembersQueryHandler } from "./get-group-members";
 import { RevokeMessageHandler } from "./revoke-message";
 import { DeleteMessageForMeHandler } from "./delete-message-for-me";
+import { DeleteMessageForEveryoneHandler } from "./delete-message-for-everyone";
 import { ForwardMessagesHandler } from "./forward-messages";
 import { MuteConversationHandler, UnmuteConversationHandler } from "./mute-conversation";
 import { PinConversationHandler, UnpinConversationHandler } from "./pin-conversation";
@@ -76,6 +77,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly getGroupMembersQueryHandler: GetGroupMembersQueryHandler,
     private readonly revokeMessageHandler: RevokeMessageHandler,
     private readonly deleteMessageForMeHandler: DeleteMessageForMeHandler,
+    private readonly deleteMessageForEveryoneHandler: DeleteMessageForEveryoneHandler,
     private readonly forwardMessagesHandler: ForwardMessagesHandler,
     private readonly muteConversationHandler: MuteConversationHandler,
     private readonly unmuteConversationHandler: UnmuteConversationHandler,
@@ -285,8 +287,16 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.revokeMessageHandler.execute({ messageId, userId });
   }
 
-  async deleteMessageForMe(messageId: string, userId: string): Promise<void> {
+  async deleteMessageForMe(messageId: string, userId: string): Promise<Message> {
     return this.deleteMessageForMeHandler.execute({ messageId, userId });
+  }
+
+  async deleteMessageForEveryone(messageId: string, userId: string): Promise<Message> {
+    return this.deleteMessageForEveryoneHandler.execute({ messageId, userId });
+  }
+
+  async getMessage(messageId: string): Promise<Message | null> {
+    return this.deleteMessageForMeHandler.getMessage(messageId);
   }
 
   async forwardMessages(

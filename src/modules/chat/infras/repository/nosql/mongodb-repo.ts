@@ -139,6 +139,20 @@ export class MongoMessageRepository
     );
   }
 
+  async batchInsert(messages: Message[]): Promise<boolean> {
+    if (messages.length === 0) return true;
+    const mongooseData = messages.map((msg) => {
+      const data: any = { ...msg };
+      if (data.id) {
+        data._id = data.id;
+        delete data.id;
+      }
+      return data;
+    });
+    await (this.cmdRepo as any).model.create(mongooseData);
+    return true;
+  }
+
   async listWithCursor(
     conversationId: string,
     cursor: string | undefined,
