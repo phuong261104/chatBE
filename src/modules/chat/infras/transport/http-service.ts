@@ -29,9 +29,9 @@ import {
   removeAllReactionsDTOSchema,
   getReactionsDTOSchema,
   quoteMessageDTOSchema,
-} from "../../model/dto";
+} from "../../model";
 import { z } from "zod";
-import { ConversationType } from "../../model/model";
+import { ConversationType } from "../../model";
 
 export class MessagingHttpService {
   private socketService?: MessagingSocketService;

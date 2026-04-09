@@ -1,6 +1,6 @@
-import { IUserQueryRepository } from '../../../interface';
-import { UserInfo, UserStatus } from '../../../model/model';
-import { UserCondDTO } from '../../../model/dto';
+import { IUserQueryRepository } from "../../../interface";
+import { UserInfo, UserStatus } from "../../../model";
+import { UserCondDTO } from "../../../model/dto";
 
 import { IUserUseCase } from '@modules/user/interface';
 

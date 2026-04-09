@@ -17,7 +17,7 @@ import {
   MessageCondDTO,
   MessageUpdateDTO,
   UserCondDTO,
-} from "../model/dto";
+} from "../model";
 import { PagingDTO } from "@share/model/paging";
 
 export interface IUserQueryRepository {

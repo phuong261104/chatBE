@@ -5,7 +5,7 @@ import {
   ConversationMemberStatus,
   MessageType,
   MediaType,
-} from "../../../model/model";
+} from "../../../model";
 
 interface IConversationDocument {
   _id: string;

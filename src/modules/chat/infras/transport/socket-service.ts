@@ -1,74 +1,10 @@
 import { IMessagingUseCase } from "../../interface";
 import { Server as SocketIOServer, Namespace, Socket } from "socket.io";
-import { MediaAttachment, Message } from "../../model/model";
+import { MediaAttachment } from "../../model";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   deviceId?: string;
-}
-
-interface JoinGroupPayload {
-  conversationId: string;
-}
-
-interface MessageSeenPayload {
-  conversationId: string;
-  lastSeenMessageId: string;
-}
-
-interface MessageDeliveredPayload {
-  conversationId: string;
-  lastDeliveredMessageId: string;
-}
-
-interface TypingPayload {
-  toUserId?: string;
-  groupId?: string;
-}
-
-interface SendMessageSocketPayload {
-  conversationId: string;
-  text?: string;
-  media?: MediaAttachment[];
-}
-
-interface EditMessageSocketPayload {
-  messageId: string;
-  text: string;
-}
-
-interface DeleteMessageSocketPayload {
-  messageId: string;
-}
-
-interface DeleteMessageForEveryoneSocketPayload {
-  messageId: string;
-}
-
-interface RevokeMessageSocketPayload {
-  messageId: string;
-}
-
-interface AddReactionSocketPayload {
-  messageId: string;
-  emoji: string;
-}
-
-interface RemoveReactionSocketPayload {
-  messageId: string;
-  emoji?: string;
-}
-
-interface MarkAllSeenPayload {
-  conversationId: string;
-}
-
-interface GetOnlineStatusPayload {
-  userId: string;
-}
-
-interface GetBatchOnlineStatusPayload {
-  userIds: string[];
 }
 
 export class MessagingSocketService {
@@ -91,7 +27,7 @@ export class MessagingSocketService {
     this.setupEventHandlers();
   }
 
-  private checkRateLimit(userId: string, eventType: string): boolean {
+  protected checkRateLimit(userId: string, eventType: string): boolean {
     const key = `${userId}:${eventType}`;
     const now = Date.now();
     const limit = this.RATE_LIMITS[eventType as keyof typeof this.RATE_LIMITS] || 30;
@@ -111,6 +47,20 @@ export class MessagingSocketService {
     return true;
   }
 
+  public emitToUser(userId: string, event: string, data: any) {
+    this.namespace.to(`user:${userId}`).emit(event, data);
+  }
+
+  public emitToGroupRoom(conversationId: string, event: string, data: any) {
+    const groupRoomName = `group:${conversationId}`;
+    this.namespace.to(groupRoomName).emit(event, data);
+  }
+
+  protected async getMemberUserIds(conversationId: string, excludeUserId?: string): Promise<string[]> {
+    const members = await this.useCase.getConversationMembers(conversationId, excludeUserId);
+    return members;
+  }
+
   private setupEventHandlers() {
     this.namespace.on("connection", (socket: AuthenticatedSocket) => {
       if (socket.userId) {
@@ -118,65 +68,59 @@ export class MessagingSocketService {
         socket.join(`user_room:${socket.userId}`);
       }
 
-      socket.on("joinGroup", async (payload: JoinGroupPayload, callback) => {
+      socket.on("joinGroup", async (payload: any, callback) => {
         await this.handleJoinGroup(socket, payload, callback);
       });
 
-      socket.on("leaveGroup", async (payload: JoinGroupPayload, callback) => {
+      socket.on("leaveGroup", async (payload: any, callback) => {
         await this.handleLeaveGroup(socket, payload, callback);
       });
 
-      socket.on(
-        "messageSeen",
-        async (payload: MessageSeenPayload, callback) => {
-          await this.handleMessageSeen(socket, payload, callback);
-        },
-      );
+      socket.on("messageSeen", async (payload: any, callback) => {
+        await this.handleMessageSeen(socket, payload, callback);
+      });
 
-      socket.on(
-        "messageDelivered",
-        async (payload: MessageDeliveredPayload, callback) => {
-          await this.handleMessageDelivered(socket, payload, callback);
-        },
-      );
+      socket.on("messageDelivered", async (payload: any, callback) => {
+        await this.handleMessageDelivered(socket, payload, callback);
+      });
 
-      socket.on("typing:start", async (payload: TypingPayload) => {
+      socket.on("typing:start", async (payload: any) => {
         await this.handleTyping(socket, payload, "typing:start");
       });
 
-      socket.on("typing:stop", async (payload: TypingPayload) => {
+      socket.on("typing:stop", async (payload: any) => {
         await this.handleTyping(socket, payload, "typing:stop");
       });
 
-      socket.on("sendMessage", async (payload: SendMessageSocketPayload, callback) => {
+      socket.on("sendMessage", async (payload: any, callback) => {
         await this.handleSendMessage(socket, payload, callback);
       });
 
-      socket.on("editMessage", async (payload: EditMessageSocketPayload, callback) => {
+      socket.on("editMessage", async (payload: any, callback) => {
         await this.handleEditMessage(socket, payload, callback);
       });
 
-      socket.on("deleteMessage", async (payload: DeleteMessageSocketPayload, callback) => {
+      socket.on("deleteMessage", async (payload: any, callback) => {
         await this.handleDeleteMessage(socket, payload, callback);
       });
 
-      socket.on("revokeMessage", async (payload: RevokeMessageSocketPayload, callback) => {
+      socket.on("revokeMessage", async (payload: any, callback) => {
         await this.handleRevokeMessage(socket, payload, callback);
       });
 
-      socket.on("addReaction", async (payload: AddReactionSocketPayload, callback) => {
+      socket.on("addReaction", async (payload: any, callback) => {
         await this.handleAddReaction(socket, payload, callback);
       });
 
-      socket.on("removeReaction", async (payload: RemoveReactionSocketPayload, callback) => {
+      socket.on("removeReaction", async (payload: any, callback) => {
         await this.handleRemoveReaction(socket, payload, callback);
       });
 
-      socket.on("markAllSeen", async (payload: MarkAllSeenPayload, callback) => {
+      socket.on("markAllSeen", async (payload: any, callback) => {
         await this.handleMarkAllSeen(socket, payload, callback);
       });
 
-      socket.on("deleteMessageForEveryone", async (payload: DeleteMessageForEveryoneSocketPayload, callback) => {
+      socket.on("deleteMessageForEveryone", async (payload: any, callback) => {
         await this.handleDeleteMessageForEveryone(socket, payload, callback);
       });
 
@@ -186,28 +130,25 @@ export class MessagingSocketService {
 
   private async handleJoinGroup(
     socket: AuthenticatedSocket,
-    payload: JoinGroupPayload,
+    payload: { conversationId: string },
     callback?: (response: any) => void,
   ) {
     try {
       const userId = socket.userId;
 
       if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
+        if (callback) callback({ success: false, error: "Unauthorized" });
         return;
       }
 
       const { conversationId } = payload;
 
       if (!conversationId) {
-        const error = { success: false, error: "conversationId is required" };
-        if (callback) callback(error);
+        if (callback) callback({ success: false, error: "conversationId is required" });
         return;
       }
 
-      const roomName = `group:${conversationId}`;
-      socket.join(roomName);
+      socket.join(`group:${conversationId}`);
       socket.join(`group_room:${conversationId}`);
 
       if (callback) {
@@ -223,28 +164,25 @@ export class MessagingSocketService {
 
   private async handleLeaveGroup(
     socket: AuthenticatedSocket,
-    payload: JoinGroupPayload,
+    payload: { conversationId: string },
     callback?: (response: any) => void,
   ) {
     try {
       const userId = socket.userId;
 
       if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
+        if (callback) callback({ success: false, error: "Unauthorized" });
         return;
       }
 
       const { conversationId } = payload;
 
       if (!conversationId) {
-        const error = { success: false, error: "conversationId is required" };
-        if (callback) callback(error);
+        if (callback) callback({ success: false, error: "conversationId is required" });
         return;
       }
 
-      const roomName = `group:${conversationId}`;
-      socket.leave(roomName);
+      socket.leave(`group:${conversationId}`);
       socket.leave(`group_room:${conversationId}`);
 
       if (callback) {
@@ -258,461 +196,32 @@ export class MessagingSocketService {
     }
   }
 
-  private async handleSendMessage(
-    socket: AuthenticatedSocket,
-    payload: SendMessageSocketPayload,
-    callback?: (response: any) => void,
-  ) {
-    try {
-      const userId = socket.userId;
-
-      if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
-        return;
-      }
-
-      if (!this.checkRateLimit(userId, "sendMessage")) {
-        const error = { success: false, error: "Rate limit exceeded. Please slow down." };
-        if (callback) callback(error);
-        return;
-      }
-
-      const { conversationId, text, media } = payload;
-
-      if (!conversationId) {
-        const error = { success: false, error: "conversationId is required" };
-        if (callback) callback(error);
-        return;
-      }
-
-      if (!text && (!media || media.length === 0)) {
-        const error = { success: false, error: "Either text or media is required" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const conversationDetail = await this.useCase.getConversationDetail(
-        conversationId,
-        userId,
-      );
-
-      const isGroup = conversationDetail.conversation.type === "group";
-
-      const message = isGroup
-        ? await this.useCase.sendGroupMessage(conversationId, userId, text, media)
-        : await this.useCase.sendMessage(conversationId, userId, text, media);
-
-      const memberUserIds = await this.useCase.getConversationMembers(
-        conversationId,
-        userId,
-      );
-
-      for (const memberId of memberUserIds) {
-        this.namespace.to(`user:${memberId}`).emit("receiveMessage", {
-          message,
-          conversationId,
-        });
-      }
-
-      if (callback) {
-        callback({ success: true, message });
-      }
-    } catch (error) {
-      console.error("Error handling sendMessage:", error);
-      if (callback) {
-        callback({ success: false, error: (error as Error).message });
-      }
-    }
-  }
-
-  private async handleEditMessage(
-    socket: AuthenticatedSocket,
-    payload: EditMessageSocketPayload,
-    callback?: (response: any) => void,
-  ) {
-    try {
-      const userId = socket.userId;
-
-      if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const { messageId, text } = payload;
-
-      if (!messageId || !text) {
-        const error = { success: false, error: "messageId and text are required" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const message = await this.useCase.editMessage(messageId, userId, text);
-
-      const memberUserIds = await this.useCase.getConversationMembers(
-        message.conversationId,
-      );
-
-      for (const memberId of memberUserIds) {
-        this.namespace.to(`user:${memberId}`).emit("message:edited", {
-          conversationId: message.conversationId,
-          message,
-        });
-      }
-
-      if (callback) {
-        callback({ success: true, message });
-      }
-    } catch (error) {
-      console.error("Error handling editMessage:", error);
-      if (callback) {
-        callback({ success: false, error: (error as Error).message });
-      }
-    }
-  }
-
-  private async handleDeleteMessage(
-    socket: AuthenticatedSocket,
-    payload: DeleteMessageSocketPayload,
-    callback?: (response: any) => void,
-  ) {
-    try {
-      const userId = socket.userId;
-
-      if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const { messageId } = payload;
-
-      if (!messageId) {
-        const error = { success: false, error: "messageId is required" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const message = await this.useCase.getMessage(messageId);
-      if (!message) {
-        const error = { success: false, error: "Message not found" };
-        if (callback) callback(error);
-        return;
-      }
-
-      await this.useCase.deleteMessageForMe(messageId, userId);
-
-      const memberUserIds = await this.useCase.getConversationMembers(message.conversationId);
-      for (const memberId of memberUserIds) {
-        this.namespace.to(`user:${memberId}`).emit("message:deleted", {
-          conversationId: message.conversationId,
-          messageId,
-          deletedBy: userId,
-        });
-      }
-
-      if (callback) {
-        callback({ success: true });
-      }
-    } catch (error) {
-      console.error("Error handling deleteMessage:", error);
-      if (callback) {
-        callback({ success: false, error: (error as Error).message });
-      }
-    }
-  }
-
-  private async handleRevokeMessage(
-    socket: AuthenticatedSocket,
-    payload: RevokeMessageSocketPayload,
-    callback?: (response: any) => void,
-  ) {
-    try {
-      const userId = socket.userId;
-
-      if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const { messageId } = payload;
-
-      if (!messageId) {
-        const error = { success: false, error: "messageId is required" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const message = await this.useCase.revokeMessage(messageId, userId);
-
-      const memberUserIds = await this.useCase.getConversationMembers(
-        message.conversationId,
-      );
-
-      for (const memberId of memberUserIds) {
-        this.namespace.to(`user:${memberId}`).emit("message:revoked", {
-          conversationId: message.conversationId,
-          messageId,
-          revokedBy: userId,
-        });
-      }
-
-      if (callback) {
-        callback({ success: true, message });
-      }
-    } catch (error) {
-      console.error("Error handling revokeMessage:", error);
-      if (callback) {
-        callback({ success: false, error: (error as Error).message });
-      }
-    }
-  }
-
-  private async handleAddReaction(
-    socket: AuthenticatedSocket,
-    payload: AddReactionSocketPayload,
-    callback?: (response: any) => void,
-  ) {
-    try {
-      const userId = socket.userId;
-
-      if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
-        return;
-      }
-
-      if (!this.checkRateLimit(userId, "addReaction")) {
-        const error = { success: false, error: "Rate limit exceeded. Please slow down." };
-        if (callback) callback(error);
-        return;
-      }
-
-      const { messageId, emoji } = payload;
-
-      if (!messageId || !emoji) {
-        const error = { success: false, error: "messageId and emoji are required" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const message = await this.useCase.getMessage(messageId);
-      if (!message) {
-        const error = { success: false, error: "Message not found" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const reaction = await this.useCase.addReaction(messageId, userId, emoji);
-
-      const memberUserIds = await this.useCase.getConversationMembers(
-        message.conversationId,
-      );
-
-      for (const memberId of memberUserIds) {
-        this.namespace.to(`user:${memberId}`).emit("message:reaction", {
-          messageId,
-          reaction,
-        });
-      }
-
-      if (callback) {
-        callback({ success: true, reaction });
-      }
-    } catch (error) {
-      console.error("Error handling addReaction:", error);
-      if (callback) {
-        callback({ success: false, error: (error as Error).message });
-      }
-    }
-  }
-
-  private async handleRemoveReaction(
-    socket: AuthenticatedSocket,
-    payload: RemoveReactionSocketPayload,
-    callback?: (response: any) => void,
-  ) {
-    try {
-      const userId = socket.userId;
-
-      if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const { messageId, emoji } = payload;
-
-      if (!messageId) {
-        const error = { success: false, error: "messageId is required" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const message = await this.useCase.getMessage(messageId);
-      if (!message) {
-        const error = { success: false, error: "Message not found" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const deletedCount = await this.useCase.removeReaction(messageId, userId, emoji);
-
-      const memberUserIds = await this.useCase.getConversationMembers(message.conversationId);
-
-      for (const memberId of memberUserIds) {
-        this.namespace.to(`user:${memberId}`).emit("message:reaction:remove", {
-          messageId,
-          userId,
-          emoji: emoji || undefined,
-        });
-      }
-
-      if (callback) {
-        callback({ success: true, deletedCount });
-      }
-    } catch (error) {
-      console.error("Error handling removeReaction:", error);
-      if (callback) {
-        callback({ success: false, error: (error as Error).message });
-      }
-    }
-  }
-
-  private async handleDeleteMessageForEveryone(
-    socket: AuthenticatedSocket,
-    payload: DeleteMessageForEveryoneSocketPayload,
-    callback?: (response: any) => void,
-  ) {
-    try {
-      const userId = socket.userId;
-
-      if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const { messageId } = payload;
-
-      if (!messageId) {
-        const error = { success: false, error: "messageId is required" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const message = await this.useCase.deleteMessageForEveryone(messageId, userId);
-
-      const memberUserIds = await this.useCase.getConversationMembers(message.conversationId);
-      for (const memberId of memberUserIds) {
-        this.namespace.to(`user:${memberId}`).emit("message:deleted_for_everyone", {
-          conversationId: message.conversationId,
-          messageId,
-          deletedBy: userId,
-        });
-      }
-
-      if (callback) {
-        callback({ success: true, message });
-      }
-    } catch (error) {
-      console.error("Error handling deleteMessageForEveryone:", error);
-      if (callback) {
-        callback({ success: false, error: (error as Error).message });
-      }
-    }
-  }
-
-  private async handleMarkAllSeen(
-    socket: AuthenticatedSocket,
-    payload: MarkAllSeenPayload,
-    callback?: (response: any) => void,
-  ) {
-    try {
-      const userId = socket.userId;
-
-      if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const { conversationId } = payload;
-
-      if (!conversationId) {
-        const error = { success: false, error: "conversationId is required" };
-        if (callback) callback(error);
-        return;
-      }
-
-      const detail = await this.useCase.getConversationDetail(conversationId, userId);
-      const messages = await this.useCase.loadMessages(conversationId, userId, undefined, 1);
-
-      if (messages.messages.length > 0) {
-        const lastMessage = messages.messages[0];
-        await this.useCase.markAsSeen(conversationId, userId, lastMessage.id);
-
-        const memberUserIds = await this.useCase.getConversationMembers(
-          conversationId,
-          userId,
-        );
-
-        for (const memberId of memberUserIds) {
-          this.namespace.to(`user:${memberId}`).emit("messageSeen", {
-            conversationId,
-            userId,
-            lastSeenMessageId: lastMessage.id,
-          });
-        }
-      }
-
-      if (callback) {
-        callback({ success: true });
-      }
-    } catch (error) {
-      console.error("Error handling markAllSeen:", error);
-      if (callback) {
-        callback({ success: false, error: (error as Error).message });
-      }
-    }
-  }
-
   private async handleMessageSeen(
     socket: AuthenticatedSocket,
-    payload: MessageSeenPayload,
+    payload: { conversationId: string; lastSeenMessageId: string },
     callback?: (response: any) => void,
   ) {
     try {
       const userId = socket.userId;
 
       if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
+        if (callback) callback({ success: false, error: "Unauthorized" });
         return;
       }
 
       const { conversationId, lastSeenMessageId } = payload;
 
       if (!conversationId || !lastSeenMessageId) {
-        const error = {
-          success: false,
-          error: "conversationId and lastSeenMessageId are required",
-        };
-        if (callback) callback(error);
+        if (callback) callback({ success: false, error: "conversationId and lastSeenMessageId are required" });
         return;
       }
 
       await this.useCase.markAsSeen(conversationId, userId, lastSeenMessageId);
 
-      const memberUserIds = await this.useCase.getConversationMembers(
-        conversationId,
-        userId,
-      );
+      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
 
       for (const memberId of memberUserIds) {
-        this.namespace.to(`user:${memberId}`).emit("messageSeen", {
+        this.emitToUser(memberId, "messageSeen", {
           conversationId,
           userId,
           lastSeenMessageId,
@@ -732,42 +241,30 @@ export class MessagingSocketService {
 
   private async handleMessageDelivered(
     socket: AuthenticatedSocket,
-    payload: MessageDeliveredPayload,
+    payload: { conversationId: string; lastDeliveredMessageId: string },
     callback?: (response: any) => void,
   ) {
     try {
       const userId = socket.userId;
 
       if (!userId) {
-        const error = { success: false, error: "Unauthorized" };
-        if (callback) callback(error);
+        if (callback) callback({ success: false, error: "Unauthorized" });
         return;
       }
 
       const { conversationId, lastDeliveredMessageId } = payload;
 
       if (!conversationId || !lastDeliveredMessageId) {
-        const error = {
-          success: false,
-          error: "conversationId and lastDeliveredMessageId are required",
-        };
-        if (callback) callback(error);
+        if (callback) callback({ success: false, error: "conversationId and lastDeliveredMessageId are required" });
         return;
       }
 
-      await this.useCase.markAsDelivered(
-        conversationId,
-        userId,
-        lastDeliveredMessageId,
-      );
+      await this.useCase.markAsDelivered(conversationId, userId, lastDeliveredMessageId);
 
-      const memberUserIds = await this.useCase.getConversationMembers(
-        conversationId,
-        userId,
-      );
+      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
 
       for (const memberId of memberUserIds) {
-        this.namespace.to(`user:${memberId}`).emit("messageDelivered", {
+        this.emitToUser(memberId, "messageDelivered", {
           conversationId,
           userId,
           lastDeliveredMessageId,
@@ -787,7 +284,7 @@ export class MessagingSocketService {
 
   private async handleTyping(
     socket: AuthenticatedSocket,
-    payload: TypingPayload,
+    payload: { toUserId?: string; groupId?: string },
     eventName: "typing:start" | "typing:stop",
   ) {
     try {
@@ -812,6 +309,388 @@ export class MessagingSocketService {
     }
   }
 
+  private async handleSendMessage(
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string; text?: string; media?: MediaAttachment[] },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      if (!this.checkRateLimit(userId, "sendMessage")) {
+        if (callback) callback({ success: false, error: "Rate limit exceeded. Please slow down." });
+        return;
+      }
+
+      const { conversationId, text, media } = payload;
+
+      if (!conversationId) {
+        if (callback) callback({ success: false, error: "conversationId is required" });
+        return;
+      }
+
+      if (!text && (!media || media.length === 0)) {
+        if (callback) callback({ success: false, error: "Either text or media is required" });
+        return;
+      }
+
+      const conversationDetail = await this.useCase.getConversationDetail(conversationId, userId);
+      const isGroup = conversationDetail.conversation.type === "group";
+
+      const message = isGroup
+        ? await this.useCase.sendGroupMessage(conversationId, userId, text, media)
+        : await this.useCase.sendMessage(conversationId, userId, text, media);
+
+      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, "receiveMessage", {
+          message,
+          conversationId,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true, message });
+      }
+    } catch (error) {
+      console.error("Error handling sendMessage:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleEditMessage(
+    socket: AuthenticatedSocket,
+    payload: { messageId: string; text: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { messageId, text } = payload;
+
+      if (!messageId || !text) {
+        if (callback) callback({ success: false, error: "messageId and text are required" });
+        return;
+      }
+
+      const message = await this.useCase.editMessage(messageId, userId, text);
+
+      const memberUserIds = await this.getMemberUserIds(message.conversationId);
+
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, "message:edited", {
+          conversationId: message.conversationId,
+          message,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true, message });
+      }
+    } catch (error) {
+      console.error("Error handling editMessage:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleDeleteMessage(
+    socket: AuthenticatedSocket,
+    payload: { messageId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { messageId } = payload;
+
+      if (!messageId) {
+        if (callback) callback({ success: false, error: "messageId is required" });
+        return;
+      }
+
+      const message = await this.useCase.getMessage(messageId);
+      if (!message) {
+        if (callback) callback({ success: false, error: "Message not found" });
+        return;
+      }
+
+      await this.useCase.deleteMessageForMe(messageId, userId);
+
+      const memberUserIds = await this.getMemberUserIds(message.conversationId);
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, "message:deleted", {
+          conversationId: message.conversationId,
+          messageId,
+          deletedBy: userId,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error) {
+      console.error("Error handling deleteMessage:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleRevokeMessage(
+    socket: AuthenticatedSocket,
+    payload: { messageId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { messageId } = payload;
+
+      if (!messageId) {
+        if (callback) callback({ success: false, error: "messageId is required" });
+        return;
+      }
+
+      const message = await this.useCase.revokeMessage(messageId, userId);
+
+      const memberUserIds = await this.getMemberUserIds(message.conversationId);
+
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, "message:revoked", {
+          conversationId: message.conversationId,
+          messageId,
+          revokedBy: userId,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true, message });
+      }
+    } catch (error) {
+      console.error("Error handling revokeMessage:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleAddReaction(
+    socket: AuthenticatedSocket,
+    payload: { messageId: string; emoji: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      if (!this.checkRateLimit(userId, "addReaction")) {
+        if (callback) callback({ success: false, error: "Rate limit exceeded. Please slow down." });
+        return;
+      }
+
+      const { messageId, emoji } = payload;
+
+      if (!messageId || !emoji) {
+        if (callback) callback({ success: false, error: "messageId and emoji are required" });
+        return;
+      }
+
+      const message = await this.useCase.getMessage(messageId);
+      if (!message) {
+        if (callback) callback({ success: false, error: "Message not found" });
+        return;
+      }
+
+      const reaction = await this.useCase.addReaction(messageId, userId, emoji);
+
+      const memberUserIds = await this.getMemberUserIds(message.conversationId);
+
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, "message:reaction", {
+          messageId,
+          reaction,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true, reaction });
+      }
+    } catch (error) {
+      console.error("Error handling addReaction:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleRemoveReaction(
+    socket: AuthenticatedSocket,
+    payload: { messageId: string; emoji?: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { messageId, emoji } = payload;
+
+      if (!messageId) {
+        if (callback) callback({ success: false, error: "messageId is required" });
+        return;
+      }
+
+      const message = await this.useCase.getMessage(messageId);
+      if (!message) {
+        if (callback) callback({ success: false, error: "Message not found" });
+        return;
+      }
+
+      const deletedCount = await this.useCase.removeReaction(messageId, userId, emoji);
+
+      const memberUserIds = await this.getMemberUserIds(message.conversationId);
+
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, "message:reaction:remove", {
+          messageId,
+          userId,
+          emoji: emoji || undefined,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true, deletedCount });
+      }
+    } catch (error) {
+      console.error("Error handling removeReaction:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleDeleteMessageForEveryone(
+    socket: AuthenticatedSocket,
+    payload: { messageId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { messageId } = payload;
+
+      if (!messageId) {
+        if (callback) callback({ success: false, error: "messageId is required" });
+        return;
+      }
+
+      const message = await this.useCase.deleteMessageForEveryone(messageId, userId);
+
+      const memberUserIds = await this.getMemberUserIds(message.conversationId);
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, "message:deleted_for_everyone", {
+          conversationId: message.conversationId,
+          messageId,
+          deletedBy: userId,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true, message });
+      }
+    } catch (error) {
+      console.error("Error handling deleteMessageForEveryone:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleMarkAllSeen(
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { conversationId } = payload;
+
+      if (!conversationId) {
+        if (callback) callback({ success: false, error: "conversationId is required" });
+        return;
+      }
+
+      const messages = await this.useCase.loadMessages(conversationId, userId, undefined, 1);
+
+      if (messages.messages.length > 0) {
+        const lastMessage = messages.messages[0];
+        await this.useCase.markAsSeen(conversationId, userId, lastMessage.id);
+
+        const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, "messageSeen", {
+            conversationId,
+            userId,
+            lastSeenMessageId: lastMessage.id,
+          });
+        }
+      }
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error) {
+      console.error("Error handling markAllSeen:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
   public notifyNewGroup(memberUserIds: string[], groupData: any) {
     for (const userId of memberUserIds) {
       this.namespace.to(`user:${userId}`).emit("conversation:created", groupData);
@@ -819,24 +698,21 @@ export class MessagingSocketService {
   }
 
   public notifyMembersAdded(conversationId: string, newMembers: any[]) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("conversation:members_added", {
+    this.emitToGroupRoom(conversationId, "conversation:members_added", {
       conversationId,
       newMembers,
     });
   }
 
   public notifyMemberRemoved(conversationId: string, removedUserId: string) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("conversation:member_removed", {
+    this.emitToGroupRoom(conversationId, "conversation:member_removed", {
       conversationId,
       removedUserId,
     });
   }
 
   public notifyGroupUpdated(conversationId: string, updatedData: any) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("conversation:updated", {
+    this.emitToGroupRoom(conversationId, "conversation:updated", {
       conversationId,
       data: updatedData,
     });
@@ -848,7 +724,7 @@ export class MessagingSocketService {
     seenByUserId: string,
     lastSeenMessageId: string,
   ) {
-    this.namespace.to(`user:${userId}`).emit("messageSeen", {
+    this.emitToUser(userId, "messageSeen", {
       conversationId,
       userId: seenByUserId,
       lastSeenMessageId,
@@ -861,20 +737,11 @@ export class MessagingSocketService {
     deliveredByUserId: string,
     lastDeliveredMessageId: string,
   ) {
-    this.namespace.to(`user:${userId}`).emit("messageDelivered", {
+    this.emitToUser(userId, "messageDelivered", {
       conversationId,
       userId: deliveredByUserId,
       lastDeliveredMessageId,
     });
-  }
-
-  public emitToGroupRoom(conversationId: string, event: string, data: any) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit(event, data);
-  }
-
-  public emitToUser(userId: string, event: string, data: any) {
-    this.namespace.to(`user:${userId}`).emit(event, data);
   }
 
   public notifyMessageDeleted(
@@ -882,8 +749,7 @@ export class MessagingSocketService {
     messageId: string,
     deletedBy: string,
   ) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("message:deleted", {
+    this.emitToGroupRoom(conversationId, "message:deleted", {
       conversationId,
       messageId,
       deletedBy,
@@ -891,8 +757,7 @@ export class MessagingSocketService {
   }
 
   public notifyAdminChanged(conversationId: string, targetUserId: string, isAdmin: boolean) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("group:admin_changed", {
+    this.emitToGroupRoom(conversationId, "group:admin_changed", {
       conversationId,
       targetUserId,
       isAdmin,
@@ -900,8 +765,7 @@ export class MessagingSocketService {
   }
 
   public notifyOwnerTransferred(conversationId: string, oldOwnerId: string, newOwnerId: string) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("group:owner_transferred", {
+    this.emitToGroupRoom(conversationId, "group:owner_transferred", {
       conversationId,
       oldOwnerId,
       newOwnerId,
@@ -909,16 +773,14 @@ export class MessagingSocketService {
   }
 
   public notifyPollCreated(conversationId: string, poll: any) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("poll:new", {
+    this.emitToGroupRoom(conversationId, "poll:new", {
       conversationId,
       poll,
     });
   }
 
   public notifyPollVoted(conversationId: string, pollId: string, userId: string, poll: any) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("poll:vote", {
+    this.emitToGroupRoom(conversationId, "poll:vote", {
       conversationId,
       pollId,
       userId,
@@ -927,13 +789,12 @@ export class MessagingSocketService {
   }
 
   public notifyMemberApproved(conversationId: string, userId: string, member: any) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("group:member_approved", {
+    this.emitToGroupRoom(conversationId, "group:member_approved", {
       conversationId,
       userId,
       member,
     });
-    this.namespace.to(`user:${userId}`).emit("group:member_approved", {
+    this.emitToUser(userId, "group:member_approved", {
       conversationId,
       userId,
       member,
@@ -941,15 +802,14 @@ export class MessagingSocketService {
   }
 
   public notifyMemberRejected(conversationId: string, userId: string) {
-    this.namespace.to(`user:${userId}`).emit("group:member_rejected", {
+    this.emitToUser(userId, "group:member_rejected", {
       conversationId,
       userId,
     });
   }
 
   public notifyGroupSettingsUpdated(conversationId: string, settings: any) {
-    const groupRoomName = `group:${conversationId}`;
-    this.namespace.to(groupRoomName).emit("group:settings_updated", {
+    this.emitToGroupRoom(conversationId, "group:settings_updated", {
       conversationId,
       settings,
     });

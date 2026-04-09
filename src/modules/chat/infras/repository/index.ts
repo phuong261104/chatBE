@@ -1,20 +1,56 @@
 export {
+  DynamoConversationRepository,
+} from './dynamodb/conversation-repo';
+
+export {
+  DynamoConversationMemberRepository,
+} from './dynamodb/member-repo';
+
+export {
+  DynamoMessageRepository,
+} from './dynamodb/message-repo';
+
+export {
+  DynamoMessageReactionRepository,
+  DynamoMessageReactionQueryRepository,
+  DynamoMessageReactionCommandRepository,
+} from './dynamodb/reaction-repo';
+
+export {
+  DynamoPollRepository,
+  DynamoPollQueryRepository,
+  DynamoPollCommandRepository,
+} from './dynamodb/poll-repo';
+
+export {
+  MongoConversationRepository,
   MongoConversationQueryRepository,
   MongoConversationCommandRepository,
-  MongoConversationRepository,
+} from './nosql/conversation-repo';
+
+export {
+  MongoConversationMemberRepository,
   MongoConversationMemberQueryRepository,
   MongoConversationMemberCommandRepository,
-  MongoConversationMemberRepository,
+} from './nosql/member-repo';
+
+export {
+  MongoMessageRepository,
   MongoMessageQueryRepository,
   MongoMessageCommandRepository,
-  MongoMessageRepository,
+} from './nosql/message-repo';
+
+export {
+  MongoMessageReactionRepository,
   MongoMessageReactionQueryRepository,
   MongoMessageReactionCommandRepository,
-  MongoMessageReactionRepository,
+} from './nosql/reaction-repo';
+
+export {
+  MongoPollRepository,
   MongoPollQueryRepository,
   MongoPollCommandRepository,
-  MongoPollRepository,
-} from './nosql/mongodb-repo';
+} from './nosql/poll-repo';
 
 export { ConversationModel, ConversationMemberModel, MessageModel, MessageReactionModel, PollModel } from './nosql/schemas';
 
