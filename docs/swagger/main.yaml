@@ -43,6 +43,7 @@ components:
           example: "Error message"
 
 paths:
+  # ==================== AUTH ====================
   # Auth - Register & Login
   /auth/register:
     $ref: './paths/auth.yaml#/paths/~1auth~1register'
@@ -87,7 +88,7 @@ paths:
   /auth/avatar:
     $ref: './paths/auth.yaml#/paths/~1auth~1avatar'
 
-  # User
+  # ==================== USER ====================
   /profile:
     $ref: './paths/user.yaml#/paths/~1profile'
   /users:
@@ -99,17 +100,91 @@ paths:
   /users/{id}/presence:
     $ref: './paths/user.yaml#/paths/~1users~1{id}~1presence'
 
-  # Chat
+  # ==================== CHAT - CONVERSATIONS ====================
+  /conversations/private:
+    $ref: './paths/chat.yaml#/paths/~1conversations~1private'
   /conversations:
     $ref: './paths/chat.yaml#/paths/~1conversations'
+  /conversations/{conversationId}:
+    $ref: './paths/chat.yaml#/paths/~1conversations~1{conversationId}'
+  /conversations/{conversationId}/mute:
+    $ref: './paths/chat.yaml#/paths/~1conversations~1{conversationId}~1mute'
+  /conversations/{conversationId}/pin-conversation:
+    $ref: './paths/chat.yaml#/paths/~1conversations~1{conversationId}~1pin-conversation'
+  /conversations/{conversationId}/archive:
+    $ref: './paths/chat.yaml#/paths/~1conversations~1{conversationId}~1archive'
+  /conversations/unread-count:
+    $ref: './paths/chat.yaml#/paths/~1conversations~1unread-count'
+
+  # ==================== CHAT - MESSAGES ====================
   /conversations/{conversationId}/messages:
     $ref: './paths/chat.yaml#/paths/~1conversations~1{conversationId}~1messages'
+  /conversations/{conversationId}/seen:
+    $ref: './paths/chat.yaml#/paths/~1conversations~1{conversationId}~1seen'
+  /conversations/{conversationId}/delivered:
+    $ref: './paths/chat.yaml#/paths/~1conversations~1{conversationId}~1delivered'
+  /conversations/{conversationId}/pinned-messages:
+    $ref: './paths/chat.yaml#/paths/~1conversations~1{conversationId}~1pinned-messages'
+
+  # ==================== CHAT - SINGLE MESSAGE OPERATIONS ====================
+  /messages/{messageId}:
+    $ref: './paths/chat.yaml#/paths/~1messages~1{messageId}'
+  /messages/{messageId}/revoke:
+    $ref: './paths/chat.yaml#/paths/~1messages~1{messageId}~1revoke'
+  /messages/{messageId}/delete:
+    $ref: './paths/chat.yaml#/paths/~1messages~1{messageId}~1delete'
+  /messages/{messageId}/delete-for-everyone:
+    $ref: './paths/chat.yaml#/paths/~1messages~1{messageId}~1delete-for-everyone'
+  /messages/{messageId}/pin:
+    $ref: './paths/chat.yaml#/paths/~1messages~1{messageId}~1pin'
+  /messages/{messageId}/quote:
+    $ref: './paths/chat.yaml#/paths/~1messages~1{messageId}~1quote'
+
+  # ==================== CHAT - MESSAGE FORWARDING ====================
+  /messages/forward:
+    $ref: './paths/chat.yaml#/paths/~1messages~1forward'
+
+  # ==================== CHAT - REACTIONS ====================
+  /messages/{messageId}/reactions:
+    $ref: './paths/chat.yaml#/paths/~1messages~1{messageId}~1reactions'
+  /messages/{messageId}/react:
+    $ref: './paths/chat.yaml#/paths/~1messages~1{messageId}~1react'
+
+  # ==================== CHAT - GROUPS ====================
+  /groups:
+    $ref: './paths/chat.yaml#/paths/~1groups'
+  /groups/{groupId}/info:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1info'
+  /groups/{groupId}:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}'
   /groups/{groupId}/members:
     $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1members'
+  /groups/{groupId}/members/{userId}:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1members~1{userId}'
   /groups/{groupId}/leave:
     $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1leave'
+  /groups/{groupId}/set-admin:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1set-admin'
+  /groups/{groupId}/transfer-owner:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1transfer-owner'
+  /groups/{groupId}/members/pending:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1members~1pending'
+  /groups/{groupId}/members/{userId}/approve:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1members~1{userId}~1approve'
+  /groups/{groupId}/members/{userId}/reject:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1members~1{userId}~1reject'
+  /groups/{groupId}/settings:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1settings'
 
-  # Media
+  # ==================== CHAT - POLLS ====================
+  /groups/{groupId}/polls:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1polls'
+  /groups/{groupId}/polls/{pollId}/vote:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1polls~1{pollId}~1vote'
+  /groups/{groupId}/polls/{pollId}/results:
+    $ref: './paths/chat.yaml#/paths/~1groups~1{groupId}~1polls~1{pollId}~1results'
+
+  # ==================== MEDIA ====================
   /media/upload:
     $ref: './paths/media.yaml#/paths/~1media~1upload'
   /media/upload-multiple:
@@ -123,7 +198,7 @@ paths:
   /media/upload-methods:
     $ref: './paths/media.yaml#/paths/~1media~1upload-methods'
 
-  # Friendships
+  # ==================== FRIENDSHIPS ====================
   /friendships:
     $ref: './paths/friendships.yaml#/paths/~1friendships'
   /friendships/{friendId}:
@@ -135,7 +210,7 @@ paths:
   /users/{id}/suggestions:
     $ref: './paths/friendships.yaml#/paths/~1users~1{id}~1suggestions'
 
-  # Friend Requests
+  # ==================== FRIEND REQUESTS ====================
   /friend-requests/{receiverId}:
     $ref: './paths/friend-requests.yaml#/paths/~1friend-requests~1{receiverId}'
   /friend-requests/{requestId}:
@@ -145,7 +220,7 @@ paths:
   /friend-requests/sent:
     $ref: './paths/friend-requests.yaml#/paths/~1friend-requests~1sent'
 
-  # Blocks
+  # ==================== BLOCKS ====================
   /blocks/{blockedUserId}:
     $ref: './paths/blocks.yaml#/paths/~1blocks~1{blockedUserId}'
   /blocks:
@@ -153,17 +228,17 @@ paths:
   /blocks/{blockedUserId}/check:
     $ref: './paths/blocks.yaml#/paths/~1blocks~1{blockedUserId}~1check'
 
-  # My Cloud
+  # ==================== MY CLOUD ====================
   /my-cloud:
     $ref: './paths/my-cloud.yaml#/paths/~1my-cloud'
   /my-cloud/{id}:
     $ref: './paths/my-cloud.yaml#/paths/~1my-cloud~1{id}'
 
-  # Search
+  # ==================== SEARCH ====================
   /search:
     $ref: './paths/search.yaml#/paths/~1search'
 
-  # Posts
+  # ==================== POSTS ====================
   /posts:
     $ref: './paths/posts.yaml#/paths/~1posts'
   /posts/{id}:
@@ -177,7 +252,7 @@ paths:
   /posts/{id}/share:
     $ref: './paths/posts.yaml#/paths/~1posts~1{id}~1share'
 
-  # Stories
+  # ==================== STORIES ====================
   /stories:
     $ref: './paths/stories.yaml#/paths/~1stories'
   /stories/{id}:

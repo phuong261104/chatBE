@@ -27,7 +27,12 @@ class DynamoConversationQueryRepository extends BaseQueryRepositoryDynamoDB<
 
   protected toEntity(doc: Record<string, any>): Conversation {
     const { pk, sk, GSI1PK, GSI1SK, ...rest } = doc;
-    return { ...rest } as Conversation;
+    return {
+      ...rest,
+      createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(),
+      updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : new Date(),
+      lastMessageAt: doc.lastMessageAt ? new Date(doc.lastMessageAt) : null,
+    } as Conversation;
   }
 
   protected buildFilterExpression(cond: ConversationCondDTO): string {

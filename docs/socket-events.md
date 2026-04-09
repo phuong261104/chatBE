@@ -1,204 +1,1213 @@
-# Tài liệu Socket.IO - Hệ thống Chat
+# Tài liệu Socket.IO - Module Chat
 
-Tài liệu này mô tả chi tiết về các Namespaces, Events và Payloads được sử dụng trong hệ thống Socket.IO của dự án để đội ngũ Frontend tích hợp.
+Tài liệu này mô tả chi tiết về các Namespace, Events và Payloads được sử dụng trong hệ thống Socket.IO của module Chat, giúp đội ngũ Frontend tích hợp dễ dàng.
 
 ## Mục lục
-1. [Kết nối và Xác thực cơ bản](#1-kết-nối-và-xác-thực-cơ-bản)
-2. [Namespace Mặc định (`/`)](#2-namespace-mặc-định-)
-3. [Namespace Messaging (`/messages`)](#3-namespace-messaging-messages)
-4. [Namespace Friends (`/friends`)](#4-namespace-friends-friends)
+
+1. [Kết nối và Xác thực](#1-kết-nối-và-xác-thực)
+2. [Namespace `/messages`](#2-namespace-messages)
+3. [Events Client -> Server](#3-events-client---server)
+4. [Events Server -> Client](#4-events-server---client)
+5. [Rate Limits](#5-rate-limits)
+6. [Ví dụ Code](#6-ví-dụ-code)
+7. [Kiến trúc Room](#7-kiến-trúc-room)
 
 ---
 
-## 1. Kết nối và Xác thực cơ bản
+## 1. Kết nối và Xác thực
 
-Để kết nối với Socket.IO server, Frontend cần truyền token xác thực tại thời điểm kết nối ban đầu thông qua `handshake`.
+### Cách kết nối
 
-**Cách truyền token:**
 ```javascript
-const socket = io("YOUR_SERVER_URL", {
-  path: "/socket.io", // Mặc định
+import { io } from "socket.io-client";
+
+const socket = io("YOUR_SERVER_URL/messages", {
   auth: {
-    token: "YOUR_JWT_TOKEN" // Cung cấp access token tại đây
+    token: "YOUR_JWT_TOKEN"
   },
-  // Hoặc dùng query:
-  // query: { token: "YOUR_JWT_TOKEN" }
+  transports: ["websocket"],
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
 });
 ```
-*Lưu ý:* Việc xác thực này được áp dụng cho toàn bộ các connection kể cả đối với các custom namespace. Mỗi user sẽ được map tự động với `userId` được giải mã từ token.
+
+### Quy tắc xác thực
+
+- JWT Token phải được truyền trong `auth.token` khi kết nối
+- Token được giải mã để lấy `userId` từ `sub` claim
+- Nếu token hết hạn hoặc không hợp lệ, connection sẽ bị reject
 
 ---
 
-## 2. Namespace Mặc định (`/`)
+## 2. Namespace `/messages`
 
-Sử dụng cho quản lý trạng thái trực tuyến (Online/Offline) của User.
+### Đặc điểm
 
-- **Kết nối:** `io("YOUR_SERVER_URL")`
+- **URL:** `io("YOUR_SERVER_URL/messages")`
+- **Tự động join rooms:** Khi kết nối thành công, socket tự động join vào:
+  - `user:{userId}` - Nhận tin nhắn cá nhân
+  - `user_room:{userId}` - Nhận typing events
 
-### Events (Client -> Server)
+### Cơ chế Room
 
-#### `heartbeat`
-- **Mô tả:** Frontend gửi sự kiện này định kỳ (VD: mỗi 30s-1m) để báo cho server biết user này vẫn đang hoạt động.
-- **Payload:** Không có
-
-### Events (Server -> Client)
-
-#### `user:online`
-- **Mô tả:** Server phát đi thông báo khi có một user online (hoặc gửi ping qua heartbeat).
-- **Payload:**
-  ```typescript
-  {
-    userId: string;
-  }
-  ```
-
-#### `user:offline`
-- **Mô tả:** Server phát đi thông báo khi một user bị ngắt kết nối khỏi server và offline.
-- **Payload:**
-  ```typescript
-  {
-    userId: string;
-  }
-  ```
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Namespace /messages                   │
+│                                                          │
+│  ┌──────────────┐     ┌──────────────┐                  │
+│  │ user:{userId}│     │group:{convId}│                  │
+│  │  (personal)  │     │   (group)    │                  │
+│  └──────────────┘     └──────────────┘                  │
+│                                                          │
+│  ┌──────────────┐     ┌──────────────┐                  │
+│  │user_room:    │     │group_room:   │                  │
+│  │  {userId}    │     │  {convId}    │                  │
+│  │  (typing)    │     │  (typing)    │                  │
+│  └──────────────┘     └──────────────┘                  │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 3. Namespace Messaging (`/messages`)
+## 3. Events Client -> Server
 
-Sử dụng cho tất cả các tính năng liên quan đến chat, nhắn tin, quản lý nhóm và typing.
+### 3.1 Quản lý Room
 
-- **Kết nối:** `io("YOUR_SERVER_URL/messages")`
+#### `joinGroup` - Tham gia nhóm
 
-*Cơ chế Room:* Khi kết nối vào namespace này, connect của người dùng sẽ tự động join vào các room `user:{userId}` và `user_room:{userId}` để nhận message cá nhân.
+```javascript
+socket.emit("joinGroup", { conversationId: "conv_123" }, (res) => {
+  // res: { success: boolean, message?: string, error?: string }
+});
+```
 
-### Events (Client -> Server)
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|----------|-------|----------|-------|
+| conversationId | string | ✅ | ID cuộc trò chuyện |
 
-#### `joinGroup`
-- **Mô tả:** Client yêu cầu join vào socket room của một nhóm để bắt đầu nhận các sự kiện realtime của room đó (tin nhắn mới, update member, ...).
-- **Payload:**
-  ```typescript
-  {
-    conversationId: string;
+#### `leaveGroup` - Rời nhóm
+
+```javascript
+socket.emit("leaveGroup", { conversationId: "conv_123" }, (res) => {
+  // res: { success: boolean, message?: string, error?: string }
+});
+```
+
+### 3.2 Tin nhắn
+
+#### `sendMessage` - Gửi tin nhắn
+
+```javascript
+socket.emit("sendMessage", {
+  conversationId: "conv_123",
+  text: "Xin chào mọi người!",
+  media: [
+    {
+      fileId: "file_abc123",
+      type: "IMAGE",
+      url: "https://cdn.example.com/image.jpg",
+      thumbnailUrl: "https://cdn.example.com/thumb.jpg",
+    }
+  ]
+}, (res) => {
+  if (res.success) {
+    console.log("Tin nhắn đã gửi:", res.message);
+  } else {
+    console.error("Lỗi:", res.error);
   }
-  ```
-- **Sử dụng Callback (Acknowledgement):**
-  ```javascript
-  socket.emit("joinGroup", { conversationId: "id_nhom" }, (res) => {
-    // res: { success: boolean, message?: string, error?: string }
-  });
-  ```
+});
+```
 
-#### `leaveGroup`
-- **Mô tả:** Client yêu cầu rời socket room của một nhóm hiện tại.
-- **Payload:**
-  ```typescript
-  {
-    conversationId: string;
-  }
-  ```
-- **Callback tương tự như `joinGroup`.**
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|----------|-------|----------|-------|
+| conversationId | string | ✅ | ID cuộc trò chuyện |
+| text | string | ✅* | Nội dung tin nhắn |
+| media | array | ✅* | Danh sách media attachments |
 
-#### `messageSeen`
-- **Mô tả:** Client báo cho server rằng user đã đọc các tin nhắn trong một cuộc trò chuyện tính tới `lastSeenMessageId`.
-- **Payload:**
-  ```typescript
-  {
-    conversationId: string;
-    lastSeenMessageId: string;
-  }
-  ```
-- **Callback để xác nhận:** `(res) => { success: boolean, error?: string }`
+> *Cần có ít nhất `text` hoặc `media`
 
-#### `messageDelivered`
-- **Mô tả:** Client đánh dấu tin nhắn đã được giao thành công tới thiết bị.
-- **Payload:**
-  ```typescript
-  {
-    conversationId: string;
-    lastDeliveredMessageId: string;
-  }
-  ```
-- **Callback để xác nhận:** `(res) => { success: boolean, error?: string }`
+**Rate Limit:** 60 request/phút
 
-#### `typing:start` & `typing:stop`
-- **Mô tả:** Gửi đi khi người dùng bắt đầu/ngừng gõ phím.
-- **Payload:** Truyền đúng `toUserId` Dành cho 1-1, TRÁNH truyền cùng lúc với `groupId` nếu chat nhóm.
-  ```typescript
-  {
-    toUserId?: string; // Nếu chat cá nhân
-    groupId?: string;  // Nếu chat nhóm
-  }
-  ```
+#### `editMessage` - Chỉnh sửa tin nhắn
 
-### Events (Server -> Client)
+```javascript
+socket.emit("editMessage", {
+  messageId: "msg_456",
+  text: "Nội dung đã chỉnh sửa"
+}, (res) => {
+  // res: { success: boolean, message?: MessageObject, error?: string }
+});
+```
 
-#### Trạng thái nhắn tin (`messageSeen`, `messageDelivered`)
-- Khi một user khác seen/nhận được tin nhắn, client sẽ nhận được các event tương ứng.
-- **Payload:**
-  ```typescript
-  {
-    conversationId: string;
-    userId: string; // Tên user vừa seen/nhận
-    lastSeenMessageId?: string; // Nếu là event messageSeen
-    lastDeliveredMessageId?: string; // Nếu là event messageDelivered
-  }
-  ```
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|----------|-------|----------|-------|
+| messageId | string | ✅ | ID tin nhắn cần sửa |
+| text | string | ✅ | Nội dung mới |
 
-#### Sự kiện Typing (`typing:start`, `typing:stop`)
-- Client nhận được khi người khác bắt đầu/ngừng gõ phím.
-- **Payload:** Tương tự như tham số gửi đi, có kèm theo id của người đang gõ (`userId`).
-  ```typescript
-  {
-    userId: string;
-    toUserId?: string; // Nếu chat cá nhân
-    groupId?: string;  // Nếu chat nhóm
-  }
-  ```
+**Rate Limit:** 30 request/phút
 
-#### Các sự kiện Nhóm & Tính năng mở rộng
-- `conversation:created`: Báo cho member khi bị thêm vào vào cuộc trò chuyện mới. Payload là toàn bộ dữ liệu của cuộc trò chuyện (Group Data).
-- `conversation:members_added`: Có user mới được thêm vào. Payload: `{ conversationId: string, newMembers: any[] }`.
-- `conversation:member_removed`: Có người bị xoá/rời nhóm. Payload: `{ conversationId: string, removedUserId: string }`.
-- `conversation:updated`: Cập nhật thông tin hội thoại (tên, avatar...). Payload: `{ conversationId: string, data: any }`.
-- `group:admin_changed`: Cập nhật quyền quản trị. Payload: `{ conversationId: string, targetUserId: string, isAdmin: boolean }`.
-- `group:owner_transferred`: Chuyển quyền trưởng nhóm. Payload: `{ conversationId: string, oldOwnerId: string, newOwnerId: string }`.
-- `group:member_approved`: Phe duyệt yêu cầu tham gia. Payload: `{ conversationId: string, userId: string, member: any }`.
-- `group:member_rejected`: Báo bị từ chối vào nhóm. Payload: `{ conversationId: string, userId: string }`.
-- `group:settings_updated`: Setting của nhóm thay đổi. Payload: `{ conversationId: string, settings: any }`.
+#### `deleteMessage` - Xóa tin nhắn (chỉ tôi)
 
-#### Bầu chọn tham khảo (Polls)
-- `poll:new`: Có bình chọn mới. Payload: `{ conversationId: string, poll: any }`.
-- `poll:vote`: Có người thực hiện vote vào lượt bình chọn. Payload: `{ conversationId: string, pollId: string, userId: string, poll: any }`.
+```javascript
+socket.emit("deleteMessage", {
+  messageId: "msg_456"
+}, (res) => {
+  // res: { success: boolean, error?: string }
+});
+```
+
+#### `revokeMessage` - Thu hồi tin nhắn
+
+```javascript
+socket.emit("revokeMessage", {
+  messageId: "msg_456"
+}, (res) => {
+  // res: { success: boolean, message?: MessageObject, error?: string }
+});
+```
+
+> Chỉ người gửi gốc hoặc admin nhóm mới có quyền thu hồi
+
+**Rate Limit:** 30 request/phút
+
+#### `deleteMessageForEveryone` - Xóa cho mọi người
+
+```javascript
+socket.emit("deleteMessageForEveryone", {
+  messageId: "msg_456"
+}, (res) => {
+  // res: { success: boolean, message?: MessageObject, error?: string }
+});
+```
+
+### 3.3 Trạng thái tin nhắn
+
+#### `messageSeen` - Đánh dấu đã đọc
+
+```javascript
+socket.emit("messageSeen", {
+  conversationId: "conv_123",
+  lastSeenMessageId: "msg_456"
+}, (res) => {
+  // res: { success: boolean, error?: string }
+});
+```
+
+#### `messageDelivered` - Đánh dấu đã giao
+
+```javascript
+socket.emit("messageDelivered", {
+  conversationId: "conv_123",
+  lastDeliveredMessageId: "msg_456"
+}, (res) => {
+  // res: { success: boolean, error?: string }
+});
+```
+
+#### `markAllSeen` - Đánh dấu tất cả đã đọc
+
+```javascript
+socket.emit("markAllSeen", {
+  conversationId: "conv_123"
+}, (res) => {
+  // res: { success: boolean, error?: string }
+});
+```
+
+### 3.4 Reactions
+
+#### `addReaction` - Thêm reaction
+
+```javascript
+socket.emit("addReaction", {
+  messageId: "msg_456",
+  emoji: "👍"
+}, (res) => {
+  // res: { success: boolean, reaction?: ReactionObject, error?: string }
+});
+```
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|----------|-------|----------|-------|
+| messageId | string | ✅ | ID tin nhắn |
+| emoji | string | ✅ | Emoji (VD: "👍", "❤️", "😂") |
+
+**Rate Limit:** 60 request/phút
+
+#### `removeReaction` - Xóa reaction
+
+```javascript
+// Xóa một emoji cụ thể
+socket.emit("removeReaction", {
+  messageId: "msg_456",
+  emoji: "👍"
+}, (res) => {
+  // res: { success: boolean, deletedCount?: number, error?: string }
+});
+
+// Xóa tất cả reactions của user trên tin nhắn
+socket.emit("removeReaction", {
+  messageId: "msg_456"
+}, (res) => {
+  // res: { success: boolean, deletedCount?: number, error?: string }
+});
+```
+
+### 3.5 Typing Indicators
+
+#### `typing:start` - Bắt đầu gõ
+
+```javascript
+// Chat cá nhân
+socket.emit("typing:start", {
+  toUserId: "user_456"
+});
+
+// Chat nhóm
+socket.emit("typing:start", {
+  groupId: "conv_123"
+});
+```
+
+#### `typing:stop` - Ngừng gõ
+
+```javascript
+// Chat cá nhân
+socket.emit("typing:stop", {
+  toUserId: "user_456"
+});
+
+// Chat nhóm
+socket.emit("typing:stop", {
+  groupId: "conv_123"
+});
+```
+
+> **Lưu ý:** Chỉ truyền một trong hai `toUserId` hoặc `groupId`, không truyền cả hai cùng lúc
+
+**Rate Limit:** 30 request/phút
 
 ---
 
-## 4. Namespace Friends (`/friends`)
+## 4. Events Server -> Client
 
-Sử dụng để nhận các realtime notifications liên quan đến kết bạn và lời mời kết bạn (Friend Requests).
+### 4.1 Tin nhắn
 
-- **Kết nối:** `io("YOUR_SERVER_URL/friends")`
+#### `receiveMessage` - Tin nhắn mới
 
-### Events (Client -> Server)
+```javascript
+socket.on("receiveMessage", (data) => {
+  console.log("Tin nhắn mới:", data.message);
+  console.log("Cuộc trò chuyện:", data.conversationId);
+});
+```
 
-#### `ping`
-- **Mô tả:** Client gửi để test trạng thái mạng
-- **Action:** Server sẽ trả lại event `pong`.
-
-### Events (Server -> Client)
-
-Lưu ý chung: Tất cả Payload trả xuống từ namespace này đều được bọc trong một format Notification chuẩn:
+**Payload:**
 ```typescript
-interface NotificationPayload {
-  type: string;
-  data: any;    // Dữ liệu chi tiết của Notification
-  timestamp: string; // Thời gian xảy ra Date string
+{
+  message: {
+    _id: string;
+    conversationId: string;
+    senderId: string;
+    senderName: string;
+    senderAvatar: string;
+    type: "TEXT" | "MEDIA" | "FILE" | "SYSTEM";
+    text?: string;
+    media?: MediaAttachment[];
+    replyTo?: {
+      _id: string;
+      text: string;
+      senderName: string;
+    };
+    reactions?: Reaction[];
+    isPinned: boolean;
+    isRevoked: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  conversationId: string;
 }
 ```
 
-Các sự kiện bạn có thể lắng nghe:
+#### `message:edited` - Tin nhắn đã chỉnh sửa
 
-1. `friend_request:received`: Gửi đến User nhận khi có người yêu cầu kết bạn. Type nội bộ: `FRIEND_REQUEST_RECEIVED`.
-2. `friend_request:accepted`: Gửi khi yêu cầu kết bạn đã được phê duyệt. Type nội bộ: `FRIEND_REQUEST_ACCEPTED`.
-3. `friend_request:rejected`: Gửi khi yêu cầu kết bạn bị từ chối (tuỳ policy hiển thị). Type nội bộ: `FRIEND_REQUEST_REJECTED`.
-4. `friend_request:canceled`: Người gửi huỷ lời mời kết bạn. Type nội bộ: `FRIEND_REQUEST_CANCELED`.
-5. `friendship:unfriended`: Bị huỷ kết bạn bởi user khác. Type nội bộ: `UNFRIENDED`.
+```javascript
+socket.on("message:edited", (data) => {
+  console.log("Cuộc trò chuyện:", data.conversationId);
+  console.log("Tin nhắn đã sửa:", data.message);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  message: MessageObject;
+}
+```
+
+#### `message:deleted` - Tin nhắn đã xóa (cá nhân)
+
+```javascript
+socket.on("message:deleted", (data) => {
+  console.log("Đã xóa trong:", data.conversationId);
+  console.log("ID tin nhắn:", data.messageId);
+  console.log("Người xóa:", data.deletedBy);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  messageId: string;
+  deletedBy: string;
+}
+```
+
+#### `message:deleted_for_everyone` - Tin nhắn đã xóa cho mọi người
+
+```javascript
+socket.on("message:deleted_for_everyone", (data) => {
+  console.log("Đã xóa cho mọi người trong:", data.conversationId);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  messageId: string;
+  deletedBy: string;
+}
+```
+
+#### `message:revoked` - Tin nhắn đã thu hồi
+
+```javascript
+socket.on("message:revoked", (data) => {
+  console.log("Tin nhắn thu hồi:", data.messageId);
+  console.log("Người thu hồi:", data.revokedBy);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  messageId: string;
+  revokedBy: string;
+}
+```
+
+#### `message:pinned` - Tin nhắn đã ghim
+
+```javascript
+socket.on("message:pinned", (data) => {
+  console.log("Tin nhắn được ghim trong:", data.conversationId);
+  console.log("Tin nhắn:", data.message);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  message: MessageObject;
+}
+```
+
+#### `message:unpinned` - Tin nhắn đã bỏ ghim
+
+```javascript
+socket.on("message:unpinned", (data) => {
+  console.log("Tin nhắn bỏ ghim:", data.messageId);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  message: MessageObject;
+}
+```
+
+### 4.2 Trạng thái
+
+#### `messageSeen` - Tin nhắn đã đọc
+
+```javascript
+socket.on("messageSeen", (data) => {
+  console.log("User đã đọc:", data.userId);
+  console.log("Trong cuộc trò chuyện:", data.conversationId);
+  console.log("Tin nhắn cuối đã đọc:", data.lastSeenMessageId);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  userId: string;
+  lastSeenMessageId: string;
+}
+```
+
+#### `messageDelivered` - Tin nhắn đã giao
+
+```javascript
+socket.on("messageDelivered", (data) => {
+  console.log("User nhận được:", data.userId);
+  console.log("Tin nhắn cuối đã giao:", data.lastDeliveredMessageId);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  userId: string;
+  lastDeliveredMessageId: string;
+}
+```
+
+### 4.3 Typing
+
+#### `typing:start` - User đang gõ
+
+```javascript
+socket.on("typing:start", (data) => {
+  console.log("User đang gõ:", data.userId);
+  
+  if (data.toUserId) {
+    console.log("Chat cá nhân với:", data.toUserId);
+  }
+  
+  if (data.groupId) {
+    console.log("Trong nhóm:", data.groupId);
+  }
+});
+```
+
+**Payload (chat cá nhân):**
+```typescript
+{
+  userId: string;
+  toUserId: string;
+}
+```
+
+**Payload (chat nhóm):**
+```typescript
+{
+  userId: string;
+  groupId: string;
+}
+```
+
+#### `typing:stop` - User ngừng gõ
+
+```javascript
+socket.on("typing:stop", (data) => {
+  console.log("User ngừng gõ:", data.userId);
+});
+```
+
+### 4.4 Reactions
+
+#### `message:reaction` - Reaction được thêm
+
+```javascript
+socket.on("message:reaction", (data) => {
+  console.log("Reaction mới trên tin nhắn:", data.messageId);
+  console.log("Reaction:", data.reaction);
+});
+```
+
+**Payload:**
+```typescript
+{
+  messageId: string;
+  reaction: {
+    _id: string;
+    messageId: string;
+    userId: string;
+    emoji: string;
+    createdAt: string;
+  };
+}
+```
+
+#### `message:reaction:remove` - Reaction được xóa
+
+```javascript
+socket.on("message:reaction:remove", (data) => {
+  console.log("User xóa reaction:", data.userId);
+  console.log("Emoji bị xóa:", data.emoji);
+});
+```
+
+**Payload:**
+```typescript
+{
+  messageId: string;
+  userId: string;
+  emoji?: string;
+}
+```
+
+#### `message:reactions:clear` - Tất cả reactions bị xóa
+
+```javascript
+socket.on("message:reactions:clear", (data) => {
+  console.log("Tất cả reactions đã bị xóa");
+});
+```
+
+**Payload:**
+```typescript
+{
+  messageId: string;
+  userId: string;
+}
+```
+
+### 4.5 Cuộc trò chuyện
+
+#### `conversation:created` - Cuộc trò chuyện mới được tạo
+
+```javascript
+socket.on("conversation:created", (data) => {
+  console.log("Cuộc trò chuyện mới:", data.conversation);
+  console.log("Tin nhắn hệ thống:", data.systemMessage);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversation: ConversationObject;
+  systemMessage: MessageObject;
+}
+```
+
+#### `conversation:members_added` - Thành viên được thêm
+
+```javascript
+socket.on("conversation:members_added", (data) => {
+  console.log("Cuộc trò chuyện:", data.conversationId);
+  console.log("Thành viên mới:", data.newMembers);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  newMembers: MemberObject[];
+}
+```
+
+#### `conversation:member_removed` - Thành viên bị xóa/rời
+
+```javascript
+socket.on("conversation:member_removed", (data) => {
+  console.log("Thành viên bị xóa:", data.removedUserId);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  removedUserId: string;
+}
+```
+
+#### `conversation:updated` - Cập nhật thông tin cuộc trò chuyện
+
+```javascript
+socket.on("conversation:updated", (data) => {
+  console.log("Cập nhật trong:", data.conversationId);
+  console.log("Dữ liệu mới:", data.data);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  data: Partial<ConversationObject>;
+}
+```
+
+### 4.6 Nhóm (Groups)
+
+#### `group:admin_changed` - Thay đổi quyền admin
+
+```javascript
+socket.on("group:admin_changed", (data) => {
+  console.log("User được thay đổi quyền:", data.targetUserId);
+  console.log("Có phải admin?", data.isAdmin);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  targetUserId: string;
+  isAdmin: boolean;
+}
+```
+
+#### `group:owner_transferred` - Chuyển quyền trưởng nhóm
+
+```javascript
+socket.on("group:owner_transferred", (data) => {
+  console.log("Chủ nhóm cũ:", data.oldOwnerId);
+  console.log("Chủ nhóm mới:", data.newOwnerId);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  oldOwnerId: string;
+  newOwnerId: string;
+}
+```
+
+#### `group:member_approved` - Phê duyệt thành viên
+
+```javascript
+socket.on("group:member_approved", (data) => {
+  console.log("User được phê duyệt:", data.userId);
+  console.log("Thông tin:", data.member);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  userId: string;
+  member: MemberObject;
+}
+```
+
+#### `group:member_rejected` - Từ chối thành viên
+
+```javascript
+socket.on("group:member_rejected", (data) => {
+  console.log("User bị từ chối:", data.userId);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  userId: string;
+}
+```
+
+#### `group:settings_updated` - Cập nhật cài đặt nhóm
+
+```javascript
+socket.on("group:settings_updated", (data) => {
+  console.log("Cài đặt mới:", data.settings);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  settings: {
+    allowSendLink: boolean;
+    requireApproval: boolean;
+    allowMemberInvite: boolean;
+  };
+}
+```
+
+### 4.7 Bầu chọn (Polls)
+
+#### `poll:new` - Bình chọn mới
+
+```javascript
+socket.on("poll:new", (data) => {
+  console.log("Bình chọn mới trong nhóm:", data.conversationId);
+  console.log("Chi tiết:", data.poll);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  poll: {
+    _id: string;
+    conversationId: string;
+    question: string;
+    options: {
+      _id: string;
+      text: string;
+      voteCount: number;
+    }[];
+    isMultipleChoice: boolean;
+    allowAddOption: boolean;
+    createdBy: string;
+    createdAt: string;
+    expiresAt?: string;
+  };
+}
+```
+
+#### `poll:vote` - Có người bầu chọn
+
+```javascript
+socket.on("poll:vote", (data) => {
+  console.log("User bỏ phiếu:", data.userId);
+  console.log("Bình chọn:", data.poll);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  pollId: string;
+  userId: string;
+  poll: PollObject;
+}
+```
+
+---
+
+## 5. Rate Limits
+
+| Event | Giới hạn | Window |
+|-------|----------|--------|
+| `sendMessage` | 60 | request/phút |
+| `typing:start/stop` | 30 | request/phút |
+| `addReaction` | 60 | request/phút |
+| `editMessage` | 30 | request/phút |
+| `deleteMessage` | 30 | request/phút |
+| `revokeMessage` | 30 | request/phút |
+
+> Khi vượt quá rate limit, server sẽ trả về callback với `error: "Rate limit exceeded. Please slow down."`
+
+---
+
+## 6. Ví dụ Code
+
+### 6.1 Kết nối đầy đủ
+
+```javascript
+import { io } from "socket.io-client";
+
+class ChatSocket {
+  constructor(token) {
+    this.socket = io("https://your-server.com/messages", {
+      auth: { token },
+      transports: ["websocket"],
+    });
+
+    this.setupListeners();
+  }
+
+  setupListeners() {
+    // Tin nhắn
+    this.socket.on("receiveMessage", (data) => this.handleNewMessage(data));
+    this.socket.on("message:edited", (data) => this.handleEditedMessage(data));
+    this.socket.on("message:deleted", (data) => this.handleDeletedMessage(data));
+    this.socket.on("message:revoked", (data) => this.handleRevokedMessage(data));
+
+    // Trạng thái
+    this.socket.on("messageSeen", (data) => this.handleSeen(data));
+    this.socket.on("messageDelivered", (data) => this.handleDelivered(data));
+
+    // Typing
+    this.socket.on("typing:start", (data) => this.handleTypingStart(data));
+    this.socket.on("typing:stop", (data) => this.handleTypingStop(data));
+
+    // Reactions
+    this.socket.on("message:reaction", (data) => this.handleReaction(data));
+    this.socket.on("message:reaction:remove", (data) => this.handleReactionRemove(data));
+
+    // Nhóm
+    this.socket.on("conversation:created", (data) => this.handleNewConversation(data));
+    this.socket.on("conversation:members_added", (data) => this.handleMembersAdded(data));
+    this.socket.on("group:admin_changed", (data) => this.handleAdminChanged(data));
+
+    // Poll
+    this.socket.on("poll:new", (data) => this.handleNewPoll(data));
+    this.socket.on("poll:vote", (data) => this.handlePollVote(data));
+
+    // Connection events
+    this.socket.on("connect", () => console.log("Đã kết nối"));
+    this.socket.on("disconnect", () => console.log("Mất kết nối"));
+    this.socket.on("connect_error", (err) => console.error("Lỗi kết nối:", err));
+  }
+
+  // Join/Leave group
+  joinGroup(conversationId) {
+    return new Promise((resolve, reject) => {
+      this.socket.emit("joinGroup", { conversationId }, (res) => {
+        res.success ? resolve(res) : reject(new Error(res.error));
+      });
+    });
+  }
+
+  leaveGroup(conversationId) {
+    return new Promise((resolve, reject) => {
+      this.socket.emit("leaveGroup", { conversationId }, (res) => {
+        res.success ? resolve(res) : reject(new Error(res.error));
+      });
+    });
+  }
+
+  // Tin nhắn
+  sendMessage(conversationId, text, media = []) {
+    return new Promise((resolve, reject) => {
+      this.socket.emit("sendMessage", { conversationId, text, media }, (res) => {
+        res.success ? resolve(res.message) : reject(new Error(res.error));
+      });
+    });
+  }
+
+  editMessage(messageId, text) {
+    return new Promise((resolve, reject) => {
+      this.socket.emit("editMessage", { messageId, text }, (res) => {
+        res.success ? resolve(res.message) : reject(new Error(res.error));
+      });
+    });
+  }
+
+  // Trạng thái
+  markAsSeen(conversationId, lastSeenMessageId) {
+    this.socket.emit("messageSeen", { conversationId, lastSeenMessageId });
+  }
+
+  // Typing
+  startTyping(conversationId, isGroup) {
+    const payload = isGroup ? { groupId: conversationId } : { toUserId: conversationId };
+    this.socket.emit("typing:start", payload);
+  }
+
+  stopTyping(conversationId, isGroup) {
+    const payload = isGroup ? { groupId: conversationId } : { toUserId: conversationId };
+    this.socket.emit("typing:stop", payload);
+  }
+
+  // Reactions
+  addReaction(messageId, emoji) {
+    return new Promise((resolve, reject) => {
+      this.socket.emit("addReaction", { messageId, emoji }, (res) => {
+        res.success ? resolve(res.reaction) : reject(new Error(res.error));
+      });
+    });
+  }
+
+  removeReaction(messageId, emoji) {
+    return new Promise((resolve, reject) => {
+      this.socket.emit("removeReaction", { messageId, emoji }, (res) => {
+        res.success ? resolve(res.deletedCount) : reject(new Error(res.error));
+      });
+    });
+  }
+
+  disconnect() {
+    this.socket.disconnect();
+  }
+}
+
+// Sử dụng
+const chatSocket = new ChatSocket("jwt-token-here");
+await chatSocket.joinGroup("conv_123");
+const message = await chatSocket.sendMessage("conv_123", "Hello!");
+```
+
+### 6.2 Xử lý Reconnection
+
+```javascript
+class ChatSocket {
+  constructor(token) {
+    this.token = token;
+    this.joinedGroups = new Set();
+    this.connect();
+  }
+
+  connect() {
+    this.socket = io("https://your-server.com/messages", {
+      auth: { token: this.token },
+    });
+
+    this.socket.on("connect", () => {
+      console.log("Đã kết nối");
+      // Re-join các group đã tham gia
+      this.joinedGroups.forEach((groupId) => {
+        this.socket.emit("joinGroup", { conversationId: groupId });
+      });
+    });
+
+    this.socket.on("disconnect", (reason) => {
+      console.log("Mất kết nối:", reason);
+    });
+  }
+
+  async joinGroup(conversationId) {
+    this.joinedGroups.add(conversationId);
+    return new Promise((resolve, reject) => {
+      this.socket.emit("joinGroup", { conversationId }, (res) => {
+        res.success ? resolve(res) : reject(new Error(res.error));
+      });
+    });
+  }
+}
+```
+
+### 6.3 Typing với Debounce
+
+```javascript
+class TypingManager {
+  constructor(socket, conversationId, isGroup) {
+    this.socket = socket;
+    this.conversationId = conversationId;
+    this.isGroup = isGroup;
+    this.timeout = null;
+  }
+
+  onType() {
+    // Gửi typing:start lần đầu
+    if (!this.typing) {
+      const payload = this.isGroup
+        ? { groupId: this.conversationId }
+        : { toUserId: this.conversationId };
+      this.socket.emit("typing:start", payload);
+      this.typing = true;
+    }
+
+    // Reset timeout
+    clearTimeout(this.timeout);
+
+    // Sau 3s không gõ nữa thì gửi typing:stop
+    this.timeout = setTimeout(() => {
+      this.stopTyping();
+    }, 3000);
+  }
+
+  stopTyping() {
+    clearTimeout(this.timeout);
+    if (this.typing) {
+      const payload = this.isGroup
+        ? { groupId: this.conversationId }
+        : { toUserId: this.conversationId };
+      this.socket.emit("typing:stop", payload);
+      this.typing = false;
+    }
+  }
+}
+
+// Sử dụng
+const typing = new TypingManager(socket, "conv_123", true);
+
+inputElement.addEventListener("input", () => {
+  typing.onType();
+});
+
+sendButton.addEventListener("click", () => {
+  typing.stopTyping();
+  // Gửi tin nhắn...
+});
+```
+
+---
+
+## 7. Kiến trúc Room
+
+### 7.1 Room Naming Convention
+
+```
+user:{userId}           → Nhận tin nhắn cá nhân
+user_room:{userId}       → Nhận typing indicators 1-1
+group:{conversationId}  → Nhận tin nhắn nhóm
+group_room:{conversationId} → Nhận typing indicators nhóm
+```
+
+### 7.2 Flow gửi tin nhắn
+
+```
+1. Client A gửi sendMessage
+       ↓
+2. Server xử lý và lưu vào DB
+       ↓
+3. Server lấy danh sách thành viên
+       ↓
+4. Server emit "receiveMessage" tới từng user
+       ↓
+5. Client B, C, D nhận được tin nhắn mới
+```
+
+### 7.3 Flow typing indicator
+
+```
+1. Client A bắt đầu gõ
+       ↓
+2. Emit "typing:start" với groupId
+       ↓
+3. Server emit tới room "group_room:{conversationId}"
+       ↓
+4. Clients B, C, D nhận "typing:start"
+       ↓
+5. Client A ngừng gõ (hoặc timeout 3s)
+       ↓
+6. Emit "typing:stop"
+       ↓
+7. Server emit tới room
+       ↓
+8. Clients B, C, D nhận "typing:stop"
+```
+
+---
+
+## 8. Data Models
+
+### Message Object
+
+```typescript
+interface Message {
+  _id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string;
+  type: "TEXT" | "MEDIA" | "FILE" | "SYSTEM";
+  text?: string;
+  media?: MediaAttachment[];
+  replyTo?: {
+    _id: string;
+    text: string;
+    senderName: string;
+  };
+  reactions?: Reaction[];
+  isPinned: boolean;
+  isRevoked: boolean;
+  createdAt: string;
+  updatedAt: string;
+  seenBy?: string[];
+  deliveredTo?: string[];
+}
+
+interface MediaAttachment {
+  fileId: string;
+  type: "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT";
+  url: string;
+  thumbnailUrl?: string;
+  filename: string;
+  size: number;
+  width?: number;
+  height?: number;
+  duration?: number;
+}
+
+interface Reaction {
+  emoji: string;
+  count: number;
+  userIds: string[];
+}
+```
+
+### Conversation Object
+
+```typescript
+interface Conversation {
+  _id: string;
+  name: string;
+  type: "PRIVATE" | "GROUP";
+  avatarUrl?: string;
+  ownerId: string;
+  adminIds: string[];
+  members: Member[];
+  settings: {
+    allowSendLink: boolean;
+    requireApproval: boolean;
+    allowMemberInvite: boolean;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+### Member Object
+
+```typescript
+interface Member {
+  _id: string;
+  userId: string;
+  name: string;
+  avatar: string;
+  role: "OWNER" | "ADMIN" | "MEMBER";
+  joinedAt: string;
+}
+```
+
+### Poll Object
+
+```typescript
+interface Poll {
+  _id: string;
+  conversationId: string;
+  question: string;
+  options: {
+    _id: string;
+    text: string;
+    voteCount: number;
+  }[];
+  isMultipleChoice: boolean;
+  allowAddOption: boolean;
+  createdBy: string;
+  createdAt: string;
+  expiresAt?: string;
+  totalVotes: number;
+}
+```
+
+---
+
+## 9. Error Handling
+
+### Callback Error Response
+
+```javascript
+socket.emit("sendMessage", { conversationId, text }, (res) => {
+  if (!res.success) {
+    switch (res.error) {
+      case "Unauthorized":
+        // Token hết hạn, cần refresh
+        break;
+      case "Rate limit exceeded. Please slow down.":
+        // Quá rate limit, đợi một chút
+        break;
+      default:
+        // Lỗi khác
+        console.error("Lỗi:", res.error);
+    }
+  }
+});
+```
+
+### Common Error Codes
+
+| Error | Mô tả | Hành động |
+|-------|-------|-----------|
+| `Unauthorized` | Token không hợp lệ | Refresh token |
+| `Rate limit exceeded` | Quá giới hạn request | Đợi và thử lại |
+| `conversationId is required` | Thiếu conversationId | Kiểm tra payload |
+| `Either text or media is required` | Cần có nội dung | Thêm text hoặc media |
+| `Message not found` | Tin nhắn không tồn tại | Refresh chat |

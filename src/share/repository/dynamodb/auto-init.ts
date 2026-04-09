@@ -70,8 +70,16 @@ const tableConfigs: TableConfig[] = [
     AttributeDefinitions: [
       { AttributeName: "pk", AttributeType: "S" },
       { AttributeName: "sk", AttributeType: "S" },
+      { AttributeName: "id", AttributeType: "S" },
     ],
     BillingMode: "PAY_PER_REQUEST",
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "id-index",
+        KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
   },
   {
     TableName: getTableName(TABLE_NAMES.MESSAGES),

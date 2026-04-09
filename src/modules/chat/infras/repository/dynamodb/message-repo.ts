@@ -1,10 +1,5 @@
-import {
-  Message,
-} from "../../../model";
-import {
-  MessageCondDTO,
-  MessageUpdateDTO,
-} from "../../../model/dto";
+import { Message } from "../../../model";
+import { MessageCondDTO, MessageUpdateDTO } from "../../../model/dto";
 import {
   BaseQueryRepositoryDynamoDB,
   BaseCommandRepositoryDynamoDB,
@@ -13,7 +8,9 @@ import {
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import {
   QueryCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { BatchWriteItemCommand } from "@aws-sdk/client-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
 class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
@@ -30,6 +27,10 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
     return {
       id: doc.id || sk?.split("#")[2],
       conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
+      createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(),
+      editedAt: doc.editedAt ? new Date(doc.editedAt) : null,
+      deletedAt: doc.deletedAt ? new Date(doc.deletedAt) : null,
+      pinnedAt: doc.pinnedAt ? new Date(doc.pinnedAt) : null,
       ...rest,
     } as Message;
   }
@@ -60,6 +61,20 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
 
     return { messages, nextCursor };
   }
+
+  async getById(id: string): Promise<Message | null> {
+    const docClient = getDocClient();
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: getTableName(TABLE_NAMES.MESSAGES),
+        IndexName: "id-index",
+        KeyConditionExpression: "id = :id",
+        ExpressionAttributeValues: { ":id": id },
+        Limit: 1,
+      }),
+    );
+    return result.Items && result.Items.length > 0 ? this.toEntity(result.Items[0]) : null;
+  }
 }
 
 class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
@@ -69,6 +84,48 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
 > {
   constructor() {
     super(TABLE_NAMES.MESSAGES, false);
+  }
+
+  async update(id: string, data: MessageUpdateDTO): Promise<boolean> {
+    const docClient = getDocClient();
+    const getResult = await docClient.send(
+      new QueryCommand({
+        TableName: this.getTableName(),
+        IndexName: "id-index",
+        KeyConditionExpression: "id = :id",
+        ExpressionAttributeValues: { ":id": id },
+        Limit: 1,
+      }),
+    );
+    if (!getResult.Items || getResult.Items.length === 0) return false;
+
+    const item = getResult.Items[0];
+    const updateData = this.beforeUpdate(id, data);
+    if (Object.keys(updateData).length === 0) return true;
+
+    const updateExpressions: string[] = [];
+    const expressionAttributeNames: Record<string, string> = {};
+    const expressionAttributeValues: Record<string, any> = {};
+    let idx = 0;
+    for (const [key, value] of Object.entries(updateData)) {
+      const nameKey = `#attr${idx}`;
+      const valueKey = `:val${idx}`;
+      updateExpressions.push(`${nameKey} = ${valueKey}`);
+      expressionAttributeNames[nameKey] = key;
+      expressionAttributeValues[valueKey] = value;
+      idx++;
+    }
+
+    await docClient.send(
+      new UpdateCommand({
+        TableName: this.getTableName(),
+        Key: { pk: item.pk, sk: item.sk },
+        UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: expressionAttributeValues,
+      }),
+    );
+    return true;
   }
 
   protected beforeInsert(data: Message): Record<string, any> {
@@ -115,7 +172,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     const tableName = getTableName(TABLE_NAMES.MESSAGES);
     const BATCH_SIZE = 25;
 
-    const chunks = [];
+    const chunks: Message[][] = [];
     for (let i = 0; i < messages.length; i += BATCH_SIZE) {
       chunks.push(messages.slice(i, i + BATCH_SIZE));
     }
@@ -126,7 +183,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
       }));
 
       await docClient.send(
-        new (await import("@aws-sdk/client-dynamodb")).BatchWriteItemCommand({
+        new BatchWriteItemCommand({
           RequestItems: {
             [tableName]: putRequests,
           },

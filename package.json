@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:chat:socket": "jest --config test/jest.config.js --forceExit",
+    "test:messaging": "ts-node test-messaging-api.ts",
     "demo": "ts-node src/index.ts",
     "start": "nodemon src/index.ts",
-    "test:messaging": "ts-node test-messaging-api.ts",
     "dynamodb:init": "ts-node scripts/init-dynamodb-tables.ts",
     "dynamodb:reset": "ts-node scripts/init-dynamodb-tables.ts --delete"
   },
@@ -17,6 +20,7 @@
     "@types/bcrypt": "^5.0.2",
     "@types/dotenv": "^8.2.0",
     "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.12",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/module-alias": "^2.0.4",
     "@types/morgan": "^1.9.9",
@@ -25,7 +29,9 @@
     "@types/swagger-ui-express": "^4.1.8",
     "@types/uuid": "^10.0.0",
     "@types/yamljs": "^0.2.34",
+    "jest": "^29.7.0",
     "nodemon": "^3.1.11",
+    "ts-jest": "^29.2.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2"
   },
