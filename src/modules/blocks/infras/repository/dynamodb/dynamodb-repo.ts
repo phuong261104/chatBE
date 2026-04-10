@@ -22,11 +22,15 @@ class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<
     return { ...rest } as Block;
   }
 
-  protected buildFilterExpression(cond: BlockCondDTO): string {
+  protected buildFilterExpression(cond: BlockCondDTO): string | undefined {
     const conditions: string[] = [];
-    if (cond.blockerId) conditions.push("blockerId = :blockerId");
-    if (cond.blockedUserId) conditions.push("blockedUserId = :blockedUserId");
-    return conditions.join(" AND ");
+    if (cond.blockerId) conditions.push("#blockerId = :blockerId");
+    if (cond.blockedUserId) conditions.push("#blockedUserId = :blockedUserId");
+    return conditions.length > 0 ? conditions.join(" AND ") : undefined;
+  }
+
+  protected buildAttributeNames(_cond: BlockCondDTO): Record<string, string> {
+    return { "#blockerId": "blockerId", "#blockedUserId": "blockedUserId" };
   }
 
   protected buildAttributeValues(cond: BlockCondDTO): Record<string, any> {

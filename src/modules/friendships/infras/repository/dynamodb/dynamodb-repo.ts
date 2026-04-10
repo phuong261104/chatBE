@@ -23,11 +23,11 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
     return { ...rest } as Friendship;
   }
 
-  protected buildFilterExpression(cond: FriendshipCondDTO): string {
+  protected buildFilterExpression(cond: FriendshipCondDTO): string | undefined {
     const conditions: string[] = [];
     if (cond.userA) conditions.push("userA = :userA");
     if (cond.userB) conditions.push("userB = :userB");
-    return conditions.join(" AND ");
+    return conditions.length > 0 ? conditions.join(" AND ") : undefined;
   }
 
   protected buildAttributeValues(cond: FriendshipCondDTO): Record<string, any> {

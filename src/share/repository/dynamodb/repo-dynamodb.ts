@@ -135,8 +135,8 @@ export abstract class BaseQueryRepositoryDynamoDB<
     return undefined;
   }
 
-  protected buildAttributeNames(_cond: Cond): Record<string, string> {
-    return {};
+  protected buildAttributeNames(_cond: Cond): Record<string, string> | undefined {
+    return undefined;
   }
 
   protected buildAttributeValues(_cond: Cond): Record<string, any> {

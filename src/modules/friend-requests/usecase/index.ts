@@ -17,17 +17,13 @@ import {
   ErrFriendRequestUnauthorized,
   ErrFriendRequestUserBlocked
 } from '../model';
-import { MongoFriendRequestRepository } from '../infras/repository';
-import { MongoBlockRepository } from '@modules/blocks/infras/repository/nosql/mongodb-repo';
-import { MongoFriendshipRepository } from '@modules/friendships/infras/repository/nosql/mongodb-repo';
-import { MongoUserRepository } from '@modules/user/infras/repository/nosql/mongodb-repo';
 
 export class FriendRequestUseCase implements IFriendRequestUseCase {
   constructor(
-    private readonly repository: MongoFriendRequestRepository,
-    private readonly blockRepository: MongoBlockRepository,
-    private readonly friendshipRepository: MongoFriendshipRepository,
-    private readonly userRepository: MongoUserRepository
+    private readonly repository: any,
+    private readonly blockRepository: any,
+    private readonly friendshipRepository: any,
+    private readonly userRepository: any
   ) {}
 
   async sendFriendRequest(fromUserId: string, toUserId: string): Promise<string> {

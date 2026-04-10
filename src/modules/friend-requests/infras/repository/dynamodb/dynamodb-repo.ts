@@ -6,7 +6,7 @@ import {
   BaseRepositoryDynamoDB,
 } from "@share/repository/dynamodb/repo-dynamodb";
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
-import { PutCommand, QueryCommand, UpdateCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 import { PagingDTO } from "@share/model/paging";
 
@@ -28,24 +28,110 @@ class DynamoFriendRequestQueryRepository extends BaseQueryRepositoryDynamoDB<
     } as FriendRequest;
   }
 
+  private async queryBySenderId(
+    senderId: string,
+    status?: string,
+    limit?: number,
+  ): Promise<FriendRequest[]> {
+    const docClient = getDocClient();
+    const values: Record<string, any> = { ":senderId": senderId };
+    const filterParts: string[] = [];
+
+    if (status) {
+      filterParts.push("#status = :status");
+      values[":status"] = status;
+    }
+
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: this.getTableName(),
+        IndexName: "senderId-index",
+        KeyConditionExpression: "#senderId = :senderId",
+        ExpressionAttributeNames: { "#senderId": "senderId", ...(status ? { "#status": "status" } : {}) },
+        FilterExpression: filterParts.length > 0 ? filterParts.join(" AND ") : undefined,
+        ExpressionAttributeValues: values,
+        Limit: limit,
+      }),
+    ) as any;
+    return (result.Items || []).map((item: any) => this.toEntity(item));
+  }
+
+  private async queryByReceiverId(
+    receiverId: string,
+    status?: string,
+    limit?: number,
+  ): Promise<FriendRequest[]> {
+    const docClient = getDocClient();
+    const values: Record<string, any> = { ":receiverId": receiverId };
+    const filterParts: string[] = [];
+
+    if (status) {
+      filterParts.push("#status = :status");
+      values[":status"] = status;
+    }
+
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: this.getTableName(),
+        IndexName: "receiverId-index",
+        KeyConditionExpression: "#receiverId = :receiverId",
+        ExpressionAttributeNames: { "#receiverId": "receiverId", ...(status ? { "#status": "status" } : {}) },
+        FilterExpression: filterParts.length > 0 ? filterParts.join(" AND ") : undefined,
+        ExpressionAttributeValues: values,
+        Limit: limit,
+      }),
+    ) as any;
+    return (result.Items || []).map((item: any) => this.toEntity(item));
+  }
+
   async list(cond: FriendRequestCondDTO, paging: PagingDTO): Promise<FriendRequest[]> {
+    const { $or, ...restCond } = cond as any;
+    const limit = paging.limit || 50;
+
+    if ($or && Array.isArray($or) && $or.length > 0) {
+      const orResults = await Promise.all(
+        $or.map((orCond: any) =>
+          this.list({ ...orCond, ...restCond } as FriendRequestCondDTO, { ...paging, limit: 1000 }),
+        ),
+      );
+      const merged = orResults.flat();
+      const seen = new Set<string>();
+      const unique: FriendRequest[] = [];
+      for (const item of merged) {
+        const id = (item as any).id;
+        if (!seen.has(id)) {
+          seen.add(id);
+          unique.push(item);
+        }
+      }
+      return unique.slice(0, limit);
+    }
+
+    if (restCond.fromUserId && !restCond.toUserId) {
+      return this.queryBySenderId(restCond.fromUserId, restCond.status, limit);
+    }
+
+    if (restCond.toUserId && !restCond.fromUserId) {
+      return this.queryByReceiverId(restCond.toUserId, restCond.status, limit);
+    }
+
     const docClient = getDocClient();
     const conditions: string[] = [];
     const values: Record<string, any> = {};
     const names: Record<string, string> = {};
 
-    if (cond.fromUserId) {
+    if (restCond.fromUserId) {
       conditions.push("fromUserId = :fromUserId");
-      values[":fromUserId"] = cond.fromUserId;
+      values[":fromUserId"] = restCond.fromUserId;
     }
-    if (cond.toUserId) {
+    if (restCond.toUserId) {
       conditions.push("toUserId = :toUserId");
-      values[":toUserId"] = cond.toUserId;
+      values[":toUserId"] = restCond.toUserId;
     }
-    if (cond.status) {
+    if (restCond.status) {
       conditions.push("#st = :status");
       names["#st"] = "status";
-      values[":status"] = cond.status;
+      values[":status"] = restCond.status;
     }
 
     const filterExpr = conditions.length > 0 ? conditions.join(" AND ") : undefined;
@@ -56,7 +142,7 @@ class DynamoFriendRequestQueryRepository extends BaseQueryRepositoryDynamoDB<
         FilterExpression: filterExpr,
         ExpressionAttributeNames: Object.keys(names).length > 0 ? names : undefined,
         ExpressionAttributeValues: Object.keys(values).length > 0 ? values : undefined,
-        Limit: paging.limit || 50,
+        Limit: limit,
       }),
     ) as any;
     return (result.Items || []).map((item: any) => this.toEntity(item));
@@ -68,43 +154,15 @@ class DynamoFriendRequestQueryRepository extends BaseQueryRepositoryDynamoDB<
   }
 
   async findPendingRequestsForUser(userId: string): Promise<FriendRequest[]> {
-    const docClient = getDocClient();
-    const result = await docClient.send(
-      new ScanCommand({
-        TableName: getTableName(TABLE_NAMES.FRIEND_REQUESTS),
-        FilterExpression: "toUserId = :userId AND #st = :status",
-        ExpressionAttributeNames: { "#st": "status" },
-        ExpressionAttributeValues: {
-          ":userId": userId,
-          ":status": "pending",
-        },
-      }),
-    ) as any;
-    return (result.Items || []).map((item: any) => this.toEntity(item));
+    return this.queryByReceiverId(userId, "pending");
   }
 
   async listBySenderId(senderId: string): Promise<FriendRequest[]> {
-    const docClient = getDocClient();
-    const result = await docClient.send(
-      new ScanCommand({
-        TableName: getTableName(TABLE_NAMES.FRIEND_REQUESTS),
-        FilterExpression: "fromUserId = :fromUserId",
-        ExpressionAttributeValues: { ":fromUserId": senderId },
-      }),
-    ) as any;
-    return (result.Items || []).map((item: any) => this.toEntity(item));
+    return this.queryBySenderId(senderId);
   }
 
   async listByReceiverId(receiverId: string): Promise<FriendRequest[]> {
-    const docClient = getDocClient();
-    const result = await docClient.send(
-      new ScanCommand({
-        TableName: getTableName(TABLE_NAMES.FRIEND_REQUESTS),
-        FilterExpression: "toUserId = :receiverId",
-        ExpressionAttributeValues: { ":receiverId": receiverId },
-      }),
-    ) as any;
-    return (result.Items || []).map((item: any) => this.toEntity(item));
+    return this.queryByReceiverId(receiverId);
   }
 }
 

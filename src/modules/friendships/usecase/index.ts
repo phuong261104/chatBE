@@ -16,16 +16,13 @@ import {
   MutualFriendDTO,
   FriendSuggestionDTO
 } from '../model';
-import { MongoFriendshipRepository } from '../infras/repository';
-import { MongoUserRepository } from '@modules/user/infras/repository/nosql/mongodb-repo';
-import { MongoFriendRequestRepository } from '@modules/friend-requests/infras/repository/nosql/mongodb-repo';
 import { FriendRequestStatus } from '@modules/friend-requests/model/model';
 
 export class FriendshipUseCase implements IFriendshipUseCase {
   constructor(
-    private readonly repository: MongoFriendshipRepository,
-    private readonly userRepository: MongoUserRepository,
-    private readonly friendRequestRepository: MongoFriendRequestRepository
+    private readonly repository: any,
+    private readonly userRepository: any,
+    private readonly friendRequestRepository: any
   ) {}
 
   async getFriendsList(userId: string): Promise<Friendship[]> {
@@ -59,26 +56,18 @@ export class FriendshipUseCase implements IFriendshipUseCase {
       throw AppError.from(ErrFriendshipNotFound, 404);
     }
 
-    const requests = await this.friendRequestRepository.list(
-      {
-        fromUserId: userId,
-        toUserId: friendId,
-        status: FriendRequestStatus.PENDING
-      },
-      { page: 1, limit: 100 }
-    );
+    const [requests, reverseRequests]: [any[], any[]] = [
+      await this.friendRequestRepository.listBySenderId(userId),
+      await this.friendRequestRepository.listByReceiverId(userId),
+    ];
 
-    const reverseRequests = await this.friendRequestRepository.list(
-      {
-        fromUserId: friendId,
-        toUserId: userId,
-        status: FriendRequestStatus.PENDING
-      },
-      { page: 1, limit: 100 }
-    );
+    const pendingIds: string[] = requests
+      .concat(reverseRequests)
+      .filter((r: any) => r.status === FriendRequestStatus.PENDING && (r.fromUserId === friendId || r.toUserId === friendId))
+      .map((r: any) => r.id);
 
-    for (const request of [...requests, ...reverseRequests]) {
-      await this.friendRequestRepository.delete(request.id, true);
+    for (const id of pendingIds) {
+      await this.friendRequestRepository.delete(id, true);
     }
 
     return true;
@@ -91,10 +80,8 @@ export class FriendshipUseCase implements IFriendshipUseCase {
       throw AppError.from(ErrFriendshipSelfFriendship, 400);
     }
 
-    // Sort to ensure consistent storage
     const [userA, userB] = [dto.userA, dto.userB].sort();
 
-    // Check if already exists
     const existing = await this.repository.findByCond({ userA, userB });
     if (existing) {
       throw AppError.from(ErrFriendshipAlreadyExists, 400);
@@ -144,8 +131,8 @@ export class FriendshipUseCase implements IFriendshipUseCase {
       throw AppError.from(ErrFriendshipUserNotFound, 404);
     }
 
-    const mutualFriendIds = await this.repository.getMutualFriendIds(userId, targetUserId);
-    const limitedIds = mutualFriendIds.slice(0, limit);
+    const mutualFriendIds: string[] = await this.repository.getMutualFriendIds(userId, targetUserId);
+    const limitedIds: string[] = mutualFriendIds.slice(0, limit);
 
     const users = await Promise.all(
       limitedIds.map((id) => this.userRepository.get(id))
@@ -162,17 +149,14 @@ export class FriendshipUseCase implements IFriendshipUseCase {
   }
 
   async getFriendSuggestions(userId: string, limit: number = 20): Promise<FriendSuggestionDTO[]> {
-    const myFriendIds = new Set(await this.repository.getFriendIds(userId));
+    const myFriendIds = new Set<string>(await this.repository.getFriendIds(userId));
 
-    const pendingRequests = await this.friendRequestRepository.list(
-      {
-        $or: [
-          { fromUserId: userId },
-          { toUserId: userId }
-        ],
-        status: FriendRequestStatus.PENDING
-      },
-      { page: 1, limit: 1000 }
+    const [sentRequests, receivedRequests] = await Promise.all([
+      this.friendRequestRepository.listBySenderId(userId),
+      this.friendRequestRepository.listByReceiverId(userId),
+    ]);
+    const pendingRequests = [...sentRequests, ...receivedRequests].filter(
+      (r) => r.status === FriendRequestStatus.PENDING,
     );
 
     const pendingUserIds = new Set<string>();
