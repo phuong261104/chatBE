@@ -29,16 +29,16 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
   }
 
   protected toEntity(doc: Record<string, any>): ConversationMember {
-    const { pk, sk, ...rest } = doc;
+    const { pk, sk, joinedAt, leftAt, lastReadAt, muteUntil, updatedAt, ...rest } = doc;
     return {
+      ...rest,
       id: doc.id || sk?.replace("MEM#", ""),
       conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
-      joinedAt: doc.joinedAt ? new Date(doc.joinedAt) : new Date(),
-      leftAt: doc.leftAt ? new Date(doc.leftAt) : null,
-      lastReadAt: doc.lastReadAt ? new Date(doc.lastReadAt) : null,
-      muteUntil: doc.muteUntil ? new Date(doc.muteUntil) : null,
-      updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : new Date(),
-      ...rest,
+      joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
+      leftAt: leftAt ? new Date(leftAt) : null,
+      lastReadAt: lastReadAt ? new Date(lastReadAt) : null,
+      muteUntil: muteUntil ? new Date(muteUntil) : null,
+      updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
     } as ConversationMember;
   }
 

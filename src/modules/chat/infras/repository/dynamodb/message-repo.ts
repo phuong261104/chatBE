@@ -9,8 +9,8 @@ import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import {
   QueryCommand,
   UpdateCommand,
+  PutCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { BatchWriteItemCommand } from "@aws-sdk/client-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
 class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
@@ -23,15 +23,15 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
   }
 
   protected toEntity(doc: Record<string, any>): Message {
-    const { pk, sk, GSI1PK, GSI1SK, ...rest } = doc;
+    const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, pinnedAt, ...rest } = doc;
     return {
+      ...rest,
       id: doc.id || sk?.split("#")[2],
       conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
-      createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(),
-      editedAt: doc.editedAt ? new Date(doc.editedAt) : null,
-      deletedAt: doc.deletedAt ? new Date(doc.deletedAt) : null,
-      pinnedAt: doc.pinnedAt ? new Date(doc.pinnedAt) : null,
-      ...rest,
+      createdAt: createdAt ? new Date(createdAt) : new Date(),
+      editedAt: editedAt ? new Date(editedAt) : null,
+      deletedAt: deletedAt ? new Date(deletedAt) : null,
+      pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
     } as Message;
   }
 
@@ -75,6 +75,10 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
     );
     return result.Items && result.Items.length > 0 ? this.toEntity(result.Items[0]) : null;
   }
+
+  async get(id: string): Promise<Message | null> {
+    return await this.getById(id);
+  }
 }
 
 class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
@@ -88,9 +92,10 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
 
   async update(id: string, data: MessageUpdateDTO): Promise<boolean> {
     const docClient = getDocClient();
+    const tableName = this.getTableName();
     const getResult = await docClient.send(
       new QueryCommand({
-        TableName: this.getTableName(),
+        TableName: tableName,
         IndexName: "id-index",
         KeyConditionExpression: "id = :id",
         ExpressionAttributeValues: { ":id": id },
@@ -118,7 +123,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
 
     await docClient.send(
       new UpdateCommand({
-        TableName: this.getTableName(),
+        TableName: tableName,
         Key: { pk: item.pk, sk: item.sk },
         UpdateExpression: `SET ${updateExpressions.join(", ")}`,
         ExpressionAttributeNames: expressionAttributeNames,
@@ -170,23 +175,13 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
 
     const docClient = getDocClient();
     const tableName = getTableName(TABLE_NAMES.MESSAGES);
-    const BATCH_SIZE = 25;
 
-    const chunks: Message[][] = [];
-    for (let i = 0; i < messages.length; i += BATCH_SIZE) {
-      chunks.push(messages.slice(i, i + BATCH_SIZE));
-    }
-
-    for (const chunk of chunks) {
-      const putRequests = chunk.map((msg) => ({
-        PutRequest: { Item: this.beforeInsert(msg) },
-      }));
-
+    for (const msg of messages) {
+      const item = this.beforeInsert(msg);
       await docClient.send(
-        new BatchWriteItemCommand({
-          RequestItems: {
-            [tableName]: putRequests,
-          },
+        new PutCommand({
+          TableName: tableName,
+          Item: item,
         }),
       );
     }
@@ -201,8 +196,13 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
   MessageUpdateDTO,
   typeof TABLE_NAMES.MESSAGES
 > {
+  private readonly _cmdRepo: DynamoMessageCommandRepository;
+
   constructor() {
-    super(new DynamoMessageQueryRepository(), new DynamoMessageCommandRepository());
+    const q = new DynamoMessageQueryRepository();
+    const c = new DynamoMessageCommandRepository();
+    super(q, c);
+    this._cmdRepo = c;
   }
 
   async listWithCursor(
@@ -210,8 +210,8 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
     cursor: string | undefined,
     limit: number,
   ): Promise<Message[]> {
-    const queryRepo = new DynamoMessageQueryRepository();
-    const result = await queryRepo.listByConversation(conversationId, limit, cursor);
+    const q = new DynamoMessageQueryRepository();
+    const result = await q.listByConversation(conversationId, limit, cursor);
     return result.messages;
   }
 
@@ -229,15 +229,21 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
         },
       }),
     );
-    return (result.Items || []).map((item) => this.convertMessage(item));
+    return (result.Items || []).map((item) => {
+      const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, pinnedAt, ...rest } = item;
+      return {
+        ...rest,
+        id: item.id || sk?.split("#")[2],
+        conversationId: item.conversationId || item.pk?.replace("CONV#", ""),
+        createdAt: createdAt ? new Date(createdAt) : new Date(),
+        editedAt: editedAt ? new Date(editedAt) : null,
+        deletedAt: deletedAt ? new Date(deletedAt) : null,
+        pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
+      } as Message;
+    });
   }
 
-  private convertMessage(doc: Record<string, any>): Message {
-    const { pk, sk, GSI1PK, GSI1SK, ...rest } = doc;
-    return {
-      id: doc.id || sk?.split("#")[2],
-      conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
-      ...rest,
-    } as Message;
+  async batchInsert(messages: Message[]): Promise<boolean> {
+    return await this._cmdRepo.batchInsert(messages);
   }
 }

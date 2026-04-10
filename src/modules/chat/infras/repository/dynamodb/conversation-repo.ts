@@ -26,12 +26,12 @@ class DynamoConversationQueryRepository extends BaseQueryRepositoryDynamoDB<
   }
 
   protected toEntity(doc: Record<string, any>): Conversation {
-    const { pk, sk, GSI1PK, GSI1SK, ...rest } = doc;
+    const { pk, sk, GSI1PK, GSI1SK, createdAt, updatedAt, lastMessageAt, ...rest } = doc;
     return {
       ...rest,
-      createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(),
-      updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : new Date(),
-      lastMessageAt: doc.lastMessageAt ? new Date(doc.lastMessageAt) : null,
+      createdAt: createdAt ? new Date(createdAt) : new Date(),
+      updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
+      lastMessageAt: lastMessageAt ? new Date(lastMessageAt) : null,
     } as Conversation;
   }
 
@@ -39,12 +39,14 @@ class DynamoConversationQueryRepository extends BaseQueryRepositoryDynamoDB<
     const conditions: string[] = [];
     if (cond.type) conditions.push("#type = :type");
     if (cond.createdBy) conditions.push("createdBy = :createdBy");
+    if (cond.pairKey) conditions.push("pairKey = :pairKey");
     return conditions.join(" AND ");
   }
 
   protected buildAttributeNames(cond: ConversationCondDTO): Record<string, string> {
     const names: Record<string, string> = {};
     if (cond.type) names["#type"] = "type";
+    // pairKey doesn't need alias because it's not a reserved keyword, but just in case
     return names;
   }
 
@@ -52,6 +54,7 @@ class DynamoConversationQueryRepository extends BaseQueryRepositoryDynamoDB<
     const values: Record<string, any> = {};
     if (cond.type) values[":type"] = cond.type;
     if (cond.createdBy) values[":createdBy"] = cond.createdBy;
+    if (cond.pairKey) values[":pairKey"] = cond.pairKey;
     return values;
   }
 
@@ -108,7 +111,13 @@ class DynamoConversationCommandRepository extends BaseCommandRepositoryDynamoDB<
     if (data.admins !== undefined) updateData.admins = data.admins;
     if (data.membersCount !== undefined) updateData.membersCount = data.membersCount;
     if (data.settings !== undefined) updateData.settings = data.settings;
-    if (data.lastMessage !== undefined) updateData.lastMessage = data.lastMessage;
+    if (data.lastMessage !== undefined) {
+      const lm = data.lastMessage as any;
+      updateData.lastMessage = {
+        ...lm,
+        createdAt: lm.createdAt instanceof Date ? lm.createdAt.toISOString() : lm.createdAt,
+      };
+    }
     if (data.lastMessageAt !== undefined && data.lastMessageAt !== null) {
       updateData.lastMessageAt = (data.lastMessageAt as Date).toISOString();
     }

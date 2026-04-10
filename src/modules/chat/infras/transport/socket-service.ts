@@ -24,6 +24,34 @@ export class MessagingSocketService {
     private readonly useCase: IMessagingUseCase,
   ) {
     this.namespace = io.of("/messages");
+    
+    // Add authentication middleware for the /messages namespace
+    this.namespace.use(async (socket: AuthenticatedSocket, next) => {
+      try {
+        const token =
+          socket.handshake.auth?.token ||
+          socket.handshake.query?.token ||
+          socket.handshake.headers?.authorization?.replace("Bearer ", "");
+
+        if (!token) {
+          return next(new Error("Authentication error: No token provided"));
+        }
+
+        const jwtProvider = require("../../../../share/component/jwt").jwtProvider;
+        const payload = await jwtProvider.verifyToken(token);
+
+        if (!payload || !payload.sub) {
+          return next(new Error("Authentication error: Invalid token"));
+        }
+
+        socket.userId = payload.sub;
+        socket.deviceId = socket.handshake.auth?.deviceId || (socket.handshake.query?.deviceId as string);
+        next();
+      } catch (error) {
+        next(new Error("Authentication error"));
+      }
+    });
+
     this.setupEventHandlers();
   }
 

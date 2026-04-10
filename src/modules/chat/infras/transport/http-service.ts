@@ -1580,14 +1580,8 @@ export class MessagingHttpService {
         return;
       }
 
-      const message = await (this.useCase as any).messageQueryRepo?.get(messageId);
-      if (!message) {
-        res.status(404).json({ error: "Message not found" });
-        return;
-      }
-
       const validatedData = quoteMessageDTOSchema.parse({
-        conversationId: message.conversationId,
+        conversationId: req.body.conversationId,
         senderId: currentUserId,
         text,
         media,
@@ -1603,15 +1597,6 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        const isGroup =
-          message.type === "group";
-        if (isGroup) {
-          this.socketService.emitToGroupRoom(
-            validatedData.conversationId,
-            "receiveMessage",
-            { message: quotedMessage, conversationId: validatedData.conversationId },
-          );
-        }
         const memberUserIds = await this.useCase.getConversationMembers(
           validatedData.conversationId,
           validatedData.senderId,
