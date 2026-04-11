@@ -109,15 +109,19 @@ config();
       }
     }, 2000);
   }
-  const { router: userRouter } = setupUserHexagon(sctx, io);
+
+  const { router: userRouter, profileAPI, updateProfileAPI } = setupUserHexagon(sctx, io);
+
+  app.use("/v1", authRouter);
+  app.get("/v1/users/profile", sctx.mdlFactory.auth, profileAPI);
+  app.patch("/v1/users/profile", sctx.mdlFactory.auth, updateProfileAPI);
+  app.use("/v1", userRouter);
+
   const mediaRouter = setupMediaHexagon(sctx);
   const { router: messagingRouter } = setupMessagingHexagon(io, sctx);
   const blockRouter = setupBlockHexagon(sctx);
   const { router: friendRequestRouter, socketService } = setupFriendRequestHexagon(sctx, io);
   const friendshipRouter = setupFriendshipHexagon(sctx, socketService);
-
-  app.use("/v1", authRouter);
-  app.use("/v1", userRouter);
   app.use("/v1", mediaRouter);
   app.use("/v1", messagingRouter);
   app.use("/v1", blockRouter);

@@ -26,7 +26,7 @@ export const UserSettingsSchema = z.object({
 export const UserPhoneSchema = z
   .string()
   .trim()
-  .regex(/^\+?[0-9]{8,15}$/, "Phone number is invalid");
+  .regex(/^\+?[0-9]{4,15}$/, "Phone number is invalid");
 
 export const UserSchema = z.object({
   id: z.string(),

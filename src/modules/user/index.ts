@@ -31,48 +31,19 @@ export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
   const mdlFactory = sctx.mdlFactory;
   const adminChecker = mdlFactory.allowRoles([UserRole.USER]);
 
-  router.get(
-    "/profile",
-    mdlFactory.auth,
-    httpService.profileAPI.bind(httpService),
-  );
-  router.patch(
-    "/profile",
-    mdlFactory.auth,
-    httpService.updateProfileAPI.bind(httpService),
-  );
-
-  router.post(
-    "/users",
-    mdlFactory.auth,
-    adminChecker,
-    httpService.createAPI.bind(httpService),
-  );
-  router.get(
-    "/users/search",
-    mdlFactory.auth,
-    httpService.searchByPhoneAPI.bind(httpService),
-  );
-  router.get(
-    "/users/:id/presence",
-    mdlFactory.auth,
-    httpService.getPresenceAPI.bind(httpService),
-  );
+  router.post("/users", mdlFactory.auth, adminChecker, httpService.createAPI.bind(httpService));
+  router.get("/users/search", mdlFactory.auth, httpService.searchByPhoneAPI.bind(httpService));
+  router.get("/users/:id/presence", mdlFactory.auth, httpService.getPresenceAPI.bind(httpService));
   router.get("/users/:id/public", httpService.publicProfileAPI.bind(httpService));
   router.get("/users/:id", httpService.getDetailAPI.bind(httpService));
   router.get("/users", httpService.listAPI.bind(httpService));
-  router.patch(
-    "/users/:id",
-    mdlFactory.auth,
-    adminChecker,
-    httpService.updateAPI.bind(httpService),
-  );
-  router.delete(
-    "/users/:id",
-    mdlFactory.auth,
-    adminChecker,
-    httpService.deleteAPI.bind(httpService),
-  );
+  router.patch("/users/:id", mdlFactory.auth, adminChecker, httpService.updateAPI.bind(httpService));
+  router.delete("/users/:id", mdlFactory.auth, adminChecker, httpService.deleteAPI.bind(httpService));
 
-  return { router, socketService };
+  return {
+    router,
+    profileAPI: httpService.profileAPI.bind(httpService),
+    updateProfileAPI: httpService.updateProfileAPI.bind(httpService),
+    socketService,
+  };
 };

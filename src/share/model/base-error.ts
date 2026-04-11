@@ -1,1 +1,3 @@
-export const ErrDataNotFound = new Error('Data not found');
+import { AppError } from "@share/app-error";
+
+export const ErrDataNotFound = AppError.from(new Error("Data not found"), 404);

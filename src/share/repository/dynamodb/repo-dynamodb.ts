@@ -43,15 +43,21 @@ export abstract class BaseQueryRepositoryDynamoDB<
   }
 
   async findByCond(cond: Cond): Promise<Entity | null> {
-    const result = await this.docClient.send(
-      new ScanCommand({
-        TableName: this.getTableName(),
-        FilterExpression: this.buildFilterExpression(cond),
-        ExpressionAttributeNames: this.buildAttributeNames(cond),
-        ExpressionAttributeValues: this.buildAttributeValues(cond),
-        Limit: 1,
-      }),
-    );
+    const attrNames = this.buildAttributeNames(cond) || {};
+    const attrValues = this.buildAttributeValues(cond);
+    const filterExpr = this.buildFilterExpression(cond);
+    const hasAttrNames = Object.keys(attrNames).length > 0;
+    const hasAttrValues = Object.keys(attrValues).length > 0;
+    const hasFilterExpr = !!filterExpr && filterExpr.length > 0;
+
+    const cmd = new ScanCommand({
+      TableName: this.getTableName(),
+      ...(hasFilterExpr ? { FilterExpression: filterExpr } : {}),
+      ...(hasAttrNames ? { ExpressionAttributeNames: attrNames } : {}),
+      ...(hasAttrValues ? { ExpressionAttributeValues: attrValues } : {}),
+      Limit: 1,
+    });
+    const result = await this.docClient.send(cmd);
     return result.Items && result.Items.length > 0
       ? this.toEntity(result.Items[0])
       : null;
@@ -64,18 +70,23 @@ export abstract class BaseQueryRepositoryDynamoDB<
       ? JSON.parse(Buffer.from(p.cursor, "base64").toString("utf-8"))
       : undefined;
 
+    const attrNames = this.buildAttributeNames(cond) || {};
+    const attrValues = this.buildAttributeValues(cond);
+    const filterExpr = this.buildFilterExpression(cond);
+    const keyExpr = this.buildKeyCondition(cond);
+    const hasAttrNames = Object.keys(attrNames).length > 0;
+    const hasFilterExpr = !!filterExpr && filterExpr.length > 0;
+
     let result;
     if (this.gsi) {
       result = await this.docClient.send(
         new QueryCommand({
           TableName: this.getTableName(),
           IndexName: this.gsi,
-          KeyConditionExpression: this.buildKeyCondition(cond),
-          FilterExpression: this.buildFilterExpression(cond),
-          ExpressionAttributeNames: this.buildAttributeNames(cond),
-          ExpressionAttributeValues: {
-            ...this.buildAttributeValues(cond),
-          },
+          KeyConditionExpression: keyExpr,
+          ...(hasFilterExpr ? { FilterExpression: filterExpr } : {}),
+          ...(hasAttrNames ? { ExpressionAttributeNames: attrNames } : {}),
+          ExpressionAttributeValues: attrValues,
           Limit: limit,
           ExclusiveStartKey: exclusiveStartKey,
           ScanIndexForward: this.defaultSort?.id !== -1,
@@ -85,9 +96,9 @@ export abstract class BaseQueryRepositoryDynamoDB<
       result = await this.docClient.send(
         new ScanCommand({
           TableName: this.getTableName(),
-          FilterExpression: this.buildFilterExpression(cond),
-          ExpressionAttributeNames: this.buildAttributeNames(cond),
-          ExpressionAttributeValues: this.buildAttributeValues(cond),
+          ...(hasFilterExpr ? { FilterExpression: filterExpr } : {}),
+          ...(hasAttrNames ? { ExpressionAttributeNames: attrNames } : {}),
+          ExpressionAttributeValues: attrValues,
           Limit: limit,
           ExclusiveStartKey: exclusiveStartKey,
         }),

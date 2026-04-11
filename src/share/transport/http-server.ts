@@ -10,19 +10,31 @@ export abstract class BaseHttpService<Entity, CreateDTO, UpdateDTO, Cond> {
   }
 
   async getDetailAPI(req: Request, res: Response) {
-    const { id } = req.params;
+    const id = req.params.id as string;
+    if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
     const result = await this.useCase.getDetail(String(id));
     res.status(200).json({ data: result });
   }
 
   async updateAPI(req: Request<any, any, UpdateDTO>, res: Response) {
-    const { id } = req.params;
+    const id = req.params.id as string;
+    if (!id || id === "profile" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      res.status(404).json({ message: "Not found" });
+      return;
+    }
     const result = await this.useCase.update(String(id), req.body);
     res.status(200).json({ data: result });
   }
 
   async deleteAPI(req: Request, res: Response) {
-    const { id } = req.params;
+    const id = req.params.id as string;
+    if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      res.status(404).json({ message: "Not found" });
+      return;
+    }
     await this.useCase.delete(String(id));
     res.status(204).send();
   }

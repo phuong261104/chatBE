@@ -71,6 +71,10 @@ export const UpdateProfileDTOSchema = z.object({
   bio: z.string().max(500).optional(),
 });
 
+export const UpdateAvatarDTOSchema = z.object({
+  avatarUrl: z.string().url("avatarUrl must be a valid URL").optional().nullable(),
+});
+
 export type LoginDTO = z.infer<typeof LoginDTOSchema>;
 export type RegistrationDTO = z.infer<typeof RegistrationDTOSchema>;
 export type RefreshTokenDTO = z.infer<typeof RefreshTokenDTOSchema>;
@@ -80,4 +84,5 @@ export type ForgotPasswordDTO = z.infer<typeof ForgotPasswordDTOSchema>;
 export type VerifyResetOTPDTO = z.infer<typeof VerifyResetOTPDTOMSchema>;
 export type ResetPasswordDTO = z.infer<typeof ResetPasswordDTOSchema>;
 export type ChangePasswordDTO = z.infer<typeof ChangePasswordDTOSchema>;
+export type UpdateAvatarDTO = z.infer<typeof UpdateAvatarDTOSchema>;
 export type UpdateProfileDTO = z.infer<typeof UpdateProfileDTOSchema>;

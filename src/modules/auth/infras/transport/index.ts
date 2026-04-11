@@ -15,6 +15,7 @@ import {
   ResetPasswordDTO,
   ChangePasswordDTO,
   RegistrationDTOSchema,
+  UpdateAvatarDTOSchema,
 } from "../../model/dto";
 
 const VALID_DEVICE_TYPES: DeviceType[] = [
@@ -347,14 +348,8 @@ export class AuthHTTPService {
   async updateAvatarAPI(req: Request, res: Response) {
     try {
       const requester = res.locals["requester"] as Requester;
-      const { avatarUrl } = req.body;
-
-      if (!avatarUrl) {
-        res.status(400).json({ message: "avatarUrl is required" });
-        return;
-      }
-
-      const result = await this.usecase.updateAvatar(requester.sub, avatarUrl);
+      const { avatarUrl } = UpdateAvatarDTOSchema.parse(req.body);
+      const result = await this.usecase.updateAvatar(requester.sub, avatarUrl || "");
       res.status(200).json({ data: { success: result }, message: "Avatar updated successfully" });
     } catch (error) {
       if (error instanceof AppError) {
