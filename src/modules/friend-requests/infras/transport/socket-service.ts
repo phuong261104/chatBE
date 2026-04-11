@@ -1,8 +1,9 @@
-import { Server as SocketIOServer, Namespace } from 'socket.io';
+import { Server as SocketIOServer, Namespace, Socket } from 'socket.io';
+import { jwtProvider } from '@share/component/jwt';
 
-interface AuthenticatedSocket {
+interface AuthenticatedSocket extends Socket {
   userId?: string;
-  id: string;
+  deviceId?: string;
 }
 
 interface NotificationPayload {
@@ -17,16 +18,47 @@ export class FriendNotificationSocketService {
 
   constructor(io: SocketIOServer) {
     this.namespace = io.of('/friends');
+
+    this.namespace.use(async (socket: AuthenticatedSocket, next) => {
+      try {
+        const token =
+          socket.handshake.auth?.token ||
+          socket.handshake.query?.token ||
+          socket.handshake.headers?.authorization?.replace("Bearer ", "");
+
+        if (!token) {
+          return next(new Error("Authentication error: No token provided"));
+        }
+
+        const payload = await jwtProvider.verifyToken(token);
+
+        if (!payload || !payload.sub) {
+          return next(new Error("Authentication error: Invalid token"));
+        }
+
+        socket.userId = payload.sub;
+        socket.deviceId = socket.handshake.auth?.deviceId || socket.handshake.query?.deviceId as string;
+
+        next();
+      } catch (error) {
+        console.error("[Friends Namespace] Socket auth error:", error);
+        next(new Error("Authentication error"));
+      }
+    });
+
     this.setupEventHandlers();
   }
 
-  /**
-   * Setup event handlers for socket connections in the /friends namespace
-   */
   private setupEventHandlers() {
-    this.namespace.on('connection', (socket: any) => {
+    this.namespace.on('connection', (socket: AuthenticatedSocket) => {
       const userId = socket.userId;
       console.log(`[Friends Namespace] User ${userId} connected (socket: ${socket.id})`);
+
+      if (!userId) {
+        console.log(`[Friends Namespace] Rejecting connection - no userId`);
+        socket.disconnect();
+        return;
+      }
 
       if (!this.userSockets.has(userId)) {
         this.userSockets.set(userId, new Set());
