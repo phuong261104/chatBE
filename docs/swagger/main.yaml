@@ -263,3 +263,15 @@ paths:
     $ref: './paths/stories.yaml#/paths/~1stories~1{id}~1views'
   /stories/{id}/reply:
     $ref: './paths/stories.yaml#/paths/~1stories~1{id}~1reply'
+
+  # ==================== AI ====================
+  /ai/summarize:
+    $ref: './paths/ai.yaml#/paths/~1ai~1summarize'
+  /ai/smart-reply:
+    $ref: './paths/ai.yaml#/paths/~1ai~1smart-reply'
+  /ai/tone-adjust:
+    $ref: './paths/ai.yaml#/paths/~1ai~1tone-adjust'
+  /ai/translate:
+    $ref: './paths/ai.yaml#/paths/~1ai~1translate'
+  /ai/detect-language:
+    $ref: './paths/ai.yaml#/paths/~1ai~1detect-language'

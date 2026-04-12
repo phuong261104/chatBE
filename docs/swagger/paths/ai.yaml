@@ -1,0 +1,494 @@
+paths:
+  /ai/summarize:
+    post:
+      tags:
+        - AI
+      summary: Tom tat cuoc tro chuyen
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversationId
+              properties:
+                conversationId:
+                  type: string
+                  format: uuid
+                  description: ID cua cuoc tro chuyen
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+                maxMessages:
+                  type: integer
+                  description: So tin nhan toi da de tom tat (mac dinh 50)
+                  example: 50
+                  minimum: 1
+                  maximum: 200
+      responses:
+        '200':
+          description: Tom tat cuoc tro chuyen thanh cong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversationId:
+                        type: string
+                        format: uuid
+                      summary:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - "Nguoi dung A hoi ve cach dat hang"
+                          - "Nguoi dung B huong dan cac buoc thanh toan"
+                          - "Cuoc tro chuyen ket thuc voi viec dat hang thanh cong"
+                      originalCount:
+                        type: integer
+                        example: 25
+        '400':
+          description: Du lieu dau vao khong hop le
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "VALIDATION_ERROR"
+                      message:
+                        type: string
+                        example: "Invalid request"
+        '401':
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "UNAUTHORIZED"
+                      message:
+                        type: string
+                        example: "Unauthorized"
+        '500':
+          description: Loi server
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "INTERNAL_ERROR"
+                      message:
+                        type: string
+                        example: "Internal server error"
+
+  /ai/smart-reply:
+    post:
+      tags:
+        - AI
+      summary: Goi y tra loi nhanh
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversationId
+              properties:
+                conversationId:
+                  type: string
+                  format: uuid
+                  description: ID cua cuoc tro chuyen (se tu dong lay tin nhan cuoi)
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Goi y tra loi nhanh thanh cong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      replies:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - "U, minh hieu roi"
+                          - "Cam on ban nhe"
+                          - "Minh se xem lai sau"
+                      lastMessage:
+                        type: string
+                        example: "Ban oi, khi nao thi giao hang vay?"
+                      lastSenderName:
+                        type: string
+                        nullable: true
+        '400':
+          description: Du lieu dau vao khong hop le
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "VALIDATION_ERROR"
+                      message:
+                        type: string
+                        example: "Invalid request"
+        '401':
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "UNAUTHORIZED"
+                      message:
+                        type: string
+                        example: "Unauthorized"
+        '500':
+          description: Loi server
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "INTERNAL_ERROR"
+                      message:
+                        type: string
+                        example: "Internal server error"
+
+  /ai/tone-adjust:
+    post:
+      tags:
+        - AI
+      summary: Dieu chinh giong van cua tin nhan
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+                - tone
+              properties:
+                message:
+                  type: string
+                  description: Tin nhan can dieu chinh giong van
+                  minLength: 1
+                  maxLength: 5000
+                  example: "Cam on ban rat nhieu, ban la nguoi tot nhat minh tung gap"
+                tone:
+                  type: string
+                  enum:
+                    - formal
+                    - casual
+                    - funny
+                    - professional
+                  description: Giong van mong muon
+                  example: "formal"
+      responses:
+        '200':
+          description: Dieu chinh giong van thanh cong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      original:
+                        type: string
+                        example: "Cam on ban rat nhieu, ban la nguoi tot nhat minh tung gap"
+                      adjusted:
+                        type: string
+                        example: "Xin cam on ban rat nhieu. Toi danh gia cao su ho tro cua ban."
+                      tone:
+                        type: string
+                        enum:
+                          - formal
+                          - casual
+                          - funny
+                          - professional
+                        example: "formal"
+        '400':
+          description: Du lieu dau vao khong hop le
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "VALIDATION_ERROR"
+                      message:
+                        type: string
+                        example: "Invalid request"
+        '401':
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "UNAUTHORIZED"
+                      message:
+                        type: string
+                        example: "Unauthorized"
+        '500':
+          description: Loi server
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "INTERNAL_ERROR"
+                      message:
+                        type: string
+                        example: "Internal server error"
+
+  /ai/translate:
+    post:
+      tags:
+        - AI
+      summary: Dich tin nhan
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+                - targetLang
+              properties:
+                text:
+                  type: string
+                  description: Van ban can dich
+                  minLength: 1
+                  maxLength: 10000
+                  example: "Hello, how are you today?"
+                targetLang:
+                  type: string
+                  description: Ngon ngu dich (ten tieng Viet hoac ma ISO)
+                  minLength: 1
+                  maxLength: 50
+                  example: "Tieng Viet"
+                sourceLang:
+                  type: string
+                  description: Ngon ngu nguon (tuy chon, se tu dong phat hien)
+                  minLength: 1
+                  maxLength: 50
+                  example: "Tieng Anh"
+      responses:
+        '200':
+          description: Dich thanh cong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      original:
+                        type: string
+                        example: "Hello, how are you today?"
+                      translated:
+                        type: string
+                        example: "Xin chao, ban khoe khong hom nay?"
+                      sourceLang:
+                        type: string
+                        example: "tieng Anh"
+                      targetLang:
+                        type: string
+                        example: "tieng Viet"
+        '400':
+          description: Du lieu dau vao khong hop le
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "VALIDATION_ERROR"
+                      message:
+                        type: string
+                        example: "Invalid request"
+        '401':
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "UNAUTHORIZED"
+                      message:
+                        type: string
+                        example: "Unauthorized"
+        '500':
+          description: Loi server
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "INTERNAL_ERROR"
+                      message:
+                        type: string
+                        example: "Internal server error"
+
+  /ai/detect-language:
+    post:
+      tags:
+        - AI
+      summary: Phat hien ngon ngu cua van ban
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: Van ban can phat hien ngon ngu
+                  minLength: 1
+                  maxLength: 5000
+                  example: "Xin chao, rat vui duoc gap ban"
+      responses:
+        '200':
+          description: Phat hien ngon ngu thanh cong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      language:
+                        type: string
+                        example: "tieng Viet"
+        '400':
+          description: Du lieu dau vao khong hop le
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "VALIDATION_ERROR"
+                      message:
+                        type: string
+                        example: "Invalid request"
+        '401':
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "UNAUTHORIZED"
+                      message:
+                        type: string
+                        example: "Unauthorized"
+        '500':
+          description: Loi server
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "INTERNAL_ERROR"
+                      message:
+                        type: string
+                        example: "Internal server error"

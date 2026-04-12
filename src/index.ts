@@ -12,7 +12,10 @@ import { setupAuthHexagon } from "@modules/auth";
 import Logger from "@share/utils/logger";
 import { responseErr } from "@share/app-error";
 import { setupMediaHexagon } from "@modules/media";
-import { createSocketIOServer, connectionRegistry } from "@share/component/socket-io";
+import {
+  createSocketIOServer,
+  connectionRegistry,
+} from "@share/component/socket-io";
 import { setupMessagingHexagon } from "@modules/chat";
 import { setupBlockHexagon } from "@modules/blocks";
 import { setupFriendRequestHexagon } from "@modules/friend-requests";
@@ -21,6 +24,13 @@ import { setupMyCloudHexagon } from "@modules/my-cloud";
 import { setupSearchHexagon } from "@modules/search";
 import { setupPostHexagon } from "@modules/posts";
 import { setupStoryHexagon } from "@modules/stories";
+import { setupAiHexagon } from "@modules/ai";
+// import { seedAiTestData } from "@modules/ai/infras/ai-seed";
+import {
+  MongoMessageRepository,
+  DynamoMessageRepository,
+  DynamoConversationRepository,
+} from "@modules/chat";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import SwaggerParser from "@apidevtools/swagger-parser";
@@ -65,8 +75,14 @@ config();
 
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Device-Id");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    );
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Device-Id",
+    );
 
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
@@ -94,21 +110,29 @@ config();
 
   const io = createSocketIOServer(httpServer);
 
-  const { router: _authRouter, authUseCase } = setupAuthHexagon({ mdlFactory: null as any }, redisClient);
+  const { router: _authRouter, authUseCase } = setupAuthHexagon(
+    { mdlFactory: null as any },
+    redisClient,
+  );
   const sctx = { mdlFactory: setupMiddlewares(authUseCase) };
   const { router: authRouter } = setupAuthHexagon(sctx, redisClient);
 
-  if (appConfig.envName === "development") {
-    setTimeout(() => {
-      if (authUseCase) {
-        authUseCase.seedTestUsers().catch(console.error);
-      }
-    }, 2000);
-  }
+  // if (appConfig.envName === "development") {
+  //   setTimeout(() => {
+  //     if (authUseCase) {
+  //       authUseCase.seedTestUsers().catch(console.error);
+  //     }
+  //     seedAiTestData().catch(console.error);
+  //   }, 2000);
+  // }
 
   app.use("/v1", responseFormatMiddleware);
 
-  const { router: userRouter, profileAPI, updateProfileAPI } = setupUserHexagon(sctx, io);
+  const {
+    router: userRouter,
+    profileAPI,
+    updateProfileAPI,
+  } = setupUserHexagon(sctx, io);
 
   app.use("/v1", authRouter);
   app.get("/v1/users/profile", sctx.mdlFactory.auth, profileAPI);
@@ -118,7 +142,8 @@ config();
   const mediaRouter = setupMediaHexagon(sctx);
   const { router: messagingRouter } = setupMessagingHexagon(io, sctx);
   const blockRouter = setupBlockHexagon(sctx);
-  const { router: friendRequestRouter, socketService } = setupFriendRequestHexagon(sctx, io);
+  const { router: friendRequestRouter, socketService } =
+    setupFriendRequestHexagon(sctx, io);
   const friendshipRouter = setupFriendshipHexagon(sctx, socketService);
   app.use("/v1", mediaRouter);
   app.use("/v1", messagingRouter);
@@ -135,6 +160,12 @@ config();
   app.use("/v1", postRouter);
   app.use("/v1", storyRouter);
 
+  const { router: aiRouter } = setupAiHexagon({
+    messageRepo: new DynamoMessageRepository(),
+    conversationRepo: new DynamoConversationRepository(),
+  });
+  app.use("/v1/ai", sctx.mdlFactory.auth, aiRouter);
+
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     responseErr(err, res);
     return;
@@ -142,6 +173,8 @@ config();
 
   httpServer.listen(port, () => {
     console.log(`Server is running on port ${port}`);
-    console.log(`[Socket.IO] Initialized with ${connectionRegistry.getOnlineUsers().length} online users (from previous session)`);
+    console.log(
+      `[Socket.IO] Initialized with ${connectionRegistry.getOnlineUsers().length} online users (from previous session)`,
+    );
   });
 })();

@@ -111,7 +111,7 @@ class DynamoConversationCommandRepository extends BaseCommandRepositoryDynamoDB<
     if (data.admins !== undefined) updateData.admins = data.admins;
     if (data.membersCount !== undefined) updateData.membersCount = data.membersCount;
     if (data.settings !== undefined) updateData.settings = data.settings;
-    if (data.lastMessage !== undefined) {
+    if (data.lastMessage !== undefined && data.lastMessage !== null) {
       const lm = data.lastMessage as any;
       updateData.lastMessage = {
         ...lm,

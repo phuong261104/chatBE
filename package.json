@@ -43,6 +43,7 @@
     "@aws-sdk/lib-dynamodb": "^3.1024.0",
     "@aws-sdk/s3-request-presigner": "^3.1025.0",
     "@aws-sdk/util-dynamodb": "^3.996.2",
+    "@google/generative-ai": "^0.24.1",
     "@types/multer": "^2.0.0",
     "@types/nodemailer": "^8.0.0",
     "@types/socket.io": "^3.0.1",
