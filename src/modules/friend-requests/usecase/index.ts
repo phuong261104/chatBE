@@ -214,6 +214,59 @@ export class FriendRequestUseCase implements IFriendRequestUseCase {
     );
   }
 
+  async checkFriendRequestStatus(
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<{ status: string; requestId?: string; direction?: string }> {
+    if (currentUserId === targetUserId) {
+      return { status: "SELF" };
+    }
+
+    const [userA, userB] = [currentUserId, targetUserId].sort();
+    const friendship = await this.friendshipRepository.findByCond({ userA, userB });
+    if (friendship) {
+      return { status: "ACCEPTED" };
+    }
+
+    const outgoing = await this.repository.findByCond({
+      fromUserId: currentUserId,
+      toUserId: targetUserId,
+      status: FriendRequestStatus.PENDING,
+    });
+    if (outgoing) {
+      return { status: "PENDING", requestId: outgoing.id, direction: "OUTGOING" };
+    }
+
+    const incoming = await this.repository.findByCond({
+      fromUserId: targetUserId,
+      toUserId: currentUserId,
+      status: FriendRequestStatus.PENDING,
+    });
+    if (incoming) {
+      return { status: "PENDING", requestId: incoming.id, direction: "INCOMING" };
+    }
+
+    const outgoingRejected = await this.repository.findByCond({
+      fromUserId: currentUserId,
+      toUserId: targetUserId,
+      status: FriendRequestStatus.REJECTED,
+    });
+    if (outgoingRejected) {
+      return { status: "REJECTED", requestId: outgoingRejected.id, direction: "OUTGOING" };
+    }
+
+    const incomingRejected = await this.repository.findByCond({
+      fromUserId: targetUserId,
+      toUserId: currentUserId,
+      status: FriendRequestStatus.REJECTED,
+    });
+    if (incomingRejected) {
+      return { status: "REJECTED", requestId: incomingRejected.id, direction: "INCOMING" };
+    }
+
+    return { status: "NONE" };
+  }
+
   async create(data: FriendRequestCreateDTO): Promise<string> {
     const dto = FriendRequestCreateSchema.parse(data);
     return await this.sendFriendRequest(dto.fromUserId, dto.toUserId);

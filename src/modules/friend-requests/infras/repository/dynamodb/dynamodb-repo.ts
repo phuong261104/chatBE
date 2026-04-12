@@ -1,5 +1,8 @@
 import { FriendRequest } from "@modules/friend-requests/model/model";
-import { FriendRequestCondDTO, FriendRequestUpdateDTO } from "@modules/friend-requests/model/dto";
+import {
+  FriendRequestCondDTO,
+  FriendRequestUpdateDTO,
+} from "@modules/friend-requests/model/dto";
 import {
   BaseQueryRepositoryDynamoDB,
   BaseCommandRepositoryDynamoDB,
@@ -42,17 +45,21 @@ class DynamoFriendRequestQueryRepository extends BaseQueryRepositoryDynamoDB<
       values[":status"] = status;
     }
 
-    const result = await docClient.send(
+    const result = (await docClient.send(
       new QueryCommand({
         TableName: this.getTableName(),
         IndexName: "senderId-index",
         KeyConditionExpression: "#senderId = :senderId",
-        ExpressionAttributeNames: { "#senderId": "senderId", ...(status ? { "#status": "status" } : {}) },
-        FilterExpression: filterParts.length > 0 ? filterParts.join(" AND ") : undefined,
+        ExpressionAttributeNames: {
+          "#senderId": "senderId",
+          ...(status ? { "#status": "status" } : {}),
+        },
+        FilterExpression:
+          filterParts.length > 0 ? filterParts.join(" AND ") : undefined,
         ExpressionAttributeValues: values,
         Limit: limit,
       }),
-    ) as any;
+    )) as any;
     return (result.Items || []).map((item: any) => this.toEntity(item));
   }
 
@@ -70,28 +77,38 @@ class DynamoFriendRequestQueryRepository extends BaseQueryRepositoryDynamoDB<
       values[":status"] = status;
     }
 
-    const result = await docClient.send(
+    const result = (await docClient.send(
       new QueryCommand({
         TableName: this.getTableName(),
         IndexName: "receiverId-index",
         KeyConditionExpression: "#receiverId = :receiverId",
-        ExpressionAttributeNames: { "#receiverId": "receiverId", ...(status ? { "#status": "status" } : {}) },
-        FilterExpression: filterParts.length > 0 ? filterParts.join(" AND ") : undefined,
+        ExpressionAttributeNames: {
+          "#receiverId": "receiverId",
+          ...(status ? { "#status": "status" } : {}),
+        },
+        FilterExpression:
+          filterParts.length > 0 ? filterParts.join(" AND ") : undefined,
         ExpressionAttributeValues: values,
         Limit: limit,
       }),
-    ) as any;
+    )) as any;
     return (result.Items || []).map((item: any) => this.toEntity(item));
   }
 
-  async list(cond: FriendRequestCondDTO, paging: PagingDTO): Promise<FriendRequest[]> {
+  async list(
+    cond: FriendRequestCondDTO,
+    paging: PagingDTO,
+  ): Promise<FriendRequest[]> {
     const { $or, ...restCond } = cond as any;
     const limit = paging.limit || 50;
 
     if ($or && Array.isArray($or) && $or.length > 0) {
       const orResults = await Promise.all(
         $or.map((orCond: any) =>
-          this.list({ ...orCond, ...restCond } as FriendRequestCondDTO, { ...paging, limit: 1000 }),
+          this.list({ ...orCond, ...restCond } as FriendRequestCondDTO, {
+            ...paging,
+            limit: 1000,
+          }),
         ),
       );
       const merged = orResults.flat();
@@ -121,11 +138,13 @@ class DynamoFriendRequestQueryRepository extends BaseQueryRepositoryDynamoDB<
     const names: Record<string, string> = {};
 
     if (restCond.fromUserId) {
-      conditions.push("fromUserId = :fromUserId");
+      conditions.push("#senderId = :fromUserId");
+      names["#senderId"] = "senderId";
       values[":fromUserId"] = restCond.fromUserId;
     }
     if (restCond.toUserId) {
-      conditions.push("toUserId = :toUserId");
+      conditions.push("#receiverId = :toUserId");
+      names["#receiverId"] = "receiverId";
       values[":toUserId"] = restCond.toUserId;
     }
     if (restCond.status) {
@@ -134,17 +153,20 @@ class DynamoFriendRequestQueryRepository extends BaseQueryRepositoryDynamoDB<
       values[":status"] = restCond.status;
     }
 
-    const filterExpr = conditions.length > 0 ? conditions.join(" AND ") : undefined;
+    const filterExpr =
+      conditions.length > 0 ? conditions.join(" AND ") : undefined;
 
-    const result = await docClient.send(
+    const result = (await docClient.send(
       new ScanCommand({
         TableName: this.getTableName(),
         FilterExpression: filterExpr,
-        ExpressionAttributeNames: Object.keys(names).length > 0 ? names : undefined,
-        ExpressionAttributeValues: Object.keys(values).length > 0 ? values : undefined,
+        ExpressionAttributeNames:
+          Object.keys(names).length > 0 ? names : undefined,
+        ExpressionAttributeValues:
+          Object.keys(values).length > 0 ? values : undefined,
         Limit: limit,
       }),
-    ) as any;
+    )) as any;
     return (result.Items || []).map((item: any) => this.toEntity(item));
   }
 
@@ -177,7 +199,9 @@ class DynamoFriendRequestCommandRepository extends BaseCommandRepositoryDynamoDB
 
   protected beforeInsert(data: FriendRequest): Record<string, any> {
     const d = data as any;
-    const now = d.createdAt ? d.createdAt.toISOString() : new Date().toISOString();
+    const now = d.createdAt
+      ? d.createdAt.toISOString()
+      : new Date().toISOString();
     return {
       id: d.id,
       senderId: d.fromUserId || d.senderId,
@@ -190,11 +214,15 @@ class DynamoFriendRequestCommandRepository extends BaseCommandRepositoryDynamoDB
     };
   }
 
-  protected beforeUpdate(id: string, data: FriendRequestUpdateDTO): Record<string, any> {
+  protected beforeUpdate(
+    id: string,
+    data: FriendRequestUpdateDTO,
+  ): Record<string, any> {
     const d = data as any;
     const updateData: Record<string, any> = {};
     if (d.status !== undefined) updateData.status = d.status;
-    if (d.respondedAt !== undefined) updateData.respondedAt = d.respondedAt.toISOString();
+    if (d.respondedAt !== undefined)
+      updateData.respondedAt = d.respondedAt.toISOString();
     return updateData;
   }
 }
@@ -206,22 +234,37 @@ export class DynamoFriendRequestRepository extends BaseRepositoryDynamoDB<
   typeof TABLE_NAMES.FRIEND_REQUESTS
 > {
   constructor() {
-    super(new DynamoFriendRequestQueryRepository(), new DynamoFriendRequestCommandRepository());
+    super(
+      new DynamoFriendRequestQueryRepository(),
+      new DynamoFriendRequestCommandRepository(),
+    );
   }
 
   async listBySenderId(senderId: string): Promise<FriendRequest[]> {
-    return (this.queryRepo as DynamoFriendRequestQueryRepository).listBySenderId(senderId);
+    return (
+      this.queryRepo as DynamoFriendRequestQueryRepository
+    ).listBySenderId(senderId);
   }
 
   async listByReceiverId(receiverId: string): Promise<FriendRequest[]> {
-    return (this.queryRepo as DynamoFriendRequestQueryRepository).listByReceiverId(receiverId);
+    return (
+      this.queryRepo as DynamoFriendRequestQueryRepository
+    ).listByReceiverId(receiverId);
   }
 
   async findPendingRequestsForUser(userId: string): Promise<FriendRequest[]> {
-    return (this.queryRepo as DynamoFriendRequestQueryRepository).findPendingRequestsForUser(userId);
+    return (
+      this.queryRepo as DynamoFriendRequestQueryRepository
+    ).findPendingRequestsForUser(userId);
   }
 
-  async list(cond: FriendRequestCondDTO, paging: PagingDTO): Promise<FriendRequest[]> {
-    return (this.queryRepo as DynamoFriendRequestQueryRepository).list(cond, paging);
+  async list(
+    cond: FriendRequestCondDTO,
+    paging: PagingDTO,
+  ): Promise<FriendRequest[]> {
+    return (this.queryRepo as DynamoFriendRequestQueryRepository).list(
+      cond,
+      paging,
+    );
   }
 }

@@ -13,4 +13,8 @@ export interface IFriendRequestUseCase extends IUseCase<
   cancelFriendRequest(requestId: string, userId: string): Promise<boolean>;
   getReceivedRequests(userId: string): Promise<FriendRequest[]>;
   getSentRequests(userId: string): Promise<FriendRequest[]>;
+  checkFriendRequestStatus(
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<{ status: string; requestId?: string; direction?: string }>;
 }

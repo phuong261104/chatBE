@@ -83,6 +83,11 @@ export const setupFriendRequestHexagon = (
     mdlFactory.auth,
     httpService.getSentRequestsAPI.bind(httpService),
   );
+  router.get(
+    "/friend-requests/check/:targetUserId",
+    mdlFactory.auth,
+    httpService.checkFriendRequestStatusAPI.bind(httpService),
+  );
 
   return { router, socketService };
 };

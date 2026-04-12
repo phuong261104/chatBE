@@ -231,4 +231,23 @@ export class FriendRequestHTTPService extends BaseHttpService<
       });
     }
   }
+
+  async checkFriendRequestStatusAPI(req: Request, res: Response) {
+    try {
+      const requester = res.locals["requester"];
+      const currentUserId = requester.sub;
+      const { targetUserId } = req.params;
+
+      const result = await this.usecase.checkFriendRequestStatus(
+        currentUserId,
+        String(targetUserId),
+      );
+
+      res.status(200).json({ data: result });
+    } catch (error) {
+      res.status(400).json({
+        message: (error as Error).message,
+      });
+    }
+  }
 }
