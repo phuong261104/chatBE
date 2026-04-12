@@ -1,6 +1,7 @@
 import { IAuthUseCase, RegisterPendingResponse } from "../../usecase";
 import { Requester, DeviceType, DeviceDetails, Platform, DeviceInfo } from "@share/interface";
 import { AppError } from "@share/app-error";
+import { config } from "@share/component/config";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { parseUserAgent } from "../device/device-parser";
@@ -171,7 +172,18 @@ export class AuthHTTPService {
     try {
       const requester = res.locals["requester"] as Requester;
       const deviceId = req.headers["x-device-id"] as string;
+      const token = req.headers.authorization?.split(" ")[1];
       await this.usecase.logout(requester, deviceId);
+      if (token) {
+        try {
+          const jwtLib = await import("jsonwebtoken");
+          const payload = jwtLib.default.verify(token, config.accessToken.secretKey) as any;
+          if (payload?.jti) {
+            const ttl = Math.max(0, (payload.exp || 0) - Math.floor(Date.now() / 1000));
+            if (ttl > 0) await this.usecase.blacklistToken(payload.jti, payload.exp);
+          }
+        } catch {}
+      }
       res.status(200).json({ data: true });
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });
@@ -196,7 +208,12 @@ export class AuthHTTPService {
         return;
       }
       const result = await this.usecase.introspect(token);
-      res.status(200).json({ data: result });
+      res.status(200).json({
+        data: {
+          active: result.isOk,
+          payload: result.payload,
+        },
+      });
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });
     }
@@ -312,10 +329,12 @@ export class AuthHTTPService {
   async listSessionsAPI(req: Request, res: Response) {
     try {
       const requester = res.locals["requester"] as Requester;
+      console.log(`[listSessionsAPI] requester=`, JSON.stringify(requester));
       const currentDeviceId = (req.headers["x-device-id"] as string) || "";
       const sessions = await this.usecase.getSessions(requester.sub, currentDeviceId);
       res.status(200).json({ data: sessions });
     } catch (error) {
+      console.log(`[listSessionsAPI] ERROR:`, error);
       res.status(400).json({ message: (error as Error).message });
     }
   }

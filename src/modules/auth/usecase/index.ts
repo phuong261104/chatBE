@@ -98,6 +98,7 @@ export interface IAuthUseCase {
   refreshToken(refreshToken: string): Promise<TokenPair>;
   logout(requester: Requester, deviceId?: string): Promise<void>;
   logoutAll(requester: Requester): Promise<void>;
+  blacklistToken(jti: string, expiresAt: number): Promise<void>;
   introspect(token: string): Promise<{ payload: any; isOk: boolean }>;
   sendVerificationEmail(data: SendVerificationDTO, userId?: string): Promise<void>;
   verifyEmail(data: VerifyEmailDTO): Promise<boolean>;
@@ -486,6 +487,13 @@ export class AuthUseCase implements IAuthUseCase {
 
   async logoutAll(requester: Requester): Promise<void> {
     await this.sessionStore.deleteAllForUser(requester.sub);
+  }
+
+  async blacklistToken(jti: string, expiresAt: number): Promise<void> {
+    const ttl = Math.max(0, expiresAt - Math.floor(Date.now() / 1000));
+    if (ttl > 0) {
+      await this.blacklist.add(jti, ttl);
+    }
   }
 
   async introspect(token: string): Promise<{ payload: any; isOk: boolean }> {

@@ -29,6 +29,7 @@
     "@types/swagger-ui-express": "^4.1.8",
     "@types/uuid": "^10.0.0",
     "@types/yamljs": "^0.2.34",
+    "form-data": "^4.0.5",
     "jest": "^29.7.0",
     "nodemon": "^3.1.11",
     "ts-jest": "^29.2.0",

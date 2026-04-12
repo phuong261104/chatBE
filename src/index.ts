@@ -6,13 +6,12 @@ import express, { NextFunction, Request, Response } from "express";
 import { createServer } from "http";
 import morgan from "morgan";
 import { config as appConfig } from "@share/component/config";
-import { TokenIntrospectLocal } from "./share/repository/verify-token.rpc";
-import { responseFormatMiddleware, setupMiddlewares } from "./share/middleware";
-import { setupUserHexagon } from "./modules/user";
-import { setupAuthHexagon } from "./modules/auth";
-import Logger from "./share/utils/logger";
-import { responseErr } from "./share/app-error";
-import { setupMediaHexagon } from "./modules/media";
+import { responseFormatMiddleware, setupMiddlewares } from "@share/middleware";
+import { setupUserHexagon } from "@modules/user";
+import { setupAuthHexagon } from "@modules/auth";
+import Logger from "@share/utils/logger";
+import { responseErr } from "@share/app-error";
+import { setupMediaHexagon } from "@modules/media";
 import { createSocketIOServer, connectionRegistry } from "@share/component/socket-io";
 import { setupMessagingHexagon } from "@modules/chat";
 import { setupBlockHexagon } from "@modules/blocks";
@@ -25,8 +24,8 @@ import { setupStoryHexagon } from "@modules/stories";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import SwaggerParser from "@apidevtools/swagger-parser";
-import { RedisClient } from "./share/component/redis-pubsub/redis";
-import { initDynamoDBTables } from "./share/repository/dynamodb/auto-init";
+import { RedisClient } from "@share/component/redis-pubsub/redis";
+import { initDynamoDBTables } from "@share/repository/dynamodb/auto-init";
 
 config();
 
@@ -93,14 +92,11 @@ config();
     Logger.error("Failed to load swagger documentation: " + error);
   }
 
-  const introspector = new TokenIntrospectLocal(appConfig.accessToken.secretKey);
-  const sctx = { mdlFactory: setupMiddlewares(introspector) };
-
-  app.use("/v1", responseFormatMiddleware);
-
   const io = createSocketIOServer(httpServer);
 
-  const { router: authRouter, authUseCase } = setupAuthHexagon(sctx, redisClient);
+  const { router: _authRouter, authUseCase } = setupAuthHexagon({ mdlFactory: null as any }, redisClient);
+  const sctx = { mdlFactory: setupMiddlewares(authUseCase) };
+  const { router: authRouter } = setupAuthHexagon(sctx, redisClient);
 
   if (appConfig.envName === "development") {
     setTimeout(() => {
@@ -109,6 +105,8 @@ config();
       }
     }, 2000);
   }
+
+  app.use("/v1", responseFormatMiddleware);
 
   const { router: userRouter, profileAPI, updateProfileAPI } = setupUserHexagon(sctx, io);
 
