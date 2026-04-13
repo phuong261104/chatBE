@@ -104,7 +104,7 @@ paths:
     post:
       tags:
         - AI
-      summary: Goi y tra loi nhanh
+      summary: Goi y tra loi nhanh (co context khi nguoi gui la user hien tai)
       security:
         - BearerAuth: []
       requestBody:
@@ -121,6 +121,11 @@ paths:
                   format: uuid
                   description: ID cua cuoc tro chuyen (se tu dong lay tin nhan cuoi)
                   example: "550e8400-e29b-41d4-a716-446655440000"
+                userId:
+                  type: string
+                  format: uuid
+                  description: ID nguoi dung hien tai (optional - tu dong lay tu token neu khong truyen). Khi nguoi gui la userId nay, AI se lay them tin nhan truoc do lam context.
+                  example: "550e8400-e29b-41d4-a716-446655440001"
       responses:
         '200':
           description: Goi y tra loi nhanh thanh cong

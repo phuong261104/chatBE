@@ -13,7 +13,7 @@ export class SmartReplyUseCase {
   ) {}
 
   async execute(request: SmartReplyRequest): Promise<SmartReplyResponse> {
-    const { conversationId } = request;
+    const { conversationId, userId } = request;
 
     const conversation = await this.deps.conversationRepo!.get(conversationId);
     if (!conversation || !conversation.lastMessage) {
@@ -21,16 +21,26 @@ export class SmartReplyUseCase {
     }
 
     const { messageId, senderId, textPreview } = conversation.lastMessage;
-    const lastMessageText = textPreview || "";
+    let lastMessageText = textPreview || "";
+    let contextMessageText = "";
+
+    if (userId && senderId === userId) {
+      const messages = await this.deps.messageRepo!.listWithCursor(conversationId, undefined, 2, userId);
+      if (messages.length >= 2) {
+        contextMessageText = messages[1].text || "";
+      }
+    }
 
     if (!lastMessageText) {
       return { replies: DEFAULT_REPLIES, lastMessage: "", lastSenderName: undefined };
     }
 
-    const prompt = `Dua tren tin nhan sau, hay de xuat dung 3 cach tra loi ngan gon, tu nhien bang tieng Viet (moi cau khong qua 10 tu):\n\n"${lastMessageText}"\n\nChi tra ve 3 cau tra loi, moi cau 1 dong, khong danh so.`;
+    const promptText = contextMessageText
+      ? `Dua tren tin nhan truoc do: "${contextMessageText}" va tin nhan cuoi: "${lastMessageText}", hay de xuat dung 3 cach tra loi ngan gon, tu nhien bang tieng Viet (moi cau khong qua 10 tu).\n\nChi tra ve 3 cau tra loi, moi cau 1 dong, khong danh so.`
+      : `Dua tren tin nhan sau, hay de xuat dung 3 cach tra loi ngan gon, tu nhien bang tieng Viet (moi cau khong qua 10 tu):\n\n"${lastMessageText}"\n\nChi tra ve 3 cau tra loi, moi cau 1 dong, khong danh so.`;
 
     try {
-      const result = await this.aiProvider.generateContent(prompt, SYSTEM_INSTRUCTION);
+      const result = await this.aiProvider.generateContent(promptText, SYSTEM_INSTRUCTION);
 
       const replies = result
         .split(/\n/)

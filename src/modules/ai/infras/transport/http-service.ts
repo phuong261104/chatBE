@@ -12,6 +12,7 @@ const SummarizeSchema = z.object({
 
 const SmartReplySchema = z.object({
   conversationId: z.string().uuid("Invalid conversation ID"),
+  userId: z.string().uuid().optional(),
 });
 
 const ToneAdjustSchema = z.object({
@@ -71,7 +72,13 @@ export class AiHttpService {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
       }
 
-      const result = await this.aiFacade.getSmartReplies(parsed.data);
+      const requester = res.locals["requester"];
+      const userId = parsed.data.userId || requester?.sub;
+
+      const result = await this.aiFacade.getSmartReplies({
+        conversationId: parsed.data.conversationId,
+        userId,
+      });
       return res.json(result);
     } catch (error: unknown) {
       const err = error as { message?: string; statusCode?: number };

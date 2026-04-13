@@ -11,6 +11,7 @@ export interface SummarizeResponse {
 
 export interface SmartReplyRequest {
   conversationId: string;
+  userId?: string;
 }
 
 export interface SmartReplyResponse {
