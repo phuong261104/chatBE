@@ -3,11 +3,13 @@ import {
   ConversationMember,
   ConversationMemberRole,
   Message,
+  MessageClassification,
   UserInfo,
   MediaAttachment,
   MessageReaction,
   Poll,
   GroupSettings,
+  ClassificationType,
 } from "../model/model";
 import {
   ConversationCondDTO,
@@ -106,6 +108,21 @@ export interface IPollCommandRepository {
   delete(id: string): Promise<boolean>;
 }
 
+export interface IMessageClassificationRepository {
+  insertBatch(classifications: MessageClassification[]): Promise<void>;
+  listByConversationAndType(
+    conversationId: string,
+    type: ClassificationType,
+    cursor?: string,
+    limit?: number,
+  ): Promise<{ items: MessageClassification[]; nextCursor: string; hasMore: boolean }>;
+  listByConversation(
+    conversationId: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<{ items: MessageClassification[]; nextCursor: string; hasMore: boolean }>;
+}
+
 export interface CreateGroupData {
   name: string;
   memberIds: string[];
@@ -123,7 +140,7 @@ export interface IMessagingUseCase {
     senderId: string,
     text?: string,
     media?: MediaAttachment[],
-  ): Promise<Message>;
+  ): Promise<Message[]>;
 
   getConversationMembers(
     conversationId: string,
@@ -144,7 +161,7 @@ export interface IMessagingUseCase {
     senderId: string,
     text?: string,
     media?: MediaAttachment[],
-  ): Promise<Message>;
+  ): Promise<Message[]>;
 
   addMembersToGroup(
     conversationId: string,

@@ -2,20 +2,27 @@ import { ICommandHandler } from '@share/interface';
 import { AppError } from '@share/app-error';
 import { v7 } from 'uuid';
 import {
-  IConversationCommandRepository,
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
-  IMessageCommandRepository
+  IMessageCommandRepository,
+  IConversationCommandRepository,
+  IMessageClassificationRepository,
 } from '../interface';
-import { Message, MessageType, MediaAttachment, MediaType } from '../model/model';
-import { sendMessageDTOSchema, SendMessageCommand } from '../model/dto';
+import {
+  Message,
+  MessageType,
+  MediaAttachment,
+  MediaType,
+  MessageClassification,
+  ClassificationType,
+} from '../model/model';
 
 function mapMediaToDbFormat(media: MediaAttachment[]) {
   return media.map((m) => ({
     url: m.url,
     mediaType: m.mimetype.startsWith('image/') ? MediaType.IMAGE : MediaType.FILE,
     name: m.filename,
-    size: m.size
+    size: m.size,
   }));
 }
 
@@ -25,90 +32,181 @@ function extractLinks(text: string): string[] {
   return matches || [];
 }
 
-export class SendMessageHandler implements ICommandHandler<SendMessageCommand, Message> {
+export class SendMessageHandler implements ICommandHandler<any, Message[]> {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
-    private readonly conversationCommandRepo: IConversationCommandRepository
+    private readonly conversationCommandRepo: IConversationCommandRepository,
+    private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
-  async execute(command: SendMessageCommand): Promise<Message> {
+  async execute(command: any): Promise<Message[]> {
+    const { conversationId, senderId, text, media } = command;
 
-    const { success, data: validatedInput, error } = sendMessageDTOSchema.safeParse(command);
-
-    if (!success) {
-      throw new Error('Invalid data');
+    if (!conversationId) throw new Error('conversationId is required');
+    if (!senderId) throw new Error('senderId is required');
+    if (!text && (!media || media.length === 0)) {
+      throw AppError.from(new Error('Either text or media is required'), 400);
     }
 
     const member = await this.conversationMemberQueryRepo.findByCond({
-      conversationId: validatedInput.conversationId,
-      userId: validatedInput.senderId
+      conversationId,
+      userId: senderId,
     });
 
     if (!member) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this conversation'), 403);
     }
 
-    let messageType = MessageType.TEXT;
-    if (validatedInput.media && validatedInput.media.length > 0) {
+    const hasText = !!text;
+    const hasMedia = !!(media && media.length > 0);
+    const hasLinks = !!(hasText && extractLinks(text || "").length > 0);
+    const mediaCount = media?.length || 0;
+    const shouldSplitByMedia = mediaCount > 1;
+    const shouldSplitTextMedia = hasText && hasMedia && hasLinks;
 
-      const hasImage = validatedInput.media.some((m) => m.mimetype.startsWith('image/'));
-      if (hasImage) {
-        messageType = MessageType.IMAGE;
-      } else {
-        messageType = MessageType.FILE;
+    const createdMessages: Message[] = [];
+    const classifications: MessageClassification[] = [];
+
+    if (shouldSplitByMedia) {
+      for (const m of media) {
+        const isImg = m.mimetype.startsWith('image/');
+        const msgType = isImg ? MessageType.IMAGE : MessageType.FILE;
+        const hasTextAndNoLink = hasText && !hasLinks;
+        const msg = this.buildMessage(msgType, hasTextAndNoLink ? text : undefined, mapMediaToDbFormat([m]), conversationId, senderId);
+        await this.messageCommandRepo.insert(msg);
+        createdMessages.push(msg);
+        classifications.push(this.buildClassification(msg, isImg ? ClassificationType.IMAGE : ClassificationType.FILE, m));
+      }
+      if (hasText && hasLinks) {
+        const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId);
+        await this.messageCommandRepo.insert(linkMsg);
+        createdMessages.push(linkMsg);
+        for (const url of extractLinks(text)) {
+          classifications.push(this.buildLinkClassification(linkMsg, url));
+        }
+      }
+    } else if (shouldSplitTextMedia) {
+      const hasImage = media.some((m: MediaAttachment) => m.mimetype.startsWith('image/'));
+      const msgType = hasImage ? MessageType.IMAGE : MessageType.FILE;
+      const mediaMsg = this.buildMessage(msgType, undefined, mapMediaToDbFormat(media), conversationId, senderId);
+      await this.messageCommandRepo.insert(mediaMsg);
+      createdMessages.push(mediaMsg);
+      for (const m of media) {
+        classifications.push(this.buildClassification(mediaMsg, m.mimetype.startsWith('image/') ? ClassificationType.IMAGE : ClassificationType.FILE, m));
+      }
+      const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId);
+      await this.messageCommandRepo.insert(linkMsg);
+      createdMessages.push(linkMsg);
+      for (const url of extractLinks(text)) {
+        classifications.push(this.buildLinkClassification(linkMsg, url));
+      }
+    } else if (hasMedia) {
+      const hasImage = media.some((m: MediaAttachment) => m.mimetype.startsWith('image/'));
+      const msgType = hasImage ? MessageType.IMAGE : MessageType.FILE;
+      const msg = this.buildMessage(msgType, text, mapMediaToDbFormat(media), conversationId, senderId);
+      await this.messageCommandRepo.insert(msg);
+      createdMessages.push(msg);
+      for (const m of media) {
+        classifications.push(this.buildClassification(msg, m.mimetype.startsWith('image/') ? ClassificationType.IMAGE : ClassificationType.FILE, m));
+      }
+    } else {
+      const msgType = hasLinks ? MessageType.LINK : MessageType.TEXT;
+      const msg = this.buildMessage(msgType, text, undefined, conversationId, senderId);
+      await this.messageCommandRepo.insert(msg);
+      createdMessages.push(msg);
+      if (hasLinks) {
+        for (const url of extractLinks(text)) {
+          classifications.push(this.buildLinkClassification(msg, url));
+        }
       }
     }
 
-    const messageId = v7();
-    const now = new Date();
-
-    const message: Message = {
-      id: messageId,
-      conversationId: validatedInput.conversationId,
-      senderId: validatedInput.senderId,
-      type: messageType,
-      text: validatedInput.text,
-      media: validatedInput.media ? mapMediaToDbFormat(validatedInput.media as any) : undefined,
-      links: validatedInput.text ? extractLinks(validatedInput.text) : undefined,
-      createdAt: now,
-      pinned: false,
-    };
-    await this.messageCommandRepo.insert(message);
-
-    let textPreview = validatedInput.text || '';
-    if (!textPreview && validatedInput.media && validatedInput.media.length > 0) {
-      if (messageType === MessageType.IMAGE) {
-        textPreview = `📷 Image`;
-      } else {
-        textPreview = `📎 File`;
-      }
+    if (classifications.length > 0) {
+      await this.classificationRepo.insertBatch(classifications);
     }
 
-    await this.conversationCommandRepo.update(validatedInput.conversationId, {
+    const primaryMsg =
+      createdMessages.find((m) => m.type === MessageType.TEXT || m.type === MessageType.LINK) ||
+      createdMessages.find((m) => m.type === MessageType.IMAGE) ||
+      createdMessages[0];
+
+    let textPreview = primaryMsg.text || '';
+    if (!textPreview && primaryMsg.media && primaryMsg.media.length > 0) {
+      textPreview = primaryMsg.type === MessageType.IMAGE ? '📷 Image' : '📎 File';
+    }
+
+    await this.conversationCommandRepo.update(conversationId, {
       lastMessage: {
-        messageId: messageId,
-        senderId: validatedInput.senderId,
-        type: messageType,
+        messageId: primaryMsg.id,
+        senderId,
+        type: primaryMsg.type,
         textPreview: textPreview.substring(0, 100),
-        createdAt: now
+        createdAt: primaryMsg.createdAt,
       },
-      lastMessageAt: now
+      lastMessageAt: primaryMsg.createdAt,
     });
 
     const allMembers = await this.conversationMemberQueryRepo.list(
-      { conversationId: validatedInput.conversationId },
-      { page: 1, limit: 10 }
+      { conversationId },
+      { page: 1, limit: 10 },
     );
 
-    const otherMember = allMembers.find((m) => m.userId !== validatedInput.senderId);
+    const otherMember = allMembers.find((m) => m.userId !== senderId);
     if (otherMember) {
       await this.conversationMemberCommandRepo.update(otherMember.id, {
-        unreadCount: (otherMember.unreadCount || 0) + 1
+        unreadCount: (otherMember.unreadCount || 0) + 1,
       });
     }
 
-    return message;
+    return createdMessages;
+  }
+
+  private buildMessage(
+    type: MessageType,
+    text: string | undefined,
+    media: any[] | undefined,
+    conversationId: string,
+    senderId: string,
+  ): Message {
+    const id = v7();
+    const now = new Date();
+    return {
+      id,
+      conversationId,
+      senderId,
+      type,
+      text,
+      media,
+      links: text ? extractLinks(text) : undefined,
+      createdAt: now,
+      pinned: false,
+    };
+  }
+
+  private buildClassification(msg: Message, type: ClassificationType, m: MediaAttachment): MessageClassification {
+    return {
+      id: v7(),
+      conversationId: msg.conversationId,
+      type,
+      senderId: msg.senderId,
+      url: m.url,
+      name: m.filename,
+      messageId: msg.id,
+      createdAt: msg.createdAt,
+    };
+  }
+
+  private buildLinkClassification(msg: Message, url: string): MessageClassification {
+    return {
+      id: v7(),
+      conversationId: msg.conversationId,
+      type: ClassificationType.LINK,
+      senderId: msg.senderId,
+      linkUrl: url,
+      messageId: msg.id,
+      createdAt: msg.createdAt,
+    };
   }
 }

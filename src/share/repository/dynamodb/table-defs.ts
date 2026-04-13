@@ -46,6 +46,7 @@ export const TABLE_NAMES = {
   CONVERSATION_MEMBERS: "conversation_members",
   MESSAGES: "messages",
   MESSAGE_REACTIONS: "message_reactions",
+  MESSAGE_CLASSIFICATIONS: "message_classifications",
   POLLS: "polls",
   POSTS: "posts",
   POST_REACTIONS: "post_reactions",
@@ -57,3 +58,28 @@ export const TABLE_NAMES = {
   STORY_VIEWS: "story_views",
   CLOUD_ITEMS: "cloud_items",
 } as const;
+
+export const MESSAGE_CLASSIFICATIONS_TABLE: TableDefinition = {
+  TableName: TABLE_NAMES.MESSAGE_CLASSIFICATIONS,
+  KeySchema: [
+    { AttributeName: "pk", KeyType: "HASH" },
+    { AttributeName: "sk", KeyType: "RANGE" },
+  ],
+  AttributeDefinitions: [
+    { AttributeName: "pk", AttributeType: "S" },
+    { AttributeName: "sk", AttributeType: "S" },
+    { AttributeName: "GSI1PK", AttributeType: "S" },
+    { AttributeName: "GSI1SK", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "GSI1",
+      KeySchema: [
+        { AttributeName: "GSI1PK", KeyType: "HASH" },
+        { AttributeName: "GSI1SK", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+  BillingMode: "PAY_PER_REQUEST",
+};

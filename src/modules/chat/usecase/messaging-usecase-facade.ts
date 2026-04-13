@@ -124,7 +124,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     senderId: string,
     text?: string,
     media?: MediaAttachment[],
-  ): Promise<Message> {
+  ): Promise<Message[]> {
     return this.sendMessageHandler.execute({
       conversationId,
       senderId,
@@ -159,7 +159,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     senderId: string,
     text?: string,
     media?: MediaAttachment[],
-  ): Promise<Message> {
+  ): Promise<Message[]> {
     return this.sendGroupMessageHandler.execute({
       conversationId,
       senderId,

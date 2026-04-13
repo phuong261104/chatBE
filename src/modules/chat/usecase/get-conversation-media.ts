@@ -2,9 +2,12 @@ import { IQueryHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import {
   IConversationMemberQueryRepository,
-  IMessageQueryRepository,
+  IMessageClassificationRepository,
 } from "@modules/chat/interface";
-import { MediaType } from "@modules/chat/model";
+import {
+  ClassificationType,
+  MediaType,
+} from "@modules/chat/model/model";
 import {
   GetConversationMediaQuerySchema,
   GetConversationMediaQuery,
@@ -19,7 +22,7 @@ export class GetConversationMediaQueryHandler
 {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
-    private readonly messageQueryRepo: IMessageQueryRepository,
+    private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
   async query(query: GetConversationMediaQuery): Promise<GetConversationMediaResult> {
@@ -41,83 +44,74 @@ export class GetConversationMediaQueryHandler
       throw AppError.from(new Error("Unauthorized: You are not a member of this conversation"), 403);
     }
 
-    const messages = await this.messageQueryRepo.listWithCursor(
-      data.conversationId,
-      data.cursor,
-      data.limit + 1,
-      data.userId,
-    );
+    let result: { items: any[]; nextCursor: string; hasMore: boolean };
 
-    const hasMore = messages.length > data.limit;
-    const returnMessages = hasMore ? messages.slice(0, data.limit) : messages;
+    if (data.type === "all") {
+      result = await this.classificationRepo.listByConversation(
+        data.conversationId,
+        data.cursor,
+        data.limit + 1,
+      );
+    } else {
+      const typeMap: Record<string, ClassificationType> = {
+        image: ClassificationType.IMAGE,
+        file: ClassificationType.FILE,
+        link: ClassificationType.LINK,
+      };
+      const type = typeMap[data.type];
+      result = await this.classificationRepo.listByConversationAndType(
+        data.conversationId,
+        type,
+        data.cursor,
+        data.limit + 1,
+      );
+    }
+
+    const hasMore = result.items.length > data.limit;
+    const returnItems = hasMore ? result.items.slice(0, data.limit) : result.items;
 
     const images: MediaItem[] = [];
     const files: FileItem[] = [];
     const links: LinkItem[] = [];
 
-    for (const msg of returnMessages) {
-      if (msg.deletedAt) continue;
-
-      if (msg.media && msg.media.length > 0) {
-        for (const media of msg.media) {
-          const item = {
-            messageId: msg.id,
-            url: media.url,
-            name: media.name,
-            size: media.size,
-            width: media.width,
-            height: media.height,
-            mediaType: media.mediaType,
-            senderId: msg.senderId,
-            createdAt: msg.createdAt,
-          };
-
-          if (data.type === "all" || data.type === "image") {
-            if (media.mediaType === MediaType.IMAGE) {
-              images.push(item);
-            }
-          }
-
-          if (data.type === "all" || data.type === "file") {
-            if (media.mediaType === MediaType.FILE) {
-              files.push({
-                messageId: item.messageId,
-                url: item.url,
-                name: item.name,
-                size: item.size,
-                mediaType: item.mediaType,
-                senderId: item.senderId,
-                createdAt: item.createdAt,
-              });
-            }
-          }
-        }
-      }
-
-      if (data.type === "all" || data.type === "link") {
-        if (msg.links && msg.links.length > 0) {
-          for (const url of msg.links) {
-            links.push({
-              messageId: msg.id,
-              url,
-              senderId: msg.senderId,
-              createdAt: msg.createdAt,
-            });
-          }
-        }
+    for (const item of returnItems) {
+      if (item.type === ClassificationType.IMAGE) {
+        images.push({
+          messageId: item.messageId,
+          url: item.url,
+          name: item.name,
+          size: undefined,
+          width: undefined,
+          height: undefined,
+          mediaType: MediaType.IMAGE,
+          senderId: item.senderId,
+          createdAt: new Date(item.createdAt),
+        });
+      } else if (item.type === ClassificationType.FILE) {
+        files.push({
+          messageId: item.messageId,
+          url: item.url,
+          name: item.name,
+          size: undefined,
+          mediaType: MediaType.FILE,
+          senderId: item.senderId,
+          createdAt: new Date(item.createdAt),
+        });
+      } else if (item.type === ClassificationType.LINK) {
+        links.push({
+          messageId: item.messageId,
+          url: item.linkUrl,
+          senderId: item.senderId,
+          createdAt: new Date(item.createdAt),
+        });
       }
     }
-
-    const nextCursor =
-      hasMore && returnMessages.length > 0
-        ? returnMessages[returnMessages.length - 1].id
-        : "";
 
     return {
       images,
       files,
       links,
-      nextCursor,
+      nextCursor: result.nextCursor,
       hasMore,
     };
   }

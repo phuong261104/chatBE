@@ -349,7 +349,15 @@ paths:
           description: Not a member of this conversation
 
     post:
-      summary: Send a message
+      summary: Send a message (returns Message[])
+      description: |
+        Sends a message to a conversation. Depending on content, message may be split into multiple messages:
+        - `text` + `media` (no link): 1 message IMAGE/FILE
+        - `text` + `media` + `link`: 2 messages: IMAGE/FILE + LINK
+        - `text` + `link` (no media): 1 message LINK
+        - Multiple `media` items: each IMAGE/FILE becomes separate message
+        - `text` only: 1 message TEXT
+        - `media` only: 1 message IMAGE/FILE
       tags: [Chat - Messages]
       security:
         - BearerAuth: []
@@ -381,17 +389,29 @@ paths:
                   description: Attached media files
       responses:
         '201':
-          description: Message sent successfully
+          description: Messages sent successfully (returns array of Message)
           content:
             application/json:
               example:
                 data:
-                  _id: "msg_001"
-                  conversationId: "conv_001"
-                  senderId: "user_123"
-                  type: "TEXT"
-                  text: "Xin chào mọi người!"
-                  createdAt: "2024-01-15T10:30:00Z"
+                  - _id: "msg_001"
+                    conversationId: "conv_001"
+                    senderId: "user_123"
+                    type: "image"
+                    text: null
+                    media: [{ "url": "https://cdn.example.com/img.jpg", "mediaType": "image", "name": "photo.jpg", "size": 102400 }]
+                    links: []
+                    pinned: false
+                    createdAt: "2024-01-15T10:30:00Z"
+                  - _id: "msg_002"
+                    conversationId: "conv_001"
+                    senderId: "user_123"
+                    type: "link"
+                    text: "Hello https://example.com"
+                    media: null
+                    links: ["https://example.com"]
+                    pinned: false
+                    createdAt: "2024-01-15T10:30:00.001Z"
         '401':
           description: Unauthorized
         '422':
@@ -749,6 +769,9 @@ paths:
   /messages/forward:
     post:
       summary: Forward messages to conversations
+      description: |
+        Forwards messages to target conversations. Original messages are not modified.
+        System messages cannot be forwarded.
       tags: [Chat - Messages]
       security:
         - BearerAuth: []
@@ -781,19 +804,31 @@ paths:
             application/json:
               example:
                 data:
-                  forwardedMessages:
-                    - _id: "msg_new_001"
-                      originalMessageId: "msg_001"
-                      conversationId: "conv_001"
-                      senderId: "user_123"
-                      text: "Nội dung được chuyển tiếp"
-                      createdAt: "2024-01-15T12:00:00Z"
+                  - _id: "msg_new_001"
+                    conversationId: "conv_001"
+                    senderId: "user_123"
+                    type: "text"
+                    text: "Hello https://example.com"
+                    links: ["https://example.com"]
+                    pinned: false
+                    createdAt: "2024-01-15T12:00:00Z"
+                  - _id: "msg_new_002"
+                    conversationId: "conv_001"
+                    senderId: "user_123"
+                    type: "image"
+                    text: null
+                    media: [{ "url": "https://cdn.example.com/img.jpg", "mediaType": "image", "name": "photo.jpg", "size": 102400 }]
+                    pinned: false
+                    createdAt: "2024-01-15T12:00:00Z"
         '401':
           description: Unauthorized
 
   /messages/{messageId}/quote:
     post:
-      summary: Quote and reply to a message
+      summary: Quote and reply to a message (returns Message)
+      description: |
+        Sends a reply that quotes a specific message. The conversationId is automatically determined from the quoted message.
+        Similar to send message, supports text/media/link splitting.
       tags: [Chat - Messages]
       security:
         - BearerAuth: []
@@ -830,10 +865,13 @@ paths:
                   _id: "msg_quote_001"
                   conversationId: "conv_001"
                   senderId: "user_123"
-                  text: "Tôi đồng ý với ý kiến này"
-                  replyTo:
-                    _id: "msg_001"
-                    text: "Original message"
+                  type: "link"
+                  text: "Great point! https://example.com/article"
+                  links: ["https://example.com/article"]
+                  media: null
+                  quotedMessageId: "msg_001"
+                  quotedMessagePreview: "Original message..."
+                  pinned: false
                   createdAt: "2024-01-15T12:30:00Z"
         '401':
           description: Unauthorized

@@ -653,7 +653,7 @@ export class MessagingHttpService {
       const isGroup =
         conversationDetail.conversation.type === ConversationType.GROUP;
 
-      const message = isGroup
+      const messages = isGroup
         ? await this.useCase.sendGroupMessage(
             validatedData.conversationId,
             validatedData.senderId,
@@ -668,42 +668,21 @@ export class MessagingHttpService {
           );
 
       if (this.socketService) {
-        if (isGroup) {
-          this.socketService.emitToGroupRoom(
-            validatedData.conversationId,
-            "receiveMessage",
-            {
-              message,
-              conversationId: validatedData.conversationId,
-            },
-          );
-          const memberUserIds = await this.useCase.getConversationMembers(
-            validatedData.conversationId,
-            validatedData.senderId,
-          );
-
+        const memberUserIds = await this.useCase.getConversationMembers(
+          validatedData.conversationId,
+          validatedData.senderId,
+        );
+        for (const msg of messages) {
           for (const userId of memberUserIds) {
             this.socketService.emitToUser(userId, "receiveMessage", {
-              message,
-              conversationId: validatedData.conversationId,
-            });
-          }
-        } else {
-          const memberUserIds = await this.useCase.getConversationMembers(
-            validatedData.conversationId,
-            validatedData.senderId,
-          );
-
-          for (const userId of memberUserIds) {
-            this.socketService.emitToUser(userId, "receiveMessage", {
-              message,
+              message: msg,
               conversationId: validatedData.conversationId,
             });
           }
         }
       }
 
-      res.status(201).json({ data: message });
+      res.status(201).json({ data: messages });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(422).json({
@@ -1629,16 +1608,27 @@ export class MessagingHttpService {
         return;
       }
 
+      if (!text && (!media || media.length === 0)) {
+        res.status(400).json({ error: "Either text or media is required" });
+        return;
+      }
+
       const validatedData = quoteMessageDTOSchema.parse({
-        conversationId: req.body.conversationId,
         senderId: currentUserId,
         text,
         media,
         quotedMessageId: messageId,
       });
 
-      const quotedMessage = await this.useCase.quoteMessage(
-        validatedData.conversationId,
+      const quotedMessageObj = await this.useCase.getMessage(messageId);
+      if (!quotedMessageObj) {
+        res.status(404).json({ error: "Quoted message not found" });
+        return;
+      }
+      const conversationId = quotedMessageObj.conversationId;
+
+      const quotedMsg = await this.useCase.quoteMessage(
+        conversationId,
         validatedData.senderId,
         validatedData.text,
         validatedData.media,
@@ -1647,18 +1637,18 @@ export class MessagingHttpService {
 
       if (this.socketService) {
         const memberUserIds = await this.useCase.getConversationMembers(
-          validatedData.conversationId,
+          conversationId,
           validatedData.senderId,
         );
         for (const userId of memberUserIds) {
           this.socketService.emitToUser(userId, "receiveMessage", {
-            message: quotedMessage,
-            conversationId: validatedData.conversationId,
+            message: quotedMsg,
+            conversationId,
           });
         }
       }
 
-      res.status(201).json({ data: quotedMessage });
+      res.status(201).json({ data: quotedMsg });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(422).json({

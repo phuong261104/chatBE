@@ -17,6 +17,8 @@ export class MessagingSocketService {
     addReaction: 60,
     editMessage: 30,
     deleteMessage: 30,
+    forwardMessages: 30,
+    quoteMessage: 60,
   };
 
   constructor(
@@ -150,6 +152,14 @@ export class MessagingSocketService {
 
       socket.on("deleteMessageForEveryone", async (payload: any, callback) => {
         await this.handleDeleteMessageForEveryone(socket, payload, callback);
+      });
+
+      socket.on("forwardMessages", async (payload: any, callback) => {
+        await this.handleForwardMessages(socket, payload, callback);
+      });
+
+      socket.on("quoteMessage", async (payload: any, callback) => {
+        await this.handleQuoteMessage(socket, payload, callback);
       });
 
       socket.on("disconnect", () => {});
@@ -370,21 +380,23 @@ export class MessagingSocketService {
       const conversationDetail = await this.useCase.getConversationDetail(conversationId, userId);
       const isGroup = conversationDetail.conversation.type === "group";
 
-      const message = isGroup
+      const messages = isGroup
         ? await this.useCase.sendGroupMessage(conversationId, userId, text, media)
         : await this.useCase.sendMessage(conversationId, userId, text, media);
 
       const memberUserIds = await this.getMemberUserIds(conversationId, userId);
 
-      for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "receiveMessage", {
-          message,
-          conversationId,
-        });
+      for (const msg of messages) {
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, "receiveMessage", {
+            message: msg,
+            conversationId,
+          });
+        }
       }
 
       if (callback) {
-        callback({ success: true, message });
+        callback({ success: true, messages });
       }
     } catch (error) {
       console.error("Error handling sendMessage:", error);
@@ -841,5 +853,129 @@ export class MessagingSocketService {
       conversationId,
       settings,
     });
+  }
+
+  private async handleForwardMessages(
+    socket: AuthenticatedSocket,
+    payload: { messageIds: string[]; targetConversationIds: string[] },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      if (!this.checkRateLimit(userId, "forwardMessages")) {
+        if (callback) callback({ success: false, error: "Rate limit exceeded. Please slow down." });
+        return;
+      }
+
+      const { messageIds, targetConversationIds } = payload;
+
+      if (!messageIds || messageIds.length === 0) {
+        if (callback) callback({ success: false, error: "messageIds is required" });
+        return;
+      }
+
+      if (!targetConversationIds || targetConversationIds.length === 0) {
+        if (callback) callback({ success: false, error: "targetConversationIds is required" });
+        return;
+      }
+
+      const forwardedMessages = await this.useCase.forwardMessages(
+        userId,
+        messageIds,
+        targetConversationIds,
+      );
+
+      for (const msg of forwardedMessages) {
+        const memberUserIds = await this.getMemberUserIds(msg.conversationId, userId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, "receiveMessage", {
+            message: msg,
+            conversationId: msg.conversationId,
+          });
+        }
+      }
+
+      if (callback) {
+        callback({ success: true, messages: forwardedMessages });
+      }
+    } catch (error) {
+      console.error("Error handling forwardMessages:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleQuoteMessage(
+    socket: AuthenticatedSocket,
+    payload: {
+      conversationId: string;
+      quotedMessageId: string;
+      text?: string;
+      media?: MediaAttachment[];
+    },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      if (!this.checkRateLimit(userId, "quoteMessage")) {
+        if (callback) callback({ success: false, error: "Rate limit exceeded. Please slow down." });
+        return;
+      }
+
+      const { conversationId, quotedMessageId, text, media } = payload;
+
+      if (!conversationId) {
+        if (callback) callback({ success: false, error: "conversationId is required" });
+        return;
+      }
+
+      if (!quotedMessageId) {
+        if (callback) callback({ success: false, error: "quotedMessageId is required" });
+        return;
+      }
+
+      if (!text && (!media || media.length === 0)) {
+        if (callback) callback({ success: false, error: "Either text or media is required" });
+        return;
+      }
+
+      const message = await this.useCase.quoteMessage(
+        conversationId,
+        userId,
+        text,
+        media,
+        quotedMessageId,
+      );
+
+      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, "receiveMessage", {
+          message,
+          conversationId,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true, message });
+      }
+    } catch (error) {
+      console.error("Error handling quoteMessage:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
   }
 }

@@ -8,8 +8,9 @@ import {
   IConversationMemberCommandRepository,
   IMessageQueryRepository,
   IMessageCommandRepository,
+  IMessageClassificationRepository,
 } from "../interface";
-import { Message, MessageType } from "../model/model";
+import { Message, MessageType, MessageClassification, ClassificationType } from "../model/model";
 import { forwardMessagesDTOSchema, ForwardMessagesCommand } from "../model/dto";
 import {
   ErrConversationNotFound,
@@ -18,6 +19,12 @@ import {
   ErrMessageUnauthorized,
   ErrNotMember,
 } from "../model/errors";
+
+function extractLinks(text: string): string[] {
+  if (!text) return [];
+  const matches = text.match(/(https?:\/\/[^\s]+)/g);
+  return matches || [];
+}
 
 export class ForwardMessagesHandler implements ICommandHandler<
   ForwardMessagesCommand,
@@ -30,6 +37,7 @@ export class ForwardMessagesHandler implements ICommandHandler<
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
+    private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
   async execute(command: ForwardMessagesCommand): Promise<Message[]> {
@@ -55,18 +63,60 @@ export class ForwardMessagesHandler implements ICommandHandler<
     for (const conversationId of uniqueTargetIds) {
       await this.ensureConversationMember(conversationId, data.userId);
 
-      const messagesToInsert: Message[] = sourceMessages.map((sourceMessage) => ({
-        id: v7(),
-        conversationId,
-        senderId: data.userId,
-        type: sourceMessage.type,
-        text: sourceMessage.text,
-        media: sourceMessage.media,
-        createdAt: now,
-        pinned: false,
-      }));
+      const messagesToInsert: Message[] = sourceMessages.map((sourceMessage) => {
+        const type = sourceMessage.type === MessageType.TEXT && extractLinks(sourceMessage.text || "").length > 0
+          ? MessageType.LINK
+          : sourceMessage.type;
+        return {
+          id: v7(),
+          conversationId,
+          senderId: data.userId,
+          type,
+          text: sourceMessage.text,
+          media: sourceMessage.media,
+          links: type === MessageType.LINK ? extractLinks(sourceMessage.text || "") : undefined,
+          createdAt: now,
+          pinned: false,
+        } as Message;
+      });
 
       await this.messageCommandRepo.batchInsert(messagesToInsert);
+
+      const classifications: MessageClassification[] = [];
+      for (const msg of messagesToInsert) {
+        if (msg.media && msg.media.length > 0) {
+          for (const media of msg.media) {
+            const type = media.mediaType === "image" ? ClassificationType.IMAGE : ClassificationType.FILE;
+            classifications.push({
+              id: v7(),
+              conversationId,
+              type,
+              senderId: data.userId,
+              url: media.url,
+              name: media.name,
+              messageId: msg.id,
+              createdAt: now,
+            });
+          }
+        }
+        if (msg.type === MessageType.LINK && msg.links && msg.links.length > 0) {
+          for (const url of msg.links) {
+            classifications.push({
+              id: v7(),
+              conversationId,
+              type: ClassificationType.LINK,
+              senderId: data.userId,
+              linkUrl: url,
+              messageId: msg.id,
+              createdAt: now,
+            });
+          }
+        }
+      }
+
+      if (classifications.length > 0) {
+        await this.classificationRepo.insertBatch(classifications);
+      }
 
       const lastMessage = messagesToInsert[messagesToInsert.length - 1];
       await this.conversationCommandRepo.update(conversationId, {
@@ -108,7 +158,7 @@ export class ForwardMessagesHandler implements ICommandHandler<
       }
 
       if (
-        ![MessageType.TEXT, MessageType.IMAGE, MessageType.FILE].includes(
+        ![MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.LINK].includes(
           message.type,
         )
       ) {

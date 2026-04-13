@@ -106,7 +106,6 @@ export type EditMessageDTO = z.infer<typeof editMessageDTOSchema>;
 
 export const quoteMessageDTOSchema = z
   .object({
-    conversationId: z.string().uuid("Invalid conversation ID"),
     senderId: z.string().uuid("Invalid sender ID"),
     text: z.string().max(5000, "Message is too long").optional(),
     media: z.array(MediaAttachmentSchema).optional(),

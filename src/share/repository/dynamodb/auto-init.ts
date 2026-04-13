@@ -270,6 +270,30 @@ const tableConfigs: TableConfig[] = [
       },
     ],
   },
+  {
+    TableName: getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS),
+    KeySchema: [
+      { AttributeName: "pk", KeyType: "HASH" },
+      { AttributeName: "sk", KeyType: "RANGE" },
+    ],
+    AttributeDefinitions: [
+      { AttributeName: "pk", AttributeType: "S" },
+      { AttributeName: "sk", AttributeType: "S" },
+      { AttributeName: "GSI1PK", AttributeType: "S" },
+      { AttributeName: "GSI1SK", AttributeType: "S" },
+    ],
+    BillingMode: "PAY_PER_REQUEST",
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "GSI1",
+        KeySchema: [
+          { AttributeName: "GSI1PK", KeyType: "HASH" },
+          { AttributeName: "GSI1SK", KeyType: "RANGE" },
+        ],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
+  },
 ];
 
 export async function createTableIfNotExists(config: TableConfig): Promise<void> {

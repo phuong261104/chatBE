@@ -42,6 +42,7 @@ import {
   DynamoMessageReactionCommandRepository,
   DynamoPollQueryRepository,
   DynamoPollCommandRepository,
+  DynamoMessageClassificationRepository,
 } from "./infras/repository/dynamodb";
 
 import { config } from "@share/component/config";
@@ -128,6 +129,8 @@ export const setupMessagingHexagon = (
     ? new DynamoPollCommandRepository()
     : new MongoPollCommandRepository()) as any;
 
+  const classificationRepo = new DynamoMessageClassificationRepository();
+
   const userRepo = (dbType === "dynamodb"
     ? new DynamoUserRepository()
     : new MongoUserRepository()) as any;
@@ -147,6 +150,7 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
     messageRepo,
     conversationRepo,
+    classificationRepo,
   );
 
   const createGroupHandler = new CreateGroupHandler(
@@ -161,6 +165,7 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
     messageRepo,
     conversationRepo,
+    classificationRepo,
   );
 
   const addMembersToGroupHandler = new AddMembersToGroupHandler(
@@ -261,6 +266,7 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
     messageRepo,
     messageRepo,
+    classificationRepo,
   );
 
   const muteConversationHandler = new MuteConversationHandler(
@@ -343,6 +349,7 @@ export const setupMessagingHexagon = (
     messageRepo,
     conversationMemberRepo,
     conversationRepo,
+    classificationRepo,
   );
 
   const setAdminHandler = new SetAdminHandler(
@@ -409,7 +416,7 @@ export const setupMessagingHexagon = (
 
   const getConversationMediaQueryHandler = new GetConversationMediaQueryHandler(
     conversationMemberRepo,
-    messageRepo,
+    classificationRepo,
   );
 
   const useCase = new MessagingUseCaseFacade(

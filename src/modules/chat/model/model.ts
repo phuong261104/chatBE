@@ -20,7 +20,14 @@ export enum MessageType {
   TEXT = "text",
   IMAGE = "image",
   FILE = "file",
+  LINK = "link",
   SYSTEM = "system",
+}
+
+export enum ClassificationType {
+  IMAGE = "image",
+  FILE = "file",
+  LINK = "link",
 }
 
 export enum MediaType {
@@ -124,6 +131,20 @@ export const MessageReactionSchema = z.object({
 });
 
 export type MessageReaction = z.infer<typeof MessageReactionSchema>;
+
+export const MessageClassificationSchema = z.object({
+  id: z.string(),
+  conversationId: z.string(),
+  type: z.nativeEnum(ClassificationType),
+  senderId: z.string(),
+  url: z.string().optional(),
+  name: z.string().optional(),
+  linkUrl: z.string().optional(),
+  messageId: z.string(),
+  createdAt: z.date(),
+});
+
+export type MessageClassification = z.infer<typeof MessageClassificationSchema>;
 
 export const MessageSchema = z.object({
   id: z.string(),

@@ -435,15 +435,14 @@ export class MessageController extends BaseController {
       }
 
       const validatedData = quoteMessageDTOSchema.parse({
-        conversationId: message.conversationId,
         senderId: currentUserId,
         text,
         media,
         quotedMessageId: messageId,
       });
 
-      const quotedMessage = await this.useCase.quoteMessage(
-        validatedData.conversationId,
+      const quotedMsg = await this.useCase.quoteMessage(
+        message.conversationId,
         validatedData.senderId,
         validatedData.text,
         validatedData.media,
@@ -454,24 +453,24 @@ export class MessageController extends BaseController {
         const isGroup = message.type === "group";
         if (isGroup) {
           this.socketService.emitToGroupRoom(
-            validatedData.conversationId,
+            message.conversationId,
             "receiveMessage",
-            { message: quotedMessage, conversationId: validatedData.conversationId },
+            { message: quotedMsg, conversationId: message.conversationId },
           );
         }
         const memberUserIds = await this.useCase.getConversationMembers(
-          validatedData.conversationId,
+          message.conversationId,
           validatedData.senderId,
         );
         for (const userId of memberUserIds) {
           this.socketService.emitToUser(userId, "receiveMessage", {
-            message: quotedMessage,
-            conversationId: validatedData.conversationId,
+            message: quotedMsg,
+            conversationId: message.conversationId,
           });
         }
       }
 
-      res.status(201).json({ data: quotedMessage });
+      res.status(201).json({ data: quotedMsg });
     } catch (error) {
       if (error instanceof z.ZodError) {
         this.sendValidationError(res, error);
