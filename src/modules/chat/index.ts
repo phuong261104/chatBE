@@ -99,51 +99,43 @@ import {
   GetConversationMediaQueryHandler,
 } from "./usecase";
 
-export const setupMessagingHexagon = (
-  io: SocketIOServer,
-  sctx: ServiceContext,
-) => {
+export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) => {
   const mdlFactory = sctx.mdlFactory;
 
   const dbType = config.dbType;
 
-  const conversationRepo = (dbType === "dynamodb"
-    ? new DynamoConversationRepository()
-    : new MongoConversationRepository()) as any;
-  const conversationMemberRepo = (dbType === "dynamodb"
-    ? new DynamoConversationMemberRepository()
-    : new MongoConversationMemberRepository()) as any;
-  const messageRepo = (dbType === "dynamodb"
-    ? new DynamoMessageRepository()
-    : new MongoMessageRepository()) as any;
-  const reactionQueryRepo = (dbType === "dynamodb"
-    ? new DynamoMessageReactionQueryRepository()
-    : new MongoMessageReactionQueryRepository()) as any;
-  const reactionCmdRepo = (dbType === "dynamodb"
-    ? new DynamoMessageReactionCommandRepository()
-    : new MongoMessageReactionCommandRepository()) as any;
-  const pollQueryRepo = (dbType === "dynamodb"
-    ? new DynamoPollQueryRepository()
-    : new MongoPollQueryRepository()) as any;
-  const pollCmdRepo = (dbType === "dynamodb"
-    ? new DynamoPollCommandRepository()
-    : new MongoPollCommandRepository()) as any;
+  const conversationRepo = (
+    dbType === "dynamodb" ? new DynamoConversationRepository() : new MongoConversationRepository()
+  ) as any;
+  const conversationMemberRepo = (
+    dbType === "dynamodb" ? new DynamoConversationMemberRepository() : new MongoConversationMemberRepository()
+  ) as any;
+  const messageRepo = (dbType === "dynamodb" ? new DynamoMessageRepository() : new MongoMessageRepository()) as any;
+  const reactionQueryRepo = (
+    dbType === "dynamodb" ? new DynamoMessageReactionQueryRepository() : new MongoMessageReactionQueryRepository()
+  ) as any;
+  const reactionCmdRepo = (
+    dbType === "dynamodb" ? new DynamoMessageReactionCommandRepository() : new MongoMessageReactionCommandRepository()
+  ) as any;
+  const pollQueryRepo = (
+    dbType === "dynamodb" ? new DynamoPollQueryRepository() : new MongoPollQueryRepository()
+  ) as any;
+  const pollCmdRepo = (
+    dbType === "dynamodb" ? new DynamoPollCommandRepository() : new MongoPollCommandRepository()
+  ) as any;
 
   const classificationRepo = new DynamoMessageClassificationRepository();
 
-  const userRepo = (dbType === "dynamodb"
-    ? new DynamoUserRepository()
-    : new MongoUserRepository()) as any;
+  const userRepo = (dbType === "dynamodb" ? new DynamoUserRepository() : new MongoUserRepository()) as any;
   const userUseCase = new UserUseCase(userRepo);
   const userAdapter = new UserRepositoryAdapter(userUseCase);
 
-  const getOrCreatePrivateConversationHandler =
-    new GetOrCreatePrivateConversationHandler(
-      conversationRepo,
-      conversationRepo,
-      conversationMemberRepo,
-      userAdapter,
-    );
+  const getOrCreatePrivateConversationHandler = new GetOrCreatePrivateConversationHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    userAdapter,
+  );
 
   const sendMessageHandler = new SendMessageHandler(
     conversationMemberRepo,
@@ -153,12 +145,7 @@ export const setupMessagingHexagon = (
     classificationRepo,
   );
 
-  const createGroupHandler = new CreateGroupHandler(
-    conversationRepo,
-    conversationMemberRepo,
-    messageRepo,
-    userAdapter,
-  );
+  const createGroupHandler = new CreateGroupHandler(conversationRepo, conversationMemberRepo, messageRepo, userAdapter);
 
   const sendGroupMessageHandler = new SendGroupMessageHandler(
     conversationMemberRepo,
@@ -186,17 +173,9 @@ export const setupMessagingHexagon = (
     userAdapter,
   );
 
-  const updateGroupInfoHandler = new UpdateGroupInfoHandler(
-    conversationRepo,
-    conversationRepo,
-    conversationMemberRepo,
-  );
+  const updateGroupInfoHandler = new UpdateGroupInfoHandler(conversationRepo, conversationRepo, conversationMemberRepo);
 
-  const markAsSeenHandler = new MarkAsSeenHandler(
-    conversationMemberRepo,
-    conversationMemberRepo,
-    messageRepo,
-  );
+  const markAsSeenHandler = new MarkAsSeenHandler(conversationMemberRepo, conversationMemberRepo, messageRepo);
 
   const markAsDeliveredHandler = new MarkAsDeliveredHandler(
     conversationMemberRepo,
@@ -216,42 +195,25 @@ export const setupMessagingHexagon = (
   const getConversationsQueryHandler = new GetConversationsQueryHandler(
     conversationRepo,
     conversationMemberRepo,
+    userAdapter,
   );
 
-  const getConversationDetailQueryHandler =
-    new GetConversationDetailQueryHandler(
-      conversationRepo,
-      conversationMemberRepo,
-    );
-
-  const getConversationMembersQueryHandler =
-    new GetConversationMembersQueryHandler(conversationMemberRepo);
-
-  const loadMessagesQueryHandler = new LoadMessagesQueryHandler(
-    conversationMemberRepo,
-    messageRepo,
-  );
-
-  const getTotalUnreadCountQueryHandler = new GetTotalUnreadCountQueryHandler(
-    conversationMemberRepo,
-  );
-
-  const getGroupMembersQueryHandler = new GetGroupMembersQueryHandler(
+  const getConversationDetailQueryHandler = new GetConversationDetailQueryHandler(
     conversationRepo,
     conversationMemberRepo,
   );
 
-  const revokeMessageHandler = new RevokeMessageHandler(
-    messageRepo,
-    messageRepo,
-    conversationMemberRepo,
-  );
+  const getConversationMembersQueryHandler = new GetConversationMembersQueryHandler(conversationMemberRepo);
 
-  const deleteMessageForMeHandler = new DeleteMessageForMeHandler(
-    messageRepo,
-    messageRepo,
-    conversationMemberRepo,
-  );
+  const loadMessagesQueryHandler = new LoadMessagesQueryHandler(conversationMemberRepo, messageRepo);
+
+  const getTotalUnreadCountQueryHandler = new GetTotalUnreadCountQueryHandler(conversationMemberRepo);
+
+  const getGroupMembersQueryHandler = new GetGroupMembersQueryHandler(conversationRepo, conversationMemberRepo);
+
+  const revokeMessageHandler = new RevokeMessageHandler(messageRepo, messageRepo, conversationMemberRepo);
+
+  const deleteMessageForMeHandler = new DeleteMessageForMeHandler(messageRepo, messageRepo, conversationMemberRepo);
 
   const deleteMessageForEveryoneHandler = new DeleteMessageForEveryoneHandler(
     messageRepo,
@@ -269,58 +231,25 @@ export const setupMessagingHexagon = (
     classificationRepo,
   );
 
-  const muteConversationHandler = new MuteConversationHandler(
-    conversationMemberRepo,
-    conversationMemberRepo,
-  );
+  const muteConversationHandler = new MuteConversationHandler(conversationMemberRepo, conversationMemberRepo);
 
-  const unmuteConversationHandler = new UnmuteConversationHandler(
-    conversationMemberRepo,
-    conversationMemberRepo,
-  );
+  const unmuteConversationHandler = new UnmuteConversationHandler(conversationMemberRepo, conversationMemberRepo);
 
-  const pinConversationHandler = new PinConversationHandler(
-    conversationMemberRepo,
-    conversationMemberRepo,
-  );
+  const pinConversationHandler = new PinConversationHandler(conversationMemberRepo, conversationMemberRepo);
 
-  const unpinConversationHandler = new UnpinConversationHandler(
-    conversationMemberRepo,
-    conversationMemberRepo,
-  );
+  const unpinConversationHandler = new UnpinConversationHandler(conversationMemberRepo, conversationMemberRepo);
 
-  const archiveConversationHandler = new ArchiveConversationHandler(
-    conversationMemberRepo,
-    conversationMemberRepo,
-  );
+  const archiveConversationHandler = new ArchiveConversationHandler(conversationMemberRepo, conversationMemberRepo);
 
-  const unarchiveConversationHandler = new UnarchiveConversationHandler(
-    conversationMemberRepo,
-    conversationMemberRepo,
-  );
+  const unarchiveConversationHandler = new UnarchiveConversationHandler(conversationMemberRepo, conversationMemberRepo);
 
-  const editMessageHandler = new EditMessageHandler(
-    messageRepo,
-    messageRepo,
-    conversationMemberRepo,
-  );
+  const editMessageHandler = new EditMessageHandler(messageRepo, messageRepo, conversationMemberRepo);
 
-  const pinMessageHandler = new PinMessageHandler(
-    messageRepo,
-    messageRepo,
-    conversationMemberRepo,
-  );
+  const pinMessageHandler = new PinMessageHandler(messageRepo, messageRepo, conversationMemberRepo);
 
-  const unpinMessageHandler = new UnpinMessageHandler(
-    messageRepo,
-    messageRepo,
-    conversationMemberRepo,
-  );
+  const unpinMessageHandler = new UnpinMessageHandler(messageRepo, messageRepo, conversationMemberRepo);
 
-  const getPinnedMessagesHandler = new GetPinnedMessagesHandler(
-    messageRepo,
-    conversationMemberRepo,
-  );
+  const getPinnedMessagesHandler = new GetPinnedMessagesHandler(messageRepo, conversationMemberRepo);
 
   const addReactionHandler = new AddReactionHandler(
     messageRepo,
@@ -329,20 +258,11 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
   );
 
-  const removeReactionHandler = new RemoveReactionHandler(
-    messageRepo,
-    reactionCmdRepo,
-  );
+  const removeReactionHandler = new RemoveReactionHandler(messageRepo, reactionCmdRepo);
 
-  const removeAllReactionsHandler = new RemoveAllReactionsHandler(
-    messageRepo,
-    reactionCmdRepo,
-  );
+  const removeAllReactionsHandler = new RemoveAllReactionsHandler(messageRepo, reactionCmdRepo);
 
-  const getReactionsHandler = new GetReactionsHandler(
-    messageRepo,
-    reactionQueryRepo,
-  );
+  const getReactionsHandler = new GetReactionsHandler(messageRepo, reactionQueryRepo);
 
   const quoteMessageHandler = new QuoteMessageHandler(
     messageRepo,
@@ -366,29 +286,15 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
   );
 
-  const createPollHandler = new CreatePollHandler(
-    conversationRepo,
-    conversationMemberRepo,
-    pollCmdRepo,
-  );
+  const createPollHandler = new CreatePollHandler(conversationRepo, conversationMemberRepo, pollCmdRepo);
 
-  const getPollsHandler = new GetPollsHandler(
-    pollQueryRepo,
-    conversationRepo,
-    conversationMemberRepo,
-  );
+  const getPollsHandler = new GetPollsHandler(pollQueryRepo, conversationRepo, conversationMemberRepo);
 
-  const votePollHandler = new VotePollHandler(
-    pollQueryRepo,
-    pollCmdRepo,
-  );
+  const votePollHandler = new VotePollHandler(pollQueryRepo, pollCmdRepo);
 
   const getPollResultsHandler = new GetPollResultsHandler(pollQueryRepo);
 
-  const getPendingMembersHandler = new GetPendingMembersHandler(
-    conversationRepo,
-    conversationMemberRepo,
-  );
+  const getPendingMembersHandler = new GetPendingMembersHandler(conversationRepo, conversationMemberRepo);
 
   const approveMemberHandler = new ApproveMemberHandler(
     conversationRepo,
@@ -397,11 +303,7 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
   );
 
-  const rejectMemberHandler = new RejectMemberHandler(
-    conversationRepo,
-    conversationMemberRepo,
-    conversationMemberRepo,
-  );
+  const rejectMemberHandler = new RejectMemberHandler(conversationRepo, conversationMemberRepo, conversationMemberRepo);
 
   const updateGroupSettingsHandler = new UpdateGroupSettingsHandler(
     conversationRepo,
@@ -409,10 +311,7 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
   );
 
-  const getGroupInfoHandler = new GetGroupInfoHandler(
-    conversationRepo,
-    conversationMemberRepo,
-  );
+  const getGroupInfoHandler = new GetGroupInfoHandler(conversationRepo, conversationMemberRepo);
 
   const getConversationMediaQueryHandler = new GetConversationMediaQueryHandler(
     conversationMemberRepo,
@@ -476,49 +375,17 @@ export const setupMessagingHexagon = (
 
   const router = Router();
 
-  router.post(
-    "/conversations/private",
-    mdlFactory.auth,
-    httpService.getPrivateConversationAPI.bind(httpService),
-  );
-  router.get(
-    "/conversations/unread-count",
-    mdlFactory.auth,
-    httpService.getTotalUnreadCountAPI.bind(httpService),
-  );
-  router.get(
-    "/conversations",
-    mdlFactory.auth,
-    httpService.getConversationsAPI.bind(httpService),
-  );
-  router.get(
-    "/conversations/:conversationId",
-    mdlFactory.auth,
-    httpService.getConversationDetailAPI.bind(httpService),
-  );
-  router.get(
-    "/conversations/:conversationId/messages",
-    mdlFactory.auth,
-    httpService.loadMessagesAPI.bind(httpService),
-  );
+  router.post("/conversations/private", mdlFactory.auth, httpService.getPrivateConversationAPI.bind(httpService));
+  router.get("/conversations/unread-count", mdlFactory.auth, httpService.getTotalUnreadCountAPI.bind(httpService));
+  router.get("/conversations", mdlFactory.auth, httpService.getConversationsAPI.bind(httpService));
+  router.get("/conversations/:conversationId", mdlFactory.auth, httpService.getConversationDetailAPI.bind(httpService));
+  router.get("/conversations/:conversationId/messages", mdlFactory.auth, httpService.loadMessagesAPI.bind(httpService));
 
-  router.post(
-    "/conversations/:conversationId/messages",
-    mdlFactory.auth,
-    httpService.sendMessageAPI.bind(httpService),
-  );
+  router.post("/conversations/:conversationId/messages", mdlFactory.auth, httpService.sendMessageAPI.bind(httpService));
 
-  router.post(
-    "/messages/:messageId/revoke",
-    mdlFactory.auth,
-    httpService.revokeMessageAPI.bind(httpService),
-  );
+  router.post("/messages/:messageId/revoke", mdlFactory.auth, httpService.revokeMessageAPI.bind(httpService));
 
-  router.post(
-    "/messages/:messageId/delete",
-    mdlFactory.auth,
-    httpService.deleteMessageForMeAPI.bind(httpService),
-  );
+  router.post("/messages/:messageId/delete", mdlFactory.auth, httpService.deleteMessageForMeAPI.bind(httpService));
 
   router.post(
     "/messages/:messageId/delete-for-everyone",
@@ -526,53 +393,21 @@ export const setupMessagingHexagon = (
     httpService.deleteMessageForEveryoneAPI.bind(httpService),
   );
 
-  router.post(
-    "/messages/forward",
-    mdlFactory.auth,
-    httpService.forwardMessagesAPI.bind(httpService),
-  );
+  router.post("/messages/forward", mdlFactory.auth, httpService.forwardMessagesAPI.bind(httpService));
 
-  router.post(
-    "/conversations/:conversationId/seen",
-    mdlFactory.auth,
-    httpService.markAsSeenAPI.bind(httpService),
-  );
+  router.post("/conversations/:conversationId/seen", mdlFactory.auth, httpService.markAsSeenAPI.bind(httpService));
   router.post(
     "/conversations/:conversationId/delivered",
     mdlFactory.auth,
     httpService.markAsDeliveredAPI.bind(httpService),
   );
 
-  router.post(
-    "/groups",
-    mdlFactory.auth,
-    httpService.createGroupAPI.bind(httpService),
-  );
-  router.post(
-    "/groups/:groupId/members",
-    mdlFactory.auth,
-    httpService.addMembersAPI.bind(httpService),
-  );
-  router.delete(
-    "/groups/:groupId/members/:userId",
-    mdlFactory.auth,
-    httpService.removeMemberAPI.bind(httpService),
-  );
-  router.put(
-    "/groups/:groupId",
-    mdlFactory.auth,
-    httpService.updateGroupAPI.bind(httpService),
-  );
-  router.post(
-    "/groups/:groupId/leave",
-    mdlFactory.auth,
-    httpService.leaveGroupAPI.bind(httpService),
-  );
-  router.get(
-    "/groups/:groupId/members",
-    mdlFactory.auth,
-    httpService.getGroupMembersAPI.bind(httpService),
-  );
+  router.post("/groups", mdlFactory.auth, httpService.createGroupAPI.bind(httpService));
+  router.post("/groups/:groupId/members", mdlFactory.auth, httpService.addMembersAPI.bind(httpService));
+  router.delete("/groups/:groupId/members/:userId", mdlFactory.auth, httpService.removeMemberAPI.bind(httpService));
+  router.put("/groups/:groupId", mdlFactory.auth, httpService.updateGroupAPI.bind(httpService));
+  router.post("/groups/:groupId/leave", mdlFactory.auth, httpService.leaveGroupAPI.bind(httpService));
+  router.get("/groups/:groupId/members", mdlFactory.auth, httpService.getGroupMembersAPI.bind(httpService));
 
   router.post(
     "/conversations/:conversationId/mute",
@@ -607,23 +442,11 @@ export const setupMessagingHexagon = (
     httpService.unarchiveConversationAPI.bind(httpService),
   );
 
-  router.put(
-    "/messages/:messageId",
-    mdlFactory.auth,
-    httpService.editMessageAPI.bind(httpService),
-  );
+  router.put("/messages/:messageId", mdlFactory.auth, httpService.editMessageAPI.bind(httpService));
 
-  router.post(
-    "/messages/:messageId/pin",
-    mdlFactory.auth,
-    httpService.pinMessageAPI.bind(httpService),
-  );
+  router.post("/messages/:messageId/pin", mdlFactory.auth, httpService.pinMessageAPI.bind(httpService));
 
-  router.delete(
-    "/messages/:messageId/pin",
-    mdlFactory.auth,
-    httpService.unpinMessageAPI.bind(httpService),
-  );
+  router.delete("/messages/:messageId/pin", mdlFactory.auth, httpService.unpinMessageAPI.bind(httpService));
 
   router.get(
     "/conversations/:conversationId/pinned-messages",
@@ -637,53 +460,21 @@ export const setupMessagingHexagon = (
     httpService.getConversationMediaAPI.bind(httpService),
   );
 
-  router.post(
-    "/messages/:messageId/react",
-    mdlFactory.auth,
-    httpService.addReactionAPI.bind(httpService),
-  );
+  router.post("/messages/:messageId/react", mdlFactory.auth, httpService.addReactionAPI.bind(httpService));
 
-  router.delete(
-    "/messages/:messageId/react",
-    mdlFactory.auth,
-    httpService.removeReactionAPI.bind(httpService),
-  );
+  router.delete("/messages/:messageId/react", mdlFactory.auth, httpService.removeReactionAPI.bind(httpService));
 
-  router.delete(
-    "/messages/:messageId/reactions",
-    mdlFactory.auth,
-    httpService.removeAllReactionsAPI.bind(httpService),
-  );
+  router.delete("/messages/:messageId/reactions", mdlFactory.auth, httpService.removeAllReactionsAPI.bind(httpService));
 
-  router.get(
-    "/messages/:messageId/reactions",
-    mdlFactory.auth,
-    httpService.getReactionsAPI.bind(httpService),
-  );
+  router.get("/messages/:messageId/reactions", mdlFactory.auth, httpService.getReactionsAPI.bind(httpService));
 
-  router.post(
-    "/messages/:messageId/quote",
-    mdlFactory.auth,
-    httpService.quoteMessageAPI.bind(httpService),
-  );
+  router.post("/messages/:messageId/quote", mdlFactory.auth, httpService.quoteMessageAPI.bind(httpService));
 
-  router.post(
-    "/groups/:groupId/set-admin",
-    mdlFactory.auth,
-    httpService.setAdminAPI.bind(httpService),
-  );
+  router.post("/groups/:groupId/set-admin", mdlFactory.auth, httpService.setAdminAPI.bind(httpService));
 
-  router.post(
-    "/groups/:groupId/transfer-owner",
-    mdlFactory.auth,
-    httpService.transferOwnerAPI.bind(httpService),
-  );
+  router.post("/groups/:groupId/transfer-owner", mdlFactory.auth, httpService.transferOwnerAPI.bind(httpService));
 
-  router.get(
-    "/groups/:groupId/members/pending",
-    mdlFactory.auth,
-    httpService.getPendingMembersAPI.bind(httpService),
-  );
+  router.get("/groups/:groupId/members/pending", mdlFactory.auth, httpService.getPendingMembersAPI.bind(httpService));
 
   router.patch(
     "/groups/:groupId/members/:userId/approve",
@@ -697,35 +488,15 @@ export const setupMessagingHexagon = (
     httpService.rejectMemberAPI.bind(httpService),
   );
 
-  router.patch(
-    "/groups/:groupId/settings",
-    mdlFactory.auth,
-    httpService.updateGroupSettingsAPI.bind(httpService),
-  );
+  router.patch("/groups/:groupId/settings", mdlFactory.auth, httpService.updateGroupSettingsAPI.bind(httpService));
 
-  router.get(
-    "/groups/:groupId/info",
-    mdlFactory.auth,
-    httpService.getGroupInfoAPI.bind(httpService),
-  );
+  router.get("/groups/:groupId/info", mdlFactory.auth, httpService.getGroupInfoAPI.bind(httpService));
 
-  router.post(
-    "/groups/:groupId/polls",
-    mdlFactory.auth,
-    httpService.createPollAPI.bind(httpService),
-  );
+  router.post("/groups/:groupId/polls", mdlFactory.auth, httpService.createPollAPI.bind(httpService));
 
-  router.get(
-    "/groups/:groupId/polls",
-    mdlFactory.auth,
-    httpService.getPollsAPI.bind(httpService),
-  );
+  router.get("/groups/:groupId/polls", mdlFactory.auth, httpService.getPollsAPI.bind(httpService));
 
-  router.post(
-    "/groups/:groupId/polls/:pollId/vote",
-    mdlFactory.auth,
-    httpService.votePollAPI.bind(httpService),
-  );
+  router.post("/groups/:groupId/polls/:pollId/vote", mdlFactory.auth, httpService.votePollAPI.bind(httpService));
 
   router.get(
     "/groups/:groupId/polls/:pollId/results",

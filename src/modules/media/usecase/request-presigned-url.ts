@@ -25,8 +25,12 @@ const MIME_TYPE_MAP: Record<MediaFileType, string[]> = {
   [MediaFileType.IMAGE]: ["image/jpeg", "image/png", "image/gif", "image/webp"],
   [MediaFileType.VIDEO]: ["video/mp4", "video/mpeg", "video/quicktime", "video/webm"],
   [MediaFileType.AUDIO]: ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp3", "audio/mp4", "audio/x-m4a"],
-  [MediaFileType.DOCUMENT]: ["application/pdf", "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+
+  [MediaFileType.DOCUMENT]: [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ],
 };
 
 class RequestPresignedUrlCmdHandler implements ICommandHandler<
@@ -38,8 +42,7 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
   async execute(command: RequestPresignedUrlCommand): Promise<RequestPresignedUrlResponseDTO> {
     const { userId, data } = command;
 
-    const { success, data: validatedInput, error } =
-      RequestPresignedUrlDTOSchema.safeParse(data);
+    const { success, data: validatedInput, error } = RequestPresignedUrlDTOSchema.safeParse(data);
 
     if (!success) {
       throw AppError.from(new Error(`Invalid request: ${error.message}`), 400);
@@ -49,7 +52,7 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
     if (validatedInput.fileSize > maxSize) {
       throw AppError.from(
         new Error(`File size exceeds maximum allowed for ${validatedInput.fileType}: ${maxSize} bytes`),
-        400
+        400,
       );
     }
 
@@ -57,7 +60,7 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
     if (!allowedMimeTypes.includes(validatedInput.mimeType)) {
       throw AppError.from(
         new Error(`MIME type ${validatedInput.mimeType} is not allowed for ${validatedInput.fileType}`),
-        400
+        400,
       );
     }
 
@@ -74,11 +77,7 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
     const expiresIn = validatedInput.expiresIn || 300;
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
-    const presignedUrl = await cloudStorage.getPresignedUploadUrl(
-      filename,
-      validatedInput.mimeType,
-      expiresIn
-    );
+    const presignedUrl = await cloudStorage.getPresignedUploadUrl(filename, validatedInput.mimeType, expiresIn);
 
     uploadRegistry.set(fileId, {
       fileId,
