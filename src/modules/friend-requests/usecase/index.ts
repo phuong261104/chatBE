@@ -17,13 +17,35 @@ import {
   ErrFriendRequestUnauthorized,
   ErrFriendRequestUserBlocked
 } from '../model';
+import {
+  ConversationType,
+  ConversationMemberRole,
+  ConversationMemberStatus,
+  MessageType,
+} from '@modules/chat/model/model';
+
+interface ConversationCommandRepo {
+  insert(conversation: any): Promise<boolean>;
+  update(id: string, data: any): Promise<boolean>;
+}
+
+interface ConversationMemberCommandRepo {
+  insert(member: any): Promise<boolean>;
+}
+
+interface MessageCommandRepo {
+  insert(message: any): Promise<boolean>;
+}
 
 export class FriendRequestUseCase implements IFriendRequestUseCase {
   constructor(
     private readonly repository: any,
     private readonly blockRepository: any,
     private readonly friendshipRepository: any,
-    private readonly userRepository: any
+    private readonly userRepository: any,
+    private readonly conversationCommandRepo: ConversationCommandRepo,
+    private readonly conversationMemberCommandRepo: ConversationMemberCommandRepo,
+    private readonly messageCommandRepo: MessageCommandRepo,
   ) {}
 
   async sendFriendRequest(fromUserId: string, toUserId: string): Promise<string> {
@@ -146,7 +168,76 @@ export class FriendRequestUseCase implements IFriendRequestUseCase {
       createdAt: new Date()
     });
 
+    await this.createConversationForFriendship(userA, userB);
+
     return true;
+  }
+
+  private async createConversationForFriendship(userA: string, userB: string): Promise<void> {
+    const conversationId = v7();
+    const now = new Date();
+
+    const conversation = {
+      id: conversationId,
+      type: ConversationType.PRIVATE,
+      pairKey: [userA, userB].sort().join('_'),
+      membersCount: 2,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.conversationCommandRepo.insert(conversation);
+
+    const member1 = {
+      id: v7(),
+      conversationId: conversationId,
+      userId: userA,
+      role: ConversationMemberRole.MEMBER,
+      status: ConversationMemberStatus.ACTIVE,
+      joinedAt: now,
+      unreadCount: 0,
+      pinned: false,
+      archived: false,
+      updatedAt: now,
+    };
+    await this.conversationMemberCommandRepo.insert(member1);
+
+    const member2 = {
+      id: v7(),
+      conversationId: conversationId,
+      userId: userB,
+      role: ConversationMemberRole.MEMBER,
+      status: ConversationMemberStatus.ACTIVE,
+      joinedAt: now,
+      unreadCount: 0,
+      pinned: false,
+      archived: false,
+      updatedAt: now,
+    };
+    await this.conversationMemberCommandRepo.insert(member2);
+
+    const messageId = v7();
+    const systemMessageText = 'Hai bạn đã trở thành bạn bè';
+    const systemMessage = {
+      id: messageId,
+      conversationId: conversationId,
+      senderId: userA,
+      type: MessageType.SYSTEM,
+      text: systemMessageText,
+      createdAt: now,
+      pinned: false,
+    };
+    await this.messageCommandRepo.insert(systemMessage);
+
+    await this.conversationCommandRepo.update(conversationId, {
+      lastMessage: {
+        messageId: messageId,
+        senderId: userA,
+        type: MessageType.SYSTEM,
+        textPreview: systemMessageText,
+        createdAt: now,
+      },
+      lastMessageAt: now,
+    });
   }
 
   async rejectFriendRequest(requestId: string, userId: string): Promise<boolean> {

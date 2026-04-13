@@ -15,6 +15,8 @@ import { MongoFriendshipRepository } from "@modules/friendships/infras/repositor
 import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
 import { MongoUserRepository } from "@modules/user/infras/repository/nosql/mongodb-repo";
 import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb";
+import { MongoConversationRepository, MongoConversationMemberRepository, MongoMessageRepository } from "@modules/chat/infras/repository";
+import { DynamoConversationRepository, DynamoConversationMemberRepository, DynamoMessageRepository } from "@modules/chat/infras/repository/dynamodb";
 import { config } from "@share/component/config";
 
 export { FriendNotificationSocketService };
@@ -41,11 +43,23 @@ export const setupFriendRequestHexagon = (
   const userRepository = (dbType === "dynamodb"
     ? new DynamoUserRepository()
     : new MongoUserRepository()) as any;
+  const conversationRepo = (dbType === "dynamodb"
+    ? new DynamoConversationRepository()
+    : new MongoConversationRepository()) as any;
+  const conversationMemberRepo = (dbType === "dynamodb"
+    ? new DynamoConversationMemberRepository()
+    : new MongoConversationMemberRepository()) as any;
+  const messageRepo = (dbType === "dynamodb"
+    ? new DynamoMessageRepository()
+    : new MongoMessageRepository()) as any;
   const useCase = new FriendRequestUseCase(
     repository,
     blockRepository,
     friendshipRepository,
     userRepository,
+    conversationRepo,
+    conversationMemberRepo,
+    messageRepo,
   );
   const httpService = new FriendRequestHTTPService(useCase);
 
