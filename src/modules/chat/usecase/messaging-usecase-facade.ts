@@ -56,6 +56,7 @@ import { ApproveMemberHandler } from "./approve-member";
 import { RejectMemberHandler } from "./reject-member";
 import { UpdateGroupSettingsHandler } from "./update-group-settings";
 import { GetGroupInfoHandler } from "./get-group-info";
+import { GetConversationMediaQueryHandler } from "./get-conversation-media";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -105,6 +106,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly rejectMemberHandler: RejectMemberHandler,
     private readonly updateGroupSettingsHandler: UpdateGroupSettingsHandler,
     private readonly getGroupInfoHandler: GetGroupInfoHandler,
+    private readonly getConversationMediaQueryHandler: GetConversationMediaQueryHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -459,5 +461,21 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     settings: GroupSettings;
   }> {
     return this.getGroupInfoHandler.query({ groupId, userId });
+  }
+
+  async getConversationMedia(
+    conversationId: string,
+    userId: string,
+    cursor: string | undefined,
+    limit: number,
+    type: "all" | "image" | "file" | "link",
+  ): Promise<{ images: any[]; files: any[]; links: any[]; nextCursor: string; hasMore: boolean }> {
+    return this.getConversationMediaQueryHandler.query({
+      conversationId,
+      userId,
+      cursor,
+      limit,
+      type,
+    });
   }
 }

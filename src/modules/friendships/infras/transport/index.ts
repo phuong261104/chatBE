@@ -1,7 +1,7 @@
 import { IFriendshipUseCase } from "@modules/friendships/interface";
 import { BaseHttpService } from "@share/transport/http-server";
 import { Request, Response } from "express";
-import { Friendship, FriendshipCondDTO, FriendshipCreateDTO, FriendshipUpdateDTO } from "../../model";
+import { Friendship, FriendshipCondDTO, FriendshipCreateDTO, FriendshipUpdateDTO, GetFriendsListQuerySchema } from "../../model";
 import { FriendNotificationSocketService } from "@modules/friend-requests/infras/transport/socket-service";
 
 export class FriendshipHTTPService extends BaseHttpService<
@@ -24,22 +24,24 @@ export class FriendshipHTTPService extends BaseHttpService<
     try {
       const requester = res.locals["requester"];
       const userId = requester.sub;
-      const friends = await this.usecase.getFriendsList(userId);
 
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const startIndex = (page - 1) * limit;
-      const endIndex = page * limit;
+      const parsed = GetFriendsListQuerySchema.safeParse({
+        cursor: req.query.cursor,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
+        sortBy: req.query.sortBy || "newest",
+      });
 
-      const paginatedFriends = friends.slice(startIndex, endIndex);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid query parameters" });
+      }
+
+      const result = await this.usecase.getFriendsList(userId, parsed.data);
 
       res.status(200).json({
         data: {
-          items: paginatedFriends,
-          total: friends.length,
-          page,
-          limit,
-          hasMore: endIndex < friends.length,
+          items: result.friendships,
+          nextCursor: result.nextCursor,
+          hasMore: result.hasMore,
         },
       });
     } catch (error) {

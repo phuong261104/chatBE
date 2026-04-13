@@ -309,4 +309,18 @@ export interface IMessagingUseCase {
     currentUserRole: ConversationMemberRole;
     settings: GroupSettings;
   }>;
+
+  getConversationMedia(
+    conversationId: string,
+    userId: string,
+    cursor: string | undefined,
+    limit: number,
+    type: "all" | "image" | "file" | "link",
+  ): Promise<{
+    images: any[];
+    files: any[];
+    links: any[];
+    nextCursor: string;
+    hasMore: boolean;
+  }>;
 }

@@ -19,6 +19,12 @@ function mapMediaToDbFormat(media: MediaAttachment[]) {
   }));
 }
 
+function extractLinks(text: string): string[] {
+  if (!text) return [];
+  const matches = text.match(/(https?:\/\/[^\s]+)/g);
+  return matches || [];
+}
+
 export class SendMessageHandler implements ICommandHandler<SendMessageCommand, Message> {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
@@ -65,6 +71,7 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
       type: messageType,
       text: validatedInput.text,
       media: validatedInput.media ? mapMediaToDbFormat(validatedInput.media as any) : undefined,
+      links: validatedInput.text ? extractLinks(validatedInput.text) : undefined,
       createdAt: now,
       pinned: false,
     };

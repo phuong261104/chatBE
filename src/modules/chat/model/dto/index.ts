@@ -4,3 +4,4 @@ export * from "./group-dto";
 export * from "./reaction-dto";
 export * from "./poll-dto";
 export * from "./common-dto";
+export * from "./media-group-dto";

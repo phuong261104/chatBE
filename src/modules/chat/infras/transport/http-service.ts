@@ -32,6 +32,7 @@ import {
 } from "../../model";
 import { z } from "zod";
 import { ConversationType } from "../../model";
+import { GetConversationMediaQuerySchema } from "../../model/dto/media-group-dto";
 
 export class MessagingHttpService {
   private socketService?: MessagingSocketService;
@@ -1347,6 +1348,54 @@ export class MessagingHttpService {
       );
 
       res.status(200).json({ data: messages });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async getConversationMediaAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const { cursor, limit = "20", type = "all" } = req.query;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = GetConversationMediaQuerySchema.parse({
+        conversationId,
+        userId: currentUserId,
+        cursor: cursor || undefined,
+        limit: parseInt(limit as string, 10),
+        type,
+      });
+
+      const result = await this.useCase.getConversationMedia(
+        validatedData.conversationId,
+        validatedData.userId,
+        validatedData.cursor,
+        validatedData.limit,
+        validatedData.type,
+      );
+
+      res.status(200).json({ data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(422).json({

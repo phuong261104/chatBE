@@ -19,6 +19,7 @@ export const MessageUpdateDTOSchema = z.object({
   type: z.nativeEnum(MessageType).optional(),
   text: z.string().optional(),
   media: z.array(MessageMediaSchema).optional(),
+  links: z.array(z.string()).optional(),
   editedAt: z.date().optional(),
   deletedAt: z.date().optional(),
   deletedForUserIds: z.array(z.string()).optional(),

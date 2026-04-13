@@ -132,6 +132,7 @@ export const MessageSchema = z.object({
   type: z.nativeEnum(MessageType),
   text: z.string().optional(),
   media: z.array(MessageMediaSchema).optional(),
+  links: z.array(z.string()).optional(),
   deletedForUserIds: z.array(z.string()).optional(),
   quotedMessageId: z.string().optional(),
   quotedMessagePreview: z.string().optional(),

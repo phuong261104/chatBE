@@ -14,7 +14,9 @@ import {
   ErrFriendshipSelfFriendship,
   ErrFriendshipUserNotFound,
   MutualFriendDTO,
-  FriendSuggestionDTO
+  FriendSuggestionDTO,
+  GetFriendsListQuery,
+  GetFriendsListResult,
 } from '../model';
 import { FriendRequestStatus } from '@modules/friend-requests/model/model';
 
@@ -25,8 +27,13 @@ export class FriendshipUseCase implements IFriendshipUseCase {
     private readonly friendRequestRepository: any
   ) {}
 
-  async getFriendsList(userId: string): Promise<Friendship[]> {
-    return await this.repository.findFriendshipsForUser(userId);
+  async getFriendsList(userId: string, query: GetFriendsListQuery): Promise<GetFriendsListResult> {
+    return await this.repository.findFriendshipsWithCursor(
+      userId,
+      query.cursor,
+      query.limit,
+      query.sortBy,
+    );
   }
 
   async areFriends(userId1: string, userId2: string): Promise<boolean> {

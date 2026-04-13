@@ -1,8 +1,9 @@
 import { IUseCase } from '@share/interface';
 import { FriendshipCreateDTO, FriendshipCondDTO, Friendship, MutualFriendDTO, FriendSuggestionDTO } from '../model';
+import { GetFriendsListQuery, GetFriendsListResult } from '../model/dto';
 
 export interface IFriendshipUseCase extends IUseCase<FriendshipCreateDTO, never, Friendship, FriendshipCondDTO> {
-  getFriendsList(userId: string): Promise<Friendship[]>;
+  getFriendsList(userId: string, query: GetFriendsListQuery): Promise<GetFriendsListResult>;
   areFriends(userId1: string, userId2: string): Promise<boolean>;
   unfriend(userId: string, friendId: string): Promise<boolean>;
   getMutualFriends(userId: string, targetUserId: string, limit?: number): Promise<MutualFriendDTO[]>;

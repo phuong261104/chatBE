@@ -40,5 +40,6 @@ export { ApproveMemberHandler } from "./approve-member";
 export { RejectMemberHandler } from "./reject-member";
 export { UpdateGroupSettingsHandler } from "./update-group-settings";
 export { GetGroupInfoHandler } from "./get-group-info";
+export { GetConversationMediaQueryHandler } from "./get-conversation-media";
 
 export { MessagingUseCaseFacade } from "./messaging-usecase-facade";

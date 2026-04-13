@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Friendship } from './model';
 
 export const FriendshipCreateSchema = z
   .object({
@@ -43,3 +44,17 @@ export const FriendSuggestionDTOSchema = z.object({
 });
 
 export type FriendSuggestionDTO = z.infer<typeof FriendSuggestionDTOSchema>;
+
+export const GetFriendsListQuerySchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.number().min(1).max(100).default(20),
+  sortBy: z.enum(["newest", "oldest"]).default("newest"),
+});
+
+export type GetFriendsListQuery = z.infer<typeof GetFriendsListQuerySchema>;
+
+export interface GetFriendsListResult {
+  friendships: Friendship[];
+  nextCursor: string;
+  hasMore: boolean;
+}

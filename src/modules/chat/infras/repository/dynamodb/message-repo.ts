@@ -144,6 +144,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
       type: data.type,
       text: data.text,
       media: data.media,
+      links: data.links || [],
       deletedForUserIds: data.deletedForUserIds || [],
       quotedMessageId: data.quotedMessageId,
       quotedMessagePreview: data.quotedMessagePreview,
@@ -162,6 +163,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     if (data.type !== undefined) updateData.type = data.type;
     if (data.text !== undefined) updateData.text = data.text;
     if (data.media !== undefined) updateData.media = data.media;
+    if (data.links !== undefined) updateData.links = data.links;
     if (data.editedAt !== undefined && data.editedAt !== null) updateData.editedAt = (data.editedAt as Date).toISOString();
     if (data.deletedAt !== undefined && data.deletedAt !== null) updateData.deletedAt = (data.deletedAt as Date).toISOString();
     if (data.deletedForUserIds !== undefined) updateData.deletedForUserIds = data.deletedForUserIds;
@@ -227,6 +229,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
           ":skPrefix": "MSG#",
           ":pinned": true,
         },
+        ScanIndexForward: true,
       }),
     );
     return (result.Items || []).map((item) => {

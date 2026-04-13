@@ -95,6 +95,7 @@ import {
   RejectMemberHandler,
   UpdateGroupSettingsHandler,
   GetGroupInfoHandler,
+  GetConversationMediaQueryHandler,
 } from "./usecase";
 
 export const setupMessagingHexagon = (
@@ -406,6 +407,11 @@ export const setupMessagingHexagon = (
     conversationMemberRepo,
   );
 
+  const getConversationMediaQueryHandler = new GetConversationMediaQueryHandler(
+    conversationMemberRepo,
+    messageRepo,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -453,6 +459,7 @@ export const setupMessagingHexagon = (
     rejectMemberHandler,
     updateGroupSettingsHandler,
     getGroupInfoHandler,
+    getConversationMediaQueryHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -615,6 +622,12 @@ export const setupMessagingHexagon = (
     "/conversations/:conversationId/pinned-messages",
     mdlFactory.auth,
     httpService.getPinnedMessagesAPI.bind(httpService),
+  );
+
+  router.get(
+    "/conversations/:conversationId/media",
+    mdlFactory.auth,
+    httpService.getConversationMediaAPI.bind(httpService),
   );
 
   router.post(

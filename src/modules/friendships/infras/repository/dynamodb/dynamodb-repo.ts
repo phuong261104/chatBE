@@ -97,6 +97,76 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
     return unique;
   }
 
+  async findFriendshipsWithCursor(
+    userId: string,
+    cursor: string | undefined,
+    limit: number,
+    sortBy: "newest" | "oldest",
+  ): Promise<{ friendships: Friendship[]; nextCursor: string; hasMore: boolean }> {
+    const docClient = getDocClient();
+    const tableName = getTableName(TABLE_NAMES.FRIENDSHIPS);
+
+    const [result1, result2] = await Promise.all([
+      docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: "userA = :userId",
+          ExpressionAttributeValues: { ":userId": userId },
+        }),
+      ),
+      docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          IndexName: "userB-index",
+          KeyConditionExpression: "userB = :userId",
+          ExpressionAttributeValues: { ":userId": userId },
+        }),
+      ),
+    ]);
+
+    const seen = new Set<string>();
+    const allItems: Record<string, any>[] = [];
+    for (const item of [...(result1.Items || []), ...(result2.Items || [])]) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        allItems.push(item);
+      }
+    }
+
+    allItems.sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return sortBy === "newest" ? timeB - timeA : timeA - timeB;
+    });
+
+    let startIndex = 0;
+    if (cursor) {
+      const decoded = Buffer.from(cursor, "base64").toString("utf-8");
+      const [cursorId, cursorCreatedAt] = decoded.split("|");
+      const cursorTime = new Date(cursorCreatedAt).getTime();
+      const idx = allItems.findIndex(
+        (item) => item.id === cursorId && item.createdAt === cursorCreatedAt,
+      );
+      startIndex = idx >= 0 ? idx + 1 : 0;
+    }
+
+    const pageItems = allItems.slice(startIndex, startIndex + limit + 1);
+    const hasMore = pageItems.length > limit;
+    const returnItems = hasMore ? pageItems.slice(0, limit) : pageItems;
+
+    let nextCursor = "";
+    if (hasMore && returnItems.length > 0) {
+      const last = returnItems[returnItems.length - 1];
+      nextCursor = Buffer.from(`${last.id}|${last.createdAt}`).toString("base64");
+    }
+
+    return {
+      friendships: returnItems.map((item) => this.toEntity(item)),
+      nextCursor,
+      hasMore,
+    };
+  }
+
   async getFriendIds(userId: string): Promise<string[]> {
     const friendships = await this.findFriendshipsForUser(userId);
     return friendships.map((f) => (f.userA === userId ? f.userB : f.userA));
@@ -155,6 +225,20 @@ export class DynamoFriendshipRepository extends BaseRepositoryDynamoDB<
 > {
   constructor() {
     super(new DynamoFriendshipQueryRepository(), new DynamoFriendshipCommandRepository());
+  }
+
+  async findFriendshipsWithCursor(
+    userId: string,
+    cursor: string | undefined,
+    limit: number,
+    sortBy: "newest" | "oldest",
+  ) {
+    return (this.queryRepo as DynamoFriendshipQueryRepository).findFriendshipsWithCursor(
+      userId,
+      cursor,
+      limit,
+      sortBy,
+    );
   }
 
   async findFriendshipsForUser(userId: string): Promise<Friendship[]> {
