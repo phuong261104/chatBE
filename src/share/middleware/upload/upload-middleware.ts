@@ -2,11 +2,7 @@ import { Request, Response, NextFunction, Handler } from "express";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
-import {
-  IStorageStrategy,
-  IUploadConfig,
-  UploadedFile,
-} from "./storage-interface";
+import { IStorageStrategy, IUploadConfig, UploadedFile } from "./storage-interface";
 import { LocalStorage } from "./local-storage";
 import { CloudStorage } from "./cloud-storage";
 
@@ -28,19 +24,11 @@ export class UploadMiddleware {
     });
   }
 
-  private fileFilter(
-    req: Request,
-    file: Express.Multer.File,
-    cb: multer.FileFilterCallback,
-  ): void {
+  private fileFilter(req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback): void {
     if (this.config.allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(
-        new Error(
-          `Invalid file type. Allowed types: ${this.config.allowedMimeTypes.join(", ")}`,
-        ),
-      );
+      cb(new Error(`Invalid file type. Allowed types: ${this.config.allowedMimeTypes.join(", ")}`));
     }
   }
 
@@ -52,16 +40,9 @@ export class UploadMiddleware {
 
   private async processFile(file: Express.Multer.File): Promise<string> {
     const cloudStorage = this.storage as CloudStorage;
-    if (
-      cloudStorage &&
-      typeof cloudStorage.uploadToS3 === "function"
-    ) {
+    if (cloudStorage && typeof cloudStorage.uploadToS3 === "function") {
       const filename = this.generateFilename(file.originalname);
-      return cloudStorage.uploadToS3(
-        file.buffer,
-        filename,
-        file.mimetype,
-      );
+      return cloudStorage.uploadToS3(file.buffer, filename, file.mimetype);
     }
     return this.storage.getFileUrl(file.filename);
   }
@@ -191,10 +172,7 @@ export class UploadMiddleware {
   }
 }
 
-export function createUploadMiddleware(
-  config?: Partial<IUploadConfig>,
-  storage?: IStorageStrategy,
-): UploadMiddleware {
+export function createUploadMiddleware(config?: Partial<IUploadConfig>, storage?: IStorageStrategy): UploadMiddleware {
   const defaultConfig: IUploadConfig = {
     maxFileSize: 10 * 1024 * 1024,
     allowedMimeTypes: [
@@ -207,6 +185,8 @@ export function createUploadMiddleware(
       "video/quicktime",
       "audio/mpeg",
       "audio/wav",
+      "audio/mp4",
+      "audio/x-m4a",
       "application/pdf",
     ],
     destination: path.join(process.cwd(), "uploads"),
