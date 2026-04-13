@@ -1,12 +1,7 @@
 import { IFriendshipUseCase } from "@modules/friendships/interface";
 import { BaseHttpService } from "@share/transport/http-server";
 import { Request, Response } from "express";
-import {
-  Friendship,
-  FriendshipCondDTO,
-  FriendshipCreateDTO,
-  FriendshipUpdateDTO,
-} from "../../model";
+import { Friendship, FriendshipCondDTO, FriendshipCreateDTO, FriendshipUpdateDTO } from "../../model";
 import { FriendNotificationSocketService } from "@modules/friend-requests/infras/transport/socket-service";
 
 export class FriendshipHTTPService extends BaseHttpService<
@@ -61,6 +56,14 @@ export class FriendshipHTTPService extends BaseHttpService<
       const { friendId } = req.params;
 
       await this.usecase.unfriend(userId, String(friendId));
+
+      // Emit socket event để thông báo cho người kia bị unfriend
+      if (this.socketService) {
+        this.socketService.notifyUnfriended(String(friendId), {
+          unfriendedBy: userId,
+          timestamp: new Date(),
+        });
+      }
 
       res.status(204).send();
     } catch (error) {

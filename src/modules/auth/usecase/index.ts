@@ -289,7 +289,7 @@ export class AuthUseCase implements IAuthUseCase {
       details: deviceDetails,
     }, refreshTokenJti);
 
-    await this.sessionStore.deleteByDeviceType(user.id, effectiveDeviceType, effectiveDeviceId);
+    // await this.sessionStore.deleteByDeviceType(user.id, effectiveDeviceType, effectiveDeviceId);
 
     return {
       accessToken,
@@ -408,7 +408,7 @@ export class AuthUseCase implements IAuthUseCase {
       details: deviceDetails,
     }, refreshTokenJti);
 
-    await this.sessionStore.deleteByDeviceType(newId, effectiveDeviceType, effectiveDeviceId);
+    // await this.sessionStore.deleteByDeviceType(newId, effectiveDeviceType, effectiveDeviceId);
 
     return {
       accessToken,

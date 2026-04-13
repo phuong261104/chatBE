@@ -16,8 +16,7 @@ export abstract class BaseQueryRepositoryDynamoDB<
   Entity extends Record<string, any>,
   Cond extends Record<string, any>,
   TableName extends string,
-> implements IQueryRepository<Entity, Cond>
-{
+> implements IQueryRepository<Entity, Cond> {
   constructor(
     protected readonly table: TableName,
     protected readonly defaultSort: Record<string, -1 | 1> = { id: -1 },
@@ -43,32 +42,14 @@ export abstract class BaseQueryRepositoryDynamoDB<
   }
 
   async findByCond(cond: Cond): Promise<Entity | null> {
-    const attrNames = this.buildAttributeNames(cond) || {};
-    const attrValues = this.buildAttributeValues(cond);
-    const filterExpr = this.buildFilterExpression(cond);
-    const hasAttrNames = Object.keys(attrNames).length > 0;
-    const hasAttrValues = Object.keys(attrValues).length > 0;
-    const hasFilterExpr = !!filterExpr && filterExpr.length > 0;
-
-    const cmd = new ScanCommand({
-      TableName: this.getTableName(),
-      ...(hasFilterExpr ? { FilterExpression: filterExpr } : {}),
-      ...(hasAttrNames ? { ExpressionAttributeNames: attrNames } : {}),
-      ...(hasAttrValues ? { ExpressionAttributeValues: attrValues } : {}),
-      Limit: 1,
-    });
-    const result = await this.docClient.send(cmd);
-    return result.Items && result.Items.length > 0
-      ? this.toEntity(result.Items[0])
-      : null;
+    const items = await this.list(cond, { page: 1, limit: 1000 });
+    return items && items.length > 0 ? items[0] : null;
   }
 
   async list(cond: Cond, paging: PagingDTO): Promise<Array<Entity>> {
     const { page, limit } = paging;
     const p = paging as any;
-    const exclusiveStartKey = p.cursor
-      ? JSON.parse(Buffer.from(p.cursor, "base64").toString("utf-8"))
-      : undefined;
+    const exclusiveStartKey = p.cursor ? JSON.parse(Buffer.from(p.cursor, "base64").toString("utf-8")) : undefined;
 
     const attrNames = this.buildAttributeNames(cond) || {};
     const attrValues = this.buildAttributeValues(cond);
@@ -129,9 +110,7 @@ export abstract class BaseQueryRepositoryDynamoDB<
         }),
       );
       if (result.Responses && result.Responses[this.getTableName()]) {
-        results.push(
-          ...result.Responses[this.getTableName()].map((item) => this.toEntity(item)),
-        );
+        results.push(...result.Responses[this.getTableName()].map((item) => this.toEntity(item)));
       }
     }
 
@@ -167,8 +146,7 @@ export abstract class BaseCommandRepositoryDynamoDB<
   Entity extends Record<string, any>,
   UpdateDTO extends Record<string, any>,
   TableName extends string,
-> implements ICommandRepository<Entity, UpdateDTO>
-{
+> implements ICommandRepository<Entity, UpdateDTO> {
   constructor(
     protected readonly table: TableName,
     protected readonly softDelete: boolean = true,
@@ -254,8 +232,7 @@ export abstract class BaseRepositoryDynamoDB<
   Cond extends Record<string, any>,
   UpdateDTO extends Record<string, any>,
   TableName extends string,
-> implements IRepository<Entity, Cond, UpdateDTO>
-{
+> implements IRepository<Entity, Cond, UpdateDTO> {
   constructor(
     readonly queryRepo: BaseQueryRepositoryDynamoDB<Entity, Cond, TableName>,
     readonly cmdRepo: BaseCommandRepositoryDynamoDB<Entity, UpdateDTO, TableName>,

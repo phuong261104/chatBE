@@ -5,17 +5,35 @@ paths:
       tags: [Friendships]
       security:
         - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: "So trang"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: "So luong moi trang"
       responses:
-        '200':
+        "200":
           description: A list of friends
           content:
             application/json:
               example:
                 data:
-                  - _id: "60d0fe4f..."
-                    userId: "60d0fe4f5311236168a1"
-                    friendId: "user-2"
-                    status: "ACCEPTED"
+                  items:
+                    - id: "60d0fe4f5311236168a20000"
+                      userA: "60d0fe4f5311236168a10001"
+                      userB: "60d0fe4f5311236168a10002"
+                      createdAt: "2026-04-01T10:00:00.000Z"
+                  total: 1
+                  page: 1
+                  limit: 20
+                  hasMore: false
 
   /friendships/{friendId}:
     delete:
@@ -26,17 +44,13 @@ paths:
       parameters:
         - in: path
           name: friendId
-          schema: 
+          schema:
             type: string
             example: "user-2"
           required: true
       responses:
-        '200':
+        "204":
           description: Unfriended successfully
-          content:
-            application/json:
-              example:
-                data: true
 
   /friendships/{friendId}/check:
     get:
@@ -47,19 +61,18 @@ paths:
       parameters:
         - in: path
           name: friendId
-          schema: 
+          schema:
             type: string
             example: "user-2"
           required: true
       responses:
-        '200':
+        "200":
           description: Friendship status
           content:
             application/json:
               example:
                 data:
                   isFriend: true
-                  status: "ACCEPTED"
 
   /users/{id}/mutual-friends:
     get:
@@ -70,19 +83,26 @@ paths:
       parameters:
         - in: path
           name: id
-          schema: 
+          schema:
             type: string
             example: "user-2"
           required: true
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
       responses:
-        '200':
+        "200":
           description: List of mutual friends
           content:
             application/json:
               example:
                 data:
-                  - _id: "60d0fe4f5311236168a3"
-                    displayName: "Bạn chung 1"
+                  items:
+                    - id: "60d0fe4f5311236168a30000"
+                      displayName: "Bạn chung 1"
+                  total: 1
 
   /users/{id}/suggestions:
     get:
@@ -93,16 +113,23 @@ paths:
       parameters:
         - in: path
           name: id
-          schema: 
+          schema:
             type: string
             example: "60d0fe4f5311236168a1"
           required: true
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
       responses:
-        '200':
+        "200":
           description: List of friend suggestions
           content:
             application/json:
               example:
                 data:
-                  - _id: "60d0fe4f5311236168a4"
-                    displayName: "Gợi ý kết bạn"
+                  items:
+                    - id: "60d0fe4f5311236168a40000"
+                      displayName: "Gợi ý kết bạn"
+                  total: 1

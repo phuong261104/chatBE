@@ -47,6 +47,24 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
     return undefined;
   }
 
+  async findByCond(cond: FriendshipCondDTO): Promise<Friendship | null> {
+    if (cond.userA && cond.userB) {
+      const docClient = getDocClient();
+      const result = await docClient.send(
+        new QueryCommand({
+          TableName: getTableName(TABLE_NAMES.FRIENDSHIPS),
+          KeyConditionExpression: "userA = :userA AND userB = :userB",
+          ExpressionAttributeValues: {
+            ":userA": cond.userA,
+            ":userB": cond.userB,
+          },
+        }),
+      );
+      return result.Items && result.Items.length > 0 ? this.toEntity(result.Items[0]) : null;
+    }
+    return super.findByCond(cond);
+  }
+
   async findFriendshipsForUser(userId: string): Promise<Friendship[]> {
     const docClient = getDocClient();
     const [result1, result2] = await Promise.all([
@@ -85,10 +103,7 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
   }
 
   async getMutualFriendIds(userId1: string, userId2: string): Promise<string[]> {
-    const [friends1, friends2] = await Promise.all([
-      this.getFriendIds(userId1),
-      this.getFriendIds(userId2),
-    ]);
+    const [friends1, friends2] = await Promise.all([this.getFriendIds(userId1), this.getFriendIds(userId2)]);
     const set2 = new Set(friends2);
     return friends1.filter((id) => set2.has(id));
   }

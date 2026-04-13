@@ -35,9 +35,15 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
       const user = await this.findByPhone(cond.phone);
       if (!user) return null;
       if (cond.status && user.status !== cond.status) return null;
-      if ((cond as any)["verified.email"] !== undefined && user.verified?.email !== (cond as any)["verified.email"]) return null;
-      if ((cond as any)["verified.phone"] !== undefined && user.verified?.phone !== (cond as any)["verified.phone"]) return null;
-      if ((cond as any)["privacy.searchableByPhone"] !== undefined && user.privacy?.searchableByPhone !== (cond as any)["privacy.searchableByPhone"]) return null;
+      if ((cond as any)["verified.email"] !== undefined && user.verified?.email !== (cond as any)["verified.email"])
+        return null;
+      if ((cond as any)["verified.phone"] !== undefined && user.verified?.phone !== (cond as any)["verified.phone"])
+        return null;
+      if (
+        (cond as any)["privacy.searchableByPhone"] !== undefined &&
+        user.privacy?.searchableByPhone !== (cond as any)["privacy.searchableByPhone"]
+      )
+        return null;
       return user;
     }
     if (cond.email) {
@@ -58,9 +64,9 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
       ...(hasFilterExpr ? { FilterExpression: filterExpr } : {}),
       ...(hasAttrNames ? { ExpressionAttributeNames: attrNames } : {}),
       ...(hasAttrValues ? { ExpressionAttributeValues: attrValues } : {}),
-      Limit: 1,
+      Limit: 1000,
     });
-    const result = await this.docClient.send(cmd) as any;
+    const result = (await this.docClient.send(cmd)) as any;
     return result.Items && result.Items.length > 0 ? this.toEntity(result.Items[0]) : null;
   }
 
@@ -70,7 +76,8 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
     if (cond.status) names["#status"] = "status";
     if ((cond as any)["verified.email"] !== undefined) names["#verifiedEmail"] = "verified.email";
     if ((cond as any)["verified.phone"] !== undefined) names["#verifiedPhone"] = "verified.phone";
-    if ((cond as any)["privacy.searchableByPhone"] !== undefined) names["#searchableByPhone"] = "privacy.searchableByPhone";
+    if ((cond as any)["privacy.searchableByPhone"] !== undefined)
+      names["#searchableByPhone"] = "privacy.searchableByPhone";
     return names;
   }
 
@@ -82,7 +89,8 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
     if (cond.status) conditions.push("#status = :status");
     if (cond["verified.email"] !== undefined) conditions.push("verified.email = :verifiedEmail");
     if (cond["verified.phone"] !== undefined) conditions.push("verified.phone = :verifiedPhone");
-    if ((cond as any)["privacy.searchableByPhone"] !== undefined) conditions.push("privacy.searchableByPhone = :searchableByPhone");
+    if ((cond as any)["privacy.searchableByPhone"] !== undefined)
+      conditions.push("privacy.searchableByPhone = :searchableByPhone");
     return conditions.join(" AND ");
   }
 
@@ -94,7 +102,8 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
     if (cond.status) values[":status"] = cond.status;
     if ((cond as any)["verified.email"] !== undefined) values[":verifiedEmail"] = (cond as any)["verified.email"];
     if ((cond as any)["verified.phone"] !== undefined) values[":verifiedPhone"] = (cond as any)["verified.phone"];
-    if ((cond as any)["privacy.searchableByPhone"] !== undefined) values[":searchableByPhone"] = (cond as any)["privacy.searchableByPhone"];
+    if ((cond as any)["privacy.searchableByPhone"] !== undefined)
+      values[":searchableByPhone"] = (cond as any)["privacy.searchableByPhone"];
     return values;
   }
 

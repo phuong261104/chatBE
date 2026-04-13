@@ -8,11 +8,7 @@ import {
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import { PutCommand, QueryCommand, DeleteCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
-class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<
-  Block,
-  BlockCondDTO,
-  typeof TABLE_NAMES.BLOCKS
-> {
+class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<Block, BlockCondDTO, typeof TABLE_NAMES.BLOCKS> {
   constructor() {
     super(TABLE_NAMES.BLOCKS, { createdAt: -1 });
   }
@@ -48,6 +44,24 @@ class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<
       return "blockedUserId = :blockedUserId";
     }
     return undefined;
+  }
+
+  async findByCond(cond: BlockCondDTO): Promise<Block | null> {
+    if (cond.blockerId && cond.blockedUserId) {
+      const docClient = getDocClient();
+      const result = await docClient.send(
+        new QueryCommand({
+          TableName: getTableName(TABLE_NAMES.BLOCKS),
+          KeyConditionExpression: "blockerId = :blockerId AND blockedUserId = :blockedUserId",
+          ExpressionAttributeValues: {
+            ":blockerId": cond.blockerId,
+            ":blockedUserId": cond.blockedUserId,
+          },
+        }),
+      );
+      return result.Items && result.Items.length > 0 ? this.toEntity(result.Items[0]) : null;
+    }
+    return super.findByCond(cond);
   }
 
   async list(cond: BlockCondDTO, paging: any): Promise<Block[]> {
