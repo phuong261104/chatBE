@@ -24,7 +24,7 @@ const MAX_FILE_SIZES: Record<MediaFileType, number> = {
 const MIME_TYPE_MAP: Record<MediaFileType, string[]> = {
   [MediaFileType.IMAGE]: ["image/jpeg", "image/png", "image/gif", "image/webp"],
   [MediaFileType.VIDEO]: ["video/mp4", "video/mpeg", "video/quicktime", "video/webm"],
-  [MediaFileType.AUDIO]: ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp3"],
+  [MediaFileType.AUDIO]: ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp3", "audio/mp4", "audio/x-m4a"],
   [MediaFileType.DOCUMENT]: ["application/pdf", "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
 };
@@ -33,7 +33,7 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
   RequestPresignedUrlCommand,
   RequestPresignedUrlResponseDTO
 > {
-  constructor(private readonly storage: IStorageStrategy) {}
+  constructor(private readonly storage: IStorageStrategy) { }
 
   async execute(command: RequestPresignedUrlCommand): Promise<RequestPresignedUrlResponseDTO> {
     const { userId, data } = command;

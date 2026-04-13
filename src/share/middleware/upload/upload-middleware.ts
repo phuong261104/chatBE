@@ -207,6 +207,8 @@ export function createUploadMiddleware(
       "video/quicktime",
       "audio/mpeg",
       "audio/wav",
+      "audio/mp4",
+      "audio/x-m4a",
       "application/pdf",
     ],
     destination: path.join(process.cwd(), "uploads"),
