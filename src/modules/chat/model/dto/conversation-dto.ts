@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  ConversationType,
-  LastMessageSchema,
-  Conversation,
-  ConversationMember,
-} from "../model";
+import { ConversationType, LastMessageSchema, Conversation, ConversationMember } from "../model";
 
 export const ConversationCondDTOSchema = z.object({
   type: z.nativeEnum(ConversationType).optional(),
@@ -20,11 +15,13 @@ export const ConversationUpdateDTOSchema = z.object({
   ownerId: z.string().optional(),
   admins: z.array(z.string()).optional(),
   membersCount: z.number().optional(),
-  settings: z.object({
-    allowSendLink: z.boolean().optional(),
-    requireApproval: z.boolean().optional(),
-    allowMemberInvite: z.boolean().optional(),
-  }).optional(),
+  settings: z
+    .object({
+      allowSendLink: z.boolean().optional(),
+      requireApproval: z.boolean().optional(),
+      allowMemberInvite: z.boolean().optional(),
+    })
+    .optional(),
   lastMessage: LastMessageSchema.optional(),
   lastMessageAt: z.date().optional(),
 });
@@ -36,9 +33,7 @@ export const getOrCreatePrivateConversationDTOSchema = z.object({
   targetUserId: z.string().uuid("Invalid target user ID"),
 });
 
-export type GetOrCreatePrivateConversationDTO = z.infer<
-  typeof getOrCreatePrivateConversationDTOSchema
->;
+export type GetOrCreatePrivateConversationDTO = z.infer<typeof getOrCreatePrivateConversationDTOSchema>;
 
 export interface GetOrCreatePrivateConversationCommand {
   currentUserId: string;
@@ -58,8 +53,12 @@ export interface GetConversationsQuery {
 }
 
 export type ConversationWithMetadata = Conversation & {
+  name: string;
+  avatarUrl: string;
   unreadCount: number;
   role: any;
+  lastMessageStatus?: "sent" | "delivered" | "read";
+  lastMessageTimeFormatted?: string;
 };
 
 export interface GetConversationDetailQuery {

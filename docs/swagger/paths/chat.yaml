@@ -20,15 +20,15 @@ paths:
                   description: Target user ID to start conversation with
                   example: "60d0fe4f5311236168a109cc"
       responses:
-        '200':
+        "200":
           description: Private conversation found or created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConversationResponse'
-        '401':
+                $ref: "#/components/schemas/ConversationResponse"
+        "401":
           description: Unauthorized
-        '422':
+        "422":
           description: Validation error
 
   /conversations:
@@ -52,7 +52,7 @@ paths:
             maximum: 100
             example: 20
       responses:
-        '200':
+        "200":
           description: List of conversations
           content:
             application/json:
@@ -71,10 +71,12 @@ paths:
                       unreadCount: 3
                       isPinned: true
                       isMuted: false
+                      lastMessageStatus: "delivered"
+                      lastMessageTimeFormatted: "10:30"
                   total: 50
                   page: 1
                   limit: 20
-        '401':
+        "401":
           description: Unauthorized
 
   /conversations/{conversationId}:
@@ -91,7 +93,7 @@ paths:
             example: "60d0fe4f5311236168a109cc"
           required: true
       responses:
-        '200':
+        "200":
           description: Conversation details
           content:
             application/json:
@@ -108,11 +110,11 @@ paths:
                       allowSendLink: true
                       requireApproval: false
                       allowMemberInvite: true
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Not a member of this conversation
-        '404':
+        "404":
           description: Conversation not found
 
   /conversations/{conversationId}/mute:
@@ -145,15 +147,15 @@ paths:
                   description: Specific time to unmute (optional)
                   example: "2024-01-20T00:00:00Z"
       responses:
-        '200':
+        "200":
           description: Conversation muted successfully
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Not a member of this conversation
 
     delete:
@@ -169,13 +171,13 @@ paths:
             example: "60d0fe4f5311236168a109cc"
           required: true
       responses:
-        '200':
+        "200":
           description: Conversation unmuted successfully
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
 
   /conversations/{conversationId}/pin-conversation:
@@ -192,13 +194,13 @@ paths:
             example: "60d0fe4f5311236168a109cc"
           required: true
       responses:
-        '200':
+        "200":
           description: Conversation pinned successfully
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
 
     delete:
@@ -214,13 +216,13 @@ paths:
             example: "60d0fe4f5311236168a109cc"
           required: true
       responses:
-        '200':
+        "200":
           description: Conversation unpinned successfully
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
 
   /conversations/{conversationId}/archive:
@@ -237,13 +239,13 @@ paths:
             example: "60d0fe4f5311236168a109cc"
           required: true
       responses:
-        '200':
+        "200":
           description: Conversation archived successfully
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
 
     delete:
@@ -259,13 +261,13 @@ paths:
             example: "60d0fe4f5311236168a109cc"
           required: true
       responses:
-        '200':
+        "200":
           description: Conversation unarchived successfully
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
 
   /conversations/unread-count:
@@ -275,13 +277,13 @@ paths:
       security:
         - BearerAuth: []
       responses:
-        '200':
+        "200":
           description: Total unread count
           content:
             application/json:
               example:
                 totalUnread: 42
-        '401':
+        "401":
           description: Unauthorized
 
   # ==================== MESSAGES ====================
@@ -312,7 +314,7 @@ paths:
             maximum: 100
             example: 20
       responses:
-        '200':
+        "200":
           description: List of messages
           content:
             application/json:
@@ -343,9 +345,9 @@ paths:
                       deliveredTo: ["user_1", "user_2", "user_3"]
                   nextCursor: "msg_abc456"
                   hasMore: true
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Not a member of this conversation
 
     post:
@@ -385,10 +387,10 @@ paths:
                 media:
                   type: array
                   items:
-                    $ref: '#/components/schemas/MediaAttachment'
+                    $ref: "#/components/schemas/MediaAttachment"
                   description: Attached media files
       responses:
-        '201':
+        "201":
           description: Messages sent successfully (returns array of Message)
           content:
             application/json:
@@ -399,7 +401,15 @@ paths:
                     senderId: "user_123"
                     type: "image"
                     text: null
-                    media: [{ "url": "https://cdn.example.com/img.jpg", "mediaType": "image", "name": "photo.jpg", "size": 102400 }]
+                    media:
+                      [
+                        {
+                          "url": "https://cdn.example.com/img.jpg",
+                          "mediaType": "image",
+                          "name": "photo.jpg",
+                          "size": 102400,
+                        },
+                      ]
                     links: []
                     pinned: false
                     createdAt: "2024-01-15T10:30:00Z"
@@ -412,9 +422,9 @@ paths:
                     links: ["https://example.com"]
                     pinned: false
                     createdAt: "2024-01-15T10:30:00.001Z"
-        '401':
+        "401":
           description: Unauthorized
-        '422':
+        "422":
           description: Validation error
 
   /conversations/{conversationId}/seen:
@@ -444,13 +454,13 @@ paths:
                   description: ID of the last seen message
                   example: "msg_001"
       responses:
-        '200':
+        "200":
           description: Messages marked as seen
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
 
   /conversations/{conversationId}/delivered:
@@ -480,13 +490,13 @@ paths:
                   description: ID of the last delivered message
                   example: "msg_001"
       responses:
-        '200':
+        "200":
           description: Messages marked as delivered
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
 
   /conversations/{conversationId}/pinned-messages:
@@ -503,7 +513,7 @@ paths:
           example: "60d0fe4f5311236168a109cc"
           required: true
       responses:
-        '200':
+        "200":
           description: List of pinned messages
           content:
             application/json:
@@ -518,7 +528,7 @@ paths:
                       text: "Thông báo mới hơn"
                       pinnedAt: "2024-01-15T10:00:00Z"
                       pinnedBy: "user_123"
-        '401':
+        "401":
           description: Unauthorized
 
   /conversations/{conversationId}/media:
@@ -556,7 +566,7 @@ paths:
             default: all
           description: "Loc theo loai: all (tat ca), image (chinh anh), file (chinh file), link (chinh link)"
       responses:
-        '200':
+        "200":
           description: List of media/files/links
           content:
             application/json:
@@ -587,9 +597,9 @@ paths:
                       createdAt: "2024-01-15T12:00:00Z"
                   nextCursor: "msg_xyz789"
                   hasMore: true
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Not a member of this conversation
 
   /messages/{messageId}:
@@ -619,7 +629,7 @@ paths:
                   maxLength: 10000
                   example: "Nội dung đã chỉnh sửa"
       responses:
-        '200':
+        "200":
           description: Message edited successfully
           content:
             application/json:
@@ -629,11 +639,11 @@ paths:
                   text: "Nội dung đã chỉnh sửa"
                   isEdited: true
                   editedAt: "2024-01-15T11:00:00Z"
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Can only edit your own messages
-        '404':
+        "404":
           description: Message not found
 
   /messages/{messageId}/revoke:
@@ -650,7 +660,7 @@ paths:
             example: "msg_001"
           required: true
       responses:
-        '200':
+        "200":
           description: Message revoked successfully
           content:
             application/json:
@@ -659,9 +669,9 @@ paths:
                   _id: "msg_001"
                   isRevoked: true
                   revokedAt: "2024-01-15T11:30:00Z"
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Can only revoke your own messages within time limit
 
   /messages/{messageId}/delete:
@@ -678,13 +688,13 @@ paths:
             example: "msg_001"
           required: true
       responses:
-        '200':
+        "200":
           description: Message deleted for current user
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
 
   /messages/{messageId}/delete-for-everyone:
@@ -701,7 +711,7 @@ paths:
             example: "msg_001"
           required: true
       responses:
-        '200':
+        "200":
           description: Message deleted for everyone
           content:
             application/json:
@@ -710,9 +720,9 @@ paths:
                   _id: "msg_001"
                   isRevoked: true
                   revokedAt: "2024-01-15T11:30:00Z"
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Can only revoke your own messages within time limit
 
   /messages/{messageId}/pin:
@@ -729,7 +739,7 @@ paths:
             example: "msg_001"
           required: true
       responses:
-        '200':
+        "200":
           description: Message pinned successfully
           content:
             application/json:
@@ -737,9 +747,9 @@ paths:
                 data:
                   _id: "msg_001"
                   isPinned: true
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Only group admins can pin messages
 
     delete:
@@ -755,7 +765,7 @@ paths:
             example: "msg_001"
           required: true
       responses:
-        '200':
+        "200":
           description: Message unpinned successfully
           content:
             application/json:
@@ -763,7 +773,7 @@ paths:
                 data:
                   _id: "msg_001"
                   isPinned: false
-        '401':
+        "401":
           description: Unauthorized
 
   /messages/forward:
@@ -798,7 +808,7 @@ paths:
                   description: Target conversation IDs
                   example: ["conv_001", "conv_002"]
       responses:
-        '201':
+        "201":
           description: Messages forwarded successfully
           content:
             application/json:
@@ -817,10 +827,18 @@ paths:
                     senderId: "user_123"
                     type: "image"
                     text: null
-                    media: [{ "url": "https://cdn.example.com/img.jpg", "mediaType": "image", "name": "photo.jpg", "size": 102400 }]
+                    media:
+                      [
+                        {
+                          "url": "https://cdn.example.com/img.jpg",
+                          "mediaType": "image",
+                          "name": "photo.jpg",
+                          "size": 102400,
+                        },
+                      ]
                     pinned: false
                     createdAt: "2024-01-15T12:00:00Z"
-        '401':
+        "401":
           description: Unauthorized
 
   /messages/{messageId}/quote:
@@ -854,9 +872,9 @@ paths:
                 media:
                   type: array
                   items:
-                    $ref: '#/components/schemas/MediaAttachment'
+                    $ref: "#/components/schemas/MediaAttachment"
       responses:
-        '201':
+        "201":
           description: Quote message sent
           content:
             application/json:
@@ -873,9 +891,9 @@ paths:
                   quotedMessagePreview: "Original message..."
                   pinned: false
                   createdAt: "2024-01-15T12:30:00Z"
-        '401':
+        "401":
           description: Unauthorized
-        '404':
+        "404":
           description: Original message not found
 
   # ==================== REACTIONS ====================
@@ -893,7 +911,7 @@ paths:
             example: "msg_001"
           required: true
       responses:
-        '200':
+        "200":
           description: List of reactions
           content:
             application/json:
@@ -915,7 +933,7 @@ paths:
                           name: "Lê Văn C"
                           avatar: "https://cdn.example.com/avatars/c.png"
                       count: 1
-        '401':
+        "401":
           description: Unauthorized
 
     delete:
@@ -931,14 +949,14 @@ paths:
             example: "msg_001"
           required: true
       responses:
-        '200':
+        "200":
           description: All reactions removed
           content:
             application/json:
               example:
                 success: true
                 deletedCount: 5
-        '401':
+        "401":
           description: Unauthorized
 
   /messages/{messageId}/react:
@@ -968,7 +986,7 @@ paths:
                   description: Emoji unicode or emoji code
                   example: "👍"
       responses:
-        '201':
+        "201":
           description: Reaction added
           content:
             application/json:
@@ -979,9 +997,9 @@ paths:
                   userId: "user_123"
                   emoji: "👍"
                   createdAt: "2024-01-15T10:35:00Z"
-        '401':
+        "401":
           description: Unauthorized
-        '409':
+        "409":
           description: Reaction already exists
 
     delete:
@@ -1010,14 +1028,14 @@ paths:
                   description: Emoji to remove
                   example: "👍"
       responses:
-        '200':
+        "200":
           description: Reaction removed
           content:
             application/json:
               example:
                 success: true
                 deletedCount: 1
-        '401':
+        "401":
           description: Unauthorized
 
   # ==================== GROUPS ====================
@@ -1054,7 +1072,7 @@ paths:
                   description: Group avatar URL
                   example: "https://cdn.example.com/groups/avatar.png"
       responses:
-        '201':
+        "201":
           description: Group created successfully
           content:
             application/json:
@@ -1073,9 +1091,9 @@ paths:
                     text: "Nguyễn Văn A đã tạo nhóm"
                     createdAt: "2024-01-15T10:00:00Z"
                   members: [...]
-        '401':
+        "401":
           description: Unauthorized
-        '422':
+        "422":
           description: Validation error
 
   /groups/{groupId}/info:
@@ -1092,7 +1110,7 @@ paths:
             example: "conv_group_001"
           required: true
       responses:
-        '200':
+        "200":
           description: Group information
           content:
             application/json:
@@ -1107,11 +1125,11 @@ paths:
                   adminIds: ["user_001", "user_002"]
                   memberCount: 15
                   createdAt: "2024-01-01T00:00:00Z"
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Not a member of this group
-        '404':
+        "404":
           description: Group not found
 
   /groups/{groupId}:
@@ -1143,7 +1161,7 @@ paths:
                   format: uri
                   example: "https://cdn.example.com/groups/avatar-new.png"
       responses:
-        '200':
+        "200":
           description: Group updated
           content:
             application/json:
@@ -1152,9 +1170,9 @@ paths:
                   _id: "conv_group_001"
                   name: "Dev Team - Updated"
                   avatarUrl: "https://cdn.example.com/groups/avatar-new.png"
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Only owner or admins can update group
 
   /groups/{groupId}/members:
@@ -1171,7 +1189,7 @@ paths:
             example: "conv_group_001"
           required: true
       responses:
-        '200':
+        "200":
           description: List of group members
           content:
             application/json:
@@ -1190,7 +1208,7 @@ paths:
                       avatar: "https://cdn.example.com/avatars/b.png"
                       role: "ADMIN"
                       joinedAt: "2024-01-02T00:00:00Z"
-        '401':
+        "401":
           description: Unauthorized
 
     post:
@@ -1220,7 +1238,7 @@ paths:
                     type: string
                   example: ["user_004", "user_005"]
       responses:
-        '200':
+        "200":
           description: Members added
           content:
             application/json:
@@ -1233,9 +1251,9 @@ paths:
                       avatar: "https://cdn.example.com/avatars/d.png"
                       role: "MEMBER"
                       joinedAt: "2024-01-15T11:00:00Z"
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Only owner or admins can add members
 
   /groups/{groupId}/members/{userId}:
@@ -1259,11 +1277,11 @@ paths:
           description: User ID to remove
           example: "user_003"
       responses:
-        '204':
+        "204":
           description: Member removed
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Only owner or admins can remove members
 
   /groups/{groupId}/leave:
@@ -1280,15 +1298,15 @@ paths:
             example: "conv_group_001"
           required: true
       responses:
-        '200':
+        "200":
           description: Left group successfully
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
-        '400':
+        "400":
           description: Owner cannot leave, must transfer ownership first
 
   /groups/{groupId}/set-admin:
@@ -1321,7 +1339,7 @@ paths:
                   type: boolean
                   example: true
       responses:
-        '200':
+        "200":
           description: Admin status updated
           content:
             application/json:
@@ -1329,9 +1347,9 @@ paths:
                 data:
                   _id: "conv_group_001"
                   adminIds: ["user_001", "user_002"]
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Only owner can change admin status
 
   /groups/{groupId}/transfer-owner:
@@ -1360,7 +1378,7 @@ paths:
                   type: string
                   example: "user_001"
       responses:
-        '200':
+        "200":
           description: Ownership transferred
           content:
             application/json:
@@ -1369,9 +1387,9 @@ paths:
                   _id: "conv_group_001"
                   ownerId: "user_001"
                   oldOwnerId: "user_123"
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Only current owner can transfer ownership
 
   /groups/{groupId}/members/pending:
@@ -1388,7 +1406,7 @@ paths:
             example: "conv_group_001"
           required: true
       responses:
-        '200':
+        "200":
           description: List of pending members
           content:
             application/json:
@@ -1400,7 +1418,7 @@ paths:
                       name: "Phạm Thị F"
                       avatar: "https://cdn.example.com/avatars/f.png"
                       requestedAt: "2024-01-15T10:00:00Z"
-        '401':
+        "401":
           description: Unauthorized
 
   /groups/{groupId}/members/{userId}/approve:
@@ -1423,7 +1441,7 @@ paths:
             example: "user_006"
           required: true
       responses:
-        '200':
+        "200":
           description: Member approved
           content:
             application/json:
@@ -1435,9 +1453,9 @@ paths:
                     name: "Phạm Thị F"
                     role: "MEMBER"
                     joinedAt: "2024-01-15T12:00:00Z"
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Only admins can approve members
 
   /groups/{groupId}/members/{userId}/reject:
@@ -1460,15 +1478,15 @@ paths:
             example: "user_006"
           required: true
       responses:
-        '200':
+        "200":
           description: Member rejected
           content:
             application/json:
               example:
                 success: true
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Only admins can reject members
 
   /groups/{groupId}/settings:
@@ -1504,7 +1522,7 @@ paths:
                   description: Allow members to invite others
                   example: true
       responses:
-        '200':
+        "200":
           description: Settings updated
           content:
             application/json:
@@ -1514,9 +1532,9 @@ paths:
                     allowSendLink: true
                     requireApproval: false
                     allowMemberInvite: true
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Only owner or admins can update settings
 
   # ==================== POLLS ====================
@@ -1534,7 +1552,7 @@ paths:
             example: "conv_group_001"
           required: true
       responses:
-        '200':
+        "200":
           description: List of polls
           content:
             application/json:
@@ -1557,7 +1575,7 @@ paths:
                       createdAt: "2024-01-15T10:00:00Z"
                       expiresAt: "2024-01-20T10:00:00Z"
                       totalVotes: 8
-        '401':
+        "401":
           description: Unauthorized
 
     post:
@@ -1609,7 +1627,7 @@ paths:
                   description: Poll expiration time (optional)
                   example: "2024-01-20T10:00:00Z"
       responses:
-        '201':
+        "201":
           description: Poll created
           content:
             application/json:
@@ -1620,9 +1638,9 @@ paths:
                   question: "Chọn ngày họp?"
                   options: [...]
                   createdAt: "2024-01-15T10:00:00Z"
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Only group members can create polls
 
   /groups/{groupId}/polls/{pollId}/vote:
@@ -1660,7 +1678,7 @@ paths:
                   description: Option IDs to vote for
                   example: ["opt_001"]
       responses:
-        '200':
+        "200":
           description: Vote recorded
           content:
             application/json:
@@ -1669,11 +1687,11 @@ paths:
                   _id: "poll_001"
                   options: [...]
                   totalVotes: 9
-        '401':
+        "401":
           description: Unauthorized
-        '400':
+        "400":
           description: Poll has expired
-        '422':
+        "422":
           description: Invalid option IDs
 
   /groups/{groupId}/polls/{pollId}/results:
@@ -1696,7 +1714,7 @@ paths:
             example: "poll_001"
           required: true
       responses:
-        '200':
+        "200":
           description: Poll results
           content:
             application/json:
@@ -1721,7 +1739,7 @@ paths:
                           votedAt: "2024-01-15T10:35:00Z"
                   totalVotes: 8
                   isExpired: false
-        '401':
+        "401":
           description: Unauthorized
 
 components:
