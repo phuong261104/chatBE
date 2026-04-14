@@ -26,7 +26,7 @@ export class QuoteMessageHandler {
     private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
-  async execute(command: QuoteMessageCommand): Promise<Message> {
+  async execute(command: QuoteMessageCommand): Promise<Message[]> {
     const quotedMessage = await this.messageQueryRepo.get(command.quotedMessageId);
     if (!quotedMessage) {
       throw new Error("Quoted message not found");
@@ -56,80 +56,94 @@ export class QuoteMessageHandler {
     const now = new Date();
     const createdMessages: Message[] = [];
 
-    if (hasMedia && hasText && hasLinks) {
-      const mediaMsg: Message = {
-        id: v7(),
-        conversationId: command.conversationId,
-        senderId: command.senderId,
-        type: command.media!.some((m: any) => m.mimetype.startsWith("image/"))
-          ? MessageType.IMAGE
-          : MessageType.FILE,
-        text: undefined,
-        media: (command.media as any[])?.map((m) => ({
-          url: m.url,
-          mediaType: m.mimetype.startsWith("image/") ? MediaType.IMAGE : MediaType.FILE,
-          name: m.filename,
-          size: m.size,
-        })),
-        quotedMessageId: command.quotedMessageId,
-        quotedMessagePreview: quotedPreview,
-        createdAt: now,
-        pinned: false,
-      };
+    if (shouldSplitByMedia(command.media)) {
+      for (const m of command.media || []) {
+        const isImg = m.mimetype.startsWith("image/");
+        const msgType = isImg ? MessageType.IMAGE : MessageType.FILE;
+        const hasTextAndNoLink = hasText && !hasLinks;
+        const msg = this.buildMessage(
+          msgType,
+          hasTextAndNoLink ? command.text : undefined,
+          mapMediaToDbFormat([m]),
+          command.conversationId,
+          command.senderId,
+          false,
+          undefined,
+          undefined,
+        );
+        await this.messageCmdRepo.insert(msg);
+        createdMessages.push(msg);
+      }
+      if (hasText && hasLinks) {
+        const linkMsg = this.buildMessage(
+          MessageType.LINK,
+          command.text,
+          undefined,
+          command.conversationId,
+          command.senderId,
+          false,
+          undefined,
+          undefined,
+        );
+        await this.messageCmdRepo.insert(linkMsg);
+        createdMessages.push(linkMsg);
+      }
+    } else if (hasText && hasMedia && hasLinks) {
+      const hasImage = command.media!.some((m: any) => m.mimetype.startsWith("image/"));
+      const msgType = hasImage ? MessageType.IMAGE : MessageType.FILE;
+      const mediaMsg = this.buildMessage(
+        msgType,
+        undefined,
+        mapMediaToDbFormat(command.media),
+        command.conversationId,
+        command.senderId,
+        false,
+        undefined,
+        undefined,
+      );
       await this.messageCmdRepo.insert(mediaMsg);
       createdMessages.push(mediaMsg);
 
-      const linkMsg: Message = {
-        id: v7(),
-        conversationId: command.conversationId,
-        senderId: command.senderId,
-        type: MessageType.LINK,
-        text: command.text,
-        links: textLinks,
-        quotedMessageId: command.quotedMessageId,
-        quotedMessagePreview: quotedPreview,
-        createdAt: new Date(now.getTime() + 1),
-        pinned: false,
-      };
+      const linkMsg = this.buildMessage(
+        MessageType.LINK,
+        command.text,
+        undefined,
+        command.conversationId,
+        command.senderId,
+        false,
+        undefined,
+        undefined,
+      );
       await this.messageCmdRepo.insert(linkMsg);
       createdMessages.push(linkMsg);
     } else if (hasMedia) {
       const type = command.media!.some((m: any) => m.mimetype.startsWith("image/"))
         ? MessageType.IMAGE
         : MessageType.FILE;
-      const msg: Message = {
-        id: v7(),
-        conversationId: command.conversationId,
-        senderId: command.senderId,
+      const msg = this.buildMessage(
         type,
-        text: command.text,
-        media: (command.media as any[])?.map((m) => ({
-          url: m.url,
-          mediaType: m.mimetype.startsWith("image/") ? MediaType.IMAGE : MediaType.FILE,
-          name: m.filename,
-          size: m.size,
-        })),
-        quotedMessageId: command.quotedMessageId,
-        quotedMessagePreview: quotedPreview,
-        createdAt: now,
-        pinned: false,
-      };
+        command.text,
+        mapMediaToDbFormat(command.media),
+        command.conversationId,
+        command.senderId,
+        false,
+        undefined,
+        undefined,
+      );
       await this.messageCmdRepo.insert(msg);
       createdMessages.push(msg);
     } else {
       const type = hasLinks ? MessageType.LINK : MessageType.TEXT;
-      const msg: Message = {
-        id: v7(),
-        conversationId: command.conversationId,
-        senderId: command.senderId,
+      const msg = this.buildMessage(
         type,
-        text: command.text,
-        links: hasLinks ? textLinks : undefined,
-        quotedMessageId: command.quotedMessageId,
-        quotedMessagePreview: quotedPreview,
-        createdAt: now,
-        pinned: false,
-      };
+        command.text,
+        undefined,
+        command.conversationId,
+        command.senderId,
+        type === MessageType.TEXT,
+        command.quotedMessageId,
+        quotedPreview,
+      );
       await this.messageCmdRepo.insert(msg);
       createdMessages.push(msg);
     }
@@ -170,19 +184,64 @@ export class QuoteMessageHandler {
       await this.classificationRepo.insertBatch(classifications);
     }
 
-    const primaryMsg = createdMessages[0];
+    const primaryMsg =
+      createdMessages.find((m) => m.type === MessageType.TEXT) ||
+      createdMessages.find((m) => m.type === MessageType.LINK) ||
+      createdMessages.find((m) => m.type === MessageType.IMAGE) ||
+      createdMessages[0];
 
     await this.conversationCmdRepo.update(command.conversationId, {
       lastMessage: {
         messageId: primaryMsg.id,
         senderId: command.senderId,
         type: primaryMsg.type,
-        textPreview: command.text?.substring(0, 50) || quotedPreview,
+        textPreview: primaryMsg.text?.substring(0, 100) || quotedPreview,
         createdAt: primaryMsg.createdAt,
       },
       lastMessageAt: primaryMsg.createdAt,
     });
 
-    return primaryMsg;
+    return createdMessages;
   }
+
+  private buildMessage(
+    type: MessageType,
+    text: string | undefined,
+    media: any[] | undefined,
+    conversationId: string,
+    senderId: string,
+    hasQuote: boolean,
+    quotedMessageId?: string,
+    quotedMessagePreview?: string,
+  ): Message {
+    const id = v7();
+    const now = new Date();
+    return {
+      id,
+      conversationId,
+      senderId,
+      type,
+      text,
+      media,
+      links: text ? extractLinks(text) : undefined,
+      quotedMessageId: hasQuote ? quotedMessageId : undefined,
+      quotedMessagePreview: hasQuote ? quotedMessagePreview : undefined,
+      createdAt: now,
+      pinned: false,
+    };
+  }
+}
+
+function shouldSplitByMedia(media?: any[]): boolean {
+  return !!(media && media.length > 1);
+}
+
+function mapMediaToDbFormat(media: any[] | undefined) {
+  if (!media) return undefined;
+  return media.map((m) => ({
+    url: m.url,
+    mediaType: m.mimetype.startsWith("image/") ? MediaType.IMAGE : MediaType.FILE,
+    name: m.filename,
+    size: m.size,
+  }));
 }

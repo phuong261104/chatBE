@@ -382,7 +382,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     text: string | undefined,
     media: MediaAttachment[] | undefined,
     quotedMessageId: string,
-  ): Promise<Message> {
+  ): Promise<Message[]> {
     return this.quoteMessageHandler.execute({
       conversationId,
       senderId,

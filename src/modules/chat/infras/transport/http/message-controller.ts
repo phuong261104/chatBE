@@ -428,9 +428,14 @@ export class MessageController extends BaseController {
         return;
       }
 
-      const message = await (this.useCase as any).messageQueryRepo?.get(messageId);
-      if (!message) {
+      const quotedMsg = await (this.useCase as any).messageQueryRepo?.get(messageId);
+      if (!quotedMsg) {
         res.status(404).json({ error: "Message not found" });
+        return;
+      }
+
+      if (quotedMsg.type !== "text") {
+        res.status(400).json({ error: "Only TEXT messages can be quoted" });
         return;
       }
 
@@ -441,36 +446,32 @@ export class MessageController extends BaseController {
         quotedMessageId: messageId,
       });
 
-      const quotedMsg = await this.useCase.quoteMessage(
-        message.conversationId,
+      const quotedMessages = await this.useCase.quoteMessage(
+        quotedMsg.conversationId,
         validatedData.senderId,
         validatedData.text,
         validatedData.media,
         validatedData.quotedMessageId,
       );
 
+      const textMsg = quotedMessages.find((m: any) => m.type === "text");
+      const primaryMsg = textMsg || quotedMessages[0];
+
       if (this.socketService) {
-        const isGroup = message.type === "group";
-        if (isGroup) {
-          this.socketService.emitToGroupRoom(
-            message.conversationId,
-            "receiveMessage",
-            { message: quotedMsg, conversationId: message.conversationId },
-          );
-        }
+        const isGroup = primaryMsg.conversationId !== undefined;
         const memberUserIds = await this.useCase.getConversationMembers(
-          message.conversationId,
+          quotedMsg.conversationId,
           validatedData.senderId,
         );
         for (const userId of memberUserIds) {
           this.socketService.emitToUser(userId, "receiveMessage", {
-            message: quotedMsg,
-            conversationId: message.conversationId,
+            message: primaryMsg,
+            conversationId: quotedMsg.conversationId,
           });
         }
       }
 
-      res.status(201).json({ data: quotedMsg });
+      res.status(201).json({ data: primaryMsg });
     } catch (error) {
       if (error instanceof z.ZodError) {
         this.sendValidationError(res, error);

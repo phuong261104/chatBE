@@ -298,7 +298,7 @@ export interface IMessagingUseCase {
     text: string | undefined,
     media: MediaAttachment[] | undefined,
     quotedMessageId: string,
-  ): Promise<Message>;
+  ): Promise<Message[]>;
 
   setAdmin(groupId: string, targetUserId: string, isAdmin: boolean): Promise<Conversation>;
 

@@ -81,7 +81,10 @@ export class FriendRequestUseCase implements IFriendRequestUseCase {
     });
 
     if (friendship) {
-      throw AppError.from(ErrFriendRequestAlreadyFriends, 400);
+      if (friendship.status === FriendshipStatus.DELETED) {
+      } else {
+        throw AppError.from(ErrFriendRequestAlreadyFriends, 400);
+      }
     }
 
     const existingRequest = await this.repository.findByCond({
@@ -154,7 +157,7 @@ export class FriendRequestUseCase implements IFriendRequestUseCase {
 
     if (existingFriendship) {
       if (existingFriendship.status === FriendshipStatus.DELETED) {
-        await this.friendshipRepository.restore(userA, userB);
+        await this.friendshipRepository.restoreFriendship(userA, userB);
         await this.createConversationForFriendship(userA, userB);
         await this.repository.update(requestId, {
           status: FriendRequestStatus.ACCEPTED,
@@ -333,7 +336,7 @@ export class FriendRequestUseCase implements IFriendRequestUseCase {
 
     const [userA, userB] = [currentUserId, targetUserId].sort();
     const friendship = await this.friendshipRepository.findByCond({ userA, userB });
-    if (friendship) {
+    if (friendship && friendship.status === FriendshipStatus.ACTIVE) {
       return { status: "ACCEPTED" };
     }
 

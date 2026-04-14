@@ -72,7 +72,9 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
         new QueryCommand({
           TableName: getTableName(TABLE_NAMES.FRIENDSHIPS),
           KeyConditionExpression: "userA = :userId",
-          ExpressionAttributeValues: { ":userId": userId },
+          FilterExpression: "#status = :active",
+          ExpressionAttributeNames: { "#status": "status" },
+          ExpressionAttributeValues: { ":userId": userId, ":active": FriendshipStatus.ACTIVE },
         }),
       ),
       docClient.send(
@@ -80,7 +82,9 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
           TableName: getTableName(TABLE_NAMES.FRIENDSHIPS),
           IndexName: "userB-index",
           KeyConditionExpression: "userB = :userId",
-          ExpressionAttributeValues: { ":userId": userId },
+          FilterExpression: "#status = :active",
+          ExpressionAttributeNames: { "#status": "status" },
+          ExpressionAttributeValues: { ":userId": userId, ":active": FriendshipStatus.ACTIVE },
         }),
       ),
     ]);
@@ -111,7 +115,9 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
         new QueryCommand({
           TableName: tableName,
           KeyConditionExpression: "userA = :userId",
-          ExpressionAttributeValues: { ":userId": userId },
+          FilterExpression: "#status = :active",
+          ExpressionAttributeNames: { "#status": "status" },
+          ExpressionAttributeValues: { ":userId": userId, ":active": FriendshipStatus.ACTIVE },
         }),
       ),
       docClient.send(
@@ -119,7 +125,9 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
           TableName: tableName,
           IndexName: "userB-index",
           KeyConditionExpression: "userB = :userId",
-          ExpressionAttributeValues: { ":userId": userId },
+          FilterExpression: "#status = :active",
+          ExpressionAttributeNames: { "#status": "status" },
+          ExpressionAttributeValues: { ":userId": userId, ":active": FriendshipStatus.ACTIVE },
         }),
       ),
     ]);
@@ -205,7 +213,7 @@ class DynamoFriendshipCommandRepository extends BaseCommandRepositoryDynamoDB<
     return {};
   }
 
-  async softDelete(userA: string, userB: string): Promise<boolean> {
+  async softDeleteFriendship(userA: string, userB: string): Promise<boolean> {
     const [a, b] = [userA, userB].sort();
     const docClient = getDocClient();
     await docClient.send(
@@ -223,7 +231,7 @@ class DynamoFriendshipCommandRepository extends BaseCommandRepositoryDynamoDB<
     return true;
   }
 
-  async restore(userA: string, userB: string): Promise<boolean> {
+  async restoreFriendship(userA: string, userB: string): Promise<boolean> {
     const [a, b] = [userA, userB].sort();
     const docClient = getDocClient();
     await docClient.send(
@@ -282,11 +290,11 @@ export class DynamoFriendshipRepository extends BaseRepositoryDynamoDB<
     return false;
   }
 
-  async softDelete(userA: string, userB: string): Promise<boolean> {
-    return (this.cmdRepo as DynamoFriendshipCommandRepository).softDelete(userA, userB);
+  async softDeleteFriendship(userA: string, userB: string): Promise<boolean> {
+    return (this.cmdRepo as DynamoFriendshipCommandRepository).softDeleteFriendship(userA, userB);
   }
 
-  async restore(userA: string, userB: string): Promise<boolean> {
-    return (this.cmdRepo as DynamoFriendshipCommandRepository).restore(userA, userB);
+  async restoreFriendship(userA: string, userB: string): Promise<boolean> {
+    return (this.cmdRepo as DynamoFriendshipCommandRepository).restoreFriendship(userA, userB);
   }
 }

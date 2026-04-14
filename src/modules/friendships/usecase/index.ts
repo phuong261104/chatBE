@@ -60,7 +60,7 @@ export class FriendshipUseCase implements IFriendshipUseCase {
       throw AppError.from(ErrFriendshipNotFound, 404);
     }
 
-    await this.repository.softDelete(userA, userB);
+    await this.repository.softDeleteFriendship(userA, userB);
 
     const [requests, reverseRequests]: [any[], any[]] = [
       await this.friendRequestRepository.listBySenderId(userId),
