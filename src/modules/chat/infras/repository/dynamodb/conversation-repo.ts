@@ -134,4 +134,8 @@ export class DynamoConversationRepository extends BaseRepositoryDynamoDB<
   constructor() {
     super(new DynamoConversationQueryRepository(), new DynamoConversationCommandRepository());
   }
+
+  async findByPairKey(pairKey: string): Promise<Conversation | null> {
+    return (this.queryRepo as DynamoConversationQueryRepository).findByPairKey(pairKey);
+  }
 }

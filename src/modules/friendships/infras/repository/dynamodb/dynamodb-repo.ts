@@ -1,4 +1,4 @@
-import { Friendship } from "@modules/friendships/model/model";
+import { Friendship, FriendshipStatus } from "@modules/friendships/model/model";
 import { FriendshipCondDTO, FriendshipUpdateDTO } from "@modules/friendships/model/dto";
 import {
   BaseQueryRepositoryDynamoDB,
@@ -6,7 +6,7 @@ import {
   BaseRepositoryDynamoDB,
 } from "@share/repository/dynamodb/repo-dynamodb";
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
-import { PutCommand, QueryCommand, DeleteCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, QueryCommand, DeleteCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
 class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
@@ -19,7 +19,7 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
   }
 
   protected toEntity(doc: Record<string, any>): Friendship {
-    const { pk, sk, ...rest } = doc;
+    const { pk, sk, updatedAt, ...rest } = doc;
     return { ...rest } as Friendship;
   }
 
@@ -196,6 +196,7 @@ class DynamoFriendshipCommandRepository extends BaseCommandRepositoryDynamoDB<
       id: d.id,
       userA,
       userB,
+      status: d.status || FriendshipStatus.ACTIVE,
       createdAt: d.createdAt ? d.createdAt.toISOString() : now,
     };
   }
@@ -204,13 +205,37 @@ class DynamoFriendshipCommandRepository extends BaseCommandRepositoryDynamoDB<
     return {};
   }
 
-  async deleteByCondition(userA: string, userB: string): Promise<boolean> {
+  async softDelete(userA: string, userB: string): Promise<boolean> {
     const [a, b] = [userA, userB].sort();
     const docClient = getDocClient();
     await docClient.send(
-      new DeleteCommand({
+      new UpdateCommand({
         TableName: getTableName(TABLE_NAMES.FRIENDSHIPS),
         Key: { userA: a, userB: b },
+        UpdateExpression: "SET #status = :status, updatedAt = :updatedAt",
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: {
+          ":status": FriendshipStatus.DELETED,
+          ":updatedAt": new Date().toISOString(),
+        },
+      }),
+    );
+    return true;
+  }
+
+  async restore(userA: string, userB: string): Promise<boolean> {
+    const [a, b] = [userA, userB].sort();
+    const docClient = getDocClient();
+    await docClient.send(
+      new UpdateCommand({
+        TableName: getTableName(TABLE_NAMES.FRIENDSHIPS),
+        Key: { userA: a, userB: b },
+        UpdateExpression: "SET #status = :status, updatedAt = :updatedAt",
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: {
+          ":status": FriendshipStatus.ACTIVE,
+          ":updatedAt": new Date().toISOString(),
+        },
       }),
     );
     return true;
@@ -254,9 +279,14 @@ export class DynamoFriendshipRepository extends BaseRepositoryDynamoDB<
   }
 
   async deleteByCondition(cond: FriendshipCondDTO): Promise<boolean> {
-    if (cond.userA && cond.userB) {
-      return (this.cmdRepo as DynamoFriendshipCommandRepository).deleteByCondition(cond.userA, cond.userB);
-    }
     return false;
+  }
+
+  async softDelete(userA: string, userB: string): Promise<boolean> {
+    return (this.cmdRepo as DynamoFriendshipCommandRepository).softDelete(userA, userB);
+  }
+
+  async restore(userA: string, userB: string): Promise<boolean> {
+    return (this.cmdRepo as DynamoFriendshipCommandRepository).restore(userA, userB);
   }
 }

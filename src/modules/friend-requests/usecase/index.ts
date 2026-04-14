@@ -23,10 +23,12 @@ import {
   ConversationMemberStatus,
   MessageType,
 } from '@modules/chat/model/model';
+import { FriendshipStatus } from '@modules/friendships/model/model';
 
 interface ConversationCommandRepo {
   insert(conversation: any): Promise<boolean>;
   update(id: string, data: any): Promise<boolean>;
+  findByPairKey(pairKey: string): Promise<any | null>;
 }
 
 interface ConversationMemberCommandRepo {
@@ -151,6 +153,15 @@ export class FriendRequestUseCase implements IFriendRequestUseCase {
     });
 
     if (existingFriendship) {
+      if (existingFriendship.status === FriendshipStatus.DELETED) {
+        await this.friendshipRepository.restore(userA, userB);
+        await this.createConversationForFriendship(userA, userB);
+        await this.repository.update(requestId, {
+          status: FriendRequestStatus.ACCEPTED,
+          respondedAt: new Date()
+        });
+        return true;
+      }
       throw AppError.from(ErrFriendRequestAlreadyFriends, 400);
     }
 
@@ -165,6 +176,7 @@ export class FriendRequestUseCase implements IFriendRequestUseCase {
       id: friendshipId,
       userA,
       userB,
+      status: FriendshipStatus.ACTIVE,
       createdAt: new Date()
     });
 
@@ -174,13 +186,19 @@ export class FriendRequestUseCase implements IFriendRequestUseCase {
   }
 
   private async createConversationForFriendship(userA: string, userB: string): Promise<void> {
+    const pairKey = [userA, userB].sort().join('_');
+    const existingConv = await this.conversationCommandRepo.findByPairKey(pairKey);
+    if (existingConv) {
+      return;
+    }
+
     const conversationId = v7();
     const now = new Date();
 
     const conversation = {
       id: conversationId,
       type: ConversationType.PRIVATE,
-      pairKey: [userA, userB].sort().join('_'),
+      pairKey: pairKey,
       membersCount: 2,
       createdAt: now,
       updatedAt: now,

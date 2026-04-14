@@ -9,6 +9,7 @@ import {
   FriendshipCreateDTO,
   FriendshipCreateSchema,
   FriendshipUpdateDTO,
+  FriendshipStatus,
   ErrFriendshipAlreadyExists,
   ErrFriendshipNotFound,
   ErrFriendshipSelfFriendship,
@@ -43,7 +44,7 @@ export class FriendshipUseCase implements IFriendshipUseCase {
       userB
     });
 
-    return !!friendship;
+    return !!(friendship && friendship.status === FriendshipStatus.ACTIVE);
   }
 
   async unfriend(userId: string, friendId: string): Promise<boolean> {
@@ -54,14 +55,12 @@ export class FriendshipUseCase implements IFriendshipUseCase {
 
     const [userA, userB] = [userId, friendId].sort();
 
-    const result = await this.repository.deleteByCondition({
-      userA,
-      userB
-    });
-
-    if (!result) {
+    const existingFriendship = await this.repository.findByCond({ userA, userB });
+    if (!existingFriendship || existingFriendship.status === FriendshipStatus.DELETED) {
       throw AppError.from(ErrFriendshipNotFound, 404);
     }
+
+    await this.repository.softDelete(userA, userB);
 
     const [requests, reverseRequests]: [any[], any[]] = [
       await this.friendRequestRepository.listBySenderId(userId),
@@ -99,6 +98,7 @@ export class FriendshipUseCase implements IFriendshipUseCase {
       id: newId,
       userA,
       userB,
+      status: FriendshipStatus.ACTIVE,
       createdAt: new Date()
     };
 
