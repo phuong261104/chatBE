@@ -151,6 +151,7 @@ interface IConversationMemberDocument {
 
   muteUntil?: Date;
   pinned: boolean;
+  pinnedAt?: Date;
   archived: boolean;
 
   updatedAt: Date;
@@ -222,6 +223,10 @@ const ConversationMemberSchema = new Schema<IConversationMemberDocument>(
       type: Boolean,
       required: true,
       default: false,
+    },
+    pinnedAt: {
+      type: Date,
+      required: false,
     },
     archived: {
       type: Boolean,

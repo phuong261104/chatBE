@@ -94,6 +94,7 @@ export const ConversationMemberSchema = z.object({
 
   muteUntil: z.date().optional(),
   pinned: z.boolean().default(false),
+  pinnedAt: z.date().optional(),
   archived: z.boolean().default(false),
 
   updatedAt: z.date(),

@@ -60,6 +60,7 @@ import {
   MarkAsDeliveredHandler,
   LeaveGroupHandler,
   GetConversationsQueryHandler,
+  GetConversationsCursorQueryHandler,
   GetConversationDetailQueryHandler,
   GetConversationMembersQueryHandler,
   LoadMessagesQueryHandler,
@@ -318,6 +319,12 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     classificationRepo,
   );
 
+  const getConversationsCursorQueryHandler = new GetConversationsCursorQueryHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    userAdapter,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -366,6 +373,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     updateGroupSettingsHandler,
     getGroupInfoHandler,
     getConversationMediaQueryHandler,
+    getConversationsCursorQueryHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -378,6 +386,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   router.post("/conversations/private", mdlFactory.auth, httpService.getPrivateConversationAPI.bind(httpService));
   router.get("/conversations/unread-count", mdlFactory.auth, httpService.getTotalUnreadCountAPI.bind(httpService));
   router.get("/conversations", mdlFactory.auth, httpService.getConversationsAPI.bind(httpService));
+  router.get("/conversations/cursor", mdlFactory.auth, httpService.getConversationsCursorAPI.bind(httpService));
   router.get("/conversations/:conversationId", mdlFactory.auth, httpService.getConversationDetailAPI.bind(httpService));
   router.get("/conversations/:conversationId/messages", mdlFactory.auth, httpService.loadMessagesAPI.bind(httpService));
 

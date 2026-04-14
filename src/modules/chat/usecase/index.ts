@@ -10,6 +10,7 @@ export { MarkAsDeliveredHandler } from "./mark-as-delivered";
 export { LeaveGroupHandler } from "./leave-group";
 
 export { GetConversationsQueryHandler } from "./get-conversations";
+export { GetConversationsCursorQueryHandler } from "./get-conversations-cursor";
 export { GetConversationDetailQueryHandler } from "./get-conversation-detail";
 export { GetConversationMembersQueryHandler } from "./get-conversation-members";
 export { LoadMessagesQueryHandler } from "./load-messages";

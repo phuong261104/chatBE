@@ -29,7 +29,7 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
   }
 
   protected toEntity(doc: Record<string, any>): ConversationMember {
-    const { pk, sk, joinedAt, leftAt, lastReadAt, muteUntil, updatedAt, ...rest } = doc;
+    const { pk, sk, joinedAt, leftAt, lastReadAt, muteUntil, updatedAt, pinnedAt, ...rest } = doc;
     return {
       ...rest,
       id: doc.id || sk?.replace("MEM#", ""),
@@ -39,6 +39,7 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
       lastReadAt: lastReadAt ? new Date(lastReadAt) : null,
       muteUntil: muteUntil ? new Date(muteUntil) : null,
       updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
+      pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
     } as ConversationMember;
   }
 
@@ -111,6 +112,100 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
       }),
     );
     return (result.Items || []).map((item) => this.toEntity(item));
+  }
+
+  async listByUserIdCursor(
+    userId: string,
+    cursor?: string,
+    limit: number = 20,
+  ): Promise<{
+    pinnedMembers: ConversationMember[];
+    normalMembers: ConversationMember[];
+    nextCursor?: string;
+    hasMore: boolean;
+  }> {
+    const docClient = getDocClient();
+
+    const scanFetchAll = async (): Promise<ConversationMember[]> => {
+      const items: Record<string, any>[] = [];
+      let lastEvaluatedKey: Record<string, any> | undefined;
+      do {
+        const result = await docClient.send(
+          new ScanCommand({
+            TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
+            FilterExpression: "userId = :userId AND (attribute_not_exists(leftAt) OR leftAt = :null)",
+            ExpressionAttributeValues: {
+              ":userId": userId,
+              ":null": null,
+            },
+            ExclusiveStartKey: lastEvaluatedKey,
+          }),
+        );
+        items.push(...(result.Items || []));
+        lastEvaluatedKey = result.LastEvaluatedKey;
+      } while (lastEvaluatedKey);
+      return items.map((item) => this.toEntity(item));
+    };
+
+    const allMembers = await scanFetchAll();
+
+    const pinnedMembers = allMembers
+      .filter((m) => m.pinned)
+      .sort((a, b) => {
+        const aTime = a.pinnedAt?.getTime() ?? 0;
+        const bTime = b.pinnedAt?.getTime() ?? 0;
+        return bTime - aTime;
+      });
+
+    const normalMembersRaw = allMembers
+      .filter((m) => !m.pinned)
+      .sort((a, b) => {
+        const updatedA = a.updatedAt?.getTime() ?? 0;
+        const updatedB = b.updatedAt?.getTime() ?? 0;
+        if (updatedA !== updatedB) return updatedB - updatedA;
+        return a.conversationId.localeCompare(b.conversationId);
+      });
+
+    let normalMembers: ConversationMember[];
+    let nextCursor: string | undefined;
+    let hasMore: boolean;
+
+    if (cursor) {
+      const [cursorTs, ...cursorIdParts] = cursor.split("#");
+      const cursorId = cursorIdParts.join("#");
+      const cursorTime = new Date(cursorTs).getTime();
+
+      const filtered = normalMembersRaw.filter((m) => {
+        const mTime = m.updatedAt?.getTime() ?? 0;
+        if (mTime < cursorTime) return true;
+        if (mTime === cursorTime && m.conversationId < cursorId) return true;
+        return false;
+      });
+
+      normalMembers = filtered.slice(0, limit + 1);
+      hasMore = filtered.length > limit;
+      if (hasMore) {
+        normalMembers = normalMembers.slice(0, limit);
+      }
+    } else {
+      normalMembers = normalMembersRaw.slice(0, limit + 1);
+      hasMore = normalMembersRaw.length > limit;
+      if (hasMore) {
+        normalMembers = normalMembers.slice(0, limit);
+      }
+    }
+
+    if (hasMore && normalMembers.length > 0) {
+      const last = normalMembers[normalMembers.length - 1];
+      nextCursor = `${last.updatedAt?.toISOString() ?? ""}#${last.conversationId}`;
+    }
+
+    return {
+      pinnedMembers,
+      normalMembers,
+      nextCursor,
+      hasMore,
+    };
   }
 }
 
@@ -188,6 +283,7 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       lastDeliveredMessageId: data.lastDeliveredMessageId,
       muteUntil: data.muteUntil ? data.muteUntil.toISOString() : null,
       pinned: data.pinned || false,
+      pinnedAt: data.pinnedAt ? data.pinnedAt.toISOString() : null,
       archived: data.archived || false,
       updatedAt: new Date().toISOString(),
     };
@@ -206,6 +302,7 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     if (data.lastReadAt !== undefined && data.lastReadAt !== null) updateData.lastReadAt = (data.lastReadAt as Date).toISOString();
     if (data.muteUntil !== undefined && data.muteUntil !== null) updateData.muteUntil = (data.muteUntil as Date).toISOString();
     if (data.pinned !== undefined) updateData.pinned = data.pinned;
+    if (data.pinnedAt !== undefined) updateData.pinnedAt = data.pinnedAt ? (data.pinnedAt as Date).toISOString() : null;
     if (data.archived !== undefined) updateData.archived = data.archived;
     return updateData;
   }

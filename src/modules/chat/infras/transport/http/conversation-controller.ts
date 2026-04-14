@@ -64,6 +64,30 @@ export class ConversationController extends BaseController {
     }
   }
 
+  async getConversationsCursorAPI(req: Request, res: Response) {
+    try {
+      const { cursor, limit = "20" } = req.query;
+      const currentUserId = this.getCurrentUserId(req, res);
+
+      if (!currentUserId) {
+        this.sendUnauthorized(res);
+        return;
+      }
+
+      const limitNum = Math.min(parseInt(limit as string, 10), 100);
+
+      const result = await this.useCase.getConversationsCursor(
+        currentUserId,
+        cursor as string | undefined,
+        limitNum,
+      );
+
+      res.status(200).json(result);
+    } catch (error) {
+      this.sendError(res, error);
+    }
+  }
+
   async getConversationDetailAPI(req: Request, res: Response) {
     try {
       const conversationId = this.parseIdParam(req, "conversationId");

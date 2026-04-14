@@ -72,14 +72,15 @@ services:
     restart: always
     ports:
       - "8000:8000"
-    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+    volumes:
+      - ./docker/dynamodb:/home/dynamodblocal/data
     networks:
       - chat-network
 
 volumes:
   mongodb_data:
   redis_data:
-  dynamodb_data:
 
 networks:
   chat-network:

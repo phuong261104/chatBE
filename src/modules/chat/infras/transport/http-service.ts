@@ -312,6 +312,36 @@ export class MessagingHttpService {
     }
   }
 
+  async getConversationsCursorAPI(req: Request, res: Response) {
+    try {
+      const { cursor, limit = "20" } = req.query;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const limitNum = Math.min(parseInt(limit as string, 10), 100);
+
+      const result = await this.useCase.getConversationsCursor(
+        currentUserId,
+        cursor as string | undefined,
+        limitNum,
+      );
+
+      res.status(200).json(result);
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message,
+      });
+    }
+  }
+
   async getConversationDetailAPI(req: Request, res: Response) {
     try {
       const conversationId = Array.isArray(req.params.conversationId)

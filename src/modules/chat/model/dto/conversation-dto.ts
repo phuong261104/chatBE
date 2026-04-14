@@ -52,6 +52,12 @@ export interface GetConversationsQuery {
   limit?: number;
 }
 
+export interface GetConversationsCursorQuery {
+  userId: string;
+  cursor?: string;
+  limit?: number;
+}
+
 export type ConversationWithMetadata = Conversation & {
   name: string;
   avatarUrl: string;
@@ -59,6 +65,13 @@ export type ConversationWithMetadata = Conversation & {
   role: any;
   lastMessageStatus?: "sent" | "delivered" | "read";
   lastMessageTimeFormatted?: string;
+};
+
+export type ConversationCursorResult = {
+  pinned: Array<Conversation & { unreadCount: number; role: any; pinnedAt?: Date; name: string; avatarUrl: string; lastMessageStatus?: string; lastMessageTimeFormatted?: string }> | null;
+  data: Array<Conversation & { unreadCount: number; role: any; name: string; avatarUrl: string; lastMessageStatus?: string; lastMessageTimeFormatted?: string }>;
+  nextCursor?: string;
+  hasMore: boolean;
 };
 
 export interface GetConversationDetailQuery {

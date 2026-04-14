@@ -47,7 +47,7 @@ export class PinConversationHandler
       throw AppError.from(ErrConversationAlreadyPinned, 400);
     }
 
-    await this.memberCommandRepo.update(member.id, { pinned: true });
+    await this.memberCommandRepo.update(member.id, { pinned: true, pinnedAt: new Date() });
   }
 }
 

@@ -41,6 +41,13 @@ export interface IConversationCommandRepository {
   delete(id: string, isHard: boolean): Promise<boolean>;
 }
 
+export interface ConversationMemberCursorResult {
+  pinnedMembers: ConversationMember[];
+  normalMembers: ConversationMember[];
+  nextCursor?: string;
+  hasMore: boolean;
+}
+
 export interface IConversationMemberQueryRepository {
   get(id: string): Promise<ConversationMember | null>;
   findByCond(
@@ -50,6 +57,11 @@ export interface IConversationMemberQueryRepository {
     cond: ConversationMemberCondDTO,
     paging: PagingDTO,
   ): Promise<ConversationMember[]>;
+  listByUserIdCursor(
+    userId: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<ConversationMemberCursorResult>;
 }
 
 export interface IConversationMemberCommandRepository {
@@ -338,6 +350,17 @@ export interface IMessagingUseCase {
     files: any[];
     links: any[];
     nextCursor: string;
+    hasMore: boolean;
+  }>;
+
+  getConversationsCursor(
+    userId: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
+    pinned: Array<Conversation & { unreadCount: number; role: ConversationMemberRole; pinnedAt?: Date }> | null;
+    data: Array<Conversation & { unreadCount: number; role: ConversationMemberRole }>;
+    nextCursor?: string;
     hasMore: boolean;
   }>;
 }

@@ -27,6 +27,7 @@ import { MarkAsSeenHandler } from "./mark-as-seen";
 import { MarkAsDeliveredHandler } from "./mark-as-delivered";
 import { LeaveGroupHandler } from "./leave-group";
 import { GetConversationsQueryHandler } from "./get-conversations";
+import { GetConversationsCursorQueryHandler } from "./get-conversations-cursor";
 import { GetConversationDetailQueryHandler } from "./get-conversation-detail";
 import { GetConversationMembersQueryHandler } from "./get-conversation-members";
 import { LoadMessagesQueryHandler } from "./load-messages";
@@ -107,6 +108,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly updateGroupSettingsHandler: UpdateGroupSettingsHandler,
     private readonly getGroupInfoHandler: GetGroupInfoHandler,
     private readonly getConversationMediaQueryHandler: GetConversationMediaQueryHandler,
+    private readonly getConversationsCursorQueryHandler: GetConversationsCursorQueryHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -477,5 +479,18 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       limit,
       type,
     });
+  }
+
+  async getConversationsCursor(
+    userId: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
+    pinned: Array<Conversation & { unreadCount: number; role: ConversationMemberRole; pinnedAt?: Date }> | null;
+    data: Array<Conversation & { unreadCount: number; role: ConversationMemberRole }>;
+    nextCursor?: string;
+    hasMore: boolean;
+  }> {
+    return this.getConversationsCursorQueryHandler.query({ userId, cursor, limit });
   }
 }
