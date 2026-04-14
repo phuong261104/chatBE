@@ -332,7 +332,14 @@ export class MessagingHttpService {
         limitNum,
       );
 
-      res.status(200).json(result);
+      res.status(200).json({
+        status: "success",
+        msg: "OK",
+        pinned: result.pinned,
+        data: result.data,
+        nextCursor: result.nextCursor,
+        hasMore: result.hasMore,
+      });
     } catch (error) {
       const err = error as any;
       const statusCode = err.statusCode || 400;

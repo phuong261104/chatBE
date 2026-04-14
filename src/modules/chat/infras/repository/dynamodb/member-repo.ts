@@ -133,10 +133,11 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
         const result = await docClient.send(
           new ScanCommand({
             TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
-            FilterExpression: "userId = :userId AND (attribute_not_exists(leftAt) OR leftAt = :null)",
+            FilterExpression: "userId = :userId AND (attribute_not_exists(leftAt) OR #lt = :nullVal)",
+            ExpressionAttributeNames: { "#lt": "leftAt" },
             ExpressionAttributeValues: {
               ":userId": userId,
-              ":null": null,
+              ":nullVal": null,
             },
             ExclusiveStartKey: lastEvaluatedKey,
           }),

@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { ConversationType, LastMessageSchema, Conversation, ConversationMember } from "../model";
+import {
+  ConversationType,
+  LastMessageSchema,
+  Conversation,
+  ConversationMember,
+} from "../model";
 
 export const ConversationCondDTOSchema = z.object({
   type: z.nativeEnum(ConversationType).optional(),
@@ -33,7 +38,9 @@ export const getOrCreatePrivateConversationDTOSchema = z.object({
   targetUserId: z.string().uuid("Invalid target user ID"),
 });
 
-export type GetOrCreatePrivateConversationDTO = z.infer<typeof getOrCreatePrivateConversationDTOSchema>;
+export type GetOrCreatePrivateConversationDTO = z.infer<
+  typeof getOrCreatePrivateConversationDTOSchema
+>;
 
 export interface GetOrCreatePrivateConversationCommand {
   currentUserId: string;
@@ -68,8 +75,27 @@ export type ConversationWithMetadata = Conversation & {
 };
 
 export type ConversationCursorResult = {
-  pinned: Array<Conversation & { unreadCount: number; role: any; pinnedAt?: Date; name: string; avatarUrl: string; lastMessageStatus?: string; lastMessageTimeFormatted?: string }> | null;
-  data: Array<Conversation & { unreadCount: number; role: any; name: string; avatarUrl: string; lastMessageStatus?: string; lastMessageTimeFormatted?: string }>;
+  pinned: Array<
+    Conversation & {
+      unreadCount: number;
+      role: any;
+      pinnedAt?: Date;
+      name: string;
+      avatarUrl: string;
+      lastMessageStatus?: string;
+      lastMessageTimeFormatted?: string;
+    }
+  > | null;
+  data: Array<
+    Conversation & {
+      unreadCount: number;
+      role: any;
+      name: string;
+      avatarUrl: string;
+      lastMessageStatus?: string;
+      lastMessageTimeFormatted?: string;
+    }
+  >;
   nextCursor?: string;
   hasMore: boolean;
 };

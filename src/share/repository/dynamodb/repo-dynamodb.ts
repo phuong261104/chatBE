@@ -254,6 +254,19 @@ export abstract class BaseRepositoryDynamoDB<
     return await this.queryRepo.listByIds(ids);
   }
 
+  async listByUserIdCursor(
+    userId: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
+    pinnedMembers: any[];
+    normalMembers: any[];
+    nextCursor?: string;
+    hasMore: boolean;
+  }> {
+    return (this.queryRepo as any).listByUserIdCursor(userId, cursor, limit);
+  }
+
   async insert(data: Entity): Promise<boolean> {
     return await this.cmdRepo.insert(data);
   }

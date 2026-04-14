@@ -321,7 +321,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const getConversationsCursorQueryHandler = new GetConversationsCursorQueryHandler(
     conversationRepo,
-    conversationMemberRepo,
+    conversationMemberRepo as any,
     userAdapter,
   );
 
