@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { uuidV7 } from "@share/utils/zod-validators";
 import {
   MessageType,
   MessageMediaSchema,
@@ -31,8 +32,8 @@ export type MessageUpdateDTO = z.infer<typeof MessageUpdateDTOSchema>;
 
 export const sendMessageDTOSchema = z
   .object({
-    conversationId: z.string().uuid("Invalid conversation ID"),
-    senderId: z.string().uuid("Invalid sender ID"),
+    conversationId: uuidV7("Invalid conversation ID"),
+    senderId: uuidV7("Invalid sender ID"),
     text: z.string().max(5000, "Message is too long").optional(),
     media: z.array(MediaAttachmentSchema).optional(),
   })
@@ -44,8 +45,8 @@ export type SendMessageDTO = z.infer<typeof sendMessageDTOSchema>;
 
 export const sendGroupMessageDTOSchema = z
   .object({
-    conversationId: z.string().uuid("Invalid conversation ID"),
-    senderId: z.string().uuid("Invalid sender ID"),
+    conversationId: uuidV7("Invalid conversation ID"),
+    senderId: uuidV7("Invalid sender ID"),
     text: z.string().max(5000, "Message is too long").optional(),
     media: z.array(MediaAttachmentSchema).optional(),
   })
@@ -56,7 +57,7 @@ export const sendGroupMessageDTOSchema = z
 export type SendGroupMessageDTO = z.infer<typeof sendGroupMessageDTOSchema>;
 
 export const loadMessagesDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
+  conversationId: uuidV7("Invalid conversation ID"),
   cursor: z.string().optional(),
   limit: z.number().min(1).max(100).default(20),
 });
@@ -64,41 +65,41 @@ export const loadMessagesDTOSchema = z.object({
 export type LoadMessagesDTO = z.infer<typeof loadMessagesDTOSchema>;
 
 export const revokeMessageDTOSchema = z.object({
-  messageId: z.string().uuid("Invalid message ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  messageId: uuidV7("Invalid message ID"),
+  userId: uuidV7("Invalid user ID"),
 });
 
 export type RevokeMessageDTO = z.infer<typeof revokeMessageDTOSchema>;
 
 export const deleteMessageForMeDTOSchema = z.object({
-  messageId: z.string().uuid("Invalid message ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  messageId: uuidV7("Invalid message ID"),
+  userId: uuidV7("Invalid user ID"),
 });
 
 export type DeleteMessageForMeDTO = z.infer<typeof deleteMessageForMeDTOSchema>;
 
 export const deleteMessageForEveryoneDTOSchema = z.object({
-  messageId: z.string().uuid("Invalid message ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  messageId: uuidV7("Invalid message ID"),
+  userId: uuidV7("Invalid user ID"),
 });
 
 export type DeleteMessageForEveryoneDTO = z.infer<typeof deleteMessageForEveryoneDTOSchema>;
 
 export const forwardMessagesDTOSchema = z.object({
-  userId: z.string().uuid("Invalid user ID"),
+  userId: uuidV7("Invalid user ID"),
   messageIds: z
-    .array(z.string().uuid("Invalid message ID"))
+    .array(uuidV7("Invalid message ID"))
     .min(1, "At least one message is required"),
   targetConversationIds: z
-    .array(z.string().uuid("Invalid conversation ID"))
+    .array(uuidV7("Invalid conversation ID"))
     .min(1, "At least one target conversation is required"),
 });
 
 export type ForwardMessagesDTO = z.infer<typeof forwardMessagesDTOSchema>;
 
 export const editMessageDTOSchema = z.object({
-  messageId: z.string().uuid("Invalid message ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  messageId: uuidV7("Invalid message ID"),
+  userId: uuidV7("Invalid user ID"),
   text: z.string().min(1, "Text is required").max(5000, "Message is too long"),
 });
 
@@ -106,10 +107,10 @@ export type EditMessageDTO = z.infer<typeof editMessageDTOSchema>;
 
 export const quoteMessageDTOSchema = z
   .object({
-    senderId: z.string().uuid("Invalid sender ID"),
+    senderId: uuidV7("Invalid sender ID"),
     text: z.string().max(5000, "Message is too long").optional(),
     media: z.array(MediaAttachmentSchema).optional(),
-    quotedMessageId: z.string().uuid("Invalid quoted message ID"),
+    quotedMessageId: uuidV7("Invalid quoted message ID"),
   })
   .refine((data) => data.text || (data.media && data.media.length > 0), {
     message: "Either text or media is required",

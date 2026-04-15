@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { uuidV4 } from "@share/utils/zod-validators";
 import { UserPhoneSchema } from "@modules/user/model/model";
 import { UserStatus } from "@modules/user/model/model";
 
 export { UserStatus };
 
 export const DeviceInfoSchema = z.object({
-  deviceId: z.string().uuid(),
+  deviceId: uuidV4(),
   userAgent: z.string().optional(),
   displayLabel: z.string().optional(),
   platform: z.enum(["app", "web"]).optional(),

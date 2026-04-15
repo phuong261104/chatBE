@@ -1,18 +1,19 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
+import { uuidV7, uuidV4 } from "@share/utils/zod-validators";
 import { AiUseCaseFacade } from "@modules/ai/usecase";
 import { ToneType } from "@modules/ai/model/dto";
 
 const ToneTypeSchema = z.enum(["formal", "casual", "funny", "professional"]);
 
 const SummarizeSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
+  conversationId: uuidV7("Invalid conversation ID"),
   maxMessages: z.number().optional(),
 });
 
 const SmartReplySchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  userId: z.string().uuid().optional(),
+  conversationId: uuidV7("Invalid conversation ID"),
+  userId: uuidV4().optional(),
 });
 
 const ToneAdjustSchema = z.object({

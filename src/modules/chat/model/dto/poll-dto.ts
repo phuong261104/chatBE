@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { uuidV7 } from "@share/utils/zod-validators";
 
 export const createPollDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
+  conversationId: uuidV7("Invalid conversation ID"),
   question: z.string().min(1, "Question is required").max(500),
   options: z.array(z.string().min(1).max(200)).min(2, "At least 2 options required").max(10),
   isMultipleChoice: z.boolean().default(false),
@@ -12,7 +13,7 @@ export const createPollDTOSchema = z.object({
 export type CreatePollDTO = z.infer<typeof createPollDTOSchema>;
 
 export const votePollDTOSchema = z.object({
-  pollId: z.string().uuid("Invalid poll ID"),
+  pollId: uuidV7("Invalid poll ID"),
   optionIds: z.array(z.string()).min(1, "Select at least one option"),
 });
 

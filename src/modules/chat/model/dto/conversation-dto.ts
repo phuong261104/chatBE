@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { uuidV7 } from "@share/utils/zod-validators";
 import {
   ConversationType,
   LastMessageSchema,
@@ -34,8 +35,8 @@ export const ConversationUpdateDTOSchema = z.object({
 export type ConversationUpdateDTO = z.infer<typeof ConversationUpdateDTOSchema>;
 
 export const getOrCreatePrivateConversationDTOSchema = z.object({
-  currentUserId: z.string().uuid("Invalid current user ID"),
-  targetUserId: z.string().uuid("Invalid target user ID"),
+  currentUserId: uuidV7("Invalid current user ID"),
+  targetUserId: uuidV7("Invalid target user ID"),
 });
 
 export type GetOrCreatePrivateConversationDTO = z.infer<

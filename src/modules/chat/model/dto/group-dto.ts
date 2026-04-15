@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { uuidV7 } from "@share/utils/zod-validators";
 import {
   ConversationMemberRole,
   ConversationMemberStatus,
@@ -176,7 +177,7 @@ export const transferOwnerDTOSchema = z.object({
 export type TransferOwnerDTO = z.infer<typeof transferOwnerDTOSchema>;
 
 export const updateGroupSettingsDTOSchema = z.object({
-  groupId: z.string().uuid("Invalid group ID"),
+  groupId: uuidV7("Invalid group ID"),
   allowSendLink: z.boolean().optional(),
   requireApproval: z.boolean().optional(),
   allowMemberInvite: z.boolean().optional(),

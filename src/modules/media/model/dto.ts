@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { uuidV7 } from "@share/utils/zod-validators";
 
 export enum MediaFileType {
   IMAGE = "IMAGE",
@@ -45,7 +46,7 @@ export const RequestPresignedUrlDTOSchema = z.object({
   fileSize: z.number().positive("File size must be positive"),
   originalName: z.string().optional(),
   expiresIn: z.number().int().min(60).max(3600).optional().default(300),
-  conversationId: z.string().uuid("Invalid conversation ID").optional(),
+  conversationId: uuidV7("Invalid conversation ID").optional(),
 });
 
 export type RequestPresignedUrlDTO = z.infer<typeof RequestPresignedUrlDTOSchema>;
@@ -60,7 +61,7 @@ export interface RequestPresignedUrlResponseDTO {
 }
 
 export const ConfirmUploadDTOSchema = z.object({
-  fileId: z.string().uuid("Invalid file ID"),
+  fileId: uuidV7("Invalid file ID"),
   uploadedUrl: z.string().url("Invalid uploaded URL"),
 });
 

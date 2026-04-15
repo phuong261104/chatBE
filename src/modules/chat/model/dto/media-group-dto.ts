@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { uuidV7 } from "@share/utils/zod-validators";
 import { MediaType } from "../../model";
 
 export const GetConversationMediaQuerySchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  conversationId: uuidV7("Invalid conversation ID"),
+  userId: uuidV7("Invalid user ID"),
   cursor: z.string().optional(),
   limit: z.number().min(1).max(100).default(20),
   type: z.enum(["all", "image", "file", "link"]).default("all"),
