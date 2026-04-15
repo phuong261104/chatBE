@@ -181,13 +181,14 @@ export class GroupController extends BaseController {
         return;
       }
 
-      const updatedConversation = await this.useCase.setAdmin(groupId, targetUserId, isAdmin);
+      const updatedConversation = await this.useCase.setAdmin(groupId, currentUserId, targetUserId, isAdmin);
 
       if (this.socketService) {
         this.socketService.emitToGroupRoom(groupId, "group:admin_changed", {
           conversationId: groupId,
           targetUserId,
           isAdmin,
+          changedBy: currentUserId,
         });
       }
 
@@ -208,7 +209,7 @@ export class GroupController extends BaseController {
         return;
       }
 
-      const updatedConversation = await this.useCase.transferOwner(groupId, newOwnerId);
+      const updatedConversation = await this.useCase.transferOwner(groupId, currentUserId, newOwnerId);
 
       if (this.socketService) {
         this.socketService.emitToGroupRoom(groupId, "group:owner_transferred", {

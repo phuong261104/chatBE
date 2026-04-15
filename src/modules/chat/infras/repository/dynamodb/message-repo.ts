@@ -8,6 +8,7 @@ import {
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import {
   QueryCommand,
+  ScanCommand,
   UpdateCommand,
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
@@ -93,6 +94,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
   async update(id: string, data: MessageUpdateDTO): Promise<boolean> {
     const docClient = getDocClient();
     const tableName = this.getTableName();
+
     const getResult = await docClient.send(
       new QueryCommand({
         TableName: tableName,

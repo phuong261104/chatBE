@@ -23,7 +23,7 @@ export class TransferOwnerHandler implements ICommandHandler<TransferOwnerComman
   ) {}
 
   async execute(command: TransferOwnerCommand): Promise<Conversation> {
-    const { groupId, newOwnerId } = command;
+    const { groupId, requesterId, newOwnerId } = command;
 
     const conversation = await this.conversationQueryRepo.get(groupId);
     if (!conversation) {
@@ -37,6 +37,9 @@ export class TransferOwnerHandler implements ICommandHandler<TransferOwnerComman
     const currentOwnerId = conversation.ownerId || conversation.createdBy;
     if (!currentOwnerId) {
       throw AppError.from(new Error("No owner found for this group"), 400);
+    }
+    if (requesterId !== currentOwnerId) {
+      throw AppError.from(new Error("Only group owner can transfer ownership"), 403);
     }
 
     const newOwnerMember = await this.conversationMemberQueryRepo.findByCond({

@@ -9,6 +9,7 @@ import {
   IMessageClassificationRepository,
 } from '../interface';
 import {
+  ConversationMemberStatus,
   Message,
   MessageType,
   MediaAttachment,
@@ -57,6 +58,10 @@ export class SendMessageHandler implements ICommandHandler<any, Message[]> {
 
     if (!member) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this conversation'), 403);
+    }
+
+    if (member.status !== ConversationMemberStatus.ACTIVE || member.leftAt !== undefined) {
+      throw AppError.from(new Error('Unauthorized: You have left this conversation'), 403);
     }
 
     const hasText = !!text;

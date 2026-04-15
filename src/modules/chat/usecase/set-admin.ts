@@ -23,7 +23,7 @@ export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Convers
   ) {}
 
   async execute(command: SetAdminCommand): Promise<Conversation> {
-    const { groupId, targetUserId, isAdmin } = command;
+    const { groupId, requesterId, targetUserId, isAdmin } = command;
 
     const conversation = await this.conversationQueryRepo.get(groupId);
     if (!conversation) {
@@ -32,6 +32,11 @@ export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Convers
 
     if (conversation.type !== ConversationType.GROUP) {
       throw AppError.from(new Error("Only group conversations can set admin"), 400);
+    }
+
+    const currentOwnerId = conversation.ownerId || conversation.createdBy;
+    if (requesterId !== currentOwnerId) {
+      throw AppError.from(new Error("Only group owner can set admin"), 403);
     }
 
     const targetMember = await this.conversationMemberQueryRepo.findByCond({

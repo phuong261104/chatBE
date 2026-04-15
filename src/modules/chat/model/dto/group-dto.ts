@@ -49,17 +49,17 @@ export const createGroupDTOSchema = z.object({
 export type CreateGroupDTO = z.infer<typeof createGroupDTOSchema>;
 
 export const addMembersToGroupDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  requesterId: z.string().uuid("Invalid requester ID"),
+  conversationId: z.string(),
+  requesterId: z.string(),
   memberIds: z.array(z.string()).min(1, "At least one member is required"),
 });
 
 export type AddMembersToGroupDTO = z.infer<typeof addMembersToGroupDTOSchema>;
 
 export const removeMemberFromGroupDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  requesterId: z.string().uuid("Invalid requester ID"),
-  targetUserId: z.string().uuid("Invalid target user ID"),
+  conversationId: z.string(),
+  requesterId: z.string(),
+  targetUserId: z.string(),
 });
 
 export type RemoveMemberFromGroupDTO = z.infer<
@@ -67,8 +67,8 @@ export type RemoveMemberFromGroupDTO = z.infer<
 >;
 
 export const updateGroupInfoDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  requesterId: z.string().uuid("Invalid requester ID"),
+  conversationId: z.string(),
+  requesterId: z.string(),
   name: z.string().min(1).max(100).optional(),
   avatarUrl: z.string().url("Invalid avatar URL").optional(),
 });
@@ -76,8 +76,8 @@ export const updateGroupInfoDTOSchema = z.object({
 export type UpdateGroupInfoDTO = z.infer<typeof updateGroupInfoDTOSchema>;
 
 export const getConversationMembersDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  excludeUserId: z.string().uuid().optional(),
+  conversationId: z.string(),
+  excludeUserId: z.string().optional(),
 });
 
 export type GetConversationMembersDTO = z.infer<
@@ -85,38 +85,38 @@ export type GetConversationMembersDTO = z.infer<
 >;
 
 export const leaveGroupDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  conversationId: z.string(),
+  userId: z.string(),
 });
 
 export type LeaveGroupDTO = z.infer<typeof leaveGroupDTOSchema>;
 
 export const getGroupMembersDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  conversationId: z.string(),
+  userId: z.string(),
 });
 
 export type GetGroupMembersDTO = z.infer<typeof getGroupMembersDTOSchema>;
 
 export const markAsSeenDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  userId: z.string().uuid("Invalid user ID"),
-  lastSeenMessageId: z.string().uuid("Invalid message ID"),
+  conversationId: z.string(),
+  userId: z.string(),
+  lastSeenMessageId: z.string(),
 });
 
 export type MarkAsSeenDTO = z.infer<typeof markAsSeenDTOSchema>;
 
 export const markAsDeliveredDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  userId: z.string().uuid("Invalid user ID"),
-  lastDeliveredMessageId: z.string().uuid("Invalid message ID"),
+  conversationId: z.string(),
+  userId: z.string(),
+  lastDeliveredMessageId: z.string(),
 });
 
 export type MarkAsDeliveredDTO = z.infer<typeof markAsDeliveredDTOSchema>;
 
 export const muteConversationDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  conversationId: z.string(),
+  userId: z.string(),
   muteUntil: z.string().datetime().optional(),
   duration: z.number().positive().optional(),
 });
@@ -124,51 +124,53 @@ export const muteConversationDTOSchema = z.object({
 export type MuteConversationDTO = z.infer<typeof muteConversationDTOSchema>;
 
 export const pinConversationDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  conversationId: z.string(),
+  userId: z.string(),
 });
 
 export type PinConversationDTO = z.infer<typeof pinConversationDTOSchema>;
 
 export const archiveConversationDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  conversationId: z.string(),
+  userId: z.string(),
 });
 
 export type ArchiveConversationDTO = z.infer<typeof archiveConversationDTOSchema>;
 
 export const pinMessageDTOSchema = z.object({
-  messageId: z.string().uuid("Invalid message ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  messageId: z.string(),
+  userId: z.string(),
 });
 
 export type PinMessageDTO = z.infer<typeof pinMessageDTOSchema>;
 
 export const unpinMessageDTOSchema = z.object({
-  messageId: z.string().uuid("Invalid message ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  messageId: z.string(),
+  userId: z.string(),
 });
 
 export type UnpinMessageDTO = z.infer<typeof unpinMessageDTOSchema>;
 
 export const getPinnedMessagesDTOSchema = z.object({
-  conversationId: z.string().uuid("Invalid conversation ID"),
-  userId: z.string().uuid("Invalid user ID"),
+  conversationId: z.string(),
+  userId: z.string(),
 });
 
 export type GetPinnedMessagesDTO = z.infer<typeof getPinnedMessagesDTOSchema>;
 
 export const setAdminDTOSchema = z.object({
-  groupId: z.string().uuid("Invalid group ID"),
-  targetUserId: z.string().uuid("Invalid user ID"),
+  groupId: z.string(),
+  requesterId: z.string(),
+  targetUserId: z.string(),
   isAdmin: z.boolean(),
 });
 
 export type SetAdminDTO = z.infer<typeof setAdminDTOSchema>;
 
 export const transferOwnerDTOSchema = z.object({
-  groupId: z.string().uuid("Invalid group ID"),
-  newOwnerId: z.string().uuid("Invalid user ID"),
+  groupId: z.string(),
+  requesterId: z.string(),
+  newOwnerId: z.string(),
 });
 
 export type TransferOwnerDTO = z.infer<typeof transferOwnerDTOSchema>;
@@ -282,12 +284,14 @@ export interface GetPinnedMessagesQuery {
 
 export interface SetAdminCommand {
   groupId: string;
+  requesterId: string;
   targetUserId: string;
   isAdmin: boolean;
 }
 
 export interface TransferOwnerCommand {
   groupId: string;
+  requesterId: string;
   newOwnerId: string;
 }
 

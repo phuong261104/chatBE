@@ -10,6 +10,7 @@ import {
   IMessageClassificationRepository,
 } from '../interface';
 import {
+  ConversationMemberStatus,
   Message,
   MessageType,
   MediaAttachment,
@@ -58,6 +59,10 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
 
     if (!member) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this group'), 403);
+    }
+
+    if (member.status !== ConversationMemberStatus.ACTIVE || member.leftAt !== undefined) {
+      throw AppError.from(new Error('You have left the group'), 403);
     }
 
     const hasText = !!text;

@@ -35,11 +35,11 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
       id: doc.id || sk?.replace("MEM#", ""),
       conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
       joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
-      leftAt: leftAt ? new Date(leftAt) : null,
-      lastReadAt: lastReadAt ? new Date(lastReadAt) : null,
-      muteUntil: muteUntil ? new Date(muteUntil) : null,
+      leftAt: leftAt ? new Date(leftAt) : undefined,
+      lastReadAt: lastReadAt ? new Date(lastReadAt) : undefined,
+      muteUntil: muteUntil ? new Date(muteUntil) : undefined,
       updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
-      pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
+      pinnedAt: pinnedAt ? new Date(pinnedAt) : undefined,
     } as ConversationMember;
   }
 
@@ -57,10 +57,9 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
   async get(id: string): Promise<ConversationMember | null> {
     const docClient = getDocClient();
     const result = await docClient.send(
-      new QueryCommand({
+      new ScanCommand({
         TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
-        IndexName: "id-index",
-        KeyConditionExpression: "id = :id",
+        FilterExpression: "id = :id",
         ExpressionAttributeValues: { ":id": id },
         Limit: 1,
       }),
@@ -76,12 +75,16 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
         Key: { pk: `CONV#${conversationId}`, sk: `MEM#${userId}` },
       }),
     );
-    return result.Item ? this.toEntity(result.Item) : null;
+    if (!result.Item) return null;
+    return this.toEntity(result.Item);
   }
 
   async list(cond: ConversationMemberCondDTO, paging: { page: number; limit: number }): Promise<ConversationMember[]> {
     if (cond.userId) {
       return await this.listByUserId(cond.userId, paging.page, paging.limit);
+    }
+    if (cond.conversationId) {
+      return await this.listByConversationId(cond.conversationId);
     }
     return super.list(cond, paging);
   }
@@ -89,10 +92,16 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
   private async listByUserId(userId: string, page: number, limit: number): Promise<ConversationMember[]> {
     const docClient = getDocClient();
     const result = await docClient.send(
-      new ScanCommand({
+      new QueryCommand({
         TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
-        FilterExpression: "userId = :userId",
-        ExpressionAttributeValues: { ":userId": userId },
+        IndexName: "userId-index",
+        KeyConditionExpression: "userId = :userId",
+        FilterExpression: "attribute_not_exists(#leftAt) OR #leftAt = :null",
+        ExpressionAttributeNames: { "#leftAt": "leftAt" },
+        ExpressionAttributeValues: {
+          ":userId": userId,
+          ":null": null,
+        },
         Limit: limit,
       }),
     );
@@ -105,9 +114,12 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
       new QueryCommand({
         TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+        FilterExpression: "attribute_not_exists(#leftAt) OR #leftAt = :null",
+        ExpressionAttributeNames: { "#leftAt": "leftAt" },
         ExpressionAttributeValues: {
           ":pk": `CONV#${conversationId}`,
           ":skPrefix": "MEM#",
+          ":null": null,
         },
       }),
     );
@@ -226,29 +238,57 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     const updateData = this.beforeUpdate(id, data);
     if (Object.keys(updateData).length === 0) return true;
 
-    const updateExpressions: string[] = [];
-    const expressionAttributeNames: Record<string, string> = {};
-    const expressionAttributeValues: Record<string, any> = {};
-    let idx = 0;
-    for (const [key, value] of Object.entries(updateData)) {
-      const nameKey = `#attr${idx}`;
-      const valueKey = `:val${idx}`;
-      updateExpressions.push(`${nameKey} = ${valueKey}`);
-      expressionAttributeNames[nameKey] = key;
-      expressionAttributeValues[valueKey] = value;
-      idx++;
-    }
-
     const docClient = getDocClient();
-    await docClient.send(
-      new UpdateCommand({
-        TableName: this.getTableName(),
-        Key: { pk: member.pk, sk: member.sk },
-        UpdateExpression: `SET ${updateExpressions.join(", ")}`,
-        ExpressionAttributeNames: expressionAttributeNames,
-        ExpressionAttributeValues: expressionAttributeValues,
-      }),
-    );
+
+    if (updateData.leftAt === null) {
+      const updateExprParts: string[] = [];
+      const exprAttrNames: Record<string, string> = {};
+      const exprAttrValues: Record<string, any> = {};
+      let idx = 0;
+
+      for (const [key, value] of Object.entries(updateData)) {
+        if (key === 'leftAt') continue;
+        const nameKey = `#attr${idx}`;
+        const valueKey = `:val${idx}`;
+        updateExprParts.push(`${nameKey} = ${valueKey}`);
+        exprAttrNames[nameKey] = key;
+        exprAttrValues[valueKey] = value;
+        idx++;
+      }
+
+      await docClient.send(
+        new UpdateCommand({
+          TableName: this.getTableName(),
+          Key: { pk: member.pk, sk: member.sk },
+          UpdateExpression: `REMOVE leftAt SET ${updateExprParts.join(", ")}`,
+          ExpressionAttributeNames: exprAttrNames,
+          ExpressionAttributeValues: exprAttrValues,
+        }),
+      );
+    } else {
+      const updateExpressions: string[] = [];
+      const expressionAttributeNames: Record<string, string> = {};
+      const expressionAttributeValues: Record<string, any> = {};
+      let idx = 0;
+      for (const [key, value] of Object.entries(updateData)) {
+        const nameKey = `#attr${idx}`;
+        const valueKey = `:val${idx}`;
+        updateExpressions.push(`${nameKey} = ${valueKey}`);
+        expressionAttributeNames[nameKey] = key;
+        expressionAttributeValues[valueKey] = value;
+        idx++;
+      }
+
+      await docClient.send(
+        new UpdateCommand({
+          TableName: this.getTableName(),
+          Key: { pk: member.pk, sk: member.sk },
+          UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+          ExpressionAttributeNames: expressionAttributeNames,
+          ExpressionAttributeValues: expressionAttributeValues,
+        }),
+      );
+    }
     return true;
   }
 
@@ -295,7 +335,9 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     const updateData: Record<string, any> = { updatedAt: now };
     if (data.role !== undefined) updateData.role = data.role;
     if (data.status !== undefined) updateData.status = data.status;
-    if (data.leftAt !== undefined && data.leftAt !== null) updateData.leftAt = (data.leftAt as Date).toISOString();
+    if (data.leftAt !== undefined) {
+      updateData.leftAt = data.leftAt ? (data.leftAt as Date).toISOString() : null;
+    }
     if (data.unreadCount !== undefined) updateData.unreadCount = data.unreadCount;
     if (data.lastReadMessageId !== undefined) updateData.lastReadMessageId = data.lastReadMessageId;
     if (data.lastSeenMessageId !== undefined) updateData.lastSeenMessageId = data.lastSeenMessageId;

@@ -75,6 +75,8 @@ export class ForwardMessagesHandler implements ICommandHandler<
           text: sourceMessage.text,
           media: sourceMessage.media,
           links: type === MessageType.LINK ? extractLinks(sourceMessage.text || "") : undefined,
+          forwardedFrom: sourceMessage.conversationId,
+          forwardedFromMessageId: sourceMessage.id,
           createdAt: now,
           pinned: false,
         } as Message;

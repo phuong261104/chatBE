@@ -132,4 +132,13 @@ export class MongoConversationMemberRepository
     const queryRepo = (this as any).queryRepo as MongoConversationMemberQueryRepository;
     return await queryRepo.listByUserIdCursor(userId, cursor, limit);
   }
+
+  async listByConversationId(conversationId: string): Promise<ConversationMember[]> {
+    const queryRepo = (this as any).queryRepo as MongoConversationMemberQueryRepository;
+    const docs = await queryRepo.list(
+      { conversationId },
+      { page: 1, limit: 10000 }
+    );
+    return docs.filter(m => !m.leftAt);
+  }
 }

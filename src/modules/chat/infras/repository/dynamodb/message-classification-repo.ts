@@ -1,7 +1,7 @@
 import { ClassificationType, MessageClassification } from "../../../model/model";
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
-import { BatchWriteCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchWriteCommand, DeleteCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 
 export class DynamoMessageClassificationRepository {
   private docClient = getDocClient();
@@ -131,6 +131,32 @@ export class DynamoMessageClassificationRepository {
     }
 
     return { items, nextCursor, hasMore };
+  }
+
+  async deleteByMessageId(messageId: string): Promise<void> {
+    let lastEvaluatedKey: Record<string, any> | undefined;
+    do {
+      const result = await this.docClient.send(
+        new ScanCommand({
+          TableName: getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS),
+          FilterExpression: "messageId = :messageId",
+          ExpressionAttributeValues: {
+            ":messageId": messageId,
+          },
+          ExclusiveStartKey: lastEvaluatedKey,
+        }),
+      );
+
+      for (const item of result.Items || []) {
+        await this.docClient.send(
+          new DeleteCommand({
+            TableName: getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS),
+            Key: { pk: item.pk, sk: item.sk },
+          }),
+        );
+      }
+      lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
   }
 
   private chunkArray<T>(arr: T[], size: number): T[][] {

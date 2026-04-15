@@ -70,7 +70,16 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
     }
 
     const newMembers: ConversationMember[] = [];
+    const actuallyAddedCount = { count: 0 };
     const now = new Date();
+    const settings = conversation.settings || {
+      allowSendLink: true,
+      requireApproval: false,
+      allowMemberInvite: true,
+    };
+    const defaultStatus = settings.requireApproval
+      ? ConversationMemberStatus.PENDING
+      : ConversationMemberStatus.ACTIVE;
 
     for (const memberId of validatedInput.memberIds) {
 
@@ -85,7 +94,7 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
           conversationId: validatedInput.conversationId,
           userId: memberId,
           role: ConversationMemberRole.MEMBER,
-          status: ConversationMemberStatus.ACTIVE,
+          status: defaultStatus,
           joinedAt: now,
           unreadCount: 0,
           pinned: false,
@@ -94,12 +103,31 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
         };
         await this.conversationMemberCommandRepo.insert(member);
         newMembers.push(member);
+        actuallyAddedCount.count++;
+      } else if (existingMember.leftAt !== undefined) {
+        await this.conversationMemberCommandRepo.update(existingMember.id, {
+          status: ConversationMemberStatus.ACTIVE,
+          joinedAt: now,
+          leftAt: null,
+          updatedAt: now,
+        } as any);
+        const reJoinedMember: ConversationMember = {
+          ...existingMember,
+          status: ConversationMemberStatus.ACTIVE,
+          joinedAt: now,
+          leftAt: undefined,
+          updatedAt: now,
+        };
+        newMembers.push(reJoinedMember);
+        actuallyAddedCount.count++;
       }
     }
 
-    await this.conversationCommandRepo.update(validatedInput.conversationId, {
-      membersCount: (conversation.membersCount || 0) + newMembers.length
-    });
+    if (actuallyAddedCount.count > 0) {
+      await this.conversationCommandRepo.update(validatedInput.conversationId, {
+        membersCount: (conversation.membersCount || 0) + actuallyAddedCount.count
+      });
+    }
 
     if (newMembers.length > 0) {
       const messageId = v7();

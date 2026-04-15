@@ -9,7 +9,7 @@ import {
   IMessageCommandRepository,
   IUserQueryRepository
 } from '../interface';
-import { ConversationMemberRole, Message, MessageType } from '../model/model';
+import { ConversationMember, ConversationMemberRole, Message, MessageType } from '../model/model';
 import { removeMemberFromGroupDTOSchema, RemoveMemberFromGroupCommand } from '../model/dto';
 
 export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMemberFromGroupCommand, void> {
@@ -58,6 +58,32 @@ export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMembe
 
     if (!targetMember) {
       throw AppError.from(new Error('Target user is not a member'), 404);
+    }
+
+    const currentOwnerId = conversation.ownerId || conversation.createdBy;
+    if (validatedInput.targetUserId === currentOwnerId) {
+      throw AppError.from(new Error("Cannot remove the group owner"), 400);
+    }
+
+    if (targetMember.role === ConversationMemberRole.ADMIN) {
+      const newAdmins = (conversation.admins || []).filter(id => id !== validatedInput.targetUserId);
+      if (newAdmins.length === 0 && (conversation.admins || []).includes(validatedInput.targetUserId)) {
+        const allMembers = await this.conversationMemberQueryRepo.list(
+          { conversationId: validatedInput.conversationId },
+          { page: 1, limit: 100 }
+        );
+        const activeAdmins = allMembers.filter((m: ConversationMember) =>
+          m.role === ConversationMemberRole.ADMIN &&
+          !m.leftAt &&
+          m.userId !== validatedInput.targetUserId
+        );
+        if (activeAdmins.length === 0) {
+          throw AppError.from(new Error("Cannot remove the last admin"), 400);
+        }
+      }
+      await this.conversationCommandRepo.update(validatedInput.conversationId, {
+        admins: newAdmins
+      });
     }
 
     const now = new Date();

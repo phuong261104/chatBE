@@ -62,6 +62,9 @@ export interface IConversationMemberQueryRepository {
     cursor?: string,
     limit?: number,
   ): Promise<ConversationMemberCursorResult>;
+  listByConversationId(
+    conversationId: string,
+  ): Promise<ConversationMember[]>;
 }
 
 export interface IConversationMemberCommandRepository {
@@ -122,6 +125,7 @@ export interface IPollCommandRepository {
 
 export interface IMessageClassificationRepository {
   insertBatch(classifications: MessageClassification[]): Promise<void>;
+  deleteByMessageId(messageId: string): Promise<void>;
   listByConversationAndType(
     conversationId: string,
     type: ClassificationType,
@@ -300,9 +304,9 @@ export interface IMessagingUseCase {
     quotedMessageId: string,
   ): Promise<Message[]>;
 
-  setAdmin(groupId: string, targetUserId: string, isAdmin: boolean): Promise<Conversation>;
+  setAdmin(groupId: string, requesterId: string, targetUserId: string, isAdmin: boolean): Promise<Conversation>;
 
-  transferOwner(groupId: string, newOwnerId: string): Promise<Conversation>;
+  transferOwner(groupId: string, requesterId: string, newOwnerId: string): Promise<Conversation>;
 
   createPoll(
     conversationId: string,
@@ -363,4 +367,6 @@ export interface IMessagingUseCase {
     nextCursor?: string;
     hasMore: boolean;
   }>;
+
+  dissolveGroup(groupId: string, requesterId: string): Promise<void>;
 }

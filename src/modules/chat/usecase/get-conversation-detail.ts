@@ -26,7 +26,7 @@ export class GetConversationDetailQueryHandler implements IQueryHandler<
       userId: query.userId
     });
 
-    if (!currentUserMember || currentUserMember.leftAt) {
+    if (!currentUserMember || currentUserMember.leftAt !== undefined) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this conversation'), 403);
     }
 

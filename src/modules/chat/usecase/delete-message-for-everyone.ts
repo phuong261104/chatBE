@@ -4,6 +4,7 @@ import {
   IMessageQueryRepository,
   IMessageCommandRepository,
   IConversationMemberQueryRepository,
+  IMessageClassificationRepository,
 } from "../interface";
 import { Message, MessageType } from "../model/model";
 import { DeleteMessageForEveryoneDTO } from "../model/dto";
@@ -22,6 +23,7 @@ export class DeleteMessageForEveryoneHandler implements ICommandHandler<
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
   async execute(dto: DeleteMessageForEveryoneDTO): Promise<Message> {
@@ -59,16 +61,16 @@ export class DeleteMessageForEveryoneHandler implements ICommandHandler<
     const deletedAt = new Date();
 
     await this.messageCommandRepo.update(messageId, {
-      type: MessageType.SYSTEM,
-      text: "Tin nhắn đã bị xóa",
+      text: undefined,
       media: [],
       deletedAt,
     });
 
+    await this.classificationRepo.deleteByMessageId(messageId);
+
     return {
       ...message,
-      type: MessageType.SYSTEM,
-      text: "Tin nhắn đã bị xóa",
+      text: undefined,
       media: [],
       deletedAt,
     };

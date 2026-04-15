@@ -98,6 +98,7 @@ import {
   UpdateGroupSettingsHandler,
   GetGroupInfoHandler,
   GetConversationMediaQueryHandler,
+  DissolveGroupHandler,
 } from "./usecase";
 
 export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) => {
@@ -212,7 +213,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const getGroupMembersQueryHandler = new GetGroupMembersQueryHandler(conversationRepo, conversationMemberRepo);
 
-  const revokeMessageHandler = new RevokeMessageHandler(messageRepo, messageRepo, conversationMemberRepo);
+  const revokeMessageHandler = new RevokeMessageHandler(messageRepo, messageRepo, conversationMemberRepo, classificationRepo);
 
   const deleteMessageForMeHandler = new DeleteMessageForMeHandler(messageRepo, messageRepo, conversationMemberRepo);
 
@@ -220,6 +221,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     messageRepo,
     messageRepo,
     conversationMemberRepo,
+    classificationRepo,
   );
 
   const forwardMessagesHandler = new ForwardMessagesHandler(
@@ -325,6 +327,15 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     userAdapter,
   );
 
+  const dissolveGroupHandler = new DissolveGroupHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+    messageRepo,
+    classificationRepo,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -374,6 +385,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     getGroupInfoHandler,
     getConversationMediaQueryHandler,
     getConversationsCursorQueryHandler,
+    dissolveGroupHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -500,6 +512,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   router.patch("/groups/:groupId/settings", mdlFactory.auth, httpService.updateGroupSettingsAPI.bind(httpService));
 
   router.get("/groups/:groupId/info", mdlFactory.auth, httpService.getGroupInfoAPI.bind(httpService));
+
+  router.delete("/groups/:groupId", mdlFactory.auth, httpService.dissolveGroupAPI.bind(httpService));
 
   router.post("/groups/:groupId/polls", mdlFactory.auth, httpService.createPollAPI.bind(httpService));
 

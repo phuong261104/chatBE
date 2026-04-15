@@ -71,12 +71,18 @@ const tableConfigs: TableConfig[] = [
       { AttributeName: "pk", AttributeType: "S" },
       { AttributeName: "sk", AttributeType: "S" },
       { AttributeName: "id", AttributeType: "S" },
+      { AttributeName: "userId", AttributeType: "S" },
     ],
     BillingMode: "PAY_PER_REQUEST",
     GlobalSecondaryIndexes: [
       {
         IndexName: "id-index",
         KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+      {
+        IndexName: "userId-index",
+        KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
         Projection: { ProjectionType: "ALL" },
       },
     ],

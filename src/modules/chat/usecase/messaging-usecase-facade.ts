@@ -58,6 +58,7 @@ import { RejectMemberHandler } from "./reject-member";
 import { UpdateGroupSettingsHandler } from "./update-group-settings";
 import { GetGroupInfoHandler } from "./get-group-info";
 import { GetConversationMediaQueryHandler } from "./get-conversation-media";
+import { DissolveGroupHandler } from "./dissolve-group";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -109,6 +110,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly getGroupInfoHandler: GetGroupInfoHandler,
     private readonly getConversationMediaQueryHandler: GetConversationMediaQueryHandler,
     private readonly getConversationsCursorQueryHandler: GetConversationsCursorQueryHandler,
+    private readonly dissolveGroupHandler: DissolveGroupHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -392,12 +394,12 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     });
   }
 
-  async setAdmin(groupId: string, targetUserId: string, isAdmin: boolean): Promise<Conversation> {
-    return this.setAdminHandler.execute({ groupId, targetUserId, isAdmin });
+  async setAdmin(groupId: string, requesterId: string, targetUserId: string, isAdmin: boolean): Promise<Conversation> {
+    return this.setAdminHandler.execute({ groupId, requesterId, targetUserId, isAdmin });
   }
 
-  async transferOwner(groupId: string, newOwnerId: string): Promise<Conversation> {
-    return this.transferOwnerHandler.execute({ groupId, newOwnerId });
+  async transferOwner(groupId: string, requesterId: string, newOwnerId: string): Promise<Conversation> {
+    return this.transferOwnerHandler.execute({ groupId, requesterId, newOwnerId });
   }
 
   async createPoll(
@@ -492,5 +494,9 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     hasMore: boolean;
   }> {
     return this.getConversationsCursorQueryHandler.query({ userId, cursor, limit });
+  }
+
+  async dissolveGroup(groupId: string, requesterId: string): Promise<void> {
+    return this.dissolveGroupHandler.execute({ groupId, requesterId });
   }
 }

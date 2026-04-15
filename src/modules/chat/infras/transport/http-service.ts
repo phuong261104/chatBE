@@ -1716,13 +1716,14 @@ export class MessagingHttpService {
         return;
       }
 
-      const updatedConversation = await this.useCase.setAdmin(groupId, targetUserId, isAdmin);
+      const updatedConversation = await this.useCase.setAdmin(groupId, currentUserId, targetUserId, isAdmin);
 
       if (this.socketService) {
         this.socketService.emitToGroupRoom(groupId, "group:admin_changed", {
           conversationId: groupId,
           targetUserId,
           isAdmin,
+          changedBy: currentUserId,
         });
       }
 
@@ -1749,7 +1750,7 @@ export class MessagingHttpService {
         return;
       }
 
-      const updatedConversation = await this.useCase.transferOwner(groupId, newOwnerId);
+      const updatedConversation = await this.useCase.transferOwner(groupId, currentUserId, newOwnerId);
 
       if (this.socketService) {
         this.socketService.emitToGroupRoom(groupId, "group:owner_transferred", {
@@ -2039,6 +2040,37 @@ export class MessagingHttpService {
       const groupInfo = await this.useCase.getGroupInfo(groupId, currentUserId);
 
       res.status(200).json({ data: groupInfo });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async dissolveGroupAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId)
+        ? req.params.groupId[0]
+        : req.params.groupId;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      await this.useCase.dissolveGroup(groupId, currentUserId);
+
+      if (this.socketService) {
+        this.socketService.emitToGroupRoom(groupId, "group:dissolved", {
+          conversationId: groupId,
+          dissolvedBy: currentUserId,
+        });
+      }
+
+      res.status(200).json({ success: true, message: "Group dissolved successfully" });
     } catch (error) {
       const err = error as any;
       const statusCode = err.statusCode || 400;

@@ -9,7 +9,7 @@ import {
   IMessageCommandRepository,
   IUserQueryRepository
 } from '../interface';
-import { ConversationType, Message, MessageType } from '../model/model';
+import { ConversationMember, ConversationMemberRole, ConversationType, Message, MessageType } from '../model/model';
 import { leaveGroupDTOSchema, LeaveGroupCommand } from '../model/dto';
 
 export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, void> {
@@ -46,6 +46,16 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
 
     if (!member || member.leftAt) {
       throw AppError.from(new Error('You are not a member of this group'), 404);
+    }
+
+    const currentOwnerId = conversation.ownerId || conversation.createdBy;
+    if (member.userId === currentOwnerId) {
+      throw AppError.from(new Error("Owner cannot leave. Transfer ownership first."), 400);
+    }
+
+    if (member.role === ConversationMemberRole.ADMIN) {
+      const newAdmins = (conversation.admins || []).filter(id => id !== member.userId);
+      await this.conversationCommandRepo.update(validatedInput.conversationId, { admins: newAdmins });
     }
 
     const now = new Date();

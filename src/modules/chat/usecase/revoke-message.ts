@@ -4,6 +4,7 @@ import {
   IMessageQueryRepository,
   IMessageCommandRepository,
   IConversationMemberQueryRepository,
+  IMessageClassificationRepository,
 } from "../interface";
 import { Message, MessageType } from "../model/model";
 import { revokeMessageDTOSchema, RevokeMessageCommand } from "../model/dto";
@@ -23,6 +24,7 @@ export class RevokeMessageHandler implements ICommandHandler<
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
   async execute(command: RevokeMessageCommand): Promise<Message> {
@@ -67,16 +69,16 @@ export class RevokeMessageHandler implements ICommandHandler<
     const revokedAt = new Date();
 
     await this.messageCommandRepo.update(message.id, {
-      type: MessageType.SYSTEM,
-      text: "Đã thu hồi",
+      text: undefined,
       media: [],
       deletedAt: revokedAt,
     });
 
+    await this.classificationRepo.deleteByMessageId(message.id);
+
     return {
       ...message,
-      type: MessageType.SYSTEM,
-      text: "Đã thu hồi",
+      text: undefined,
       media: [],
       deletedAt: revokedAt,
     };
