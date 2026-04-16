@@ -99,6 +99,7 @@ import {
   GetGroupInfoHandler,
   GetConversationMediaQueryHandler,
   DissolveGroupHandler,
+  SearchMessagesHandler,
 } from "./usecase";
 
 export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) => {
@@ -337,6 +338,11 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     classificationRepo,
   );
 
+  const searchMessagesHandler = new SearchMessagesHandler(
+    conversationMemberRepo,
+    messageRepo,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -387,6 +393,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     getConversationMediaQueryHandler,
     getConversationsCursorQueryHandler,
     dissolveGroupHandler,
+    searchMessagesHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -474,6 +481,12 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     "/conversations/:conversationId/pinned-messages",
     mdlFactory.auth,
     httpService.getPinnedMessagesAPI.bind(httpService),
+  );
+
+  router.get(
+    "/conversations/:conversationId/search",
+    mdlFactory.auth,
+    httpService.searchMessagesAPI.bind(httpService),
   );
 
   router.get(

@@ -27,6 +27,7 @@ export class LoadMessagesQueryHandler implements IQueryHandler<
       error,
     } = loadMessagesDTOSchema.safeParse({
       conversationId: query.conversationId,
+      userId: query.userId,
       cursor: query.cursor,
       limit: query.limit,
     });
@@ -40,7 +41,7 @@ export class LoadMessagesQueryHandler implements IQueryHandler<
 
     const member = await this.conversationMemberQueryRepo.findByCond({
       conversationId: validatedInput.conversationId,
-      userId: query.userId,
+      userId: validatedInput.userId,
     });
 
     if (!member || member.leftAt) {
@@ -54,7 +55,7 @@ export class LoadMessagesQueryHandler implements IQueryHandler<
       validatedInput.conversationId,
       validatedInput.cursor,
       validatedInput.limit + 1,
-      query.userId,
+      validatedInput.userId,
     );
 
     const hasMore = messages.length > validatedInput.limit;

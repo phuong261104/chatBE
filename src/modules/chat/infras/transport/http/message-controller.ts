@@ -11,7 +11,8 @@ import {
   unpinMessageDTOSchema,
   getPinnedMessagesDTOSchema,
   quoteMessageDTOSchema,
-} from "../../../model/dto";
+} from "../../../model";
+import { searchMessagesDTOSchema } from "../../../model/dto/search-dto";
 import { ConversationType } from "../../../model";
 import { z } from "zod";
 
@@ -41,6 +42,8 @@ export class MessageController extends BaseController {
 
       const isGroup =
         conversationDetail.conversation.type === ConversationType.GROUP;
+
+      console.log(`[DEBUG] MessageController: conversationId=${validatedData.conversationId}, type=${conversationDetail.conversation.type}, isGroup=${isGroup}`);
 
       const message = isGroup
         ? await this.useCase.sendGroupMessage(
@@ -472,6 +475,42 @@ export class MessageController extends BaseController {
       }
 
       res.status(201).json({ data: primaryMsg });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        this.sendValidationError(res, error);
+        return;
+      }
+      this.sendError(res, error);
+    }
+  }
+
+  async searchMessagesAPI(req: Request, res: Response) {
+    try {
+      const conversationId = this.parseIdParam(req, "conversationId");
+      const { query, cursor, limit } = req.query;
+      const currentUserId = this.getCurrentUserId(req, res);
+
+      if (!currentUserId) {
+        this.sendUnauthorized(res);
+        return;
+      }
+
+      const validatedData = searchMessagesDTOSchema.parse({
+        conversationId,
+        query,
+        cursor,
+        limit: limit ? Number(limit) : 20,
+      });
+
+      const result = await (this.useCase as any).searchMessages(
+        validatedData.conversationId,
+        currentUserId,
+        validatedData.query,
+        validatedData.cursor,
+        validatedData.limit,
+      );
+
+      res.status(200).json({ data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
         this.sendValidationError(res, error);

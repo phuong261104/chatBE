@@ -32,6 +32,7 @@ export const ConversationMemberUpdateDTOSchema = z.object({
   pinned: z.boolean().optional(),
   pinnedAt: z.date().optional(),
   archived: z.boolean().optional(),
+  hiddenUserIds: z.array(z.string()).optional(),
 });
 
 export type ConversationMemberUpdateDTO = z.infer<

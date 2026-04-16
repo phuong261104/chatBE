@@ -5,3 +5,8 @@ export * from "./reaction-dto";
 export * from "./poll-dto";
 export * from "./common-dto";
 export * from "./media-group-dto";
+export * from "./search-dto";
+export * from "./mention-dto";
+export * from "./hide-messages-dto";
+export * from "./gif-sticker-dto";
+export * from "./read-receipt-dto";

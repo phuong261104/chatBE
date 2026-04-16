@@ -104,6 +104,7 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
           unreadCount: 0,
           pinned: false,
           archived: false,
+          hiddenUserIds: [],
           updatedAt: now
         };
         await this.conversationMemberCommandRepo.insert(member);

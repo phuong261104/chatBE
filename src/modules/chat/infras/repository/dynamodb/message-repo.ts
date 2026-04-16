@@ -267,4 +267,61 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
   async batchInsert(messages: Message[]): Promise<boolean> {
     return await this._cmdRepo.batchInsert(messages);
   }
+
+  async searchMessages(
+    conversationId: string,
+    userId: string,
+    query: string,
+    cursor?: string,
+    limit: number = 20,
+  ): Promise<{
+    messages: Message[];
+    nextCursor?: string;
+    hasMore: boolean;
+    total: number;
+  }> {
+    const q = new DynamoMessageQueryRepository();
+    const allResult = await q.listByConversation(conversationId, 1000, undefined);
+    
+    const lowerQuery = query.toLowerCase();
+    const filteredMessages = allResult.messages.filter((msg) => {
+      if (msg.deletedAt) return false;
+      if (msg.deletedForUserIds?.includes(userId)) return false;
+      if (msg.text && msg.text.toLowerCase().includes(lowerQuery)) return true;
+      return false;
+    });
+
+    const sortedMessages = filteredMessages.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
+
+    let startIndex = 0;
+    if (cursor) {
+      try {
+        const decoded = Buffer.from(cursor, "base64").toString("utf-8");
+        const cursorTime = new Date(decoded).getTime();
+        const idx = sortedMessages.findIndex((m) => m.createdAt.getTime() === cursorTime);
+        startIndex = idx >= 0 ? idx + 1 : 0;
+      } catch {
+        startIndex = 0;
+      }
+    }
+
+    const pageMessages = sortedMessages.slice(startIndex, startIndex + limit + 1);
+    const hasMore = pageMessages.length > limit;
+    const results = hasMore ? pageMessages.slice(0, limit) : pageMessages;
+
+    let nextCursor: string | undefined;
+    if (hasMore && results.length > 0) {
+      const lastMsg = results[results.length - 1];
+      nextCursor = Buffer.from(lastMsg.createdAt.toISOString()).toString("base64");
+    }
+
+    return {
+      messages: results,
+      nextCursor,
+      hasMore,
+      total: filteredMessages.length,
+    };
+  }
 }

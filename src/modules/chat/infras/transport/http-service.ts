@@ -30,6 +30,7 @@ import {
   getReactionsDTOSchema,
   quoteMessageDTOSchema,
 } from "../../model";
+import { searchMessagesDTOSchema } from "../../model/dto/search-dto";
 import { z } from "zod";
 import { ConversationType } from "../../model";
 import { GetConversationMediaQuerySchema } from "../../model/dto/media-group-dto";
@@ -396,6 +397,7 @@ export class MessagingHttpService {
 
       const validatedData = loadMessagesDTOSchema.parse({
         conversationId,
+        userId: currentUserId,
         cursor: cursor || undefined,
         limit: parseInt(limit as string, 10),
       });
@@ -1364,6 +1366,53 @@ export class MessagingHttpService {
       );
 
       res.status(200).json({ data: messages });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async searchMessagesAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+
+      const { query, cursor, limit = "20" } = req.query;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = searchMessagesDTOSchema.parse({
+        conversationId,
+        query,
+        cursor,
+        limit: parseInt(limit as string, 10),
+      });
+
+      const result = await this.useCase.searchMessages(
+        validatedData.conversationId,
+        currentUserId,
+        validatedData.query,
+        validatedData.cursor,
+        validatedData.limit,
+      );
+
+      res.status(200).json({ data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(422).json({

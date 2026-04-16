@@ -64,6 +64,8 @@ export class SendMessageHandler implements ICommandHandler<any, Message[]> {
       userId: senderId,
     });
 
+    console.log(`[DEBUG] SendMessage: conversationId=${conversationId}, senderId=${senderId}, memberFound=${!!member}, memberStatus=${member?.status}, memberLeftAt=${member?.leftAt}`);
+
     if (!member) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this conversation'), 403);
     }

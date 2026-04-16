@@ -18,6 +18,7 @@ import {
   MediaType,
   MessageClassification,
   ClassificationType,
+  MessageMention,
 } from '../model/model';
 
 function mapMediaToDbFormat(media: MediaAttachment[]) {
@@ -43,6 +44,37 @@ function extractLinks(text: string): string[] {
   return matches || [];
 }
 
+function extractMentions(text: string, members: { userId: string; displayName?: string }[]): MessageMention[] {
+  if (!text) return [];
+  
+  const mentionRegex = /@(\S+)/g;
+  const mentions: MessageMention[] = [];
+  const foundUsers = new Set<string>();
+  
+  let match;
+  while ((match = mentionRegex.exec(text)) !== null) {
+    const mentionText = match[1];
+    const startIndex = match.index;
+    const endIndex = startIndex + match[0].length;
+    
+    const member = members.find(m => 
+      m.displayName?.toLowerCase() === mentionText.toLowerCase() ||
+      m.userId === mentionText
+    );
+    
+    if (member && !foundUsers.has(member.userId)) {
+      foundUsers.add(member.userId);
+      mentions.push({
+        userId: member.userId,
+        startIndex,
+        endIndex,
+      });
+    }
+  }
+  
+  return mentions;
+}
+
 export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
@@ -66,6 +98,8 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
       conversationId,
       userId: senderId,
     });
+
+    console.log(`[DEBUG] SendGroupMessage: conversationId=${conversationId}, senderId=${senderId}, memberFound=${!!member}, memberStatus=${member?.status}, memberLeftAt=${member?.leftAt}`);
 
     if (!member) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this group'), 403);
@@ -154,7 +188,14 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
       }
     } else {
       const msgType = hasLinks ? MessageType.LINK : MessageType.TEXT;
-      const msg = this.buildMessage(msgType, text, undefined, conversationId, senderId);
+      
+      const allMembers = await this.conversationMemberQueryRepo.list(
+        { conversationId },
+        { page: 1, limit: 1000 },
+      );
+      
+      const textMentions = hasText ? extractMentions(text, allMembers) : undefined;
+      const msg = this.buildMessage(msgType, text, undefined, conversationId, senderId, textMentions);
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);
       if (hasLinks) {
@@ -197,6 +238,9 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
       { page: 1, limit: 1000 },
     );
 
+    const mentions = hasText ? extractMentions(text, allMembers) : [];
+    const mentionedUserIds = mentions.map(m => m.userId);
+
     for (const m of allMembers) {
       if (m.userId !== senderId) {
         await this.conversationMemberCommandRepo.update(m.id, {
@@ -214,6 +258,7 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
     media: any[] | undefined,
     conversationId: string,
     senderId: string,
+    mentions?: MessageMention[],
   ): Message {
     const id = v7();
     const now = new Date();
@@ -225,6 +270,7 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
       text,
       media,
       links: text ? extractLinks(text) : undefined,
+      mentions,
       createdAt: now,
       pinned: false,
     };

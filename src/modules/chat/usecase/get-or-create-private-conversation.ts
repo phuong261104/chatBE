@@ -69,6 +69,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
         unreadCount: 0,
         pinned: false,
         archived: false,
+        hiddenUserIds: [],
         updatedAt: now
       };
       await this.conversationMemberCommandRepo.insert(member1);
@@ -83,6 +84,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
         unreadCount: 0,
         pinned: false,
         archived: false,
+        hiddenUserIds: [],
         updatedAt: now
       };
       await this.conversationMemberCommandRepo.insert(member2);

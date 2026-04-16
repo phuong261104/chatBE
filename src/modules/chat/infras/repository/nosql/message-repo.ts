@@ -118,4 +118,65 @@ export class MongoMessageRepository
       } as Message;
     });
   }
+
+  async searchMessages(
+    conversationId: string,
+    userId: string,
+    query: string,
+    cursor?: string,
+    limit: number = 20,
+  ): Promise<{
+    messages: Message[];
+    nextCursor?: string;
+    hasMore: boolean;
+    total: number;
+  }> {
+    const searchCond: any = {
+      conversationId,
+      deletedAt: { $exists: false },
+      deletedForUserIds: { $nin: [userId] },
+      $or: [
+        { text: { $regex: query, $options: "i" } },
+      ],
+    };
+
+    if (cursor) {
+      const cursorMessage = await this.get(cursor);
+      if (cursorMessage) {
+        searchCond.createdAt = { $lt: cursorMessage.createdAt };
+      }
+    }
+
+    const total = await MessageModel.countDocuments({
+      conversationId,
+      deletedAt: { $exists: false },
+      deletedForUserIds: { $nin: [userId] },
+      $or: [{ text: { $regex: query, $options: "i" } }],
+    });
+
+    const rows = await MessageModel.find(searchCond)
+      .sort({ createdAt: -1 })
+      .limit(limit + 1)
+      .lean()
+      .exec();
+
+    const hasMore = rows.length > limit;
+    const results = hasMore ? rows.slice(0, limit) : rows;
+
+    let nextCursor: string | undefined;
+    if (hasMore && results.length > 0) {
+      const lastMsg = results[results.length - 1];
+      nextCursor = Buffer.from(lastMsg.createdAt.toISOString()).toString("base64");
+    }
+
+    return {
+      messages: results.map((row) => {
+        const { _id, __v, ...rest } = row as any;
+        return { ...rest, id: String(_id) } as Message;
+      }),
+      nextCursor,
+      hasMore,
+      total,
+    };
+  }
 }

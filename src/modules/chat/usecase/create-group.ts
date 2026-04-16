@@ -89,6 +89,7 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
       unreadCount: 0,
       pinned: false,
       archived: false,
+      hiddenUserIds: [],
       updatedAt: now
     };
     members.push(creatorMember);
@@ -105,6 +106,7 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
         unreadCount: 0,
         pinned: false,
         archived: false,
+        hiddenUserIds: [],
         updatedAt: now
       };
       members.push(member);

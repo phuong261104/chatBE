@@ -43,5 +43,9 @@ export { UpdateGroupSettingsHandler } from "./update-group-settings";
 export { GetGroupInfoHandler } from "./get-group-info";
 export { GetConversationMediaQueryHandler } from "./get-conversation-media";
 export { DissolveGroupHandler } from "./dissolve-group";
+export { SearchMessagesHandler } from "./search-messages";
+export { HideUserMessagesHandler, UnhideUserMessagesHandler, GetHiddenUsersHandler } from "./hide-user-messages";
+export { SendStickerHandler, SendGifHandler } from "./send-sticker-gif";
+export { GetReadReceiptsHandler, MarkMultipleAsReadHandler } from "./read-receipts";
 
 export { MessagingUseCaseFacade } from "./messaging-usecase-facade";

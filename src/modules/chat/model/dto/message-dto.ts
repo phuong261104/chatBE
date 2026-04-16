@@ -58,6 +58,7 @@ export type SendGroupMessageDTO = z.infer<typeof sendGroupMessageDTOSchema>;
 
 export const loadMessagesDTOSchema = z.object({
   conversationId: uuidV7("Invalid conversation ID"),
+  userId: uuidV7("Invalid user ID"),
   cursor: z.string().optional(),
   limit: z.number().min(1).max(100).default(20),
 });

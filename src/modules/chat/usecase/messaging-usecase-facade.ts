@@ -59,6 +59,7 @@ import { UpdateGroupSettingsHandler } from "./update-group-settings";
 import { GetGroupInfoHandler } from "./get-group-info";
 import { GetConversationMediaQueryHandler } from "./get-conversation-media";
 import { DissolveGroupHandler } from "./dissolve-group";
+import { SearchMessagesHandler } from "./search-messages";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -111,6 +112,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly getConversationMediaQueryHandler: GetConversationMediaQueryHandler,
     private readonly getConversationsCursorQueryHandler: GetConversationsCursorQueryHandler,
     private readonly dissolveGroupHandler: DissolveGroupHandler,
+    private readonly searchMessagesHandler: SearchMessagesHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -498,5 +500,26 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
 
   async dissolveGroup(groupId: string, requesterId: string): Promise<void> {
     return this.dissolveGroupHandler.execute({ groupId, requesterId });
+  }
+
+  async searchMessages(
+    conversationId: string,
+    userId: string,
+    query: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
+    messages: Message[];
+    nextCursor?: string;
+    hasMore: boolean;
+    total: number;
+  }> {
+    return this.searchMessagesHandler.query({
+      conversationId,
+      userId,
+      query,
+      cursor,
+      limit: limit || 20,
+    });
   }
 }

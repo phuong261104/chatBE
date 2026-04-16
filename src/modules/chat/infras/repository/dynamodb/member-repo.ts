@@ -34,11 +34,12 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
       id: doc.id || sk?.replace("MEM#", ""),
       conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
       joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
-      leftAt: leftAt ? new Date(leftAt) : null,
+      leftAt: leftAt ? new Date(leftAt) : undefined,
       lastReadAt: lastReadAt ? new Date(lastReadAt) : null,
       muteUntil: muteUntil ? new Date(muteUntil) : null,
       updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
       pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
+      hiddenUserIds: doc.hiddenUserIds || [],
     } as ConversationMember;
   }
 
@@ -70,13 +71,17 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
   async findByConversationAndUser(conversationId: string, userId: string): Promise<ConversationMember | null> {
     const docClient = getDocClient();
     const result = await docClient.send(
-      new GetCommand({
+      new QueryCommand({
         TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
-        Key: { pk: `CONV#${conversationId}`, sk: `MEM#${userId}` },
+        KeyConditionExpression: "pk = :pk AND sk = :sk",
+        ExpressionAttributeValues: {
+          ":pk": `CONV#${conversationId}`,
+          ":sk": `MEM#${userId}`,
+        },
       }),
     );
-    if (!result.Item) return null;
-    return this.toEntity(result.Item);
+    if (!result.Items || result.Items.length === 0) return null;
+    return this.toEntity(result.Items[0]);
   }
 
   async list(cond: ConversationMemberCondDTO, paging: { page: number; limit: number }): Promise<ConversationMember[]> {
@@ -96,11 +101,8 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
         TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
         IndexName: "userId-index",
         KeyConditionExpression: "userId = :userId",
-        FilterExpression: "attribute_not_exists(#leftAt) OR #leftAt = :null",
-        ExpressionAttributeNames: { "#leftAt": "leftAt" },
         ExpressionAttributeValues: {
           ":userId": userId,
-          ":null": null,
         },
         Limit: limit,
       }),
@@ -114,12 +116,9 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
       new QueryCommand({
         TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
-        FilterExpression: "attribute_not_exists(#leftAt) OR #leftAt = :null",
-        ExpressionAttributeNames: { "#leftAt": "leftAt" },
         ExpressionAttributeValues: {
           ":pk": `CONV#${conversationId}`,
           ":skPrefix": "MEM#",
-          ":null": null,
         },
       }),
     );
@@ -322,6 +321,7 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       pinned: data.pinned || false,
       pinnedAt: data.pinnedAt ? data.pinnedAt.toISOString() : null,
       archived: data.archived || false,
+      hiddenUserIds: data.hiddenUserIds || [],
       updatedAt: now,
     };
   }
@@ -343,6 +343,7 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     if (data.pinned !== undefined) updateData.pinned = data.pinned;
     if (data.pinnedAt !== undefined) updateData.pinnedAt = data.pinnedAt ? (data.pinnedAt as Date).toISOString() : null;
     if (data.archived !== undefined) updateData.archived = data.archived;
+    if (data.hiddenUserIds !== undefined) updateData.hiddenUserIds = data.hiddenUserIds;
     return updateData;
   }
 }

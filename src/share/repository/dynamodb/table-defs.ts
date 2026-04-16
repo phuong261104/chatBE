@@ -288,7 +288,6 @@ export const POSTS_TABLE: TableDefinition = {
   KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
-    { AttributeName: "authorId", AttributeType: "S" },
     { AttributeName: "GSI1PK", AttributeType: "S" },
     { AttributeName: "GSI1SK", AttributeType: "S" },
   ],
@@ -336,7 +335,6 @@ export const STORIES_TABLE: TableDefinition = {
   KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
-    { AttributeName: "authorId", AttributeType: "S" },
     { AttributeName: "GSI1PK", AttributeType: "S" },
     { AttributeName: "GSI1SK", AttributeType: "S" },
   ],

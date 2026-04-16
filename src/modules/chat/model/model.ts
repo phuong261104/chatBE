@@ -103,6 +103,8 @@ export const ConversationMemberSchema = z.object({
   pinnedAt: z.date().optional(),
   archived: z.boolean().default(false),
 
+  hiddenUserIds: z.array(z.string()).default([]),
+
   updatedAt: z.date(),
 });
 
@@ -155,6 +157,16 @@ export const MessageClassificationSchema = z.object({
 
 export type MessageClassification = z.infer<typeof MessageClassificationSchema>;
 
+export const MessageMentionSchema = z.object({
+  userId: z.string(),
+  username: z.string().optional(),
+  displayName: z.string().optional(),
+  startIndex: z.number(),
+  endIndex: z.number(),
+});
+
+export type MessageMention = z.infer<typeof MessageMentionSchema>;
+
 export const MessageSchema = z.object({
   id: z.string(),
   conversationId: z.string(),
@@ -166,11 +178,16 @@ export const MessageSchema = z.object({
   deletedForUserIds: z.array(z.string()).optional(),
   quotedMessageId: z.string().optional(),
   quotedMessagePreview: z.string().optional(),
+  mentions: z.array(MessageMentionSchema).optional(),
   createdAt: z.date(),
   editedAt: z.date().optional(),
   deletedAt: z.date().optional(),
   pinned: z.boolean().default(false),
   pinnedAt: z.date().optional(),
+  readBy: z.array(z.object({
+    userId: z.string(),
+    readAt: z.date(),
+  })).optional(),
 });
 
 export type Message = z.infer<typeof MessageSchema>;

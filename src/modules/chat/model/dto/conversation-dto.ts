@@ -106,6 +106,13 @@ export interface GetConversationDetailQuery {
   userId: string;
 }
 
+export const getConversationDetailDTOSchema = z.object({
+  conversationId: uuidV7("Invalid conversation ID"),
+  userId: uuidV7("Invalid user ID"),
+});
+
+export type GetConversationDetailDTO = z.infer<typeof getConversationDetailDTOSchema>;
+
 export interface ConversationDetail {
   conversation: Conversation;
   members: ConversationMember[];

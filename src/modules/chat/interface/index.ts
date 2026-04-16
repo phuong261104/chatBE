@@ -86,6 +86,19 @@ export interface IMessageQueryRepository {
   ): Promise<Message[]>;
 
   findPinnedMessages(conversationId: string): Promise<Message[]>;
+
+  searchMessages(
+    conversationId: string,
+    userId: string,
+    query: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
+    messages: Message[];
+    nextCursor?: string;
+    hasMore: boolean;
+    total: number;
+  }>;
 }
 
 export interface IMessageCommandRepository {
@@ -284,6 +297,19 @@ export interface IMessagingUseCase {
   unpinMessage(messageId: string, userId: string): Promise<Message>;
 
   getPinnedMessages(conversationId: string, userId: string): Promise<Message[]>;
+
+  searchMessages(
+    conversationId: string,
+    userId: string,
+    query: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<{
+    messages: Message[];
+    nextCursor?: string;
+    hasMore: boolean;
+    total: number;
+  }>;
 
   addReaction(messageId: string, userId: string, emoji: string): Promise<MessageReaction>;
 
