@@ -326,9 +326,9 @@ export interface IMessagingUseCase {
 
   getPendingMembers(groupId: string): Promise<ConversationMember[]>;
 
-  approveMember(groupId: string, userId: string): Promise<ConversationMember>;
+  approveMember(groupId: string, userId: string, requesterId: string): Promise<ConversationMember>;
 
-  rejectMember(groupId: string, userId: string): Promise<void>;
+  rejectMember(groupId: string, userId: string, requesterId: string): Promise<void>;
 
   updateGroupSettings(
     groupId: string,

@@ -438,12 +438,12 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.getPendingMembersHandler.query({ groupId });
   }
 
-  async approveMember(groupId: string, userId: string): Promise<ConversationMember> {
-    return this.approveMemberHandler.execute({ groupId, userId });
+  async approveMember(groupId: string, userId: string, requesterId: string): Promise<ConversationMember> {
+    return this.approveMemberHandler.execute({ groupId, userId, requesterId });
   }
 
-  async rejectMember(groupId: string, userId: string): Promise<void> {
-    return this.rejectMemberHandler.execute({ groupId, userId });
+  async rejectMember(groupId: string, userId: string, requesterId: string): Promise<void> {
+    return this.rejectMemberHandler.execute({ groupId, userId, requesterId });
   }
 
   async updateGroupSettings(

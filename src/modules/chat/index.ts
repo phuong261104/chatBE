@@ -154,6 +154,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationMemberRepo,
     messageRepo,
     conversationRepo,
+    conversationRepo,
     classificationRepo,
   );
 

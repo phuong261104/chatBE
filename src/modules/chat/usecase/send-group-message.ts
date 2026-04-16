@@ -7,6 +7,7 @@ import {
   IConversationMemberCommandRepository,
   IMessageCommandRepository,
   IConversationCommandRepository,
+  IConversationQueryRepository,
   IMessageClassificationRepository,
 } from '../interface';
 import {
@@ -20,12 +21,20 @@ import {
 } from '../model/model';
 
 function mapMediaToDbFormat(media: MediaAttachment[]) {
-  return media.map((m) => ({
-    url: m.url,
-    mediaType: m.mimetype.startsWith('image/') ? MediaType.IMAGE : MediaType.FILE,
-    name: m.filename,
-    size: m.size,
-  }));
+  return media.map((m) => {
+    let mediaType: MediaType;
+    if (m.mimetype.startsWith('image/')) mediaType = MediaType.IMAGE;
+    else if (m.mimetype.startsWith('video/')) mediaType = MediaType.VIDEO;
+    else if (m.mimetype.startsWith('audio/')) mediaType = MediaType.AUDIO;
+    else mediaType = MediaType.FILE;
+
+    return {
+      url: m.url,
+      mediaType,
+      name: m.filename,
+      size: m.size,
+    };
+  });
 }
 
 function extractLinks(text: string): string[] {
@@ -40,6 +49,7 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
+    private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
@@ -68,6 +78,13 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
     const hasText = !!text;
     const hasMedia = !!(media && media.length > 0);
     const hasLinks = !!(hasText && extractLinks(text).length > 0);
+
+    const conversation = await this.conversationQueryRepo.get(conversationId);
+    const settings = conversation?.settings || { allowSendLink: true };
+
+    if (hasLinks && settings.allowSendLink === false) {
+      throw AppError.from(new Error('Sending links is disabled for this group'), 403);
+    }
     const mediaCount = media?.length || 0;
     const shouldSplitByMedia = mediaCount > 1;
     const shouldSplitTextMedia = hasText && hasMedia && hasLinks;
@@ -78,7 +95,13 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
     if (shouldSplitByMedia) {
       for (const m of media) {
         const isImg = m.mimetype.startsWith('image/');
-        const msgType = isImg ? MessageType.IMAGE : MessageType.FILE;
+        const isVideo = m.mimetype.startsWith('video/');
+        const isAudio = m.mimetype.startsWith('audio/');
+        let msgType: MessageType;
+        if (isImg) msgType = MessageType.IMAGE;
+        else if (isVideo) msgType = MessageType.VIDEO;
+        else if (isAudio) msgType = MessageType.VOICE;
+        else msgType = MessageType.FILE;
         const hasTextAndNoLink = hasText && !hasLinks;
         const msg = this.buildMessage(msgType, hasTextAndNoLink ? text : undefined, mapMediaToDbFormat([m]), conversationId, senderId);
         await this.messageCommandRepo.insert(msg);
@@ -95,7 +118,13 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
       }
     } else if (shouldSplitTextMedia) {
       const hasImage = media.some((m: MediaAttachment) => m.mimetype.startsWith('image/'));
-      const msgType = hasImage ? MessageType.IMAGE : MessageType.FILE;
+      const hasVideo = media.some((m: MediaAttachment) => m.mimetype.startsWith('video/'));
+      const hasAudio = media.some((m: MediaAttachment) => m.mimetype.startsWith('audio/'));
+      let msgType: MessageType;
+      if (hasImage) msgType = MessageType.IMAGE;
+      else if (hasVideo) msgType = MessageType.VIDEO;
+      else if (hasAudio) msgType = MessageType.VOICE;
+      else msgType = MessageType.FILE;
       const mediaMsg = this.buildMessage(msgType, undefined, mapMediaToDbFormat(media), conversationId, senderId);
       await this.messageCommandRepo.insert(mediaMsg);
       createdMessages.push(mediaMsg);
@@ -110,7 +139,13 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
       }
     } else if (hasMedia) {
       const hasImage = media.some((m: MediaAttachment) => m.mimetype.startsWith('image/'));
-      const msgType = hasImage ? MessageType.IMAGE : MessageType.FILE;
+      const hasVideo = media.some((m: MediaAttachment) => m.mimetype.startsWith('video/'));
+      const hasAudio = media.some((m: MediaAttachment) => m.mimetype.startsWith('audio/'));
+      let msgType: MessageType;
+      if (hasImage) msgType = MessageType.IMAGE;
+      else if (hasVideo) msgType = MessageType.VIDEO;
+      else if (hasAudio) msgType = MessageType.VOICE;
+      else msgType = MessageType.FILE;
       const msg = this.buildMessage(msgType, text, mapMediaToDbFormat(media), conversationId, senderId);
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);
@@ -140,7 +175,10 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
 
     let textPreview = primaryMsg.text || '';
     if (!textPreview && primaryMsg.media && primaryMsg.media.length > 0) {
-      textPreview = primaryMsg.type === MessageType.IMAGE ? '📷 Image' : '📎 File';
+      if (primaryMsg.type === MessageType.IMAGE) textPreview = '📷 Image';
+      else if (primaryMsg.type === MessageType.VIDEO) textPreview = '🎬 Video';
+      else if (primaryMsg.type === MessageType.VOICE) textPreview = '🎤 Voice';
+      else textPreview = '📎 File';
     }
 
     await this.conversationCommandRepo.update(conversationId, {

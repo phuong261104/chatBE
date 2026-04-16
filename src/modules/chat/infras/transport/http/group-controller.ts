@@ -253,7 +253,7 @@ export class GroupController extends BaseController {
         return;
       }
 
-      const approvedMember = await this.useCase.approveMember(groupId, userId);
+      const approvedMember = await this.useCase.approveMember(groupId, userId, currentUserId);
 
       if (this.socketService) {
         this.socketService.emitToGroupRoom(groupId, "group:member_approved", {
@@ -285,7 +285,7 @@ export class GroupController extends BaseController {
         return;
       }
 
-      await this.useCase.rejectMember(groupId, userId);
+      await this.useCase.rejectMember(groupId, userId, currentUserId);
 
       if (this.socketService) {
         this.socketService.emitToUser(userId, "group:member_rejected", {

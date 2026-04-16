@@ -86,6 +86,7 @@ class DynamoConversationCommandRepository extends BaseCommandRepositoryDynamoDB<
     const now = new Date().toISOString();
     return {
       id: data.id,
+      pk: data.id,
       type: data.type,
       pairKey: data.pairKey,
       name: data.name,

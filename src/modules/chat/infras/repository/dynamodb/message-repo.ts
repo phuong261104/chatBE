@@ -11,6 +11,7 @@ import {
   ScanCommand,
   UpdateCommand,
   PutCommand,
+  BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
@@ -180,17 +181,31 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     const docClient = getDocClient();
     const tableName = getTableName(TABLE_NAMES.MESSAGES);
 
-    for (const msg of messages) {
-      const item = this.beforeInsert(msg);
+    const chunks = this.chunkArray(messages, 25);
+
+    for (const chunk of chunks) {
+      const requestItems = chunk.map((msg) => ({
+        PutRequest: { Item: this.beforeInsert(msg) },
+      }));
+
       await docClient.send(
-        new PutCommand({
-          TableName: tableName,
-          Item: item,
+        new BatchWriteCommand({
+          RequestItems: {
+            [tableName]: requestItems,
+          },
         }),
       );
     }
 
     return true;
+  }
+
+  private chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
   }
 }
 
@@ -225,11 +240,12 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
       new QueryCommand({
         TableName: getTableName(TABLE_NAMES.MESSAGES),
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
-        FilterExpression: "pinned = :pinned",
+        FilterExpression: "pinned = :pinned AND (attribute_not_exists(deletedAt) OR deletedAt = :null)",
         ExpressionAttributeValues: {
           ":pk": `CONV#${conversationId}`,
           ":skPrefix": "MSG#",
           ":pinned": true,
+          ":null": null,
         },
         ScanIndexForward: true,
       }),

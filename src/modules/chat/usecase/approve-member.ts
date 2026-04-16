@@ -13,7 +13,7 @@ import {
   ConversationMemberStatus,
 } from "../model/model";
 
-export class ApproveMemberHandler implements ICommandHandler<{ groupId: string; userId: string }, ConversationMember> {
+export class ApproveMemberHandler implements ICommandHandler<{ groupId: string; userId: string; requesterId: string }, ConversationMember> {
   constructor(
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
@@ -21,8 +21,8 @@ export class ApproveMemberHandler implements ICommandHandler<{ groupId: string; 
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
   ) {}
 
-  async execute(command: { groupId: string; userId: string }): Promise<ConversationMember> {
-    const { groupId, userId } = command;
+  async execute(command: { groupId: string; userId: string; requesterId: string }): Promise<ConversationMember> {
+    const { groupId, userId, requesterId } = command;
 
     const conversation = await this.conversationQueryRepo.get(groupId);
     if (!conversation) {
@@ -31,6 +31,15 @@ export class ApproveMemberHandler implements ICommandHandler<{ groupId: string; 
 
     if (conversation.type !== ConversationType.GROUP) {
       throw AppError.from(new Error("Only group conversations support member approval"), 400);
+    }
+
+    const requesterMember = await this.conversationMemberQueryRepo.findByCond({
+      conversationId: groupId,
+      userId: requesterId,
+    });
+
+    if (!requesterMember || requesterMember.role !== ConversationMemberRole.ADMIN) {
+      throw AppError.from(new Error("Only admins can approve members"), 403);
     }
 
     const member = await this.conversationMemberQueryRepo.findByCond({

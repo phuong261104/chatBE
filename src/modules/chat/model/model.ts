@@ -21,6 +21,10 @@ export enum MessageType {
   IMAGE = "image",
   FILE = "file",
   LINK = "link",
+  VIDEO = "video",
+  VOICE = "voice",
+  STICKER = "sticker",
+  GIF = "gif",
   SYSTEM = "system",
 }
 
@@ -33,6 +37,8 @@ export enum ClassificationType {
 export enum MediaType {
   IMAGE = "image",
   FILE = "file",
+  VIDEO = "video",
+  AUDIO = "audio",
 }
 
 export const LastMessageSchema = z.object({
@@ -118,6 +124,8 @@ export const MessageMediaSchema = z.object({
   size: z.number().optional(),
   width: z.number().optional(),
   height: z.number().optional(),
+  duration: z.number().optional(),
+  thumbnailUrl: z.string().optional(),
 });
 
 export type MessageMedia = z.infer<typeof MessageMediaSchema>;

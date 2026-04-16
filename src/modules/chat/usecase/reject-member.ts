@@ -5,17 +5,17 @@ import {
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
 } from "../interface";
-import { ConversationType, ConversationMemberStatus } from "../model/model";
+import { ConversationType, ConversationMemberStatus, ConversationMemberRole } from "../model/model";
 
-export class RejectMemberHandler implements ICommandHandler<{ groupId: string; userId: string }, void> {
+export class RejectMemberHandler implements ICommandHandler<{ groupId: string; userId: string; requesterId: string }, void> {
   constructor(
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
   ) {}
 
-  async execute(command: { groupId: string; userId: string }): Promise<void> {
-    const { groupId, userId } = command;
+  async execute(command: { groupId: string; userId: string; requesterId: string }): Promise<void> {
+    const { groupId, userId, requesterId } = command;
 
     const conversation = await this.conversationQueryRepo.get(groupId);
     if (!conversation) {
@@ -24,6 +24,15 @@ export class RejectMemberHandler implements ICommandHandler<{ groupId: string; u
 
     if (conversation.type !== ConversationType.GROUP) {
       throw AppError.from(new Error("Only group conversations support member rejection"), 400);
+    }
+
+    const requesterMember = await this.conversationMemberQueryRepo.findByCond({
+      conversationId: groupId,
+      userId: requesterId,
+    });
+
+    if (!requesterMember || requesterMember.role !== ConversationMemberRole.ADMIN) {
+      throw AppError.from(new Error("Only admins can reject members"), 403);
     }
 
     const member = await this.conversationMemberQueryRepo.findByCond({

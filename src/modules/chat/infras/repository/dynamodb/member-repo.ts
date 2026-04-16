@@ -14,7 +14,6 @@ import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import {
   GetCommand,
   QueryCommand,
-  ScanCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
@@ -35,11 +34,11 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
       id: doc.id || sk?.replace("MEM#", ""),
       conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
       joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
-      leftAt: leftAt ? new Date(leftAt) : undefined,
-      lastReadAt: lastReadAt ? new Date(lastReadAt) : undefined,
-      muteUntil: muteUntil ? new Date(muteUntil) : undefined,
+      leftAt: leftAt ? new Date(leftAt) : null,
+      lastReadAt: lastReadAt ? new Date(lastReadAt) : null,
+      muteUntil: muteUntil ? new Date(muteUntil) : null,
       updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
-      pinnedAt: pinnedAt ? new Date(pinnedAt) : undefined,
+      pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
     } as ConversationMember;
   }
 
@@ -57,9 +56,10 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
   async get(id: string): Promise<ConversationMember | null> {
     const docClient = getDocClient();
     const result = await docClient.send(
-      new ScanCommand({
+      new QueryCommand({
         TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
-        FilterExpression: "id = :id",
+        IndexName: "id-index",
+        KeyConditionExpression: "id = :id",
         ExpressionAttributeValues: { ":id": id },
         Limit: 1,
       }),
@@ -137,30 +137,25 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
     hasMore: boolean;
   }> {
     const docClient = getDocClient();
+    const exclusiveStartKey = cursor ? JSON.parse(Buffer.from(cursor, "base64").toString("utf-8")) : undefined;
 
-    const scanFetchAll = async (): Promise<ConversationMember[]> => {
-      const items: Record<string, any>[] = [];
-      let lastEvaluatedKey: Record<string, any> | undefined;
-      do {
-        const result = await docClient.send(
-          new ScanCommand({
-            TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
-            FilterExpression: "userId = :userId AND (attribute_not_exists(leftAt) OR #lt = :nullVal)",
-            ExpressionAttributeNames: { "#lt": "leftAt" },
-            ExpressionAttributeValues: {
-              ":userId": userId,
-              ":nullVal": null,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          }),
-        );
-        items.push(...(result.Items || []));
-        lastEvaluatedKey = result.LastEvaluatedKey;
-      } while (lastEvaluatedKey);
-      return items.map((item) => this.toEntity(item));
-    };
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
+        IndexName: "userId-index",
+        KeyConditionExpression: "userId = :userId",
+        FilterExpression: "attribute_not_exists(#leftAt) OR #leftAt = :null",
+        ExpressionAttributeNames: { "#leftAt": "leftAt" },
+        ExpressionAttributeValues: {
+          ":userId": userId,
+          ":null": null,
+        },
+        Limit: 1000,
+        ExclusiveStartKey: exclusiveStartKey,
+      }),
+    );
 
-    const allMembers = await scanFetchAll();
+    const allMembers = (result.Items || []).map((item) => this.toEntity(item));
 
     const pinnedMembers = allMembers
       .filter((m) => m.pinned)
@@ -307,6 +302,7 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
   }
 
   protected beforeInsert(data: ConversationMember): Record<string, any> {
+    const now = new Date().toISOString();
     return {
       pk: `CONV#${data.conversationId}`,
       sk: `MEM#${data.userId}`,
@@ -315,7 +311,7 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       userId: data.userId,
       role: data.role,
       status: data.status,
-      joinedAt: data.joinedAt ? data.joinedAt.toISOString() : new Date().toISOString(),
+      joinedAt: data.joinedAt ? data.joinedAt.toISOString() : now,
       leftAt: data.leftAt ? data.leftAt.toISOString() : null,
       unreadCount: data.unreadCount || 0,
       lastReadMessageId: data.lastReadMessageId,
@@ -326,7 +322,7 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       pinned: data.pinned || false,
       pinnedAt: data.pinnedAt ? data.pinnedAt.toISOString() : null,
       archived: data.archived || false,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
   }
 

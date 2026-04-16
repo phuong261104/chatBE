@@ -68,6 +68,7 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
       name: name,
       avatarUrl: avatarUrl,
       createdBy: command.creatorId,
+      ownerId: command.creatorId,
       admins: [command.creatorId],
       membersCount: memberIds.length + 1,
       createdAt: now,

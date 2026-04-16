@@ -77,6 +77,11 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       requireApproval: false,
       allowMemberInvite: true,
     };
+
+    if (settings.allowMemberInvite === false) {
+      throw AppError.from(new Error("Member invites are disabled for this group"), 403);
+    }
+
     const defaultStatus = settings.requireApproval
       ? ConversationMemberStatus.PENDING
       : ConversationMemberStatus.ACTIVE;
