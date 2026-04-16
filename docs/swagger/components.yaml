@@ -26,9 +26,9 @@ components:
 
     MediaFileType:
       type: string
-      enum: [IMAGE, VIDEO, AUDIO, DOCUMENT]
+      enum: [image, video, audio, file]
       description: "Loại file media"
-      example: "IMAGE"
+      example: "image"
 
     UploadMethod:
       type: string

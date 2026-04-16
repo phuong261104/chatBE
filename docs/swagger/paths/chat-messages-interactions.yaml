@@ -1,0 +1,173 @@
+paths:
+  /messages/{messageId}/pin:
+    post:
+      summary: Pin a message
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+      responses:
+        "200":
+          description: Message pinned successfully
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "msg_001"
+                  isPinned: true
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only group admins can pin messages
+
+    delete:
+      summary: Unpin a message
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+      responses:
+        "200":
+          description: Message unpinned successfully
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "msg_001"
+                  isPinned: false
+        "401":
+          description: Unauthorized
+
+  /messages/forward:
+    post:
+      summary: Forward messages to conversations
+      description: |
+        Forwards messages to target conversations. Original messages are not modified.
+        System messages cannot be forwarded.
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - messageIds
+                - targetConversationIds
+              properties:
+                messageIds:
+                  type: array
+                  items:
+                    type: string
+                  description: IDs of messages to forward
+                  minItems: 1
+                  example: ["msg_001", "msg_002"]
+                targetConversationIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Target conversation IDs
+                  minItems: 1
+                  example: ["conv_001", "conv_002"]
+      responses:
+        "201":
+          description: Messages forwarded successfully
+          content:
+            application/json:
+              example:
+                data:
+                  - _id: "msg_new_001"
+                    conversationId: "conv_001"
+                    senderId: "user_123"
+                    type: "text"
+                    text: "Hello https://example.com"
+                    links: ["https://example.com"]
+                    pinned: false
+                    createdAt: "2024-01-15T12:00:00Z"
+                  - _id: "msg_new_002"
+                    conversationId: "conv_001"
+                    senderId: "user_123"
+                    type: "image"
+                    text: null
+                    media:
+                      [
+                        {
+                          "url": "https://cdn.example.com/img.jpg",
+                          "mediaType": "image",
+                          "name": "photo.jpg",
+                          "size": 102400,
+                        },
+                      ]
+                    pinned: false
+                    createdAt: "2024-01-15T12:00:00Z"
+        "401":
+          description: Unauthorized
+
+  /messages/{messageId}/quote:
+    post:
+      summary: Quote and reply to a message (returns Message)
+      description: |
+        Sends a reply that quotes a specific message. The conversationId is automatically determined from the quoted message.
+        Similar to send message, supports text/media/link splitting.
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+          description: Message ID to quote/reply
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  maxLength: 5000
+                  example: "Tôi đồng ý với ý kiến này"
+                media:
+                  type: array
+                  items:
+                    $ref: "./chat-schemas.yaml#/components/schemas/MediaAttachment"
+      responses:
+        "201":
+          description: Quote message sent
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "msg_quote_001"
+                  conversationId: "conv_001"
+                  senderId: "user_123"
+                  type: "link"
+                  text: "Great point! https://example.com/article"
+                  links: ["https://example.com/article"]
+                  media: null
+                  quotedMessageId: "msg_001"
+                  quotedMessagePreview: "Original message..."
+                  pinned: false
+                  createdAt: "2024-01-15T12:30:00Z"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Original message not found

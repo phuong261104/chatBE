@@ -1,0 +1,97 @@
+paths:
+  /groups/{groupId}/members/pending:
+    get:
+      summary: Get pending member requests
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      responses:
+        "200":
+          description: List of pending members
+          content:
+            application/json:
+              example:
+                data:
+                  pendingMembers:
+                    - _id: "req_001"
+                      userId: "user_006"
+                      name: "Phạm Thị F"
+                      avatar: "https://cdn.example.com/avatars/f.png"
+                      requestedAt: "2024-01-15T10:00:00Z"
+        "401":
+          description: Unauthorized
+
+  /groups/{groupId}/members/{userId}/approve:
+    patch:
+      summary: Approve pending member
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+        - in: path
+          name: userId
+          schema:
+            type: string
+            example: "user_006"
+          required: true
+      responses:
+        "200":
+          description: Member approved
+          content:
+            application/json:
+              example:
+                data:
+                  member:
+                    _id: "mem_new_001"
+                    userId: "user_006"
+                    name: "Phạm Thị F"
+                    role: "member"
+                    joinedAt: "2024-01-15T12:00:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only admins can approve members
+
+  /groups/{groupId}/members/{userId}/reject:
+    patch:
+      summary: Reject pending member
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+        - in: path
+          name: userId
+          schema:
+            type: string
+            example: "user_006"
+          required: true
+      responses:
+        "200":
+          description: Member rejected
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only admins can reject members

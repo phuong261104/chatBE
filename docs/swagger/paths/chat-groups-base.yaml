@@ -1,0 +1,235 @@
+paths:
+  /groups:
+    post:
+      summary: Create a new group
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - memberIds
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                  example: "Nhóm Dev Team"
+                memberIds:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                  description: Initial member IDs (excluding creator)
+                  example: ["user_001", "user_002", "user_003"]
+                avatarUrl:
+                  type: string
+                  format: uri
+                  description: Group avatar URL
+                  example: "https://cdn.example.com/groups/avatar.png"
+      responses:
+        "201":
+          description: Group created successfully
+          content:
+            application/json:
+              example:
+                data:
+                  conversation:
+                    _id: "conv_group_001"
+                    name: "Nhóm Dev Team"
+                    type: "group"
+                    avatarUrl: "https://cdn.example.com/groups/avatar.png"
+                    ownerId: "user_123"
+                    createdAt: "2024-01-15T10:00:00Z"
+                  systemMessage:
+                    _id: "sys_001"
+                    type: "SYSTEM"
+                    text: "Nguyễn Văn A đã tạo nhóm"
+                    createdAt: "2024-01-15T10:00:00Z"
+                  members: [...]
+        "401":
+          description: Unauthorized
+        "422":
+          description: Validation error
+
+  /groups/{groupId}/info:
+    get:
+      summary: Get group info
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      responses:
+        "200":
+          description: Group information
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "conv_group_001"
+                  name: "Nhóm Dev Team"
+                  type: "group"
+                  avatarUrl: "https://cdn.example.com/groups/avatar.png"
+                  description: "Nhóm thảo luận công việc"
+                  ownerId: "user_123"
+                  adminIds: ["user_001", "user_002"]
+                  memberCount: 15
+                  createdAt: "2024-01-01T00:00:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this group
+        "404":
+          description: Group not found
+
+  /groups/{groupId}:
+    put:
+      summary: Update group info
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                  example: "Dev Team - Updated"
+                avatarUrl:
+                  type: string
+                  format: uri
+                  example: "https://cdn.example.com/groups/avatar-new.png"
+      responses:
+        "200":
+          description: Group updated
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "conv_group_001"
+                  name: "Dev Team - Updated"
+                  avatarUrl: "https://cdn.example.com/groups/avatar-new.png"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner or admins can update group
+
+    delete:
+      summary: Dissolve group (owner only)
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+      responses:
+        "200":
+          description: Group dissolved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: "Group dissolved successfully"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner can dissolve group
+        "404":
+          description: Group not found
+
+  /groups/{groupId}/leave:
+    post:
+      summary: Leave group
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      responses:
+        "200":
+          description: Left group successfully
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+        "400":
+          description: Owner cannot leave, must transfer ownership first
+
+  /groups/{groupId}/settings:
+    patch:
+      summary: Update group settings
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                allowSendLink:
+                  type: boolean
+                  description: Allow members to send links
+                  example: true
+                requireApproval:
+                  type: boolean
+                  description: Require admin approval for new members
+                  example: false
+                allowMemberInvite:
+                  type: boolean
+                  description: Allow members to invite others
+                  example: true
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              example:
+                data:
+                  settings:
+                    allowSendLink: true
+                    requireApproval: false
+                    allowMemberInvite: true
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner or admins can update settings

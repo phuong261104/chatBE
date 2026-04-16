@@ -102,87 +102,93 @@ paths:
 
   # ==================== CHAT - CONVERSATIONS ====================
   /conversations/private:
-    $ref: "./paths/chat.yaml#/paths/~1conversations~1private"
+    $ref: "./paths/chat-conversations-base.yaml#/paths/~1conversations~1private"
   /conversations:
-    $ref: "./paths/chat.yaml#/paths/~1conversations"
+    $ref: "./paths/chat-conversations-base.yaml#/paths/~1conversations"
+  /conversations/cursor:
+    $ref: "./paths/chat-conversations-base.yaml#/paths/~1conversations~1cursor"
   /conversations/{conversationId}:
-    $ref: "./paths/chat.yaml#/paths/~1conversations~1{conversationId}"
+    $ref: "./paths/chat-conversations-base.yaml#/paths/~1conversations~1{conversationId}"
   /conversations/{conversationId}/mute:
-    $ref: "./paths/chat.yaml#/paths/~1conversations~1{conversationId}~1mute"
+    $ref: "./paths/chat-conversations-actions.yaml#/paths/~1conversations~1{conversationId}~1mute"
   /conversations/{conversationId}/pin-conversation:
-    $ref: "./paths/chat.yaml#/paths/~1conversations~1{conversationId}~1pin-conversation"
+    $ref: "./paths/chat-conversations-actions.yaml#/paths/~1conversations~1{conversationId}~1pin-conversation"
   /conversations/{conversationId}/archive:
-    $ref: "./paths/chat.yaml#/paths/~1conversations~1{conversationId}~1archive"
+    $ref: "./paths/chat-conversations-actions.yaml#/paths/~1conversations~1{conversationId}~1archive"
   /conversations/unread-count:
-    $ref: "./paths/chat.yaml#/paths/~1conversations~1unread-count"
+    $ref: "./paths/chat-conversations-base.yaml#/paths/~1conversations~1unread-count"
 
   # ==================== CHAT - MESSAGES ====================
   /conversations/{conversationId}/messages:
-    $ref: "./paths/chat.yaml#/paths/~1conversations~1{conversationId}~1messages"
+    $ref: "./paths/chat-messages-crud.yaml#/paths/~1conversations~1{conversationId}~1messages"
   /conversations/{conversationId}/seen:
-    $ref: "./paths/chat.yaml#/paths/~1conversations~1{conversationId}~1seen"
+    $ref: "./paths/chat-messages-status.yaml#/paths/~1conversations~1{conversationId}~1seen"
   /conversations/{conversationId}/delivered:
-    $ref: "./paths/chat.yaml#/paths/~1conversations~1{conversationId}~1delivered"
+    $ref: "./paths/chat-messages-status.yaml#/paths/~1conversations~1{conversationId}~1delivered"
   /conversations/{conversationId}/pinned-messages:
-    $ref: "./paths/chat.yaml#/paths/~1conversations~1{conversationId}~1pinned-messages"
+    $ref: "./paths/chat-messages-search.yaml#/paths/~1conversations~1{conversationId}~1pinned-messages"
+  /conversations/{conversationId}/search:
+    $ref: "./paths/chat-messages-search.yaml#/paths/~1conversations~1{conversationId}~1search"
+  /conversations/{conversationId}/media:
+    $ref: "./paths/chat-messages-search.yaml#/paths/~1conversations~1{conversationId}~1media"
 
   # ==================== CHAT - SINGLE MESSAGE OPERATIONS ====================
   /messages/{messageId}:
-    $ref: "./paths/chat.yaml#/paths/~1messages~1{messageId}"
+    $ref: "./paths/chat-messages-crud.yaml#/paths/~1messages~1{messageId}"
   /messages/{messageId}/revoke:
-    $ref: "./paths/chat.yaml#/paths/~1messages~1{messageId}~1revoke"
+    $ref: "./paths/chat-messages-actions.yaml#/paths/~1messages~1{messageId}~1revoke"
   /messages/{messageId}/delete:
-    $ref: "./paths/chat.yaml#/paths/~1messages~1{messageId}~1delete"
+    $ref: "./paths/chat-messages-actions.yaml#/paths/~1messages~1{messageId}~1delete"
   /messages/{messageId}/delete-for-everyone:
-    $ref: "./paths/chat.yaml#/paths/~1messages~1{messageId}~1delete-for-everyone"
+    $ref: "./paths/chat-messages-actions.yaml#/paths/~1messages~1{messageId}~1delete-for-everyone"
   /messages/{messageId}/pin:
-    $ref: "./paths/chat.yaml#/paths/~1messages~1{messageId}~1pin"
+    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1pin"
   /messages/{messageId}/quote:
-    $ref: "./paths/chat.yaml#/paths/~1messages~1{messageId}~1quote"
+    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1quote"
 
   # ==================== CHAT - MESSAGE FORWARDING ====================
   /messages/forward:
-    $ref: "./paths/chat.yaml#/paths/~1messages~1forward"
+    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1forward"
 
   # ==================== CHAT - REACTIONS ====================
   /messages/{messageId}/reactions:
-    $ref: "./paths/chat.yaml#/paths/~1messages~1{messageId}~1reactions"
+    $ref: "./paths/chat-reactions.yaml#/paths/~1messages~1{messageId}~1reactions"
   /messages/{messageId}/react:
-    $ref: "./paths/chat.yaml#/paths/~1messages~1{messageId}~1react"
+    $ref: "./paths/chat-reactions.yaml#/paths/~1messages~1{messageId}~1react"
 
   # ==================== CHAT - GROUPS ====================
   /groups:
-    $ref: "./paths/chat.yaml#/paths/~1groups"
+    $ref: "./paths/chat-groups-base.yaml#/paths/~1groups"
   /groups/{groupId}/info:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1info"
+    $ref: "./paths/chat-groups-base.yaml#/paths/~1groups~1{groupId}~1info"
   /groups/{groupId}:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}"
+    $ref: "./paths/chat-groups-base.yaml#/paths/~1groups~1{groupId}"
   /groups/{groupId}/members:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1members"
+    $ref: "./paths/chat-groups-members.yaml#/paths/~1groups~1{groupId}~1members"
   /groups/{groupId}/members/{userId}:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1members~1{userId}"
+    $ref: "./paths/chat-groups-members.yaml#/paths/~1groups~1{groupId}~1members~1{userId}"
   /groups/{groupId}/leave:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1leave"
+    $ref: "./paths/chat-groups-base.yaml#/paths/~1groups~1{groupId}~1leave"
   /groups/{groupId}/set-admin:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1set-admin"
+    $ref: "./paths/chat-groups-members.yaml#/paths/~1groups~1{groupId}~1set-admin"
   /groups/{groupId}/transfer-owner:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1transfer-owner"
+    $ref: "./paths/chat-groups-members.yaml#/paths/~1groups~1{groupId}~1transfer-owner"
   /groups/{groupId}/members/pending:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1members~1pending"
+    $ref: "./paths/chat-groups-pending.yaml#/paths/~1groups~1{groupId}~1members~1pending"
   /groups/{groupId}/members/{userId}/approve:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1members~1{userId}~1approve"
+    $ref: "./paths/chat-groups-pending.yaml#/paths/~1groups~1{groupId}~1members~1{userId}~1approve"
   /groups/{groupId}/members/{userId}/reject:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1members~1{userId}~1reject"
+    $ref: "./paths/chat-groups-pending.yaml#/paths/~1groups~1{groupId}~1members~1{userId}~1reject"
   /groups/{groupId}/settings:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1settings"
+    $ref: "./paths/chat-groups-base.yaml#/paths/~1groups~1{groupId}~1settings"
 
   # ==================== CHAT - POLLS ====================
   /groups/{groupId}/polls:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1polls"
+    $ref: "./paths/chat-polls.yaml#/paths/~1groups~1{groupId}~1polls"
   /groups/{groupId}/polls/{pollId}/vote:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1polls~1{pollId}~1vote"
+    $ref: "./paths/chat-polls.yaml#/paths/~1groups~1{groupId}~1polls~1{pollId}~1vote"
   /groups/{groupId}/polls/{pollId}/results:
-    $ref: "./paths/chat.yaml#/paths/~1groups~1{groupId}~1polls~1{pollId}~1results"
+    $ref: "./paths/chat-polls.yaml#/paths/~1groups~1{groupId}~1polls~1{pollId}~1results"
 
   # ==================== MEDIA ====================
   /media/upload:

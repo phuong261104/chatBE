@@ -1,0 +1,79 @@
+paths:
+  /messages/{messageId}/revoke:
+    post:
+      summary: Revoke/recall a message
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+      responses:
+        "200":
+          description: Message revoked successfully
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "msg_001"
+                  isRevoked: true
+                  revokedAt: "2024-01-15T11:30:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Can only revoke your own messages within time limit
+
+  /messages/{messageId}/delete:
+    post:
+      summary: Delete message for me only
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+      responses:
+        "200":
+          description: Message deleted for current user
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+
+  /messages/{messageId}/delete-for-everyone:
+    post:
+      summary: Delete message for everyone (revoke)
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+      responses:
+        "200":
+          description: Message deleted for everyone
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "msg_001"
+                  isRevoked: true
+                  revokedAt: "2024-01-15T11:30:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Can only revoke your own messages within time limit

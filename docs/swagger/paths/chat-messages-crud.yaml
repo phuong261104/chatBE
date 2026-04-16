@@ -1,0 +1,184 @@
+paths:
+  /conversations/{conversationId}/messages:
+    get:
+      summary: Load messages with cursor-based pagination
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: Cursor for pagination (message ID or timestamp)
+          example: "msg_abc123"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+            example: 20
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              example:
+                data:
+                  messages:
+                    - _id: "msg_001"
+                      conversationId: "conv_001"
+                      senderId: "user_123"
+                      senderName: "Nguyễn Văn A"
+                      senderAvatar: "https://cdn.example.com/avatars/user123.png"
+                      type: "text"
+                      text: "Xin chào mọi người!"
+                      media: []
+                      reactions:
+                        - emoji: "👍"
+                          count: 5
+                          userIds: ["user_1", "user_2"]
+                      replyTo:
+                        _id: "msg_000"
+                        text: "Cuộc họp bắt đầu lúc 2h"
+                        senderName: "Trần Thị B"
+                      isPinned: false
+                      isRevoked: false
+                      createdAt: "2024-01-15T10:30:00Z"
+                      updatedAt: "2024-01-15T10:30:00Z"
+                      seenBy: ["user_1", "user_2"]
+                      deliveredTo: ["user_1", "user_2", "user_3"]
+                  nextCursor: "msg_abc456"
+                  hasMore: true
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this conversation
+
+    post:
+      summary: Send a message (returns Message[])
+      description: |
+        Sends a message to a conversation. Depending on content, message may be split into multiple messages:
+        - `text` + `media` (no link): 1 message IMAGE/FILE
+        - `text` + `media` + `link`: 2 messages: IMAGE/FILE + LINK
+        - `text` + `link` (no media): 1 message LINK
+        - Multiple `media` items: each IMAGE/FILE becomes separate message
+        - `text` only: 1 message TEXT
+        - `media` only: 1 message IMAGE/FILE
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: Message text content
+                  maxLength: 5000
+                  example: "Xin chào mọi người!"
+                media:
+                  type: array
+                  items:
+                    $ref: "./chat-schemas.yaml#/components/schemas/MediaAttachment"
+                  description: Attached media files
+      responses:
+        "201":
+          description: Messages sent successfully (returns array of Message)
+          content:
+            application/json:
+              example:
+                data:
+                  - _id: "msg_001"
+                    conversationId: "conv_001"
+                    senderId: "user_123"
+                    type: "image"
+                    text: null
+                    media:
+                      [
+                        {
+                          "url": "https://cdn.example.com/img.jpg",
+                          "mediaType": "image",
+                          "name": "photo.jpg",
+                          "size": 102400,
+                        },
+                      ]
+                    links: []
+                    pinned: false
+                    createdAt: "2024-01-15T10:30:00Z"
+                  - _id: "msg_002"
+                    conversationId: "conv_001"
+                    senderId: "user_123"
+                    type: "link"
+                    text: "Hello https://example.com"
+                    media: null
+                    links: ["https://example.com"]
+                    pinned: false
+                    createdAt: "2024-01-15T10:30:00.001Z"
+        "401":
+          description: Unauthorized
+        "422":
+          description: Validation error
+
+  /messages/{messageId}:
+    put:
+      summary: Edit message
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  maxLength: 5000
+                  example: "Nội dung đã chỉnh sửa"
+      responses:
+        "200":
+          description: Message edited successfully
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "msg_001"
+                  text: "Nội dung đã chỉnh sửa"
+                  isEdited: true
+                  editedAt: "2024-01-15T11:00:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Can only edit your own messages
+        "404":
+          description: Message not found

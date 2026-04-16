@@ -1,0 +1,141 @@
+paths:
+  /messages/{messageId}/reactions:
+    get:
+      summary: Get all reactions on a message
+      tags: [Chat - Reactions]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+      responses:
+        "200":
+          description: List of reactions
+          content:
+            application/json:
+              example:
+                data:
+                  reactions:
+                    - emoji: "👍"
+                      users:
+                        - _id: "user_1"
+                          name: "Nguyễn Văn A"
+                          avatar: "https://cdn.example.com/avatars/a.png"
+                        - _id: "user_2"
+                          name: "Trần Thị B"
+                          avatar: "https://cdn.example.com/avatars/b.png"
+                      count: 2
+                    - emoji: "❤️"
+                      users:
+                        - _id: "user_3"
+                          name: "Lê Văn C"
+                          avatar: "https://cdn.example.com/avatars/c.png"
+                      count: 1
+        "401":
+          description: Unauthorized
+
+    delete:
+      summary: Remove all reactions from message
+      tags: [Chat - Reactions]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+      responses:
+        "200":
+          description: All reactions removed
+          content:
+            application/json:
+              example:
+                success: true
+                deletedCount: 5
+        "401":
+          description: Unauthorized
+
+  /messages/{messageId}/react:
+    post:
+      summary: Add reaction to message
+      tags: [Chat - Reactions]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - emoji
+              properties:
+                emoji:
+                  type: string
+                  description: Emoji unicode or emoji code
+                  example: "👍"
+      responses:
+        "201":
+          description: Reaction added
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "react_001"
+                  messageId: "msg_001"
+                  userId: "user_123"
+                  emoji: "👍"
+                  createdAt: "2024-01-15T10:35:00Z"
+        "401":
+          description: Unauthorized
+        "409":
+          description: Reaction already exists
+
+    delete:
+      summary: Remove specific reaction (emoji) from message
+      tags: [Chat - Reactions]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+            example: "msg_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - emoji
+              properties:
+                emoji:
+                  type: string
+                  description: Emoji to remove
+                  example: "👍"
+      responses:
+        "200":
+          description: Reaction removed
+          content:
+            application/json:
+              example:
+                success: true
+                deletedCount: 1
+        "401":
+          description: Unauthorized

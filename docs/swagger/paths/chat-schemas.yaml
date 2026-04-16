@@ -1,0 +1,127 @@
+components:
+  schemas:
+    ConversationResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            _id:
+              type: string
+              example: "conv_001"
+            name:
+              type: string
+              example: "Nhóm Dev Team"
+            type:
+              type: string
+              enum: [private, group]
+              example: "group"
+            avatarUrl:
+              type: string
+              format: uri
+            lastMessage:
+              type: object
+            unreadCount:
+              type: integer
+            membersCount:
+              type: integer
+            lastMessageAt:
+              type: string
+              format: date-time
+            isPinned:
+              type: boolean
+            isMuted:
+              type: boolean
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    MediaAttachment:
+      type: object
+      properties:
+        fileId:
+          type: string
+          description: File ID from media service
+          example: "file_abc123"
+        type:
+          type: string
+          enum: [image, video, audio, file]
+          example: "image"
+        url:
+          type: string
+          format: uri
+          description: URL of the media file
+        thumbnailUrl:
+          type: string
+          format: uri
+          description: Thumbnail URL (for video/images)
+        filename:
+          type: string
+          example: "photo.jpg"
+        size:
+          type: integer
+          description: File size in bytes
+        width:
+          type: integer
+          description: Image/video width in pixels
+        height:
+          type: integer
+          description: Image/video height in pixels
+        duration:
+          type: integer
+          description: Audio/video duration in seconds
+        mimeType:
+          type: string
+          example: "image/jpeg"
+
+    MessageResponse:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        senderId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [text, image, file, link, video, voice, sticker, gif, system]
+        text:
+          type: string
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaAttachment"
+        links:
+          type: array
+          items:
+            type: string
+        mentions:
+          type: array
+          items:
+            type: object
+            properties:
+              userId: {type: string, format: uuid}
+              startIndex: {type: integer}
+              endIndex: {type: integer}
+        quotedMessageId:
+          type: string
+          format: uuid
+        quotedMessagePreview:
+          type: string
+        isPinned:
+          type: boolean
+        isRevoked:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        editedAt:
+          type: string
+          format: date-time

@@ -1,0 +1,72 @@
+paths:
+  /conversations/{conversationId}/seen:
+    post:
+      summary: Mark messages as seen
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - lastSeenMessageId
+              properties:
+                lastSeenMessageId:
+                  type: string
+                  description: ID of the last seen message
+                  example: "msg_001"
+      responses:
+        "200":
+          description: Messages marked as seen
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+
+  /conversations/{conversationId}/delivered:
+    post:
+      summary: Mark messages as delivered
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - lastDeliveredMessageId
+              properties:
+                lastDeliveredMessageId:
+                  type: string
+                  description: ID of the last delivered message
+                  example: "msg_001"
+      responses:
+        "200":
+          description: Messages marked as delivered
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized

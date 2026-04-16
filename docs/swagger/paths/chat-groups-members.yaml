@@ -1,0 +1,192 @@
+paths:
+  /groups/{groupId}/members:
+    get:
+      summary: Get group members
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      responses:
+        "200":
+          description: List of group members
+          content:
+            application/json:
+              example:
+                data:
+                  members:
+                    - _id: "mem_001"
+                      userId: "user_123"
+                      name: "Nguyễn Văn A"
+                      avatar: "https://cdn.example.com/avatars/a.png"
+                      role: "admin"
+                      joinedAt: "2024-01-01T00:00:00Z"
+                    - _id: "mem_002"
+                      userId: "user_001"
+                      name: "Trần Thị B"
+                      avatar: "https://cdn.example.com/avatars/b.png"
+                      role: "admin"
+                      joinedAt: "2024-01-02T00:00:00Z"
+        "401":
+          description: Unauthorized
+
+    post:
+      summary: Add members to group
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - memberIds
+              properties:
+                memberIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["user_004", "user_005"]
+      responses:
+        "200":
+          description: Members added
+          content:
+            application/json:
+              example:
+                data:
+                  newMembers:
+                    - _id: "mem_new_001"
+                      userId: "user_004"
+                      name: "Lê Văn D"
+                      avatar: "https://cdn.example.com/avatars/d.png"
+                      role: "member"
+                      joinedAt: "2024-01-15T11:00:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner or admins can add members
+
+  /groups/{groupId}/members/{userId}:
+    delete:
+      summary: Remove member from group
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+        - in: path
+          name: userId
+          schema:
+            type: string
+          required: true
+          description: User ID to remove
+          example: "user_003"
+      responses:
+        "204":
+          description: Member removed
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner or admins can remove members
+
+  /groups/{groupId}/set-admin:
+    post:
+      summary: Set/remove admin
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetUserId
+                - isAdmin
+              properties:
+                targetUserId:
+                  type: string
+                  example: "user_001"
+                isAdmin:
+                  type: boolean
+                  example: true
+      responses:
+        "200":
+          description: Admin status updated
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "conv_group_001"
+                  adminIds: ["user_001", "user_002"]
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner can change admin status
+
+  /groups/{groupId}/transfer-owner:
+    post:
+      summary: Transfer group ownership
+      tags: [Chat - Groups]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newOwnerId
+              properties:
+                newOwnerId:
+                  type: string
+                  example: "user_001"
+      responses:
+        "200":
+          description: Ownership transferred
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "conv_group_001"
+                  ownerId: "user_001"
+                  oldOwnerId: "user_123"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only current owner can transfer ownership

@@ -1,0 +1,204 @@
+paths:
+  /groups/{groupId}/polls:
+    get:
+      summary: Get all polls in a group
+      tags: [Chat - Polls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      responses:
+        "200":
+          description: List of polls
+          content:
+            application/json:
+              example:
+                data:
+                  polls:
+                    - _id: "poll_001"
+                      conversationId: "conv_group_001"
+                      question: "Chọn ngày họp?"
+                      options:
+                        - _id: "opt_001"
+                          text: "Thứ 2"
+                          voteCount: 5
+                        - _id: "opt_002"
+                          text: "Thứ 3"
+                          voteCount: 3
+                      isMultipleChoice: false
+                      allowAddOption: true
+                      createdBy: "user_123"
+                      createdAt: "2024-01-15T10:00:00Z"
+                      expiresAt: "2024-01-20T10:00:00Z"
+                      totalVotes: 8
+        "401":
+          description: Unauthorized
+
+    post:
+      summary: Create a poll
+      tags: [Chat - Polls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - question
+                - options
+              properties:
+                question:
+                  type: string
+                  maxLength: 500
+                  example: "Chọn ngày họp?"
+                options:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 2
+                  maxItems: 20
+                  example: ["Thứ 2", "Thứ 3", "Thứ 4"]
+                isMultipleChoice:
+                  type: boolean
+                  default: false
+                  description: Allow voting for multiple options
+                  example: false
+                allowAddOption:
+                  type: boolean
+                  default: true
+                  description: Allow members to add new options
+                  example: true
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: Poll expiration time (optional)
+                  example: "2024-01-20T10:00:00Z"
+      responses:
+        "201":
+          description: Poll created
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "poll_001"
+                  conversationId: "conv_group_001"
+                  question: "Chọn ngày họp?"
+                  options: [...]
+                  createdAt: "2024-01-15T10:00:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only group members can create polls
+
+  /groups/{groupId}/polls/{pollId}/vote:
+    post:
+      summary: Vote on a poll
+      tags: [Chat - Polls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+        - in: path
+          name: pollId
+          schema:
+            type: string
+            example: "poll_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - optionIds
+              properties:
+                optionIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Option IDs to vote for
+                  example: ["opt_001"]
+      responses:
+        "200":
+          description: Vote recorded
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "poll_001"
+                  options: [...]
+                  totalVotes: 9
+        "401":
+          description: Unauthorized
+        "400":
+          description: Poll has expired
+        "422":
+          description: Invalid option IDs
+
+  /groups/{groupId}/polls/{pollId}/results:
+    get:
+      summary: Get poll results
+      tags: [Chat - Polls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+        - in: path
+          name: pollId
+          schema:
+            type: string
+            example: "poll_001"
+          required: true
+      responses:
+        "200":
+          description: Poll results
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "poll_001"
+                  question: "Chọn ngày họp?"
+                  options:
+                    - _id: "opt_001"
+                      text: "Thứ 2"
+                      voteCount: 5
+                      percentage: 62.5
+                      votedBy:
+                        - userId: "user_001"
+                          votedAt: "2024-01-15T10:30:00Z"
+                    - _id: "opt_002"
+                      text: "Thứ 3"
+                      voteCount: 3
+                      percentage: 37.5
+                      votedBy:
+                        - userId: "user_002"
+                          votedAt: "2024-01-15T10:35:00Z"
+                  totalVotes: 8
+                  isExpired: false
+        "401":
+          description: Unauthorized

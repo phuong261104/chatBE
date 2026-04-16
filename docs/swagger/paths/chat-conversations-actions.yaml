@@ -1,0 +1,153 @@
+paths:
+  /conversations/{conversationId}/mute:
+    post:
+      summary: Mute conversation
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                duration:
+                  type: integer
+                  description: Mute duration in seconds (optional, permanent if not provided)
+                  example: 3600
+                muteUntil:
+                  type: string
+                  format: date-time
+                  description: Specific time to unmute (optional)
+                  example: "2024-01-20T00:00:00Z"
+      responses:
+        "200":
+          description: Conversation muted successfully
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this conversation
+
+    delete:
+      summary: Unmute conversation
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      responses:
+        "200":
+          description: Conversation unmuted successfully
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+
+  /conversations/{conversationId}/pin-conversation:
+    post:
+      summary: Pin conversation
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      responses:
+        "200":
+          description: Conversation pinned successfully
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+
+    delete:
+      summary: Unpin conversation
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      responses:
+        "200":
+          description: Conversation unpinned successfully
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+
+  /conversations/{conversationId}/archive:
+    post:
+      summary: Archive conversation
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      responses:
+        "200":
+          description: Conversation archived successfully
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+
+    delete:
+      summary: Unarchive conversation
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+            example: "60d0fe4f5311236168a109cc"
+          required: true
+      responses:
+        "200":
+          description: Conversation unarchived successfully
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized

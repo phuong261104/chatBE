@@ -387,12 +387,14 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - password
               properties:
                 phone:
                   type: string
-                  pattern: '^[0-9]{10}$'
+                  pattern: '^[0-9]{8,15}$'
                   example: "0912345678"
-                  description: "Test: `0912345678` hoặc `0987654321`"
+                  description: "Số điện thoại đăng nhập"
                 email:
                   type: string
                   format: email
@@ -400,6 +402,8 @@ paths:
                   description: "Email đăng nhập (thay thế phone)"
                 password:
                   type: string
+                  minLength: 6
+                  maxLength: 128
                   example: "Test123456!"
                   description: "Mật khẩu"
             example:
@@ -1551,12 +1555,12 @@ paths:
                     lastActive: "2026-04-07T06:00:00Z"
                     isCurrent: false
     delete:
-      summary: "Logout from all other devices"
+      summary: "Logout from all devices"
       tags: [Auth]
       security:
         - BearerAuth: []
       description: |
-        Logout from all devices EXCEPT the current one.
+        Logout and invalidate sessions across ALL devices for the current user.
         
         ## Frontend Implementation (JavaScript)
         
@@ -1599,7 +1603,7 @@ paths:
           example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         '200':
-          description: "All other sessions deleted successfully"
+          description: "All sessions deleted successfully"
           content:
             application/json:
               schema:
@@ -1735,12 +1739,11 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - avatarUrl
               properties:
                 avatarUrl:
                   type: string
                   format: uri
+                  nullable: true
                   example: "https://example.com/uploads/avatar.jpg"
                   description: "URL của hình ảnh avatar"
             example:
