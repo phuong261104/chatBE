@@ -186,6 +186,8 @@ export class MessagingSocketService {
         return;
       }
 
+      await this.useCase.getConversationDetail(conversationId, userId);
+
       socket.join(`group:${conversationId}`);
       socket.join(`group_room:${conversationId}`);
 
@@ -476,14 +478,11 @@ export class MessagingSocketService {
 
       await this.useCase.deleteMessageForMe(messageId, userId);
 
-      const memberUserIds = await this.getMemberUserIds(message.conversationId);
-      for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "message:deleted", {
-          conversationId: message.conversationId,
-          messageId,
-          deletedBy: userId,
-        });
-      }
+      this.emitToUser(userId, "message:deleted", {
+        conversationId: message.conversationId,
+        messageId,
+        deletedBy: userId,
+      });
 
       if (callback) {
         callback({ success: true });

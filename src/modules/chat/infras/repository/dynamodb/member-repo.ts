@@ -300,6 +300,53 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     return result.Items && result.Items.length > 0 ? result.Items[0] : null;
   }
 
+  async incrementUnreadCountForConversation(
+    conversationId: string,
+    excludeUserId?: string,
+  ): Promise<void> {
+    const docClient = getDocClient();
+    const tableName = getTableName(TABLE_NAMES.CONVERSATION_MEMBERS);
+
+    const members: Record<string, any>[] = [];
+    let lastEvaluatedKey: Record<string, any> | undefined;
+
+    do {
+      const result = await docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+          ExpressionAttributeValues: {
+            ":pk": `CONV#${conversationId}`,
+            ":skPrefix": "MEM#",
+          },
+          ExclusiveStartKey: lastEvaluatedKey,
+        }),
+      );
+      if (result.Items) {
+        members.push(...result.Items.filter((item) => !item.leftAt));
+      }
+      lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+
+    const targets = excludeUserId
+      ? members.filter((m) => m.userId !== excludeUserId)
+      : members;
+
+    for (const member of targets) {
+      await docClient.send(
+        new UpdateCommand({
+          TableName: tableName,
+          Key: { pk: member.pk, sk: member.sk },
+          UpdateExpression: "ADD unreadCount :inc SET updatedAt = :now",
+          ExpressionAttributeValues: {
+            ":inc": 1,
+            ":now": new Date().toISOString(),
+          },
+        }),
+      );
+    }
+  }
+
   protected beforeInsert(data: ConversationMember): Record<string, any> {
     const now = new Date().toISOString();
     return {
@@ -356,5 +403,13 @@ export class DynamoConversationMemberRepository extends BaseRepositoryDynamoDB<
 > {
   constructor() {
     super(new DynamoConversationMemberQueryRepository(), new DynamoConversationMemberCommandRepository());
+  }
+
+  async incrementUnreadCountForConversation(
+    conversationId: string,
+    excludeUserId?: string,
+  ): Promise<void> {
+    return (this.cmdRepo as DynamoConversationMemberCommandRepository)
+      .incrementUnreadCountForConversation(conversationId, excludeUserId);
   }
 }

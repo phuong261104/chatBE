@@ -55,50 +55,8 @@ export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; 
       await this.conversationMemberCommandRepo.delete(member.id, true);
     }
 
-    const messages = await this.conversationMemberQueryRepo.listByConversationId(groupId);
-
-    const messageRepo = this.messageCommandRepo as any;
-    if (messageRepo.findPinnedMessages) {
-      const pinnedMessages = await (this.messageCommandRepo as any).findPinnedMessages(groupId);
-      for (const msg of pinnedMessages) {
-        await this.messageCommandRepo.delete(msg.id, true);
-      }
-    }
-
-    const deleteAllMessages = async () => {
-      const docClient = (await import("@share/repository/dynamodb/client")).getDocClient();
-      const { TABLE_NAMES } = await import("@share/repository/dynamodb/table-defs");
-      const { QueryCommand, DeleteCommand } = await import("@aws-sdk/lib-dynamodb");
-      const { getTableName } = await import("@share/repository/dynamodb/client");
-
-      let lastEvaluatedKey: Record<string, any> | undefined;
-      do {
-        const result = await docClient.send(
-          new QueryCommand({
-            TableName: getTableName(TABLE_NAMES.MESSAGES),
-            KeyConditionExpression: "pk = :pk",
-            ExpressionAttributeValues: {
-              ":pk": `CONV#${groupId}`,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          }),
-        );
-
-        for (const item of result.Items || []) {
-          await this.classificationRepo.deleteByMessageId(item.id);
-          await docClient.send(
-            new DeleteCommand({
-              TableName: getTableName(TABLE_NAMES.MESSAGES),
-              Key: { pk: item.pk, sk: item.sk },
-            }),
-          );
-        }
-        lastEvaluatedKey = result.LastEvaluatedKey;
-      } while (lastEvaluatedKey);
-    };
-
-    await deleteAllMessages();
-
+    await this.classificationRepo.deleteByConversationId(groupId);
+    await this.messageCommandRepo.deleteByConversationId(groupId);
     await this.conversationCommandRepo.delete(groupId, true);
   }
 }

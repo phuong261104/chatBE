@@ -71,6 +71,7 @@ export interface IConversationMemberCommandRepository {
   insert(member: ConversationMember): Promise<boolean>;
   update(id: string, data: ConversationMemberUpdateDTO): Promise<boolean>;
   delete(id: string, isHard: boolean): Promise<boolean>;
+  incrementUnreadCountForConversation(conversationId: string, excludeUserId?: string): Promise<void>;
 }
 
 export interface IMessageQueryRepository {
@@ -106,6 +107,7 @@ export interface IMessageCommandRepository {
   batchInsert(messages: Message[]): Promise<boolean>;
   update(id: string, data: MessageUpdateDTO): Promise<boolean>;
   delete(id: string, isHard: boolean): Promise<boolean>;
+  deleteByConversationId(conversationId: string): Promise<void>;
 }
 
 export interface IMessageReactionQueryRepository {
@@ -139,6 +141,7 @@ export interface IPollCommandRepository {
 export interface IMessageClassificationRepository {
   insertBatch(classifications: MessageClassification[]): Promise<void>;
   deleteByMessageId(messageId: string): Promise<void>;
+  deleteByConversationId(conversationId: string): Promise<void>;
   listByConversationAndType(
     conversationId: string,
     type: ClassificationType,

@@ -8,7 +8,7 @@ import {
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import {
   QueryCommand,
-  ScanCommand,
+  DeleteCommand,
   UpdateCommand,
   PutCommand,
   BatchWriteCommand,
@@ -207,6 +207,36 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     }
     return chunks;
   }
+
+  async deleteByConversationId(conversationId: string): Promise<void> {
+    const docClient = getDocClient();
+    const tableName = getTableName(TABLE_NAMES.MESSAGES);
+
+    let lastEvaluatedKey: Record<string, any> | undefined;
+    do {
+      const result = await docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+          ExpressionAttributeValues: {
+            ":pk": `CONV#${conversationId}`,
+            ":skPrefix": "MSG#",
+          },
+          ExclusiveStartKey: lastEvaluatedKey,
+        }),
+      );
+
+      for (const item of result.Items || []) {
+        await docClient.send(
+          new DeleteCommand({
+            TableName: tableName,
+            Key: { pk: item.pk, sk: item.sk },
+          }),
+        );
+      }
+      lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+  }
 }
 
 export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
@@ -323,5 +353,9 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
       hasMore,
       total: filteredMessages.length,
     };
+  }
+
+  async deleteByConversationId(conversationId: string): Promise<void> {
+    return this._cmdRepo.deleteByConversationId(conversationId);
   }
 }

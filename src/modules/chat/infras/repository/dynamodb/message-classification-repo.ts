@@ -159,6 +159,33 @@ export class DynamoMessageClassificationRepository {
     } while (lastEvaluatedKey);
   }
 
+  async deleteByConversationId(conversationId: string): Promise<void> {
+    let lastEvaluatedKey: Record<string, any> | undefined;
+    do {
+      const result = await this.docClient.send(
+        new QueryCommand({
+          TableName: getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS),
+          IndexName: "GSI1",
+          KeyConditionExpression: "GSI1PK = :gsi1pk",
+          ExpressionAttributeValues: {
+            ":gsi1pk": `CONV#${conversationId}`,
+          },
+          ExclusiveStartKey: lastEvaluatedKey,
+        }),
+      );
+
+      for (const item of result.Items || []) {
+        await this.docClient.send(
+          new DeleteCommand({
+            TableName: getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS),
+            Key: { pk: item.pk, sk: item.sk },
+          }),
+        );
+      }
+      lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+  }
+
   private chunkArray<T>(arr: T[], size: number): T[][] {
     const chunks: T[][] = [];
     for (let i = 0; i < arr.length; i += size) {

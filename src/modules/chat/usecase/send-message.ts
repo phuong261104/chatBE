@@ -17,6 +17,7 @@ import {
   MessageClassification,
   ClassificationType,
 } from '../model/model';
+import { SendMessageCommand } from '../model/dto';
 
 function mapMediaToDbFormat(media: MediaAttachment[]) {
   return media.map((m) => {
@@ -41,7 +42,7 @@ function extractLinks(text: string): string[] {
   return matches || [];
 }
 
-export class SendMessageHandler implements ICommandHandler<any, Message[]> {
+export class SendMessageHandler implements ICommandHandler<SendMessageCommand, Message[]> {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
@@ -50,7 +51,7 @@ export class SendMessageHandler implements ICommandHandler<any, Message[]> {
     private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
-  async execute(command: any): Promise<Message[]> {
+  async execute(command: SendMessageCommand): Promise<Message[]> {
     const { conversationId, senderId, text, media } = command;
 
     if (!conversationId) throw new Error('conversationId is required');
@@ -63,8 +64,6 @@ export class SendMessageHandler implements ICommandHandler<any, Message[]> {
       conversationId,
       userId: senderId,
     });
-
-    console.log(`[DEBUG] SendMessage: conversationId=${conversationId}, senderId=${senderId}, memberFound=${!!member}, memberStatus=${member?.status}, memberLeftAt=${member?.leftAt}`);
 
     if (!member) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this conversation'), 403);
@@ -85,7 +84,7 @@ export class SendMessageHandler implements ICommandHandler<any, Message[]> {
     const classifications: MessageClassification[] = [];
 
     if (shouldSplitByMedia) {
-      for (const m of media) {
+      for (const m of media!) {
         const isImg = m.mimetype.startsWith('image/');
         const isVideo = m.mimetype.startsWith('video/');
         const isAudio = m.mimetype.startsWith('audio/');
@@ -185,17 +184,10 @@ export class SendMessageHandler implements ICommandHandler<any, Message[]> {
       lastMessageAt: primaryMsg.createdAt,
     });
 
-    const allMembers = await this.conversationMemberQueryRepo.list(
-      { conversationId },
-      { page: 1, limit: 10 },
+    await this.conversationMemberCommandRepo.incrementUnreadCountForConversation(
+      conversationId,
+      senderId,
     );
-
-    const otherMember = allMembers.find((m) => m.userId !== senderId);
-    if (otherMember) {
-      await this.conversationMemberCommandRepo.update(otherMember.id, {
-        unreadCount: (otherMember.unreadCount || 0) + 1,
-      });
-    }
 
     return createdMessages;
   }

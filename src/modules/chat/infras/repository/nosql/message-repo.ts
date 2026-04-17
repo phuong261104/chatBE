@@ -37,6 +37,10 @@ export class MongoMessageCommandRepository extends BaseCommandRepositoryMongoose
   constructor() {
     super(MessageModel);
   }
+
+  async deleteByConversationId(_conversationId: string): Promise<void> {
+    throw new Error("MongoDB implementation not available — only DynamoDB is used");
+  }
 }
 
 export class MongoMessageRepository
@@ -178,5 +182,9 @@ export class MongoMessageRepository
       hasMore,
       total,
     };
+  }
+
+  async deleteByConversationId(_conversationId: string): Promise<void> {
+    throw new Error("MongoDB implementation not available — only DynamoDB is used");
   }
 }

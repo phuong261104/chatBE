@@ -20,6 +20,7 @@ import {
   ClassificationType,
   MessageMention,
 } from '../model/model';
+import { SendGroupMessageCommand } from '../model/dto';
 
 function mapMediaToDbFormat(media: MediaAttachment[]) {
   return media.map((m) => {
@@ -75,7 +76,7 @@ function extractMentions(text: string, members: { userId: string; displayName?: 
   return mentions;
 }
 
-export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> {
+export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessageCommand, Message[]> {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
@@ -85,7 +86,7 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
     private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
-  async execute(command: any): Promise<Message[]> {
+  async execute(command: SendGroupMessageCommand): Promise<Message[]> {
     const { conversationId, senderId, text, media } = command;
 
     if (!conversationId) throw new Error('conversationId is required');
@@ -98,8 +99,6 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
       conversationId,
       userId: senderId,
     });
-
-    console.log(`[DEBUG] SendGroupMessage: conversationId=${conversationId}, senderId=${senderId}, memberFound=${!!member}, memberStatus=${member?.status}, memberLeftAt=${member?.leftAt}`);
 
     if (!member) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this group'), 403);
@@ -127,7 +126,7 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
     const classifications: MessageClassification[] = [];
 
     if (shouldSplitByMedia) {
-      for (const m of media) {
+      for (const m of media!) {
         const isImg = m.mimetype.startsWith('image/');
         const isVideo = m.mimetype.startsWith('video/');
         const isAudio = m.mimetype.startsWith('audio/');
@@ -233,21 +232,10 @@ export class SendGroupMessageHandler implements ICommandHandler<any, Message[]> 
       lastMessageAt: primaryMsg.createdAt,
     });
 
-    const allMembers = await this.conversationMemberQueryRepo.list(
-      { conversationId },
-      { page: 1, limit: 1000 },
+    await this.conversationMemberCommandRepo.incrementUnreadCountForConversation(
+      conversationId,
+      senderId,
     );
-
-    const mentions = hasText ? extractMentions(text, allMembers) : [];
-    const mentionedUserIds = mentions.map(m => m.userId);
-
-    for (const m of allMembers) {
-      if (m.userId !== senderId) {
-        await this.conversationMemberCommandRepo.update(m.id, {
-          unreadCount: (m.unreadCount || 0) + 1,
-        });
-      }
-    }
 
     return createdMessages;
   }

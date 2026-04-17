@@ -105,6 +105,13 @@ export class MongoConversationMemberCommandRepository extends BaseCommandReposit
   constructor() {
     super(ConversationMemberModel);
   }
+
+  async incrementUnreadCountForConversation(
+    _conversationId: string,
+    _excludeUserId?: string,
+  ): Promise<void> {
+    throw new Error("MongoDB implementation not available — only DynamoDB is used");
+  }
 }
 
 export class MongoConversationMemberRepository
@@ -140,5 +147,12 @@ export class MongoConversationMemberRepository
       { page: 1, limit: 10000 }
     );
     return docs.filter(m => !m.leftAt);
+  }
+
+  async incrementUnreadCountForConversation(
+    _conversationId: string,
+    _excludeUserId?: string,
+  ): Promise<void> {
+    throw new Error("MongoDB implementation not available — only DynamoDB is used");
   }
 }
