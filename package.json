@@ -11,7 +11,7 @@
     "demo": "ts-node src/index.ts",
     "start": "nodemon src/index.ts",
     "dynamodb:init": "ts-node scripts/init-dynamodb-tables.ts",
-    "dynamodb:reset": "ts-node scripts/init-dynamodb-tables.ts --delete"
+    "dynamodb:reset": "ts-node scripts/init-dynamodb-tables.ts --reset"
   },
   "author": "",
   "license": "ISC",

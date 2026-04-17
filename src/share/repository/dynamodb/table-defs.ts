@@ -1,6 +1,7 @@
 import {
   CreateTableCommand,
   DescribeTableCommand,
+  DeleteTableCommand,
   ResourceNotFoundException,
 } from "@aws-sdk/client-dynamodb";
 import { getDynamoDBClient } from "./client";
@@ -34,6 +35,20 @@ export async function createTableIfNotExists(def: TableDefinition): Promise<void
     if (err instanceof ResourceNotFoundException) {
       await client.send(new CreateTableCommand(def as any));
       console.log(`Table ${def.TableName} created successfully.`);
+    } else {
+      throw err;
+    }
+  }
+}
+
+export async function deleteTableIfExists(def: TableDefinition): Promise<void> {
+  try {
+    await client.send(new DescribeTableCommand({ TableName: def.TableName }));
+    await client.send(new DeleteTableCommand({ TableName: def.TableName }));
+    console.log(`Table ${def.TableName} deleted.`);
+  } catch (err) {
+    if (err instanceof ResourceNotFoundException) {
+      console.log(`Table ${def.TableName} does not exist, skip delete.`);
     } else {
       throw err;
     }
@@ -167,18 +182,8 @@ export const MESSAGES_TABLE: TableDefinition = {
     { AttributeName: "pk", AttributeType: "S" },
     { AttributeName: "sk", AttributeType: "S" },
     { AttributeName: "id", AttributeType: "S" },
-    { AttributeName: "GSI1PK", AttributeType: "S" },
-    { AttributeName: "GSI1SK", AttributeType: "S" },
   ],
   GlobalSecondaryIndexes: [
-    {
-      IndexName: "GSI1",
-      KeySchema: [
-        { AttributeName: "GSI1PK", KeyType: "HASH" },
-        { AttributeName: "GSI1SK", KeyType: "RANGE" },
-      ],
-      Projection: { ProjectionType: "ALL" },
-    },
     {
       IndexName: "id-index",
       KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
@@ -227,14 +232,6 @@ export const FRIENDSHIPS_TABLE: TableDefinition = {
   AttributeDefinitions: [
     { AttributeName: "userA", AttributeType: "S" },
     { AttributeName: "userB", AttributeType: "S" },
-    { AttributeName: "id", AttributeType: "S" },
-  ],
-  GlobalSecondaryIndexes: [
-    {
-      IndexName: "id-index",
-      KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
-      Projection: { ProjectionType: "ALL" },
-    },
   ],
   BillingMode: "PAY_PER_REQUEST",
 };
@@ -271,14 +268,6 @@ export const BLOCKS_TABLE: TableDefinition = {
   AttributeDefinitions: [
     { AttributeName: "blockerId", AttributeType: "S" },
     { AttributeName: "blockedUserId", AttributeType: "S" },
-    { AttributeName: "id", AttributeType: "S" },
-  ],
-  GlobalSecondaryIndexes: [
-    {
-      IndexName: "id-index",
-      KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
-      Projection: { ProjectionType: "ALL" },
-    },
   ],
   BillingMode: "PAY_PER_REQUEST",
 };
@@ -288,18 +277,6 @@ export const POSTS_TABLE: TableDefinition = {
   KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
-    { AttributeName: "GSI1PK", AttributeType: "S" },
-    { AttributeName: "GSI1SK", AttributeType: "S" },
-  ],
-  GlobalSecondaryIndexes: [
-    {
-      IndexName: "GSI1",
-      KeySchema: [
-        { AttributeName: "GSI1PK", KeyType: "HASH" },
-        { AttributeName: "GSI1SK", KeyType: "RANGE" },
-      ],
-      Projection: { ProjectionType: "ALL" },
-    },
   ],
   BillingMode: "PAY_PER_REQUEST",
 };
@@ -335,18 +312,6 @@ export const STORIES_TABLE: TableDefinition = {
   KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
-    { AttributeName: "GSI1PK", AttributeType: "S" },
-    { AttributeName: "GSI1SK", AttributeType: "S" },
-  ],
-  GlobalSecondaryIndexes: [
-    {
-      IndexName: "GSI1",
-      KeySchema: [
-        { AttributeName: "GSI1PK", KeyType: "HASH" },
-        { AttributeName: "GSI1SK", KeyType: "RANGE" },
-      ],
-      Projection: { ProjectionType: "ALL" },
-    },
   ],
   BillingMode: "PAY_PER_REQUEST",
 };
@@ -369,14 +334,6 @@ export const CLOUD_ITEMS_TABLE: TableDefinition = {
   KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
-    { AttributeName: "userId", AttributeType: "S" },
-  ],
-  GlobalSecondaryIndexes: [
-    {
-      IndexName: "userId-index",
-      KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
-      Projection: { ProjectionType: "ALL" },
-    },
   ],
   BillingMode: "PAY_PER_REQUEST",
 };

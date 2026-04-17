@@ -9,13 +9,26 @@ function createClient(): DynamoDBClient {
   const isLocal = config.dynamodb.endpoint.includes("localhost") ||
                   config.dynamodb.endpoint.includes("127.0.0.1");
 
-  return new DynamoDBClient({
+  if (isLocal) {
+    return new DynamoDBClient({
+      region: config.dynamodb.region,
+      endpoint: config.dynamodb.endpoint,
+      credentials: { accessKeyId: "local", secretAccessKey: "local" },
+    });
+  }
+
+  const clientConfig: { region: string; credentials?: { accessKeyId: string; secretAccessKey: string } } = {
     region: config.dynamodb.region,
-    ...(isLocal ? { endpoint: config.dynamodb.endpoint } : {}),
-    credentials: isLocal
-      ? { accessKeyId: "local", secretAccessKey: "local" }
-      : undefined,
-  });
+  };
+
+  if (config.dynamodb.accessKeyId && config.dynamodb.secretAccessKey) {
+    clientConfig.credentials = {
+      accessKeyId: config.dynamodb.accessKeyId,
+      secretAccessKey: config.dynamodb.secretAccessKey,
+    };
+  }
+
+  return new DynamoDBClient(clientConfig);
 }
 
 export function getDynamoDBClient(): DynamoDBClient {

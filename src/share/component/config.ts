@@ -16,8 +16,10 @@ export const config = {
   },
   dynamodb: {
     region: process.env.DYNAMODB_REGION || "localhost",
-    endpoint: process.env.DYNAMODB_ENDPOINT || "http://localhost:8000",
-    tablePrefix: process.env.DYNAMODB_TABLE_PREFIX || "chatbe_",
+    endpoint: process.env.DYNAMODB_ENDPOINT || "",
+    tablePrefix: process.env.DYNAMODB_TABLE_PREFIX !== undefined ? process.env.DYNAMODB_TABLE_PREFIX : "",
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
   },
   redis: {
     host: process.env.REDIS_HOST || "redis://localhost:6379",
