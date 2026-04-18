@@ -85,6 +85,7 @@ export const MESSAGE_CLASSIFICATIONS_TABLE: TableDefinition = {
     { AttributeName: "sk", AttributeType: "S" },
     { AttributeName: "GSI1PK", AttributeType: "S" },
     { AttributeName: "GSI1SK", AttributeType: "S" },
+    { AttributeName: "messageId", AttributeType: "S" },
   ],
   GlobalSecondaryIndexes: [
     {
@@ -94,6 +95,11 @@ export const MESSAGE_CLASSIFICATIONS_TABLE: TableDefinition = {
         { AttributeName: "GSI1SK", KeyType: "RANGE" },
       ],
       Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "messageId-index",
+      KeySchema: [{ AttributeName: "messageId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "KEYS_ONLY" },
     },
   ],
   BillingMode: "PAY_PER_REQUEST",
@@ -134,6 +140,8 @@ export const CONVERSATIONS_TABLE: TableDefinition = {
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
     { AttributeName: "pairKey", AttributeType: "S" },
+    { AttributeName: "type", AttributeType: "S" },
+    { AttributeName: "createdBy", AttributeType: "S" },
   ],
   GlobalSecondaryIndexes: [
     {

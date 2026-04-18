@@ -25,6 +25,18 @@ class DynamoConversationQueryRepository extends BaseQueryRepositoryDynamoDB<
     super(TABLE_NAMES.CONVERSATIONS, { lastMessageAt: -1 });
   }
 
+  async get(id: string): Promise<Conversation | null> {
+    const result = await this.docClient.send(
+      new QueryCommand({
+        TableName: this.getTableName(),
+        KeyConditionExpression: "id = :id",
+        ExpressionAttributeValues: { ":id": id },
+        Limit: 1,
+      }),
+    );
+    return result.Items && result.Items.length > 0 ? this.toEntity(result.Items[0]) : null;
+  }
+
   protected toEntity(doc: Record<string, any>): Conversation {
     const { pk, sk, GSI1PK, GSI1SK, createdAt, updatedAt, lastMessageAt, ...rest } = doc;
     return {

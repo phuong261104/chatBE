@@ -58,6 +58,8 @@ export abstract class BaseQueryRepositoryDynamoDB<
     const hasAttrNames = Object.keys(attrNames).length > 0;
     const hasFilterExpr = !!filterExpr && filterExpr.length > 0;
 
+    const hasAttrValues = attrValues && Object.keys(attrValues).length > 0;
+
     let result;
     if (this.gsi) {
       result = await this.docClient.send(
@@ -67,7 +69,7 @@ export abstract class BaseQueryRepositoryDynamoDB<
           KeyConditionExpression: keyExpr,
           ...(hasFilterExpr ? { FilterExpression: filterExpr } : {}),
           ...(hasAttrNames ? { ExpressionAttributeNames: attrNames } : {}),
-          ExpressionAttributeValues: attrValues,
+          ...(hasAttrValues ? { ExpressionAttributeValues: attrValues } : {}),
           Limit: limit,
           ExclusiveStartKey: exclusiveStartKey,
           ScanIndexForward: this.defaultSort?.id !== -1,
@@ -79,7 +81,7 @@ export abstract class BaseQueryRepositoryDynamoDB<
           TableName: this.getTableName(),
           ...(hasFilterExpr ? { FilterExpression: filterExpr } : {}),
           ...(hasAttrNames ? { ExpressionAttributeNames: attrNames } : {}),
-          ExpressionAttributeValues: attrValues,
+          ...(hasAttrValues ? { ExpressionAttributeValues: attrValues } : {}),
           Limit: limit,
           ExclusiveStartKey: exclusiveStartKey,
         }),
@@ -129,8 +131,8 @@ export abstract class BaseQueryRepositoryDynamoDB<
     return undefined;
   }
 
-  protected buildAttributeValues(_cond: Cond): Record<string, any> {
-    return {};
+  protected buildAttributeValues(_cond: Cond): Record<string, any> | undefined {
+    return undefined;
   }
 
   private chunkArray<T>(arr: T[], size: number): T[][] {

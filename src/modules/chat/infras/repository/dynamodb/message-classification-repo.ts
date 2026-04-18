@@ -1,7 +1,7 @@
 import { ClassificationType, MessageClassification } from "../../../model/model";
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
-import { BatchWriteCommand, DeleteCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchWriteCommand, DeleteCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 export class DynamoMessageClassificationRepository {
   private docClient = getDocClient();
@@ -39,22 +39,40 @@ export class DynamoMessageClassificationRepository {
     };
   }
 
+  private async batchWriteWithRetry(
+    tableName: string,
+    requestItems: any[],
+    maxRetries = 3,
+  ): Promise<void> {
+    let unprocessed = { [tableName]: requestItems };
+    let attempts = 0;
+    while (unprocessed && Object.keys(unprocessed).length > 0 && attempts < maxRetries) {
+      if (attempts > 0) {
+        await new Promise((r) => setTimeout(r, 50 * Math.pow(2, attempts)));
+      }
+      const result = await this.docClient.send(
+        new BatchWriteCommand({ RequestItems: unprocessed }),
+      );
+      unprocessed = result.UnprocessedItems || {};
+      attempts++;
+    }
+    if (unprocessed && Object.keys(unprocessed).length > 0) {
+      console.warn(
+        `BatchWrite: ${Object.keys(unprocessed)[0].length} items still unprocessed after ${maxRetries} retries`,
+      );
+    }
+  }
+
   async insertBatch(classifications: MessageClassification[]): Promise<void> {
     if (classifications.length === 0) return;
 
+    const tableName = getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS);
     const chunks = this.chunkArray(classifications, 25);
     for (const chunk of chunks) {
       const requestItems = chunk.map((c) => ({
         PutRequest: { Item: this.toDbItem(c) },
       }));
-
-      await this.docClient.send(
-        new BatchWriteCommand({
-          RequestItems: {
-            [getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS)]: requestItems,
-          },
-        }),
-      );
+      await this.batchWriteWithRetry(tableName, requestItems);
     }
   }
 
@@ -134,26 +152,27 @@ export class DynamoMessageClassificationRepository {
   }
 
   async deleteByMessageId(messageId: string): Promise<void> {
+    const tableName = getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS);
     let lastEvaluatedKey: Record<string, any> | undefined;
+
     do {
       const result = await this.docClient.send(
-        new ScanCommand({
-          TableName: getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS),
-          FilterExpression: "messageId = :messageId",
-          ExpressionAttributeValues: {
-            ":messageId": messageId,
-          },
+        new QueryCommand({
+          TableName: tableName,
+          IndexName: "messageId-index",
+          KeyConditionExpression: "messageId = :messageId",
+          ExpressionAttributeValues: { ":messageId": messageId },
           ExclusiveStartKey: lastEvaluatedKey,
+          ProjectionExpression: "pk, sk",
         }),
       );
 
-      for (const item of result.Items || []) {
-        await this.docClient.send(
-          new DeleteCommand({
-            TableName: getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS),
-            Key: { pk: item.pk, sk: item.sk },
-          }),
-        );
+      const items = result.Items || [];
+      for (let i = 0; i < items.length; i += 25) {
+        const chunk = items.slice(i, i + 25).map((item) => ({
+          DeleteRequest: { Key: { pk: item.pk, sk: item.sk } },
+        }));
+        await this.batchWriteWithRetry(tableName, chunk);
       }
       lastEvaluatedKey = result.LastEvaluatedKey;
     } while (lastEvaluatedKey);
@@ -174,13 +193,12 @@ export class DynamoMessageClassificationRepository {
         }),
       );
 
-      for (const item of result.Items || []) {
-        await this.docClient.send(
-          new DeleteCommand({
-            TableName: getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS),
-            Key: { pk: item.pk, sk: item.sk },
-          }),
-        );
+      const items = result.Items || [];
+      for (let i = 0; i < items.length; i += 25) {
+        const chunk = items.slice(i, i + 25).map((item) => ({
+          DeleteRequest: { Key: { pk: item.pk, sk: item.sk } },
+        }));
+        await this.batchWriteWithRetry(getTableName(TABLE_NAMES.MESSAGE_CLASSIFICATIONS), chunk);
       }
       lastEvaluatedKey = result.LastEvaluatedKey;
     } while (lastEvaluatedKey);

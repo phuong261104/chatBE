@@ -7,6 +7,7 @@ import {
   PutCommand,
   UpdateCommand,
   DeleteCommand,
+  GetCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
@@ -18,27 +19,42 @@ export class DynamoPollQueryRepository {
   async get(id: string): Promise<Poll | null> {
     const docClient = getDocClient();
     const result = await docClient.send(
-      new QueryCommand({
+      new GetCommand({
         TableName: getTableName(TABLE_NAMES.POLLS),
-        KeyConditionExpression: "id = :id",
-        ExpressionAttributeValues: { ":id": id },
-        Limit: 1,
+        Key: { id },
       }),
     );
-    return result.Items && result.Items.length > 0 ? this.toEntity(result.Items[0]) : null;
+    return result.Item ? this.toEntity(result.Item) : null;
   }
 
-  async findByConversationId(conversationId: string): Promise<Poll[]> {
+  async findByConversationId(
+    conversationId: string,
+    cursor?: string,
+    limit: number = 20,
+  ): Promise<{ polls: Poll[]; nextCursor?: string }> {
     const docClient = getDocClient();
+    const exclusiveStartKey = cursor
+      ? JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"))
+      : undefined;
+
     const result = await docClient.send(
       new QueryCommand({
         TableName: getTableName(TABLE_NAMES.POLLS),
         IndexName: "conversation-index",
         KeyConditionExpression: "conversationId = :conversationId",
         ExpressionAttributeValues: { ":conversationId": conversationId },
+        ExclusiveStartKey: exclusiveStartKey,
+        Limit: limit,
       }),
     );
-    return (result.Items || []).map((item) => this.toEntity(item));
+
+    const polls = (result.Items || []).map((item) => this.toEntity(item));
+    let nextCursor: string | undefined;
+    if (result.LastEvaluatedKey) {
+      nextCursor = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString("base64");
+    }
+
+    return { polls, nextCursor };
   }
 
   async findActivePolls(conversationId: string): Promise<Poll[]> {
@@ -49,7 +65,11 @@ export class DynamoPollQueryRepository {
         TableName: getTableName(TABLE_NAMES.POLLS),
         IndexName: "conversation-index",
         KeyConditionExpression: "conversationId = :conversationId",
-        FilterExpression: "(attribute_type(expiresAt, NULL) OR expiresAt > :now) AND status = :status",
+        FilterExpression: "(attribute_not_exists(#expiresAt) OR #expiresAt > :now) AND #status = :status",
+        ExpressionAttributeNames: {
+          "#expiresAt": "expiresAt",
+          "#status": "status",
+        },
         ExpressionAttributeValues: {
           ":conversationId": conversationId,
           ":now": now,
@@ -94,7 +114,9 @@ export class DynamoPollCommandRepository {
     if (data.options !== undefined) updateData.options = data.options;
     if (data.isMultipleChoice !== undefined) updateData.isMultipleChoice = data.isMultipleChoice;
     if (data.allowAddOption !== undefined) updateData.allowAddOption = data.allowAddOption;
-    if (data.expiresAt !== undefined) updateData.expiresAt = data.expiresAt.toISOString();
+    if (data.expiresAt !== undefined && data.expiresAt !== null) {
+      updateData.expiresAt = data.expiresAt.toISOString();
+    }
     if (data.totalVotes !== undefined) updateData.totalVotes = data.totalVotes;
 
     await docClient.send(

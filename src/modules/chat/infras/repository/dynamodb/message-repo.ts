@@ -39,7 +39,30 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
 
   async listByConversation(conversationId: string, limit: number, cursor?: string): Promise<{ messages: Message[]; nextCursor?: string }> {
     const docClient = getDocClient();
-    const exclusiveStartKey = cursor ? JSON.parse(Buffer.from(cursor, "base64").toString("utf-8")) : undefined;
+
+    let exclusiveStartKey: Record<string, any> | undefined;
+    if (cursor) {
+      try {
+        exclusiveStartKey = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
+      } catch {
+        // Cursor is a message ID (UUID), not base64(JSON) — look it up via GSI id-index
+        const msgResult = await docClient.send(
+          new QueryCommand({
+            TableName: getTableName(TABLE_NAMES.MESSAGES),
+            IndexName: "id-index",
+            KeyConditionExpression: "id = :id",
+            ExpressionAttributeValues: { ":id": cursor },
+            Limit: 1,
+          }),
+        );
+        if (msgResult.Items && msgResult.Items.length > 0) {
+          const item = msgResult.Items[0];
+          exclusiveStartKey = { pk: item.pk, sk: item.sk };
+        } else {
+          return { messages: [], nextCursor: undefined };
+        }
+      }
+    }
 
     const result = await docClient.send(
       new QueryCommand({
@@ -175,26 +198,41 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     return updateData;
   }
 
+  private async batchWriteWithRetry(
+    tableName: string,
+    requestItems: any[],
+    maxRetries = 3,
+  ): Promise<void> {
+    let unprocessed = { [tableName]: requestItems };
+    let attempts = 0;
+    while (unprocessed && Object.keys(unprocessed).length > 0 && attempts < maxRetries) {
+      if (attempts > 0) {
+        await new Promise((r) => setTimeout(r, 50 * Math.pow(2, attempts)));
+      }
+      const result = await this.docClient.send(
+        new BatchWriteCommand({ RequestItems: unprocessed }),
+      );
+      unprocessed = result.UnprocessedItems || {};
+      attempts++;
+    }
+    if (unprocessed && Object.keys(unprocessed).length > 0) {
+      console.warn(
+        `BatchWrite: ${Object.keys(unprocessed)[0].length} items still unprocessed after ${maxRetries} retries`,
+      );
+    }
+  }
+
   async batchInsert(messages: Message[]): Promise<boolean> {
     if (messages.length === 0) return true;
 
-    const docClient = getDocClient();
     const tableName = getTableName(TABLE_NAMES.MESSAGES);
-
     const chunks = this.chunkArray(messages, 25);
 
     for (const chunk of chunks) {
       const requestItems = chunk.map((msg) => ({
         PutRequest: { Item: this.beforeInsert(msg) },
       }));
-
-      await docClient.send(
-        new BatchWriteCommand({
-          RequestItems: {
-            [tableName]: requestItems,
-          },
-        }),
-      );
+      await this.batchWriteWithRetry(tableName, requestItems);
     }
 
     return true;
@@ -226,11 +264,16 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
         }),
       );
 
-      for (const item of result.Items || []) {
+      const items = result.Items || [];
+      for (let i = 0; i < items.length; i += 25) {
+        const chunk = items.slice(i, i + 25);
         await docClient.send(
-          new DeleteCommand({
-            TableName: tableName,
-            Key: { pk: item.pk, sk: item.sk },
+          new BatchWriteCommand({
+            RequestItems: {
+              [tableName]: chunk.map((item) => ({
+                DeleteRequest: { Key: { pk: item.pk, sk: item.sk } },
+              })),
+            },
           }),
         );
       }
@@ -311,10 +354,23 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
     total: number;
   }> {
     const q = new DynamoMessageQueryRepository();
-    const allResult = await q.listByConversation(conversationId, 1000, undefined);
-    
     const lowerQuery = query.toLowerCase();
-    const filteredMessages = allResult.messages.filter((msg) => {
+
+    const allMessages: Message[] = [];
+    let lastEvaluatedKey: Record<string, any> | undefined = undefined;
+    const maxFetch = 1000;
+
+    do {
+      const result = await q.listByConversation(conversationId, maxFetch, lastEvaluatedKey
+        ? Buffer.from(JSON.stringify(lastEvaluatedKey)).toString("base64")
+        : undefined);
+      allMessages.push(...result.messages);
+      lastEvaluatedKey = result.nextCursor
+        ? JSON.parse(Buffer.from(result.nextCursor, "base64").toString("utf-8"))
+        : undefined;
+    } while (lastEvaluatedKey && allMessages.length < maxFetch);
+
+    const filteredMessages = allMessages.filter((msg) => {
       if (msg.deletedAt) return false;
       if (msg.deletedForUserIds?.includes(userId)) return false;
       if (msg.text && msg.text.toLowerCase().includes(lowerQuery)) return true;

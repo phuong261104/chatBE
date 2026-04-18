@@ -12,6 +12,7 @@ import {
 } from "@share/repository/dynamodb/repo-dynamodb";
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import {
+  BatchWriteCommand,
   GetCommand,
   QueryCommand,
   UpdateCommand,
@@ -143,11 +144,11 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
         TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
         IndexName: "userId-index",
         KeyConditionExpression: "userId = :userId",
-        FilterExpression: "attribute_not_exists(#leftAt) OR #leftAt = :null",
+        FilterExpression: "attribute_not_exists(#leftAt) OR #leftAt = :nullVal",
         ExpressionAttributeNames: { "#leftAt": "leftAt" },
         ExpressionAttributeValues: {
           ":userId": userId,
-          ":null": null,
+          ":nullVal": null,
         },
         Limit: 1000,
         ExclusiveStartKey: exclusiveStartKey,
@@ -250,15 +251,27 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
         idx++;
       }
 
-      await docClient.send(
-        new UpdateCommand({
-          TableName: this.getTableName(),
-          Key: { pk: member.pk, sk: member.sk },
-          UpdateExpression: `REMOVE leftAt SET ${updateExprParts.join(", ")}`,
-          ExpressionAttributeNames: exprAttrNames,
-          ExpressionAttributeValues: exprAttrValues,
-        }),
-      );
+      if (updateExprParts.length > 0) {
+        await docClient.send(
+          new UpdateCommand({
+            TableName: this.getTableName(),
+            Key: { pk: member.pk, sk: member.sk },
+            UpdateExpression: `REMOVE leftAt SET ${updateExprParts.join(", ")}`,
+            ExpressionAttributeNames: exprAttrNames,
+            ExpressionAttributeValues: exprAttrValues,
+          }),
+        );
+      } else {
+        await docClient.send(
+          new UpdateCommand({
+            TableName: this.getTableName(),
+            Key: { pk: member.pk, sk: member.sk },
+            UpdateExpression: "REMOVE leftAt",
+            ExpressionAttributeNames: exprAttrNames,
+            ExpressionAttributeValues: exprAttrValues,
+          }),
+        );
+      }
     } else {
       const updateExpressions: string[] = [];
       const expressionAttributeNames: Record<string, string> = {};
@@ -332,19 +345,32 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       ? members.filter((m) => m.userId !== excludeUserId)
       : members;
 
-    for (const member of targets) {
-      await docClient.send(
-        new UpdateCommand({
-          TableName: tableName,
-          Key: { pk: member.pk, sk: member.sk },
-          UpdateExpression: "ADD unreadCount :inc SET updatedAt = :now",
-          ExpressionAttributeValues: {
-            ":inc": 1,
-            ":now": new Date().toISOString(),
+    const now = new Date().toISOString();
+    const chunks = this.chunkArray(targets, 25);
+    for (const chunk of chunks) {
+      const writeRequests = chunk.map((member) => ({
+        PutRequest: {
+          Item: {
+            ...member,
+            unreadCount: (member.unreadCount || 0) + 1,
+            updatedAt: now,
           },
+        },
+      }));
+      await docClient.send(
+        new BatchWriteCommand({
+          RequestItems: { [tableName]: writeRequests },
         }),
       );
     }
+  }
+
+  private chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
   }
 
   protected beforeInsert(data: ConversationMember): Record<string, any> {
@@ -403,6 +429,10 @@ export class DynamoConversationMemberRepository extends BaseRepositoryDynamoDB<
 > {
   constructor() {
     super(new DynamoConversationMemberQueryRepository(), new DynamoConversationMemberCommandRepository());
+  }
+
+  async listByConversationId(conversationId: string): Promise<ConversationMember[]> {
+    return (this.queryRepo as DynamoConversationMemberQueryRepository).listByConversationId(conversationId);
   }
 
   async incrementUnreadCountForConversation(

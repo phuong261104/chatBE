@@ -331,8 +331,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const dissolveGroupHandler = new DissolveGroupHandler(
     conversationRepo,
-    conversationRepo,
     conversationMemberRepo,
+    conversationRepo,
     conversationMemberRepo,
     messageRepo,
     classificationRepo,

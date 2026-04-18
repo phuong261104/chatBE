@@ -27,6 +27,7 @@ export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; 
     const { groupId, requesterId } = command;
 
     const conversation = await this.conversationQueryRepo.get(groupId);
+    console.log(`[DissolveGroupHandler] groupId=${groupId}, requesterId=${requesterId}, conv=${!!conversation}, ownerId=${conversation?.ownerId}, createdBy=${conversation?.createdBy}, requesterRole=${conversation?.admins?.includes(requesterId)}`);
     if (!conversation) {
       throw AppError.from(new Error("Group not found"), 404);
     }
@@ -39,13 +40,17 @@ export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; 
       conversationId: groupId,
       userId: requesterId,
     });
+    console.log(`[DissolveGroupHandler] findByCond: member=${!!requesterMember}, leftAt=${requesterMember?.leftAt}, role=${requesterMember?.role}, admins=${JSON.stringify(conversation?.admins)}`);
 
     if (!requesterMember || requesterMember.leftAt) {
       throw AppError.from(new Error("You are not a member of this group"), 403);
     }
 
     const currentOwnerId = conversation.ownerId || conversation.createdBy;
-    if (requesterMember.userId !== currentOwnerId && requesterMember.role !== ConversationMemberRole.ADMIN) {
+    const isOwner = requesterMember.userId === currentOwnerId;
+    const isAdmin = conversation.admins?.includes(requesterId);
+    console.log(`[DissolveGroupHandler] ownerCheck: isOwner=${isOwner}, isAdmin=${isAdmin}`);
+    if (!isOwner && !isAdmin) {
       throw AppError.from(new Error("Only group owner or admin can dissolve the group"), 403);
     }
 
