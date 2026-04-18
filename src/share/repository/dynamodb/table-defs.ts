@@ -140,8 +140,6 @@ export const CONVERSATIONS_TABLE: TableDefinition = {
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
     { AttributeName: "pairKey", AttributeType: "S" },
-    { AttributeName: "type", AttributeType: "S" },
-    { AttributeName: "createdBy", AttributeType: "S" },
   ],
   GlobalSecondaryIndexes: [
     {
