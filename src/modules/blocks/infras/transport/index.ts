@@ -7,6 +7,10 @@ import {
   BlockCreateDTO,
   BlockUpdateDTO,
 } from "../../model";
+import { AppError } from "@share/app-error";
+import { BlockNotificationSocketService } from "./socket-service";
+
+export { BlockNotificationSocketService };
 
 export class BlockHTTPService extends BaseHttpService<
   Block,
@@ -14,8 +18,14 @@ export class BlockHTTPService extends BaseHttpService<
   BlockUpdateDTO,
   BlockCondDTO
 > {
+  private socketService?: BlockNotificationSocketService;
+
   constructor(readonly usecase: IBlockUseCase) {
     super(usecase);
+  }
+
+  setSocketService(socketService: BlockNotificationSocketService) {
+    this.socketService = socketService;
   }
 
   async blockUserAPI(req: Request, res: Response) {
@@ -28,12 +38,22 @@ export class BlockHTTPService extends BaseHttpService<
         blockerId,
         String(blockedUserId),
       );
+
+      if (this.socketService) {
+        this.socketService.notifyUserBlocked(String(blockedUserId), blockerId);
+      }
+
       res
         .status(200)
         .json({ data: { id: blockId, message: "User blocked successfully" } });
     } catch (error) {
+      const err = error as Error;
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
       res.status(400).json({
-        message: (error as Error).message,
+        message: err.message,
       });
     }
   }
@@ -45,11 +65,19 @@ export class BlockHTTPService extends BaseHttpService<
       const { blockedUserId } = req.params;
 
       await this.usecase.unblockUser(blockerId, String(blockedUserId));
+
+      if (this.socketService) {
+        this.socketService.notifyUserUnblocked(String(blockedUserId), blockerId);
+      }
+
       res.status(204).send();
     } catch (error) {
       const err = error as Error;
-      const statusCode = err.message.includes("not found") ? 404 : 400;
-      res.status(statusCode).json({
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
+      res.status(400).json({
         message: err.message,
       });
     }
@@ -78,8 +106,13 @@ export class BlockHTTPService extends BaseHttpService<
         },
       });
     } catch (error) {
+      const err = error as Error;
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
       res.status(400).json({
-        message: (error as Error).message,
+        message: err.message,
       });
     }
   }
@@ -96,8 +129,13 @@ export class BlockHTTPService extends BaseHttpService<
       );
       res.status(200).json({ data: { isBlocked } });
     } catch (error) {
+      const err = error as Error;
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
       res.status(400).json({
-        message: (error as Error).message,
+        message: err.message,
       });
     }
   }

@@ -1,6 +1,5 @@
 import { ServiceContext } from '@share/interface/service-context';
 import { Router } from 'express';
-import { Sequelize } from 'sequelize';
 import { FriendshipHTTPService } from './infras';
 import { FriendshipUseCase } from './usecase';
 import { MongoFriendshipRepository } from './infras/repository/nosql/mongodb-repo';
@@ -40,6 +39,8 @@ export const setupFriendshipHexagon = (sctx: ServiceContext, socketService?: Fri
   const mdlFactory = sctx.mdlFactory;
 
   router.get('/friendships', mdlFactory.auth, httpService.getFriendsListAPI.bind(httpService));
+  router.get('/friendships/count', mdlFactory.auth, httpService.countFriendsAPI.bind(httpService));
+  router.get('/friendships/search', mdlFactory.auth, httpService.searchFriendsAPI.bind(httpService));
   router.delete('/friendships/:friendId', mdlFactory.auth, httpService.unfriendAPI.bind(httpService));
   router.get('/friendships/:friendId/check', mdlFactory.auth, httpService.checkFriendshipAPI.bind(httpService));
   router.get('/users/:id/mutual-friends', mdlFactory.auth, httpService.getMutualFriendsAPI.bind(httpService));

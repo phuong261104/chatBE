@@ -55,7 +55,14 @@ export class FriendRequestUseCase implements IFriendRequestUseCase {
       throw AppError.from(ErrFriendRequestSelfRequest, 400);
     }
 
-    const toUser = await this.userRepository.get(toUserId);
+    const [fromUser, toUser] = await Promise.all([
+      this.userRepository.get(fromUserId),
+      this.userRepository.get(toUserId),
+    ]);
+
+    if (!fromUser) {
+      throw AppError.from(new Error('Sender user does not exist'), 404);
+    }
     if (!toUser) {
       throw AppError.from(new Error('Target user does not exist'), 404);
     }
@@ -326,12 +333,38 @@ export class FriendRequestUseCase implements IFriendRequestUseCase {
     );
   }
 
+  async getFriendRequestsCount(userId: string): Promise<{ received: number; sent: number }> {
+    const [received, sent] = await Promise.all([
+      this.repository.list(
+        { toUserId: userId, status: FriendRequestStatus.PENDING },
+        { page: 1, limit: 1000 }
+      ),
+      this.repository.list(
+        { fromUserId: userId, status: FriendRequestStatus.PENDING },
+        { page: 1, limit: 1000 }
+      ),
+    ]);
+    return { received: received.length, sent: sent.length };
+  }
+
   async checkFriendRequestStatus(
     currentUserId: string,
     targetUserId: string,
   ): Promise<{ status: string; requestId?: string; direction?: string }> {
     if (currentUserId === targetUserId) {
       return { status: "SELF" };
+    }
+
+    const [blockExists, reverseBlockExists] = await Promise.all([
+      this.blockRepository.findByCond({ blockerId: currentUserId, blockedUserId: targetUserId }),
+      this.blockRepository.findByCond({ blockerId: targetUserId, blockedUserId: currentUserId }),
+    ]);
+
+    if (blockExists) {
+      return { status: "BLOCKED", direction: "BLOCKING" };
+    }
+    if (reverseBlockExists) {
+      return { status: "BLOCKED", direction: "BLOCKED_BY" };
     }
 
     const [userA, userB] = [currentUserId, targetUserId].sort();

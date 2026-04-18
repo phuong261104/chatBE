@@ -8,4 +8,6 @@ export interface IFriendshipUseCase extends IUseCase<FriendshipCreateDTO, never,
   unfriend(userId: string, friendId: string): Promise<boolean>;
   getMutualFriends(userId: string, targetUserId: string, limit?: number): Promise<MutualFriendDTO[]>;
   getFriendSuggestions(userId: string, limit?: number): Promise<FriendSuggestionDTO[]>;
+  getFriendsCount(userId: string): Promise<number>;
+  searchFriends(userId: string, query: string, cursor?: string, limit?: number): Promise<{ items: any[]; nextCursor: string; hasMore: boolean }>;
 }

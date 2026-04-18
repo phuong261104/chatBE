@@ -232,6 +232,25 @@ export const FRIENDSHIPS_TABLE: TableDefinition = {
   AttributeDefinitions: [
     { AttributeName: "userA", AttributeType: "S" },
     { AttributeName: "userB", AttributeType: "S" },
+    { AttributeName: "createdAt", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "userA-createdAt-index",
+      KeySchema: [
+        { AttributeName: "userA", KeyType: "HASH" },
+        { AttributeName: "createdAt", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "userB-index",
+      KeySchema: [
+        { AttributeName: "userB", KeyType: "HASH" },
+        { AttributeName: "createdAt", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
   ],
   BillingMode: "PAY_PER_REQUEST",
 };
@@ -243,6 +262,7 @@ export const FRIEND_REQUESTS_TABLE: TableDefinition = {
     { AttributeName: "id", AttributeType: "S" },
     { AttributeName: "senderId", AttributeType: "S" },
     { AttributeName: "receiverId", AttributeType: "S" },
+    { AttributeName: "createdAt", AttributeType: "S" },
   ],
   GlobalSecondaryIndexes: [
     {
@@ -253,6 +273,22 @@ export const FRIEND_REQUESTS_TABLE: TableDefinition = {
     {
       IndexName: "receiverId-index",
       KeySchema: [{ AttributeName: "receiverId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "senderId-createdAt-index",
+      KeySchema: [
+        { AttributeName: "senderId", KeyType: "HASH" },
+        { AttributeName: "createdAt", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "receiverId-createdAt-index",
+      KeySchema: [
+        { AttributeName: "receiverId", KeyType: "HASH" },
+        { AttributeName: "createdAt", KeyType: "RANGE" },
+      ],
       Projection: { ProjectionType: "ALL" },
     },
   ],
@@ -268,6 +304,17 @@ export const BLOCKS_TABLE: TableDefinition = {
   AttributeDefinitions: [
     { AttributeName: "blockerId", AttributeType: "S" },
     { AttributeName: "blockedUserId", AttributeType: "S" },
+    { AttributeName: "createdAt", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "blockerId-createdAt-index",
+      KeySchema: [
+        { AttributeName: "blockerId", KeyType: "HASH" },
+        { AttributeName: "createdAt", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
   ],
   BillingMode: "PAY_PER_REQUEST",
 };

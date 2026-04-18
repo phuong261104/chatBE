@@ -89,25 +89,64 @@ class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<Block, Bloc
   }
 
   async findAllByCond(cond: BlockCondDTO): Promise<Block[]> {
+    return this.findAllByCondWithCursor(cond, undefined, undefined).then(r => r.items);
+  }
+
+  async findAllByCondWithCursor(
+    cond: BlockCondDTO,
+    cursor: string | undefined,
+    limit: number | undefined,
+  ): Promise<{ items: Block[]; nextCursor: string; hasMore: boolean }> {
     const docClient = getDocClient();
+    const pageLimit = (limit || 20) + 1;
+
     if (cond.blockerId) {
+      let exclusiveStartKey: Record<string, any> | undefined;
+      if (cursor) {
+        exclusiveStartKey = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
+      }
       const result = await docClient.send(
         new QueryCommand({
           TableName: getTableName(TABLE_NAMES.BLOCKS),
+          IndexName: "blockerId-createdAt-index",
           KeyConditionExpression: "blockerId = :blockerId",
           ExpressionAttributeValues: { ":blockerId": cond.blockerId },
+          Limit: pageLimit,
+          ExclusiveStartKey: exclusiveStartKey,
+          ScanIndexForward: false,
         }),
       );
-      return (result.Items || []).map((item) => this.toEntity(item));
+      const items = (result.Items || []).map((item) => this.toEntity(item));
+      const hasMore = items.length > (limit || 20);
+      const returnItems = hasMore ? items.slice(0, limit || 20) : items;
+      let nextCursor = "";
+      if (hasMore && result.LastEvaluatedKey) {
+        nextCursor = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString("base64");
+      }
+      return { items: returnItems, nextCursor, hasMore };
+    }
+
+    let exclusiveStartKey: Record<string, any> | undefined;
+    if (cursor) {
+      exclusiveStartKey = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
     }
     const result = await docClient.send(
       new ScanCommand({
         TableName: getTableName(TABLE_NAMES.BLOCKS),
         FilterExpression: cond.blockedUserId ? "blockedUserId = :blockedUserId" : undefined,
         ExpressionAttributeValues: cond.blockedUserId ? { ":blockedUserId": cond.blockedUserId } : {},
+        Limit: pageLimit,
+        ExclusiveStartKey: exclusiveStartKey,
       }),
     );
-    return (result.Items || []).map((item) => this.toEntity(item));
+    const items = (result.Items || []).map((item) => this.toEntity(item));
+    const hasMore = items.length > (limit || 20);
+    const returnItems = hasMore ? items.slice(0, limit || 20) : items;
+    let nextCursor = "";
+    if (hasMore && result.LastEvaluatedKey) {
+      nextCursor = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString("base64");
+    }
+    return { items: returnItems, nextCursor, hasMore };
   }
 }
 
@@ -166,5 +205,13 @@ export class DynamoBlockRepository extends BaseRepositoryDynamoDB<
 
   async findAllByCond(cond: BlockCondDTO): Promise<Block[]> {
     return (this.queryRepo as DynamoBlockQueryRepository).findAllByCond(cond);
+  }
+
+  async findAllByCondWithCursor(
+    cond: BlockCondDTO,
+    cursor: string | undefined,
+    limit: number | undefined,
+  ) {
+    return (this.queryRepo as DynamoBlockQueryRepository).findAllByCondWithCursor(cond, cursor, limit);
   }
 }

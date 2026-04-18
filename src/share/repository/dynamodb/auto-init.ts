@@ -1,4 +1,144 @@
-import { createTableIfNotExists, ALL_TABLES } from "./table-defs";
+import {
+  createTableIfNotExists,
+  ALL_TABLES,
+  TableDefinition,
+} from "./table-defs";
+import {
+  DescribeTableCommand,
+  UpdateTableCommand,
+  ResourceNotFoundException,
+  IndexStatus,
+} from "@aws-sdk/client-dynamodb";
+import { getDynamoDBClient } from "./client";
+
+const client = getDynamoDBClient();
+
+async function waitForIndexActive(
+  tableName: string,
+  indexName: string,
+  maxWaitMs = 60000,
+): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const result = await client.send(
+      new DescribeTableCommand({ TableName: tableName }),
+    );
+    const gsi = result.Table?.GlobalSecondaryIndexes?.find(
+      (g) => g.IndexName === indexName,
+    );
+    if (!gsi) {
+      throw new Error(`GSI ${indexName} not found on table ${tableName}`);
+    }
+    if (gsi.IndexStatus === IndexStatus.ACTIVE) {
+      return;
+    }
+    if (gsi.IndexStatus === IndexStatus.DELETING || gsi.IndexStatus === IndexStatus.CREATING) {
+      await new Promise((r) => setTimeout(r, 3000));
+      continue;
+    }
+    break;
+  }
+  throw new Error(
+    `Timeout waiting for GSI ${indexName} on table ${tableName} to become ACTIVE`,
+  );
+}
+
+async function addMissingGSIsSequentially(
+  def: TableDefinition,
+): Promise<void> {
+  if (!def.GlobalSecondaryIndexes || def.GlobalSecondaryIndexes.length === 0) {
+    return;
+  }
+
+  try {
+    const describeResult = await client.send(
+      new DescribeTableCommand({ TableName: def.TableName }),
+    );
+    const existingGSIs = new Set(
+      (describeResult.Table?.GlobalSecondaryIndexes || []).map(
+        (gsi) => gsi.IndexName,
+      ),
+    );
+    const existingAttrs = new Set(
+      (describeResult.Table?.AttributeDefinitions || []).map(
+        (a) => a.AttributeName,
+      ),
+    );
+
+    for (const gsiDef of def.GlobalSecondaryIndexes) {
+      if (existingGSIs.has(gsiDef.IndexName)) {
+        console.log(
+          `GSI ${gsiDef.IndexName} already exists on table ${def.TableName}.`,
+        );
+        continue;
+      }
+
+      const neededAttrs = gsiDef.KeySchema.map((k) => k.AttributeName);
+      const newAttrs = neededAttrs.filter((a) => !existingAttrs.has(a));
+      const attrDefs = [
+        ...(describeResult.Table?.AttributeDefinitions || []),
+        ...newAttrs.map((name) => {
+          const attr = def.AttributeDefinitions.find(
+            (a) => a.AttributeName === name,
+          );
+          return (
+            attr || { AttributeName: name, AttributeType: "S" as const }
+          );
+        }),
+      ];
+
+      const billingMode = (describeResult.Table as any)?.BillingMode || "PAY_PER_REQUEST";
+      const isOnDemand = billingMode === "PAY_PER_REQUEST";
+
+      const gsiCreate: any = {
+        IndexName: gsiDef.IndexName,
+        KeySchema: gsiDef.KeySchema,
+        Projection: gsiDef.Projection,
+      };
+
+      if (!isOnDemand && gsiDef.ProvisionedThroughput) {
+        gsiCreate.ProvisionedThroughput = gsiDef.ProvisionedThroughput;
+      }
+
+      await client.send(
+        new UpdateTableCommand({
+          TableName: def.TableName,
+          AttributeDefinitions: attrDefs as any,
+          GlobalSecondaryIndexUpdates: [
+            {
+              Create: gsiCreate,
+            },
+          ],
+        }),
+      );
+
+      console.log(
+        `GSI ${gsiDef.IndexName} creation started on table ${def.TableName}. Waiting for ACTIVE...`,
+      );
+
+      try {
+        await waitForIndexActive(def.TableName, gsiDef.IndexName);
+        console.log(
+          `GSI ${gsiDef.IndexName} is now ACTIVE on table ${def.TableName}.`,
+        );
+      } catch (waitErr) {
+        console.error(
+          `Warning: Could not confirm GSI ${gsiDef.IndexName} status: ${(waitErr as Error).message}`,
+        );
+      }
+
+      // Refresh existing attributes after creating new ones
+      for (const attr of newAttrs) existingAttrs.add(attr);
+    }
+  } catch (err) {
+    if (err instanceof ResourceNotFoundException) {
+      return;
+    }
+    console.error(
+      `Failed to add GSIs to table ${def.TableName}: ${(err as Error).message}`,
+    );
+  }
+}
 
 export async function initDynamoDBTables(): Promise<void> {
   console.log("Initializing DynamoDB tables...");
@@ -6,8 +146,9 @@ export async function initDynamoDBTables(): Promise<void> {
   for (const tableDef of ALL_TABLES) {
     try {
       await createTableIfNotExists(tableDef);
+      await addMissingGSIsSequentially(tableDef);
     } catch (error) {
-      console.error(`Failed to create table ${tableDef.TableName}:`, error);
+      console.error(`Failed to initialize table ${tableDef.TableName}:`, error);
     }
   }
 

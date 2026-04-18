@@ -9,6 +9,8 @@ import {
   FriendRequestUpdateDTO,
 } from "../../model";
 import { FriendNotificationSocketService } from "./socket-service";
+import { AppError } from "@share/app-error";
+import { checkRateLimit } from "@share/utils/rate-limiter";
 
 export { FriendNotificationSocketService };
 
@@ -33,6 +35,26 @@ export class FriendRequestHTTPService extends BaseHttpService<
       const requester = res.locals["requester"];
       const fromUserId = requester.sub;
       const { receiverId } = req.params;
+
+      const rateLimit = await checkRateLimit(
+        `friendrequest:${fromUserId}`,
+        10,
+        60,
+      );
+
+      if (!rateLimit.allowed) {
+        res.set("Retry-After", rateLimit.resetIn.toString());
+        res.set("X-RateLimit-Remaining", "0");
+        res.set("X-RateLimit-Limit", "10");
+        res.status(429).json({
+          message: "Too many friend requests. Please try again later.",
+          retryAfter: rateLimit.resetIn,
+        });
+        return;
+      }
+
+      res.set("X-RateLimit-Remaining", rateLimit.remaining.toString());
+      res.set("X-RateLimit-Limit", "10");
 
       const requestId = await this.usecase.sendFriendRequest(
         fromUserId,
@@ -125,14 +147,19 @@ export class FriendRequestHTTPService extends BaseHttpService<
         }
       }
 
+      if (status === FriendRequestStatus.PENDING) {
+        res.status(422).json({ message: "Cannot set status to pending" });
+        return;
+      }
+
       res.status(200).json({ data: { id: requestId, status } });
     } catch (error) {
       const err = error as Error;
-      let statusCode = 400;
-      if (err.message.toLowerCase().includes("not found")) statusCode = 404;
-      if (err.message.includes("Unauthorized")) statusCode = 403;
-
-      res.status(statusCode).json({
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
+      res.status(400).json({
         message: err.message,
       });
     }
@@ -164,13 +191,11 @@ export class FriendRequestHTTPService extends BaseHttpService<
       res.status(204).send();
     } catch (error) {
       const err = error as Error;
-      let statusCode = 400;
-      if (err.message.toLowerCase().includes("not found")) statusCode = 404;
-      if (err.message.includes("Unauthorized")) statusCode = 403;
-
-      res.status(statusCode).json({
-        message: err.message,
-      });
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
+      res.status(400).json({ message: err.message });
     }
   }
 
@@ -197,9 +222,12 @@ export class FriendRequestHTTPService extends BaseHttpService<
         },
       });
     } catch (error) {
-      res.status(400).json({
-        message: (error as Error).message,
-      });
+      const err = error as Error;
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
+      res.status(400).json({ message: err.message });
     }
   }
 
@@ -226,9 +254,12 @@ export class FriendRequestHTTPService extends BaseHttpService<
         },
       });
     } catch (error) {
-      res.status(400).json({
-        message: (error as Error).message,
-      });
+      const err = error as Error;
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
+      res.status(400).json({ message: err.message });
     }
   }
 
@@ -243,11 +274,46 @@ export class FriendRequestHTTPService extends BaseHttpService<
         String(targetUserId),
       );
 
+      if (result.status === "BLOCKED" && this.socketService) {
+        this.socketService.notifyBlockDetected(
+          currentUserId,
+          result.direction as "BLOCKING" | "BLOCKED_BY",
+          result.direction === "BLOCKING" ? String(targetUserId) : undefined,
+          result.direction === "BLOCKED_BY" ? String(targetUserId) : undefined,
+        );
+      }
+
       res.status(200).json({ data: result });
     } catch (error) {
-      res.status(400).json({
-        message: (error as Error).message,
+      const err = error as Error;
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
+      res.status(400).json({ message: err.message });
+    }
+  }
+
+  async getFriendRequestsCountAPI(req: Request, res: Response) {
+    try {
+      const requester = res.locals["requester"];
+      const userId = requester.sub;
+
+      const counts = await this.usecase.getFriendRequestsCount(userId);
+
+      res.status(200).json({
+        data: {
+          received: counts.received ?? 0,
+          sent: counts.sent ?? 0,
+        },
       });
+    } catch (error) {
+      const err = error as Error;
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
+      res.status(400).json({ message: err.message });
     }
   }
 }

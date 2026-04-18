@@ -3,6 +3,7 @@ import { BaseHttpService } from "@share/transport/http-server";
 import { Request, Response } from "express";
 import { Friendship, FriendshipCondDTO, FriendshipCreateDTO, FriendshipUpdateDTO, GetFriendsListQuerySchema } from "../../model";
 import { FriendNotificationSocketService } from "@modules/friend-requests/infras/transport/socket-service";
+import { AppError } from "@share/app-error";
 
 export class FriendshipHTTPService extends BaseHttpService<
   Friendship,
@@ -18,6 +19,14 @@ export class FriendshipHTTPService extends BaseHttpService<
 
   setSocketService(socketService: FriendNotificationSocketService) {
     this.socketService = socketService;
+  }
+
+  private handleError(error: unknown, res: Response): void {
+    if (error instanceof AppError) {
+      res.status(error.getStatusCode()).json({ message: error.message });
+      return;
+    }
+    res.status(400).json({ message: (error as Error).message });
   }
 
   async getFriendsListAPI(req: Request, res: Response) {
@@ -45,9 +54,7 @@ export class FriendshipHTTPService extends BaseHttpService<
         },
       });
     } catch (error) {
-      res.status(400).json({
-        message: (error as Error).message,
-      });
+      this.handleError(error, res);
     }
   }
 
@@ -59,7 +66,6 @@ export class FriendshipHTTPService extends BaseHttpService<
 
       await this.usecase.unfriend(userId, String(friendId));
 
-      // Emit socket event để thông báo cho người kia bị unfriend
       if (this.socketService) {
         this.socketService.notifyUnfriended(String(friendId), {
           unfriendedBy: userId,
@@ -69,11 +75,7 @@ export class FriendshipHTTPService extends BaseHttpService<
 
       res.status(204).send();
     } catch (error) {
-      const err = error as Error;
-      const statusCode = err.message.includes("not found") ? 404 : 400;
-      res.status(statusCode).json({
-        message: err.message,
-      });
+      this.handleError(error, res);
     }
   }
 
@@ -86,9 +88,7 @@ export class FriendshipHTTPService extends BaseHttpService<
       const isFriend = await this.usecase.areFriends(userId, String(friendId));
       res.status(200).json({ data: { isFriend } });
     } catch (error) {
-      res.status(400).json({
-        message: (error as Error).message,
-      });
+      this.handleError(error, res);
     }
   }
 
@@ -108,11 +108,7 @@ export class FriendshipHTTPService extends BaseHttpService<
         },
       });
     } catch (error) {
-      const err = error as Error;
-      const statusCode = err.message.includes("not found") ? 404 : 400;
-      res.status(statusCode).json({
-        message: err.message,
-      });
+      this.handleError(error, res);
     }
   }
 
@@ -131,9 +127,40 @@ export class FriendshipHTTPService extends BaseHttpService<
         },
       });
     } catch (error) {
-      res.status(400).json({
-        message: (error as Error).message,
-      });
+      this.handleError(error, res);
+    }
+  }
+
+  async countFriendsAPI(req: Request, res: Response) {
+    try {
+      const requester = res.locals["requester"];
+      const userId = requester.sub;
+
+      const count = await this.usecase.getFriendsCount(userId);
+
+      res.status(200).json({ data: { count } });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async searchFriendsAPI(req: Request, res: Response) {
+    try {
+      const requester = res.locals["requester"];
+      const userId = requester.sub;
+      const q = (req.query.q as string) || "";
+      const cursor = req.query.cursor as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      if (!q.trim()) {
+        return res.status(400).json({ message: "Query parameter 'q' is required" });
+      }
+
+      const result = await this.usecase.searchFriends(userId, q, cursor, limit);
+
+      res.status(200).json({ data: result });
+    } catch (error) {
+      this.handleError(error, res);
     }
   }
 }

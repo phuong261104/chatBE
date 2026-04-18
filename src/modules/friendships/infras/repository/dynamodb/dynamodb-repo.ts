@@ -6,7 +6,12 @@ import {
   BaseRepositoryDynamoDB,
 } from "@share/repository/dynamodb/repo-dynamodb";
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
-import { PutCommand, QueryCommand, DeleteCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  PutCommand,
+  QueryCommand,
+  DeleteCommand,
+  UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
 class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
@@ -38,12 +43,8 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
   }
 
   protected buildKeyCondition(_cond: FriendshipCondDTO): string | undefined {
-    if (_cond.userA) {
-      return "userA = :userA";
-    }
-    if (_cond.userB) {
-      return "userB = :userB";
-    }
+    if (_cond.userA) return "userA = :userA";
+    if (_cond.userB) return "userB = :userB";
     return undefined;
   }
 
@@ -74,7 +75,10 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
           KeyConditionExpression: "userA = :userId",
           FilterExpression: "#status = :active",
           ExpressionAttributeNames: { "#status": "status" },
-          ExpressionAttributeValues: { ":userId": userId, ":active": FriendshipStatus.ACTIVE },
+          ExpressionAttributeValues: {
+            ":userId": userId,
+            ":active": FriendshipStatus.ACTIVE,
+          },
         }),
       ),
       docClient.send(
@@ -84,7 +88,10 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
           KeyConditionExpression: "userB = :userId",
           FilterExpression: "#status = :active",
           ExpressionAttributeNames: { "#status": "status" },
-          ExpressionAttributeValues: { ":userId": userId, ":active": FriendshipStatus.ACTIVE },
+          ExpressionAttributeValues: {
+            ":userId": userId,
+            ":active": FriendshipStatus.ACTIVE,
+          },
         }),
       ),
     ]);
@@ -109,15 +116,33 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
   ): Promise<{ friendships: Friendship[]; nextCursor: string; hasMore: boolean }> {
     const docClient = getDocClient();
     const tableName = getTableName(TABLE_NAMES.FRIENDSHIPS);
+    const scanForward = sortBy !== "newest";
+    const limitWithExtra = limit + 1;
+
+    let exclusiveStartKey1: Record<string, any> | undefined;
+    let exclusiveStartKey2: Record<string, any> | undefined;
+
+    if (cursor) {
+      const decoded = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
+      exclusiveStartKey1 = decoded.key1;
+      exclusiveStartKey2 = decoded.key2;
+    }
 
     const [result1, result2] = await Promise.all([
       docClient.send(
         new QueryCommand({
           TableName: tableName,
+          IndexName: "userA-createdAt-index",
           KeyConditionExpression: "userA = :userId",
           FilterExpression: "#status = :active",
           ExpressionAttributeNames: { "#status": "status" },
-          ExpressionAttributeValues: { ":userId": userId, ":active": FriendshipStatus.ACTIVE },
+          ExpressionAttributeValues: {
+            ":userId": userId,
+            ":active": FriendshipStatus.ACTIVE,
+          },
+          Limit: limitWithExtra,
+          ExclusiveStartKey: exclusiveStartKey1,
+          ScanIndexForward: scanForward,
         }),
       ),
       docClient.send(
@@ -127,7 +152,13 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
           KeyConditionExpression: "userB = :userId",
           FilterExpression: "#status = :active",
           ExpressionAttributeNames: { "#status": "status" },
-          ExpressionAttributeValues: { ":userId": userId, ":active": FriendshipStatus.ACTIVE },
+          ExpressionAttributeValues: {
+            ":userId": userId,
+            ":active": FriendshipStatus.ACTIVE,
+          },
+          Limit: limitWithExtra,
+          ExclusiveStartKey: exclusiveStartKey2,
+          ScanIndexForward: scanForward,
         }),
       ),
     ]);
@@ -147,25 +178,18 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
       return sortBy === "newest" ? timeB - timeA : timeA - timeB;
     });
 
-    let startIndex = 0;
-    if (cursor) {
-      const decoded = Buffer.from(cursor, "base64").toString("utf-8");
-      const [cursorId, cursorCreatedAt] = decoded.split("|");
-      const cursorTime = new Date(cursorCreatedAt).getTime();
-      const idx = allItems.findIndex(
-        (item) => item.id === cursorId && item.createdAt === cursorCreatedAt,
-      );
-      startIndex = idx >= 0 ? idx + 1 : 0;
-    }
-
-    const pageItems = allItems.slice(startIndex, startIndex + limit + 1);
+    const pageItems = allItems.slice(0, limit + 1);
     const hasMore = pageItems.length > limit;
     const returnItems = hasMore ? pageItems.slice(0, limit) : pageItems;
 
     let nextCursor = "";
-    if (hasMore && returnItems.length > 0) {
-      const last = returnItems[returnItems.length - 1];
-      nextCursor = Buffer.from(`${last.id}|${last.createdAt}`).toString("base64");
+    if (hasMore) {
+      nextCursor = Buffer.from(
+        JSON.stringify({
+          key1: result1.LastEvaluatedKey,
+          key2: result2.LastEvaluatedKey,
+        }),
+      ).toString("base64");
     }
 
     return {
@@ -181,7 +205,10 @@ class DynamoFriendshipQueryRepository extends BaseQueryRepositoryDynamoDB<
   }
 
   async getMutualFriendIds(userId1: string, userId2: string): Promise<string[]> {
-    const [friends1, friends2] = await Promise.all([this.getFriendIds(userId1), this.getFriendIds(userId2)]);
+    const [friends1, friends2] = await Promise.all([
+      this.getFriendIds(userId1),
+      this.getFriendIds(userId2),
+    ]);
     const set2 = new Set(friends2);
     return friends1.filter((id) => set2.has(id));
   }
@@ -198,14 +225,14 @@ class DynamoFriendshipCommandRepository extends BaseCommandRepositoryDynamoDB<
 
   protected beforeInsert(data: Friendship): Record<string, any> {
     const d = data as any;
-    const now = new Date().toISOString();
+    const now = d.createdAt ? new Date(d.createdAt).toISOString() : new Date().toISOString();
     const [userA, userB] = [d.userA, d.userB].sort();
     return {
       id: d.id,
       userA,
       userB,
       status: d.status || FriendshipStatus.ACTIVE,
-      createdAt: d.createdAt ? d.createdAt.toISOString() : now,
+      createdAt: now,
     };
   }
 
@@ -257,7 +284,10 @@ export class DynamoFriendshipRepository extends BaseRepositoryDynamoDB<
   typeof TABLE_NAMES.FRIENDSHIPS
 > {
   constructor() {
-    super(new DynamoFriendshipQueryRepository(), new DynamoFriendshipCommandRepository());
+    super(
+      new DynamoFriendshipQueryRepository(),
+      new DynamoFriendshipCommandRepository(),
+    );
   }
 
   async findFriendshipsWithCursor(
@@ -287,6 +317,12 @@ export class DynamoFriendshipRepository extends BaseRepositoryDynamoDB<
   }
 
   async deleteByCondition(cond: FriendshipCondDTO): Promise<boolean> {
+    if (cond.userA && cond.userB) {
+      return (this.cmdRepo as DynamoFriendshipCommandRepository).softDeleteFriendship(
+        cond.userA,
+        cond.userB,
+      );
+    }
     return false;
   }
 

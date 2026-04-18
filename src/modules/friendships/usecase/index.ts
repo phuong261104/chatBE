@@ -72,8 +72,8 @@ export class FriendshipUseCase implements IFriendshipUseCase {
       .filter((r: any) => r.status === FriendRequestStatus.PENDING && (r.fromUserId === friendId || r.toUserId === friendId))
       .map((r: any) => r.id);
 
-    for (const id of pendingIds) {
-      await this.friendRequestRepository.delete(id, true);
+    if (pendingIds.length > 0) {
+      await Promise.allSettled(pendingIds.map(id => this.friendRequestRepository.delete(id, true)));
     }
 
     return true;
@@ -193,24 +193,99 @@ export class FriendshipUseCase implements IFriendshipUseCase {
     const sortedByMutual = Array.from(friendOfFriendsMap.entries())
       .sort((a, b) => b[1].size - a[1].size);
 
-    for (const [suggestedUserId, mutualFriendIds] of sortedByMutual) {
-      if (processedUserIds.has(suggestedUserId) || suggestions.length >= limit) {
-        continue;
+    const topSuggestions = sortedByMutual
+      .filter(([suggestedUserId]) => !processedUserIds.has(suggestedUserId))
+      .slice(0, limit);
+
+    if (topSuggestions.length > 0) {
+      const suggestionIds = topSuggestions.map(([id]) => id);
+      const usersMap = new Map<string, any>();
+      const users = await this.userRepository.listByIds(suggestionIds);
+      for (const u of users) {
+        usersMap.set(u.id, u);
       }
 
-      const user = await this.userRepository.get(suggestedUserId);
-      if (!user) continue;
-
-      processedUserIds.add(suggestedUserId);
-      suggestions.push({
-        id: user.id,
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl,
-        mutualFriendsCount: mutualFriendIds.size,
-        mutualFriendIds: Array.from(mutualFriendIds)
-      });
+      for (const [suggestedUserId, mutualFriendIds] of topSuggestions) {
+        const user = usersMap.get(suggestedUserId);
+        if (!user) continue;
+        processedUserIds.add(suggestedUserId);
+        suggestions.push({
+          id: user.id,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+          mutualFriendsCount: mutualFriendIds.size,
+          mutualFriendIds: Array.from(mutualFriendIds),
+        });
+      }
     }
 
     return suggestions;
+  }
+
+  async getFriendsCount(userId: string): Promise<number> {
+    const friendIds = await this.repository.getFriendIds(userId);
+    return friendIds.length;
+  }
+
+  async searchFriends(userId: string, query: string, cursor?: string, limit?: number): Promise<{ items: any[]; nextCursor: string; hasMore: boolean }> {
+    const pageLimit = Math.min(limit || 20, 50);
+    const searchLower = query.toLowerCase().trim();
+
+    const friendIds = await this.repository.getFriendIds(userId);
+    if (friendIds.length === 0) {
+      return { items: [], nextCursor: "", hasMore: false };
+    }
+
+    const batchSize = 100;
+    const batches: string[][] = [];
+    for (let i = 0; i < friendIds.length; i += batchSize) {
+      batches.push(friendIds.slice(i, i + batchSize));
+    }
+
+    const allUsers: any[] = [];
+    for (const batch of batches) {
+      const users = await this.userRepository.listByIds(batch);
+      allUsers.push(...users);
+    }
+
+    const matched = allUsers.filter(u =>
+      u && (
+        (u.displayName && u.displayName.toLowerCase().includes(searchLower)) ||
+        (u.username && u.username.toLowerCase().includes(searchLower))
+      )
+    );
+
+    const sorted = matched.sort((a, b) => {
+      const nameA = (a.displayName || a.username || "").toLowerCase();
+      const nameB = (b.displayName || b.username || "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+
+    let startIndex = 0;
+    if (cursor) {
+      try {
+        const decoded = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
+        startIndex = decoded.idx || 0;
+      } catch {
+        startIndex = 0;
+      }
+    }
+
+    const pageItems = sorted.slice(startIndex, startIndex + pageLimit);
+    const hasMore = startIndex + pageLimit < sorted.length;
+    const nextCursor = hasMore
+      ? Buffer.from(JSON.stringify({ idx: startIndex + pageLimit })).toString("base64")
+      : "";
+
+    return {
+      items: pageItems.map(u => ({
+        id: u.id,
+        displayName: u.displayName,
+        username: u.username,
+        avatarUrl: u.avatarUrl,
+      })),
+      nextCursor,
+      hasMore,
+    };
   }
 }

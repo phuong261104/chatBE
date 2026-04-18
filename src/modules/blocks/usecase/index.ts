@@ -14,18 +14,14 @@ import {
   ErrCannotBlockYourself,
   ErrBlockedUserNotFound
 } from '../model';
-import { MongoBlockRepository } from '../infras/repository';
-import { MongoUserRepository } from '@modules/user/infras/repository/nosql/mongodb-repo';
-import { MongoFriendshipRepository } from '@modules/friendships/infras/repository/nosql/mongodb-repo';
-import { MongoFriendRequestRepository } from '@modules/friend-requests/infras/repository/nosql/mongodb-repo';
 import { FriendRequestStatus } from '@modules/friend-requests/model/model';
 
 export class BlockUseCase implements IBlockUseCase {
   constructor(
-    private readonly repository: MongoBlockRepository,
-    private readonly userRepository: MongoUserRepository,
-    private readonly friendshipRepository: MongoFriendshipRepository,
-    private readonly friendRequestRepository: MongoFriendRequestRepository
+    private readonly repository: any,
+    private readonly userRepository: any,
+    private readonly friendshipRepository: any,
+    private readonly friendRequestRepository: any
   ) {}
 
   async blockUser(blockerId: string, blockedUserId: string): Promise<string> {
@@ -48,7 +44,7 @@ export class BlockUseCase implements IBlockUseCase {
     }
 
     const [userA, userB] = [blockerId, blockedUserId].sort();
-    await this.friendshipRepository.deleteByCondition({ userA, userB });
+    await this.friendshipRepository.softDeleteFriendship(userA, userB);
 
     const requests = await this.friendRequestRepository.list(
       {
@@ -68,8 +64,10 @@ export class BlockUseCase implements IBlockUseCase {
       { page: 1, limit: 100 }
     );
 
-    for (const request of [...requests, ...reverseRequests]) {
-      await this.friendRequestRepository.delete(request.id, true);
+    if (requests.length + reverseRequests.length > 0) {
+      await Promise.allSettled(
+        [...requests, ...reverseRequests].map(r => this.friendRequestRepository.delete(r.id, true))
+      );
     }
 
     const newId = v7();

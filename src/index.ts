@@ -141,7 +141,7 @@ config();
 
   const mediaRouter = setupMediaHexagon(sctx);
   const { router: messagingRouter } = setupMessagingHexagon(io, sctx);
-  const blockRouter = setupBlockHexagon(sctx);
+  const { router: blockRouter } = setupBlockHexagon(sctx, io);
   const { router: friendRequestRouter, socketService } =
     setupFriendRequestHexagon(sctx, io);
   const friendshipRouter = setupFriendshipHexagon(sctx, socketService);

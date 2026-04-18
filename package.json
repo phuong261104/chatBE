@@ -8,6 +8,8 @@
     "test:coverage": "jest --coverage",
     "test:chat:socket": "jest --config test/jest.config.js --forceExit",
     "test:messaging": "ts-node test-messaging-api.ts",
+    "seed:test": "ts-node scripts/seed-test-users.ts",
+    "test:social": "ts-node scripts/test-social-api.ts",
     "demo": "ts-node src/index.ts",
     "start": "nodemon src/index.ts",
     "dynamodb:init": "ts-node scripts/init-dynamodb-tables.ts",

@@ -1,6 +1,5 @@
 import { ServiceContext } from "@share/interface/service-context";
 import { Router } from "express";
-import { Sequelize } from "sequelize";
 import { Server as SocketIOServer } from "socket.io";
 import {
   FriendRequestHTTPService,
@@ -101,6 +100,11 @@ export const setupFriendRequestHexagon = (
     "/friend-requests/check/:targetUserId",
     mdlFactory.auth,
     httpService.checkFriendRequestStatusAPI.bind(httpService),
+  );
+  router.get(
+    "/friend-requests/count",
+    mdlFactory.auth,
+    httpService.getFriendRequestsCountAPI.bind(httpService),
   );
 
   return { router, socketService };
