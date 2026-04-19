@@ -7,6 +7,7 @@ import {
   PutCommand,
   QueryCommand,
   DeleteCommand,
+  BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
@@ -165,14 +166,73 @@ export class DynamoMessageReactionCommandRepository {
         ExpressionAttributeValues: { ":pk": `MSG#${messageId}` },
       }),
     );
-    for (const item of result.Items || []) {
+    for (let i = 0; i < (result.Items || []).length; i += 25) {
+      const chunk = (result.Items || []).slice(i, i + 25);
       await docClient.send(
-        new DeleteCommand({
-          TableName: getTableName(TABLE_NAMES.MESSAGE_REACTIONS),
-          Key: { pk: item.pk, sk: item.sk },
+        new BatchWriteCommand({
+          RequestItems: {
+            [getTableName(TABLE_NAMES.MESSAGE_REACTIONS)]: chunk.map((item) => ({
+              DeleteRequest: { Key: { pk: item.pk, sk: item.sk } },
+            })),
+          },
         }),
       );
     }
+  }
+
+  async deleteByConversationId(conversationId: string): Promise<void> {
+    const docClient = getDocClient();
+    const msgTable = getTableName(TABLE_NAMES.MESSAGES);
+    const reactTable = getTableName(TABLE_NAMES.MESSAGE_REACTIONS);
+
+    let lastEvaluatedKey: Record<string, any> | undefined;
+    do {
+      const msgResult = await docClient.send(
+        new QueryCommand({
+          TableName: msgTable,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+          ExpressionAttributeValues: {
+            ":pk": `CONV#${conversationId}`,
+            ":skPrefix": "MSG#",
+          },
+          ProjectionExpression: "pk, sk",
+          ExclusiveStartKey: lastEvaluatedKey,
+        }),
+      );
+
+      const messageIds: string[] = [];
+      for (const item of msgResult.Items || []) {
+        const parts = item.sk.split("#");
+        if (parts.length >= 3) messageIds.push(parts[2]);
+      }
+
+      for (let i = 0; i < messageIds.length; i += 25) {
+        const idChunk = messageIds.slice(i, i + 25);
+        for (const messageId of idChunk) {
+          const reactResult = await docClient.send(
+            new QueryCommand({
+              TableName: reactTable,
+              KeyConditionExpression: "pk = :pk",
+              ExpressionAttributeValues: { ":pk": `MSG#${messageId}` },
+              ProjectionExpression: "pk, sk",
+            }),
+          );
+          for (let j = 0; j < (reactResult.Items || []).length; j += 25) {
+            const chunk = reactResult.Items!.slice(j, j + 25);
+            await docClient.send(
+              new BatchWriteCommand({
+                RequestItems: {
+                  [reactTable]: chunk.map((item) => ({
+                    DeleteRequest: { Key: { pk: item.pk, sk: item.sk } },
+                  })),
+                },
+              }),
+            );
+          }
+        }
+      }
+      lastEvaluatedKey = msgResult.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
   }
 }
 

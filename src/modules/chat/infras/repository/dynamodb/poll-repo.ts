@@ -8,6 +8,7 @@ import {
   UpdateCommand,
   DeleteCommand,
   GetCommand,
+  BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
@@ -130,6 +131,37 @@ export class DynamoPollCommandRepository {
     );
     return true;
   }
+
+  async deleteByConversationId(conversationId: string): Promise<void> {
+    const docClient = getDocClient();
+    const tableName = getTableName(TABLE_NAMES.POLLS);
+    let lastEvaluatedKey: Record<string, any> | undefined;
+    do {
+      const result = await docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          IndexName: "conversation-index",
+          KeyConditionExpression: "conversationId = :conversationId",
+          ExpressionAttributeValues: { ":conversationId": conversationId },
+          ExclusiveStartKey: lastEvaluatedKey,
+        }),
+      );
+      const items = result.Items || [];
+      for (let i = 0; i < items.length; i += 25) {
+        const chunk = items.slice(i, i + 25);
+        await docClient.send(
+          new BatchWriteCommand({
+            RequestItems: {
+              [tableName]: chunk.map((item) => ({
+                DeleteRequest: { Key: { id: item.id } },
+              })),
+            },
+          }),
+        );
+      }
+      lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+  }
 }
 
 export class DynamoPollRepository {
@@ -137,4 +169,8 @@ export class DynamoPollRepository {
     public readonly queryRepo: DynamoPollQueryRepository,
     public readonly cmdRepo: DynamoPollCommandRepository,
   ) {}
+
+  async deleteByConversationId(conversationId: string): Promise<void> {
+    return this.cmdRepo.deleteByConversationId(conversationId);
+  }
 }

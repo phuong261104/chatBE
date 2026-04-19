@@ -71,6 +71,7 @@ export interface IConversationMemberCommandRepository {
   insert(member: ConversationMember): Promise<boolean>;
   update(id: string, data: ConversationMemberUpdateDTO): Promise<boolean>;
   delete(id: string, isHard: boolean): Promise<boolean>;
+  deleteByConversationId(conversationId: string): Promise<void>;
   incrementUnreadCountForConversation(conversationId: string, excludeUserId?: string): Promise<void>;
 }
 
@@ -124,6 +125,7 @@ export interface IMessageReactionCommandRepository {
   decrementAllByUserAndMessage(messageId: string, userId: string): Promise<number>;
   deleteAllByUserAndMessage(messageId: string, userId: string): Promise<number>;
   deleteByMessageId(messageId: string): Promise<void>;
+  deleteByConversationId(conversationId: string): Promise<void>;
 }
 
 export interface IPollQueryRepository {
@@ -136,6 +138,7 @@ export interface IPollCommandRepository {
   insert(poll: Poll): Promise<boolean>;
   update(id: string, data: Partial<Poll>): Promise<boolean>;
   delete(id: string): Promise<boolean>;
+  deleteByConversationId(conversationId: string): Promise<void>;
 }
 
 export interface IMessageClassificationRepository {

@@ -365,6 +365,41 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     }
   }
 
+  async deleteByConversationId(conversationId: string): Promise<void> {
+    const docClient = getDocClient();
+    const tableName = getTableName(TABLE_NAMES.CONVERSATION_MEMBERS);
+
+    let lastEvaluatedKey: Record<string, any> | undefined;
+    do {
+      const result = await docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+          ExpressionAttributeValues: {
+            ":pk": `CONV#${conversationId}`,
+            ":skPrefix": "MEM#",
+          },
+          ExclusiveStartKey: lastEvaluatedKey,
+        }),
+      );
+
+      const items = result.Items || [];
+      for (let i = 0; i < items.length; i += 25) {
+        const chunk = items.slice(i, i + 25);
+        await docClient.send(
+          new BatchWriteCommand({
+            RequestItems: {
+              [tableName]: chunk.map((item) => ({
+                DeleteRequest: { Key: { pk: item.pk, sk: item.sk } },
+              })),
+            },
+          }),
+        );
+      }
+      lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+  }
+
   private chunkArray<T>(array: T[], size: number): T[][] {
     const chunks: T[][] = [];
     for (let i = 0; i < array.length; i += size) {
@@ -446,5 +481,10 @@ export class DynamoConversationMemberRepository extends BaseRepositoryDynamoDB<
   ): Promise<void> {
     return (this.cmdRepo as DynamoConversationMemberCommandRepository)
       .incrementUnreadCountForConversation(conversationId, excludeUserId);
+  }
+
+  async deleteByConversationId(conversationId: string): Promise<void> {
+    return (this.cmdRepo as DynamoConversationMemberCommandRepository)
+      .deleteByConversationId(conversationId);
   }
 }

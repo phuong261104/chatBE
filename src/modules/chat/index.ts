@@ -34,6 +34,7 @@ import {
   DynamoMessageReactionCommandRepository,
   DynamoPollQueryRepository,
   DynamoPollCommandRepository,
+  DynamoPollRepository,
   DynamoMessageClassificationRepository,
 } from "./infras/repository/dynamodb";
 
@@ -102,6 +103,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const reactionCmdRepo = new DynamoMessageReactionCommandRepository();
   const pollQueryRepo = new DynamoPollQueryRepository();
   const pollCmdRepo = new DynamoPollCommandRepository();
+  const pollRepo = new DynamoPollRepository(pollQueryRepo, pollCmdRepo);
 
   const classificationRepo = new DynamoMessageClassificationRepository();
 
@@ -307,11 +309,13 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const dissolveGroupHandler = new DissolveGroupHandler(
     conversationRepo as any,
-    conversationMemberRepo as any,
     conversationRepo as any,
     conversationMemberRepo as any,
+    conversationMemberRepo as any,
     messageRepo,
+    reactionCmdRepo as any,
     classificationRepo,
+    pollRepo as any,
   );
 
   const searchMessagesHandler = new SearchMessagesHandler(

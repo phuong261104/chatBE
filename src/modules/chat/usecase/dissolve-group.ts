@@ -7,6 +7,8 @@ import {
   IConversationMemberCommandRepository,
   IMessageCommandRepository,
   IMessageClassificationRepository,
+  IMessageReactionCommandRepository,
+  IPollCommandRepository,
 } from "../interface";
 import {
   ConversationType,
@@ -20,7 +22,9 @@ export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; 
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
+    private readonly reactionCommandRepo: IMessageReactionCommandRepository,
     private readonly classificationRepo: IMessageClassificationRepository,
+    private readonly pollCommandRepo: IPollCommandRepository,
   ) {}
 
   async execute(command: { groupId: string; requesterId: string }): Promise<void> {
@@ -54,14 +58,11 @@ export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; 
       throw AppError.from(new Error("Only group owner or admin can dissolve the group"), 403);
     }
 
-    const members = await this.conversationMemberQueryRepo.listByConversationId(groupId);
-
-    for (const member of members) {
-      await this.conversationMemberCommandRepo.delete(member.id, true);
-    }
-
-    await this.classificationRepo.deleteByConversationId(groupId);
     await this.messageCommandRepo.deleteByConversationId(groupId);
+    await this.reactionCommandRepo.deleteByConversationId(groupId);
+    await this.classificationRepo.deleteByConversationId(groupId);
+    await this.pollCommandRepo.deleteByConversationId(groupId);
+    await this.conversationMemberCommandRepo.deleteByConversationId(groupId);
     await this.conversationCommandRepo.delete(groupId, true);
   }
 }

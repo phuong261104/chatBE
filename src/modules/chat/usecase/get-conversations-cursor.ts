@@ -86,33 +86,32 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
         : [];
     const targetUserMap = new Map(targetUsers.map((u) => [u.id, u]));
 
-    return conversations.map((conv) => {
-      const member = memberMap.get(conv.id);
+    return Promise.all(
+      conversations.map(async (conv) => {
+        const member = memberMap.get(conv.id);
 
-      let name = conv.name || "";
-      let avatarUrl = conv.avatarUrl || "";
+        let name = conv.name || "";
+        let avatarUrl = conv.avatarUrl || "";
 
-      if (conv.type === ConversationType.PRIVATE && conv.pairKey) {
-        const ids = conv.pairKey.split("_");
-        const targetId = ids.find((id: string) => id !== userId);
-        const targetUser = targetId ? targetUserMap.get(targetId) : null;
-        if (targetUser) {
-          name = targetUser.displayName || name;
-          avatarUrl = targetUser.avatarUrl || avatarUrl;
+        if (conv.type === ConversationType.PRIVATE && conv.pairKey) {
+          const ids = conv.pairKey.split("_");
+          const targetId = ids.find((id: string) => id !== userId);
+          const targetUser = targetId ? targetUserMap.get(targetId) : null;
+          if (targetUser) {
+            name = targetUser.displayName || name;
+            avatarUrl = targetUser.avatarUrl || avatarUrl;
+          }
         }
-      }
 
-      let lastMessageStatus: "sent" | "delivered" | "read" = "sent";
-      if (
-        conv.lastMessage &&
-        conv.lastMessage.senderId === userId &&
-        conv.type === ConversationType.PRIVATE
-      ) {
-        try {
-          const membersInConv = this.conversationMemberQueryRepo
-            .list({ conversationId: conv.id }, { page: 1, limit: 10 })
-            .then((res) => res);
-          membersInConv.then((membersInConvArr) => {
+        let lastMessageStatus: "sent" | "delivered" | "read" = "sent";
+        if (
+          conv.lastMessage &&
+          conv.lastMessage.senderId === userId &&
+          conv.type === ConversationType.PRIVATE
+        ) {
+          try {
+            const membersInConvArr = await this.conversationMemberQueryRepo
+              .list({ conversationId: conv.id }, { page: 1, limit: 10 });
             const otherMember = membersInConvArr.find(
               (m) => m.userId !== userId,
             );
@@ -130,48 +129,48 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
                 lastMessageStatus = "delivered";
               }
             }
-          });
-        } catch (e) {
-          // ignore
+          } catch (e) {
+            // ignore
+          }
         }
-      }
 
-      let lastMessageTimeFormatted = "";
-      if (conv.lastMessageAt) {
-        const d = conv.lastMessageAt;
-        const now = new Date();
-        const isSameDay =
-          d.getDate() === now.getDate() &&
-          d.getMonth() === now.getMonth() &&
-          d.getFullYear() === now.getFullYear();
-        if (isSameDay) {
-          lastMessageTimeFormatted = d.toLocaleTimeString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-        } else {
-          lastMessageTimeFormatted = d.toLocaleDateString("vi-VN", {
-            day: "2-digit",
-            month: "2-digit",
-          });
+        let lastMessageTimeFormatted = "";
+        if (conv.lastMessageAt) {
+          const d = conv.lastMessageAt;
+          const now = new Date();
+          const isSameDay =
+            d.getDate() === now.getDate() &&
+            d.getMonth() === now.getMonth() &&
+            d.getFullYear() === now.getFullYear();
+          if (isSameDay) {
+            lastMessageTimeFormatted = d.toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+          } else {
+            lastMessageTimeFormatted = d.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+            });
+          }
         }
-      }
 
-      const enriched: any = {
-        ...conv,
-        name,
-        avatarUrl,
-        unreadCount: member?.unreadCount || 0,
-        role: member?.role || ConversationMemberRole.MEMBER,
-        lastMessageStatus,
-        lastMessageTimeFormatted,
-      };
+        const enriched: any = {
+          ...conv,
+          name,
+          avatarUrl,
+          unreadCount: member?.unreadCount || 0,
+          role: member?.role || ConversationMemberRole.MEMBER,
+          lastMessageStatus,
+          lastMessageTimeFormatted,
+        };
 
-      if (includePinnedAt && member?.pinnedAt) {
-        enriched.pinnedAt = member.pinnedAt;
-      }
+        if (includePinnedAt && member?.pinnedAt) {
+          enriched.pinnedAt = member.pinnedAt;
+        }
 
-      return enriched;
-    });
+        return enriched;
+      }),
+    );
   }
 }
