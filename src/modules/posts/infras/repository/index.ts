@@ -1,2 +1,1 @@
-export { MongoPostRepository, MongoPostReactionRepository, MongoPostCommentRepository } from "./nosql/mongodb-repo";
-export { PostModel, PostReactionModel, PostCommentModel } from "./nosql/dto";
+// MongoDB exports removed - only DynamoDB repositories available

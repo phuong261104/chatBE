@@ -8,10 +8,10 @@ import {
   ErrCloudItemUnauthorized,
 } from "../model";
 import { PagingDTO } from "@share/model/paging";
-import { MongoCloudItemRepository } from "../infras/repository";
+import { DynamoCloudItemRepository } from "../infras/repository/dynamodb";
 
 export class MyCloudUseCase implements IMyCloudUseCase {
-  constructor(private readonly repository: MongoCloudItemRepository) {}
+  constructor(private readonly repository: DynamoCloudItemRepository) {}
 
   async getItems(
     userId: string,

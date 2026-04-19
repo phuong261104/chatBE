@@ -1,59 +1,18 @@
-# version: "3.8"
-#
-# services:
-#   api:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile
-#     container_name: chat-api
-#     restart: always
-#     ports:
-#       - "3000:3000"
-#     volumes:
-#       - .:/app
-#       - /app/node_modules
-#     env_file:
-#       - .env
-#     environment:
-#       - PORT=3000
-#       - MONGO_URI=mongodb://mongodb-chat:27017/chat_db
-#       - REDIS_URL=redis://redis-chat:6379
-#       - REDIS_HOST=redis://redis-chat:6379
-#       - UPLOAD_BASE_URL=http://localhost:3000/uploads
-#     networks:
-#       - chat-network
-#     depends_on:
-#       - mongodb
-#       - redis
-
 # ============================================================================
 # Đặc tả: Chạy Docker để khởi động Database và Cache
 # ============================================================================
 # Boss muốn chạy npm run start trên máy host (không chạy trong container)
-# Nên comment lại phần api service.
 #
 # Cách sử dụng:
-#   docker-compose up -d        # Chỉ khởi động MongoDB và Redis
-#   npm run start               # Chạy app trên máy host (port 3000)
+#   docker-compose up -d        # Khởi động Redis và DynamoDB Local
+#   npm run start              # Chạy app trên máy host (port 3000)
 #
 # Kết nối từ host:
-#   - MongoDB: localhost:27018
+#   - DynamoDB Local: localhost:8000
 #   - Redis: localhost:6379
 # ============================================================================
 
 services:
-
-  mongodb:
-    image: mongo:latest
-    container_name: mongodb-chat
-    restart: always
-    ports:
-      - "27018:27017" # Host mapping 27018 to avoid collision with local DB
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - chat-network
-
   redis:
     image: redis:7
     container_name: redis-chat
@@ -66,20 +25,19 @@ services:
     networks:
       - chat-network
 
-  dynamodb-local:
-    image: amazon/dynamodb-local:latest
-    container_name: dynamodb-local-chat
-    restart: always
-    ports:
-      - "8000:8000"
-    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
-    volumes:
-      - ./docker/dynamodb:/home/dynamodblocal/data
-    networks:
-      - chat-network
+  # dynamodb-local:
+  #   image: amazon/dynamodb-local:latest
+  #   container_name: dynamodb-local-chat
+  #   restart: always
+  #   ports:
+  #     - "8000:8000"
+  #   command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+  #   volumes:
+  #     - ./docker/dynamodb:/home/dynamodblocal/data
+  #   networks:
+  #     - chat-network
 
 volumes:
-  mongodb_data:
   redis_data:
 
 networks:

@@ -20,15 +20,15 @@ import {
   ErrCannotShareSharedPost,
 } from "../model";
 import { PagingDTO } from "@share/model/paging";
-import { MongoPostRepository, MongoPostReactionRepository, MongoPostCommentRepository } from "../infras/repository";
-import { MongoFriendshipRepository } from "@modules/friendships/infras/repository/nosql/mongodb-repo";
+import { DynamoPostRepository, DynamoPostReactionRepository, DynamoPostCommentRepository } from "../infras/repository/dynamodb";
+import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
 
 export class PostUseCase implements IPostUseCase {
   constructor(
-    private readonly postRepo: MongoPostRepository,
-    private readonly reactionRepo: MongoPostReactionRepository,
-    private readonly commentRepo: MongoPostCommentRepository,
-    private readonly friendshipRepo: MongoFriendshipRepository,
+    private readonly postRepo: DynamoPostRepository,
+    private readonly reactionRepo: DynamoPostReactionRepository,
+    private readonly commentRepo: DynamoPostCommentRepository,
+    private readonly friendshipRepo: DynamoFriendshipRepository,
   ) {}
 
   async createPost(userId: string, data: CreatePostDTO): Promise<Post> {

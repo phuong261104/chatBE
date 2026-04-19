@@ -1,2 +1,2 @@
-export { MongoStoryRepository, MongoStoryViewRepository } from "./repository";
+export { DynamoStoryRepository, DynamoStoryViewRepository } from "./repository/dynamodb";
 export { StoryHTTPService } from "./transport";

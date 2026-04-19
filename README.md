@@ -1,12 +1,12 @@
 # chatBE - Backend Chat Application
 
-Backend chat application sử dụng Node.js, TypeScript, MongoDB, Redis và Socket.IO.
+Backend chat application sử dụng Node.js, TypeScript, DynamoDB, Redis và Socket.IO.
 
 ## Yêu Cầu Hệ Thống
 
 - **Node.js**: v22.x trở lên
 - **Docker** & **Docker Compose** (để chạy với container)
-- **MongoDB**: v4.4+ (hoặc dùng container)
+- **DynamoDB Local**: qua Docker
 - **Redis**: v7+
 
 ## Cài Đặt
@@ -32,13 +32,15 @@ Tạo file `.env` trong thư mục gốc với nội dung sau:
 PORT=3000
 NODE_ENV=development
 
-# MongoDB
-MONGO_URI=mongodb://localhost:27017/chat_db
-
 # Redis
 REDIS_URL=redis://localhost:6379
 REDIS_HOST=localhost
 REDIS_PORT=6379
+
+# DynamoDB (Local)
+DYNAMODB_REGION=localhost
+DYNAMODB_ENDPOINT=http://localhost:8000
+DYNAMODB_TABLE_PREFIX=chatbe_
 
 # JWT
 ACCESS_TOKEN_SECRET=your-secret-key-here
@@ -58,7 +60,7 @@ docker-compose up -d
 ```
 
 Lệnh này sẽ khởi động:
-- **MongoDB** trên port `27018` (host) / `27017` (container)
+- **DynamoDB Local** trên port `8000`
 - **Redis** trên port `6379`
 
 ### Bước 2: Chạy ứng dụng trên máy host
@@ -79,14 +81,6 @@ docker-compose logs -f
 
 ```bash
 docker-compose down
-```
-
-### Cách khác: Chạy hoàn toàn trong Docker (không khuyến nghị)
-
-Nếu muốn chạy cả API trong container, uncomment phần `api` service trong `docker-compose.yml` và sử dụng:
-
-```bash
-docker-compose up -d --build
 ```
 
 ## API Documentation
@@ -122,6 +116,7 @@ Socket.IO events được hỗ trợ cho:
 ```bash
 npm run start     # Chạy với nodemon (development)
 npm run demo      # Chạy một lần với ts-node
+npm run dynamodb:init  # Khởi tạo bảng DynamoDB
 npm test          # Chạy tests
 ```
 
@@ -160,6 +155,6 @@ chatBE/
 | Service | Port |
 |---------|------|
 | API | 3000 |
-| MongoDB (host) | 27018 |
+| DynamoDB Local (host) | 8000 |
 | Redis | 6379 |
 | Swagger UI | 3000/api-docs |

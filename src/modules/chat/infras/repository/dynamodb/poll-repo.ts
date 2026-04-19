@@ -29,13 +29,8 @@ export class DynamoPollQueryRepository {
 
   async findByConversationId(
     conversationId: string,
-    cursor?: string,
-    limit: number = 20,
-  ): Promise<{ polls: Poll[]; nextCursor?: string }> {
+  ): Promise<Poll[]> {
     const docClient = getDocClient();
-    const exclusiveStartKey = cursor
-      ? JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"))
-      : undefined;
 
     const result = await docClient.send(
       new QueryCommand({
@@ -43,18 +38,11 @@ export class DynamoPollQueryRepository {
         IndexName: "conversation-index",
         KeyConditionExpression: "conversationId = :conversationId",
         ExpressionAttributeValues: { ":conversationId": conversationId },
-        ExclusiveStartKey: exclusiveStartKey,
-        Limit: limit,
+        Limit: 50,
       }),
     );
 
-    const polls = (result.Items || []).map((item) => this.toEntity(item));
-    let nextCursor: string | undefined;
-    if (result.LastEvaluatedKey) {
-      nextCursor = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString("base64");
-    }
-
-    return { polls, nextCursor };
+    return (result.Items || []).map((item) => this.toEntity(item));
   }
 
   async findActivePolls(conversationId: string): Promise<Poll[]> {

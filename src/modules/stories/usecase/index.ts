@@ -12,18 +12,19 @@ import {
   ErrStoryUnauthorized,
 } from "../model";
 import { PagingDTO } from "@share/model/paging";
-import { MongoStoryRepository, MongoStoryViewRepository } from "../infras/repository";
-import { MongoFriendshipRepository } from "@modules/friendships/infras/repository/nosql/mongodb-repo";
-import { ConversationModel } from "@modules/chat/infras/repository/nosql/schemas";
+import { DynamoStoryRepository, DynamoStoryViewRepository } from "../infras/repository/dynamodb";
+import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
+import { DynamoConversationRepository } from "@modules/chat/infras/repository/dynamodb";
 import { ConversationType } from "@modules/chat/model/model";
 
 const STORY_DURATION_MS = 24 * 60 * 60 * 1000;
 
 export class StoryUseCase implements IStoryUseCase {
   constructor(
-    private readonly storyRepo: MongoStoryRepository,
-    private readonly viewRepo: MongoStoryViewRepository,
-    private readonly friendshipRepo: MongoFriendshipRepository,
+    private readonly storyRepo: DynamoStoryRepository,
+    private readonly viewRepo: DynamoStoryViewRepository,
+    private readonly friendshipRepo: DynamoFriendshipRepository,
+    private readonly conversationRepo: DynamoConversationRepository,
   ) {}
 
   async createStory(userId: string, data: CreateStoryDTO): Promise<Story> {
@@ -126,13 +127,10 @@ export class StoryUseCase implements IStoryUseCase {
     if (!story) throw AppError.from(ErrStoryNotFound, 404);
 
     const pairKey = [userId, story.authorId].sort().join("_");
-    const existing = await ConversationModel.findOne({
-      type: ConversationType.PRIVATE,
-      pairKey,
-    }).lean().exec();
+    const existing = await this.conversationRepo.findByPairKey(pairKey, ConversationType.PRIVATE);
 
     if (existing) {
-      return { conversationId: String(existing._id) };
+      return { conversationId: existing.id };
     }
 
     return { conversationId: pairKey };

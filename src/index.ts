@@ -1,6 +1,5 @@
 import "module-alias/register";
 
-import mongoose from "mongoose";
 import { config } from "dotenv";
 import express, { NextFunction, Request, Response } from "express";
 import { createServer } from "http";
@@ -27,7 +26,6 @@ import { setupStoryHexagon } from "@modules/stories";
 import { setupAiHexagon } from "@modules/ai";
 // import { seedAiTestData } from "@modules/ai/infras/ai-seed";
 import {
-  MongoMessageRepository,
   DynamoMessageRepository,
   DynamoConversationRepository,
 } from "@modules/chat";
@@ -46,22 +44,12 @@ config();
   await RedisClient.init(connectionUrl);
   const redisClient = RedisClient.getClient();
 
-  if (appConfig.dbType !== "dynamodb") {
-    try {
-      await mongoose.connect(appConfig.mongoose.uri);
-      Logger.info("Connected to MongoDB successfully.");
-    } catch (error) {
-      console.error("MongoDB connection error:", error);
-      process.exit(1);
-    }
-  } else {
-    try {
-      await initDynamoDBTables();
-      Logger.info("DynamoDB tables initialized successfully.");
-    } catch (error) {
-      console.error("DynamoDB tables initialization error:", error);
-      process.exit(1);
-    }
+  try {
+    await initDynamoDBTables();
+    Logger.info("DynamoDB tables initialized successfully.");
+  } catch (error) {
+    console.error("DynamoDB tables initialization error:", error);
+    process.exit(1);
   }
 
   const app = express();

@@ -1,5 +1,6 @@
 import {
   Conversation,
+  ConversationType,
 } from "../../../model";
 import {
   ConversationCondDTO,
@@ -70,14 +71,21 @@ class DynamoConversationQueryRepository extends BaseQueryRepositoryDynamoDB<
     return values;
   }
 
-  async findByPairKey(pairKey: string): Promise<Conversation | null> {
+  async findByPairKey(pairKey: string, type?: ConversationType): Promise<Conversation | null> {
     const docClient = getDocClient();
+    const exprAttrNames = type ? { "#type": "type" } : undefined;
+    const exprAttrValues = type
+      ? { ":pairKey": pairKey, ":type": type }
+      : { ":pairKey": pairKey };
+
     const result = await docClient.send(
       new QueryCommand({
         TableName: getTableName(TABLE_NAMES.CONVERSATIONS),
         IndexName: "pairKey-index",
         KeyConditionExpression: "pairKey = :pairKey",
-        ExpressionAttributeValues: { ":pairKey": pairKey },
+        FilterExpression: type ? "#type = :type" : undefined,
+        ExpressionAttributeNames: exprAttrNames,
+        ExpressionAttributeValues: exprAttrValues,
         Limit: 1,
       }),
     );
@@ -148,7 +156,7 @@ export class DynamoConversationRepository extends BaseRepositoryDynamoDB<
     super(new DynamoConversationQueryRepository(), new DynamoConversationCommandRepository());
   }
 
-  async findByPairKey(pairKey: string): Promise<Conversation | null> {
-    return (this.queryRepo as DynamoConversationQueryRepository).findByPairKey(pairKey);
+  async findByPairKey(pairKey: string, type?: ConversationType): Promise<Conversation | null> {
+    return (this.queryRepo as DynamoConversationQueryRepository).findByPairKey(pairKey, type);
   }
 }

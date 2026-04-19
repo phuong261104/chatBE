@@ -1,31 +1,18 @@
 import { ServiceContext } from "@share/interface/service-context";
 import { Router } from "express";
-import { MongoPostRepository, MongoPostReactionRepository, MongoPostCommentRepository } from "./infras/repository";
 import { DynamoPostRepository, DynamoPostReactionRepository, DynamoPostCommentRepository } from "./infras/repository/dynamodb";
 import { PostUseCase } from "./usecase";
 import { PostHTTPService } from "./infras/transport";
-import { MongoFriendshipRepository } from "@modules/friendships/infras/repository/nosql/mongodb-repo";
 import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
-import { config } from "@share/component/config";
 
 export * from "./model";
 export * from "./interface";
 
 export const setupPostHexagon = (sctx: ServiceContext) => {
-  const dbType = config.dbType;
-
-  const postRepo = (dbType === "dynamodb"
-    ? new DynamoPostRepository()
-    : new MongoPostRepository()) as any;
-  const reactionRepo = (dbType === "dynamodb"
-    ? new DynamoPostReactionRepository()
-    : new MongoPostReactionRepository()) as any;
-  const commentRepo = (dbType === "dynamodb"
-    ? new DynamoPostCommentRepository()
-    : new MongoPostCommentRepository()) as any;
-  const friendshipRepo = (dbType === "dynamodb"
-    ? new DynamoFriendshipRepository()
-    : new MongoFriendshipRepository()) as any;
+  const postRepo = new DynamoPostRepository();
+  const reactionRepo = new DynamoPostReactionRepository();
+  const commentRepo = new DynamoPostCommentRepository();
+  const friendshipRepo = new DynamoFriendshipRepository();
   const useCase = new PostUseCase(postRepo, reactionRepo, commentRepo, friendshipRepo);
   const httpService = new PostHTTPService(useCase);
 

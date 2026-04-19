@@ -1,2 +1,2 @@
-export { MongoCloudItemRepository, CloudItemModel } from "./repository";
+export { DynamoCloudItemRepository } from "./repository/dynamodb";
 export { MyCloudHTTPService } from "./transport";

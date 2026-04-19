@@ -435,6 +435,11 @@ export class DynamoConversationMemberRepository extends BaseRepositoryDynamoDB<
     return (this.queryRepo as DynamoConversationMemberQueryRepository).listByConversationId(conversationId);
   }
 
+  async findActiveByUserId(userId: string): Promise<ConversationMember[]> {
+    const result = await (this.queryRepo as DynamoConversationMemberQueryRepository).listByUserIdCursor(userId, undefined, 1000);
+    return [...result.pinnedMembers, ...result.normalMembers];
+  }
+
   async incrementUnreadCountForConversation(
     conversationId: string,
     excludeUserId?: string,

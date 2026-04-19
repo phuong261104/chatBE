@@ -2,11 +2,9 @@ import { Router } from "express";
 import { ServiceContext } from "@share/interface/service-context";
 import { AuthUseCase, IAuthUseCase } from "./usecase";
 import { AuthHTTPService } from "./infras/transport";
-import { MongoUserRepository } from "@modules/user/infras/repository/nosql/mongodb-repo";
 import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb/dynamodb-repo";
 import { RedisSessionStore } from "@modules/auth/infras/session/redis-session";
 import { TokenBlacklistService } from "@modules/auth/infras/token/blacklist";
-import { config } from "@share/component/config";
 import { Handler } from "express";
 
 let redisClient: any = null;
@@ -22,10 +20,7 @@ export const getAuthUseCase = (): AuthUseCase => authUseCase;
 export const setupAuthHexagon = (sctx: ServiceContext | { mdlFactory: { auth: Handler } | null }, redis: any) => {
   setAuthRedisClient(redis);
 
-  const dbType = config.dbType;
-  const userRepository = (dbType === "dynamodb"
-    ? new DynamoUserRepository()
-    : new MongoUserRepository()) as any;
+  const userRepository = new DynamoUserRepository();
   const sessionStore = new RedisSessionStore(redis);
   const blacklistService = new TokenBlacklistService(redis);
 

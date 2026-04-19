@@ -1,2 +1,2 @@
-export { MongoPostRepository, MongoPostReactionRepository, MongoPostCommentRepository } from "./repository";
+export { DynamoPostRepository, DynamoPostReactionRepository, DynamoPostCommentRepository } from "./repository/dynamodb";
 export { PostHTTPService } from "./transport";

@@ -115,6 +115,14 @@ export class DynamoStoryRepository extends BaseRepositoryDynamoDB<
   constructor() {
     super(new DynamoStoryQueryRepository(), new DynamoStoryCommandRepository());
   }
+
+  async getActiveByAuthorIds(authorIds: string[]): Promise<Story[]> {
+    return (this.queryRepo as DynamoStoryQueryRepository).getActiveByAuthorIds(authorIds);
+  }
+
+  async incrementViewersCount(storyId: string): Promise<void> {
+    return (this.queryRepo as DynamoStoryQueryRepository).incrementViewersCount(storyId);
+  }
 }
 
 export class DynamoStoryViewRepository {

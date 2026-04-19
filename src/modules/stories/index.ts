@@ -1,29 +1,20 @@
 import { ServiceContext } from "@share/interface/service-context";
 import { Router } from "express";
-import { MongoStoryRepository, MongoStoryViewRepository } from "./infras/repository";
 import { DynamoStoryRepository, DynamoStoryViewRepository } from "./infras/repository/dynamodb";
 import { StoryUseCase } from "./usecase";
 import { StoryHTTPService } from "./infras/transport";
-import { MongoFriendshipRepository } from "@modules/friendships/infras/repository/nosql/mongodb-repo";
 import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
-import { config } from "@share/component/config";
+import { DynamoConversationRepository } from "@modules/chat/infras/repository/dynamodb";
 
 export * from "./model";
 export * from "./interface";
 
 export const setupStoryHexagon = (sctx: ServiceContext) => {
-  const dbType = config.dbType;
-
-  const storyRepo = (dbType === "dynamodb"
-    ? new DynamoStoryRepository()
-    : new MongoStoryRepository()) as any;
-  const viewRepo = (dbType === "dynamodb"
-    ? new DynamoStoryViewRepository()
-    : new MongoStoryViewRepository()) as any;
-  const friendshipRepo = (dbType === "dynamodb"
-    ? new DynamoFriendshipRepository()
-    : new MongoFriendshipRepository()) as any;
-  const useCase = new StoryUseCase(storyRepo, viewRepo, friendshipRepo);
+  const storyRepo = new DynamoStoryRepository();
+  const viewRepo = new DynamoStoryViewRepository();
+  const friendshipRepo = new DynamoFriendshipRepository();
+  const conversationRepo = new DynamoConversationRepository();
+  const useCase = new StoryUseCase(storyRepo, viewRepo, friendshipRepo, conversationRepo);
   const httpService = new StoryHTTPService(useCase);
 
   const router = Router();

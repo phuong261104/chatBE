@@ -156,7 +156,7 @@ export class DynamoMessageReactionCommandRepository {
     return this.decrementAllByUserAndMessage(messageId, userId);
   }
 
-  async deleteByMessageId(messageId: string): Promise<boolean> {
+  async deleteByMessageId(messageId: string): Promise<void> {
     const docClient = getDocClient();
     const result = await docClient.send(
       new QueryCommand({
@@ -173,7 +173,6 @@ export class DynamoMessageReactionCommandRepository {
         }),
       );
     }
-    return true;
   }
 }
 

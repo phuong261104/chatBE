@@ -111,6 +111,14 @@ export class DynamoPostRepository extends BaseRepositoryDynamoDB<Post, PostCondD
   constructor() {
     super(new DynamoPostQueryRepository(), new DynamoPostCommandRepository());
   }
+
+  async getFeedByAuthorIds(authorIds: string[], paging: PagingDTO): Promise<{ posts: Post[]; total: number }> {
+    return (this.queryRepo as DynamoPostQueryRepository).getFeedByAuthorIds(authorIds, paging);
+  }
+
+  async incrementField(postId: string, field: string, value: number): Promise<void> {
+    return (this.cmdRepo as DynamoPostCommandRepository).incrementField(postId, field, value);
+  }
 }
 
 export class DynamoPostReactionRepository {

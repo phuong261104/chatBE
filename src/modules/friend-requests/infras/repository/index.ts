@@ -1,1 +1,1 @@
-export * from './nosql';
+export * from './dynamodb';
