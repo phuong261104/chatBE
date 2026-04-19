@@ -19,11 +19,7 @@ import { UserUseCase } from "@modules/user/usecase";
 
 // ==================== Chat Module Components (using barrel exports) ====================
 // Infrastructure: Repositories & Transport
-import {
-  UserRepositoryAdapter,
-  MessagingHttpService,
-  MessagingSocketService,
-} from "./infras";
+import { UserRepositoryAdapter, MessagingHttpService, MessagingSocketService } from "./infras";
 
 // ==================== DynamoDB Repositories ====================
 import {
@@ -187,13 +183,23 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const getConversationMembersQueryHandler = new GetConversationMembersQueryHandler(conversationMemberRepo);
 
-  const loadMessagesQueryHandler = new LoadMessagesQueryHandler(conversationMemberRepo, messageRepo);
+  const loadMessagesQueryHandler = new LoadMessagesQueryHandler(
+    conversationMemberRepo,
+    messageRepo,
+    reactionQueryRepo,
+    userAdapter,
+  );
 
   const getTotalUnreadCountQueryHandler = new GetTotalUnreadCountQueryHandler(conversationMemberRepo);
 
   const getGroupMembersQueryHandler = new GetGroupMembersQueryHandler(conversationRepo, conversationMemberRepo);
 
-  const revokeMessageHandler = new RevokeMessageHandler(messageRepo, messageRepo, conversationMemberRepo, classificationRepo);
+  const revokeMessageHandler = new RevokeMessageHandler(
+    messageRepo,
+    messageRepo,
+    conversationMemberRepo,
+    classificationRepo,
+  );
 
   const deleteMessageForMeHandler = new DeleteMessageForMeHandler(messageRepo, messageRepo, conversationMemberRepo);
 
@@ -239,13 +245,14 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     reactionQueryRepo,
     reactionCmdRepo as any,
     conversationMemberRepo as any,
+    userAdapter,
   );
 
   const removeReactionHandler = new RemoveReactionHandler(messageRepo, reactionCmdRepo as any);
 
   const removeAllReactionsHandler = new RemoveAllReactionsHandler(messageRepo, reactionCmdRepo as any);
 
-  const getReactionsHandler = new GetReactionsHandler(messageRepo, reactionQueryRepo);
+  const getReactionsHandler = new GetReactionsHandler(messageRepo, reactionQueryRepo, userAdapter);
 
   const quoteMessageHandler = new QuoteMessageHandler(
     messageRepo,
@@ -318,10 +325,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     pollRepo as any,
   );
 
-  const searchMessagesHandler = new SearchMessagesHandler(
-    conversationMemberRepo,
-    messageRepo,
-  );
+  const searchMessagesHandler = new SearchMessagesHandler(conversationMemberRepo, messageRepo);
 
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
@@ -463,11 +467,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     httpService.getPinnedMessagesAPI.bind(httpService),
   );
 
-  router.get(
-    "/conversations/:conversationId/search",
-    mdlFactory.auth,
-    httpService.searchMessagesAPI.bind(httpService),
-  );
+  router.get("/conversations/:conversationId/search", mdlFactory.auth, httpService.searchMessagesAPI.bind(httpService));
 
   router.get(
     "/conversations/:conversationId/media",
