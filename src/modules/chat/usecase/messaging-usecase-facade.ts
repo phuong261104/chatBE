@@ -243,6 +243,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     messages: Message[];
     nextCursor: string;
     hasMore: boolean;
+    memberSeenMap?: Record<string, string>;
   }> {
     return this.loadMessagesQueryHandler.query({
       conversationId,

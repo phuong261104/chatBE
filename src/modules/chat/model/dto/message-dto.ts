@@ -58,7 +58,7 @@ export type SendGroupMessageDTO = z.infer<typeof sendGroupMessageDTOSchema>;
 
 export const loadMessagesDTOSchema = z.object({
   conversationId: uuidV7("Invalid conversation ID"),
-  userId: uuidV7("Invalid user ID"),
+  userId: z.string().min(1, "Invalid user ID"),
   cursor: z.string().optional(),
   limit: z.number().min(1).max(100).default(20),
 });
@@ -174,4 +174,6 @@ export interface LoadMessagesResult {
   messages: Message[];
   nextCursor: string;
   hasMore: boolean;
+  /** userId -> lastSeenMessageId of other members (excluding current viewer) */
+  memberSeenMap?: Record<string, string>;
 }

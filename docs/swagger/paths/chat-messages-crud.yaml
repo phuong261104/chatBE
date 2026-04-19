@@ -10,14 +10,14 @@ paths:
           name: conversationId
           schema:
             type: string
-            example: "60d0fe4f5311236168a109cc"
+            example: "0192a3bc-def0-7abc-8901-23456789abcd"
           required: true
         - in: query
           name: cursor
           schema:
             type: string
           description: Cursor for pagination (message ID or timestamp)
-          example: "msg_abc123"
+          example: "0192a3bc-def0-7abc-8901-23456789abce"
         - in: query
           name: limit
           schema:
@@ -27,9 +27,40 @@ paths:
             example: 20
       responses:
         "200":
-          description: List of messages
+          description: List of messages with pagination and seen status
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      messages:
+                        type: array
+                        items:
+                          $ref: "./chat-schemas.yaml#/components/schemas/MessageResponse"
+                      nextCursor:
+                        type: string
+                        description: Cursor for next page (message ID). Empty string if no more messages.
+                        example: "0192a3bc-def0-7abc-8901-23456789abcf"
+                      hasMore:
+                        type: boolean
+                        description: Whether there are more messages after this page.
+                        example: true
+                      memberSeenMap:
+                        type: object
+                        description: |
+                          Map of userId -> lastSeenMessageId for other members in the conversation.
+                          Used by frontend to compute isSeen: message.id <= memberSeenMap[otherUserId].
+                          Only includes members who have called markAsSeen (excludes current viewer).
+                        additionalProperties:
+                          type: string
+                          description: The last message ID seen by this member.
+                          example: "0192a3bc-def0-7abc-8901-23456789abca"
+                        example:
+                          user_456: "msg_001"
+                          user_789: "msg_003"
               example:
                 data:
                   messages:
@@ -57,10 +88,13 @@ paths:
                       deliveredTo: ["user_1", "user_2", "user_3"]
                   nextCursor: "msg_abc456"
                   hasMore: true
+                  memberSeenMap:
+                    user_456: "msg_001"
+                    user_789: "msg_003"
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
         "403":
-          description: Not a member of this conversation
+          description: Forbidden - User is not a member of this conversation
 
     post:
       summary: Send a message (returns Message[])
@@ -80,7 +114,7 @@ paths:
           name: conversationId
           schema:
             type: string
-            example: "60d0fe4f5311236168a109cc"
+            example: "0192a3bc-def0-7abc-8901-23456789abcd"
           required: true
       requestBody:
         required: true
