@@ -345,23 +345,26 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       ? members.filter((m) => m.userId !== excludeUserId)
       : members;
 
+    console.debug(`[incrementUnreadCount] conversationId=${conversationId}, targets=${targets.length}, excludeUserId=${excludeUserId || "none"}`);
+
     const now = new Date().toISOString();
     const chunks = this.chunkArray(targets, 25);
     for (const chunk of chunks) {
-      const writeRequests = chunk.map((member) => ({
-        PutRequest: {
-          Item: {
-            ...member,
-            unreadCount: (member.unreadCount || 0) + 1,
-            updatedAt: now,
-          },
-        },
-      }));
-      await docClient.send(
-        new BatchWriteCommand({
-          RequestItems: { [tableName]: writeRequests },
-        }),
-      );
+      for (const member of chunk) {
+        await docClient.send(
+          new UpdateCommand({
+            TableName: tableName,
+            Key: { pk: member.pk, sk: member.sk },
+            UpdateExpression: "SET unreadCount = if_not_exists(unreadCount, :zero) + :inc, updatedAt = :now",
+            ExpressionAttributeValues: {
+              ":inc": 1,
+              ":zero": 0,
+              ":now": now,
+            },
+          }),
+        );
+        console.debug(`[incrementUnreadCount] incremented for userId=${member.userId} in conversation=${conversationId}`);
+      }
     }
   }
 

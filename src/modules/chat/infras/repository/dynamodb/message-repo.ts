@@ -104,6 +104,42 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
   async get(id: string): Promise<Message | null> {
     return await this.getById(id);
   }
+
+  async countUnreadAfter(conversationId: string, lastSeenMessageId: string): Promise<number> {
+    const docClient = getDocClient();
+    const tableName = getTableName(TABLE_NAMES.MESSAGES);
+
+    const msgResult = await docClient.send(
+      new QueryCommand({
+        TableName: tableName,
+        IndexName: "id-index",
+        KeyConditionExpression: "id = :id",
+        ExpressionAttributeValues: { ":id": lastSeenMessageId },
+        Limit: 1,
+      }),
+    );
+
+    if (!msgResult.Items || msgResult.Items.length === 0) {
+      return 0;
+    }
+
+    const lastSeenItem = msgResult.Items[0];
+    const lastSeenCreatedAt = lastSeenItem.createdAt;
+
+    const countResult = await docClient.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: "pk = :pk AND sk > :skPrefix",
+        ExpressionAttributeValues: {
+          ":pk": `CONV#${conversationId}`,
+          ":skPrefix": `MSG#${lastSeenCreatedAt}`,
+        },
+        Select: "COUNT",
+      }),
+    );
+
+    return countResult.Count ?? 0;
+  }
 }
 
 class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
@@ -305,6 +341,11 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
     const q = new DynamoMessageQueryRepository();
     const result = await q.listByConversation(conversationId, limit, cursor);
     return result.messages;
+  }
+
+  async countUnreadAfter(conversationId: string, lastSeenMessageId: string): Promise<number> {
+    const q = new DynamoMessageQueryRepository();
+    return q.countUnreadAfter(conversationId, lastSeenMessageId);
   }
 
   async findPinnedMessages(conversationId: string): Promise<Message[]> {

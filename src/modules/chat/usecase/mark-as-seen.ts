@@ -36,9 +36,22 @@ export class MarkAsSeenHandler implements ICommandHandler<MarkAsSeenCommand, voi
       throw AppError.from(new Error('Message not found'), 404);
     }
 
+    const currentUnreadCount = member.unreadCount || 0;
+    let newUnreadCount = 0;
+
+    if (currentUnreadCount > 0) {
+      const unreadAfterLastSeen = await this.messageQueryRepo.countUnreadAfter(
+        validatedInput.conversationId,
+        validatedInput.lastSeenMessageId,
+      );
+      newUnreadCount = unreadAfterLastSeen;
+    }
+
+    console.debug(`[markAsSeen] conversationId=${validatedInput.conversationId}, userId=${validatedInput.userId}, lastSeenMessageId=${validatedInput.lastSeenMessageId}, oldUnreadCount=${currentUnreadCount}, newUnreadCount=${newUnreadCount}`);
+
     await this.conversationMemberCommandRepo.update(member.id, {
       lastSeenMessageId: validatedInput.lastSeenMessageId,
-      unreadCount: 0
+      unreadCount: newUnreadCount,
     });
   }
 }

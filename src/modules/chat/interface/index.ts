@@ -89,6 +89,8 @@ export interface IMessageQueryRepository {
 
   findPinnedMessages(conversationId: string): Promise<Message[]>;
 
+  countUnreadAfter(conversationId: string, lastSeenMessageId: string): Promise<number>;
+
   searchMessages(
     conversationId: string,
     userId: string,

@@ -117,6 +117,8 @@ Socket.IO events được hỗ trợ cho:
 npm run start     # Chạy với nodemon (development)
 npm run demo      # Chạy một lần với ts-node
 npm run dynamodb:init  # Khởi tạo bảng DynamoDB
+npm run seed:ready      # Seed user cố định + friendship + conversation + messages mẫu
+npm run seed:users:ready # Chỉ seed user cố định
 npm test          # Chạy tests
 ```
 

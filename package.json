@@ -13,7 +13,9 @@
     "demo": "ts-node src/index.ts",
     "start": "nodemon src/index.ts",
     "dynamodb:init": "ts-node scripts/init-dynamodb-tables.ts",
-    "dynamodb:reset": "ts-node scripts/init-dynamodb-tables.ts --reset"
+    "dynamodb:reset": "ts-node scripts/init-dynamodb-tables.ts --reset",
+    "seed:ready": "ts-node scripts/seed-ready-data.ts",
+    "seed:users:ready": "ts-node scripts/seed-ready-data.ts --users-only"
   },
   "author": "",
   "license": "ISC",
