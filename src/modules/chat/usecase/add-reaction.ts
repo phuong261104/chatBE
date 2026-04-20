@@ -4,11 +4,9 @@ import {
   IMessageReactionCommandRepository,
   IMessageQueryRepository,
   IConversationMemberQueryRepository,
+  IUserQueryRepository,
 } from "@modules/chat/interface";
-import {
-  AddReactionCommand,
-  ReactionResult,
-} from "@modules/chat/model/dto";
+import { AddReactionCommand, ReactionResult } from "@modules/chat/model/dto";
 import { MessageReaction } from "@modules/chat/model/model";
 
 export class AddReactionHandler {
@@ -17,6 +15,7 @@ export class AddReactionHandler {
     private readonly reactionQueryRepo: IMessageReactionQueryRepository,
     private readonly reactionCmdRepo: IMessageReactionCommandRepository,
     private readonly memberQueryRepo: IConversationMemberQueryRepository,
+    private readonly userQueryRepo: IUserQueryRepository,
   ) {}
 
   async execute(command: AddReactionCommand): Promise<MessageReaction> {
@@ -33,6 +32,8 @@ export class AddReactionHandler {
       throw new Error("User is not a member of this conversation");
     }
 
+    const user = await this.userQueryRepo.get(command.userId);
+
     const reaction: MessageReaction = {
       id: v7(),
       messageId: command.messageId,
@@ -40,6 +41,13 @@ export class AddReactionHandler {
       emoji: command.emoji,
       count: 1,
       createdAt: new Date(),
+      user: user
+        ? {
+            id: user.id,
+            avatarUrl: user.avatarUrl || undefined,
+            displayName: user.displayName || "Unknown User",
+          }
+        : undefined,
     };
 
     const result = await this.reactionCmdRepo.upsertReaction(reaction);
@@ -88,6 +96,7 @@ export class GetReactionsHandler {
   constructor(
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly reactionQueryRepo: IMessageReactionQueryRepository,
+    private readonly userQueryRepo: IUserQueryRepository,
   ) {}
 
   async execute(messageId: string): Promise<ReactionResult> {
@@ -100,6 +109,24 @@ export class GetReactionsHandler {
       this.reactionQueryRepo.findByMessageId(messageId),
       this.reactionQueryRepo.getReactionSummary(messageId),
     ]);
+
+    // Nạp data user
+    if (reactions) {
+      await Promise.all(
+        reactions.map(async (r) => {
+          if (!r.user || !r.user.avatarUrl) {
+            const user = await this.userQueryRepo.get(r.userId);
+            if (user) {
+              r.user = {
+                id: user.id,
+                avatarUrl: user.avatarUrl || undefined,
+                displayName: user.displayName || "Unknown User",
+              };
+            }
+          }
+        }),
+      );
+    }
 
     return { reactions, grouped };
   }

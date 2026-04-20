@@ -3,21 +3,18 @@ import { AppError } from "@share/app-error";
 import {
   IConversationMemberQueryRepository,
   IMessageQueryRepository,
+  IMessageReactionQueryRepository,
+  IUserQueryRepository,
 } from "../interface";
 import { Message } from "../model/model";
-import {
-  loadMessagesDTOSchema,
-  LoadMessagesQuery,
-  LoadMessagesResult,
-} from "../model/dto";
+import { loadMessagesDTOSchema, LoadMessagesQuery, LoadMessagesResult } from "../model/dto";
 
-export class LoadMessagesQueryHandler implements IQueryHandler<
-  LoadMessagesQuery,
-  LoadMessagesResult
-> {
+export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery, LoadMessagesResult> {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly messageQueryRepo: IMessageQueryRepository,
+    private readonly messageReactionQueryRepo: IMessageReactionQueryRepository,
+    private readonly userQueryRepo: IUserQueryRepository,
   ) {}
 
   async query(query: LoadMessagesQuery): Promise<LoadMessagesResult> {
@@ -33,10 +30,7 @@ export class LoadMessagesQueryHandler implements IQueryHandler<
     });
 
     if (!success) {
-      throw AppError.from(new Error("Invalid data"), 400).withDetail(
-        "validationErrors",
-        error.errors,
-      );
+      throw AppError.from(new Error("Invalid data"), 400).withDetail("validationErrors", error.errors);
     }
 
     const member = await this.conversationMemberQueryRepo.findByCond({
@@ -45,10 +39,7 @@ export class LoadMessagesQueryHandler implements IQueryHandler<
     });
 
     if (!member || member.leftAt) {
-      throw AppError.from(
-        new Error("Unauthorized: You are not a member of this conversation"),
-        403,
-      );
+      throw AppError.from(new Error("Unauthorized: You are not a member of this conversation"), 403);
     }
 
     const messages = await this.messageQueryRepo.listWithCursor(
@@ -59,14 +50,53 @@ export class LoadMessagesQueryHandler implements IQueryHandler<
     );
 
     const hasMore = messages.length > validatedInput.limit;
-    const returnMessages = hasMore
-      ? messages.slice(0, validatedInput.limit)
-      : messages;
+    const returnMessages = hasMore ? messages.slice(0, validatedInput.limit) : messages;
 
-    const nextCursor =
-      hasMore && returnMessages.length > 0
-        ? returnMessages[returnMessages.length - 1].id
-        : "";
+    // Lấy reactions cho các tin nhắn được trả về
+    await Promise.all(
+      returnMessages.map(async (msg) => {
+        const reactions = await this.messageReactionQueryRepo.findByMessageId(msg.id);
+        if (reactions && reactions.length > 0) {
+          // Nhóm lại theo emoji để trả về structure mà frontend cần
+          const grouped: Record<string, { emoji: string; count: number; users: any[] }> = {};
+
+          // Nạp user data
+          await Promise.all(
+            reactions.map(async (r) => {
+              if (!r.user || !r.user.avatarUrl) {
+                const user = await this.userQueryRepo.get(r.userId);
+                if (user) {
+                  r.user = {
+                    id: user.id,
+                    avatarUrl: user.avatarUrl || undefined,
+                    displayName: user.displayName || "Unknown User",
+                  };
+                }
+              }
+            }),
+          );
+
+          for (const r of reactions) {
+            if (!grouped[r.emoji]) {
+              grouped[r.emoji] = { emoji: r.emoji, count: 0, users: [] };
+            }
+            grouped[r.emoji].count += r.count;
+            // Ở Frontend dùng u._id || u.id nên ta ném vô id
+            grouped[r.emoji].users.push({
+              id: r.userId,
+              _id: r.userId,
+              avatarUrl: r.user?.avatarUrl || undefined,
+              displayName: r.user?.displayName || "Unknown User",
+            });
+          }
+          msg.reactions = Object.values(grouped);
+        } else {
+          msg.reactions = [];
+        }
+      }),
+    );
+
+    const nextCursor = hasMore && returnMessages.length > 0 ? returnMessages[returnMessages.length - 1].id : "";
 
     const allMembers = await this.conversationMemberQueryRepo.listByConversationId(
       validatedInput.conversationId,

@@ -139,6 +139,13 @@ export const MessageReactionSchema = z.object({
   emoji: z.string(),
   count: z.number().default(1),
   createdAt: z.date(),
+  user: z
+    .object({
+      id: z.string(),
+      avatarUrl: z.string().optional(),
+      displayName: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type MessageReaction = z.infer<typeof MessageReactionSchema>;
@@ -184,10 +191,15 @@ export const MessageSchema = z.object({
   deletedAt: z.date().optional(),
   pinned: z.boolean().default(false),
   pinnedAt: z.date().optional(),
-  readBy: z.array(z.object({
-    userId: z.string(),
-    readAt: z.date(),
-  })).optional(),
+  readBy: z
+    .array(
+      z.object({
+        userId: z.string(),
+        readAt: z.date(),
+      }),
+    )
+    .optional(),
+  reactions: z.array(z.any()).optional(),
 });
 
 export type Message = z.infer<typeof MessageSchema>;
