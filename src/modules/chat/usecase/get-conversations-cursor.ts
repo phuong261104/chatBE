@@ -1,4 +1,5 @@
 import { IQueryHandler } from "@share/interface";
+import { AppError } from "@share/app-error";
 import {
   IConversationQueryRepository,
   IConversationMemberQueryRepository,
@@ -30,12 +31,30 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
     const limit = query.limit || 20;
     const isFirstLoad = !query.cursor;
 
-    const { pinnedMembers, normalMembers, nextCursor, hasMore } =
-      await this.conversationMemberQueryRepo.listByUserIdCursor(
+    let pinnedMembers: any[];
+    let normalMembers: any[];
+    let nextCursor: string | undefined;
+    let hasMore: boolean;
+
+    try {
+      const result = await this.conversationMemberQueryRepo.listByUserIdCursor(
         query.userId,
         query.cursor,
         limit,
       );
+      pinnedMembers = result.pinnedMembers;
+      normalMembers = result.normalMembers;
+      nextCursor = result.nextCursor;
+      hasMore = result.hasMore;
+    } catch (e) {
+      if (query.cursor) {
+        throw AppError.from(
+          new Error("Invalid cursor. Please restart from first page."),
+          400,
+        );
+      }
+      throw e;
+    }
 
     const pinned = isFirstLoad
       ? await this.enrichConversations(query.userId, pinnedMembers, true)

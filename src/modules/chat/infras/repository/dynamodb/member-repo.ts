@@ -137,8 +137,8 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
     hasMore: boolean;
   }> {
     const docClient = getDocClient();
-    const exclusiveStartKey = cursor ? JSON.parse(Buffer.from(cursor, "base64").toString("utf-8")) : undefined;
 
+    // DynamoDB in-memory cursor pagination: fetch 1000 items, sort/filter in JS
     const result = await docClient.send(
       new QueryCommand({
         TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
@@ -151,7 +151,6 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
           ":nullVal": null,
         },
         Limit: 1000,
-        ExclusiveStartKey: exclusiveStartKey,
       }),
     );
 
@@ -165,6 +164,8 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
         return bTime - aTime;
       });
 
+    // Sort by updatedAt DESC, tie-break by conversationId ASC
+    // UUID v7 ensures lexical compare == chronological order
     const normalMembersRaw = allMembers
       .filter((m) => !m.pinned)
       .sort((a, b) => {
@@ -179,17 +180,8 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
     let hasMore: boolean;
 
     if (cursor) {
-      const [cursorTs, ...cursorIdParts] = cursor.split("#");
-      const cursorId = cursorIdParts.join("#");
-      const cursorTime = new Date(cursorTs).getTime();
-
-      const filtered = normalMembersRaw.filter((m) => {
-        const mTime = m.updatedAt?.getTime() ?? 0;
-        if (mTime < cursorTime) return true;
-        if (mTime === cursorTime && m.conversationId < cursorId) return true;
-        return false;
-      });
-
+      // cursor = conversationId (UUID v7) of the last item from previous page
+      const filtered = normalMembersRaw.filter((m) => m.conversationId > cursor!);
       normalMembers = filtered.slice(0, limit + 1);
       hasMore = filtered.length > limit;
       if (hasMore) {
@@ -205,7 +197,7 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
 
     if (hasMore && normalMembers.length > 0) {
       const last = normalMembers[normalMembers.length - 1];
-      nextCursor = `${last.updatedAt?.toISOString() ?? ""}#${last.conversationId}`;
+      nextCursor = last.conversationId;
     }
 
     return {
