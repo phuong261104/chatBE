@@ -151,7 +151,13 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     userAdapter,
   );
 
-  const updateGroupInfoHandler = new UpdateGroupInfoHandler(conversationRepo, conversationRepo, conversationMemberRepo);
+  const updateGroupInfoHandler = new UpdateGroupInfoHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    messageRepo,
+    userAdapter,
+  );
 
   const markAsSeenHandler = new MarkAsSeenHandler(conversationMemberRepo, conversationMemberRepo, messageRepo);
 
@@ -234,9 +240,23 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const editMessageHandler = new EditMessageHandler(messageRepo, messageRepo, conversationMemberRepo);
 
-  const pinMessageHandler = new PinMessageHandler(messageRepo, messageRepo, conversationMemberRepo);
+  const pinMessageHandler = new PinMessageHandler(
+    messageRepo,
+    messageRepo,
+    conversationMemberRepo,
+    conversationRepo,
+    conversationRepo,
+    userAdapter,
+  );
 
-  const unpinMessageHandler = new UnpinMessageHandler(messageRepo, messageRepo, conversationMemberRepo);
+  const unpinMessageHandler = new UnpinMessageHandler(
+    messageRepo,
+    messageRepo,
+    conversationMemberRepo,
+    conversationRepo,
+    conversationRepo,
+    userAdapter,
+  );
 
   const getPinnedMessagesHandler = new GetPinnedMessagesHandler(messageRepo, conversationMemberRepo);
 
@@ -267,6 +287,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationRepo,
     conversationMemberRepo,
     conversationMemberRepo,
+    messageRepo,
+    userAdapter,
   );
 
   const transferOwnerHandler = new TransferOwnerHandler(
@@ -274,6 +296,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationRepo,
     conversationMemberRepo,
     conversationMemberRepo,
+    messageRepo,
+    userAdapter,
   );
 
   const createPollHandler = new CreatePollHandler(conversationRepo, conversationMemberRepo, pollCmdRepo);
@@ -291,9 +315,18 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationRepo,
     conversationMemberRepo,
     conversationMemberRepo,
+    messageRepo,
+    userAdapter,
   );
 
-  const rejectMemberHandler = new RejectMemberHandler(conversationRepo, conversationMemberRepo, conversationMemberRepo);
+  const rejectMemberHandler = new RejectMemberHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+    messageRepo,
+    userAdapter,
+  );
 
   const updateGroupSettingsHandler = new UpdateGroupSettingsHandler(
     conversationRepo,

@@ -1,17 +1,25 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
+import { v7 } from "uuid";
 import {
   IConversationQueryRepository,
+  IConversationCommandRepository,
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
+  IMessageCommandRepository,
+  IUserQueryRepository,
 } from "../interface";
-import { ConversationType, ConversationMemberStatus, ConversationMemberRole } from "../model/model";
+import { ConversationType, ConversationMemberStatus, ConversationMemberRole, Message, MessageType } from "../model/model";
+import { SystemMessageTemplate } from "../constants/system-messages";
 
 export class RejectMemberHandler implements ICommandHandler<{ groupId: string; userId: string; requesterId: string }, void> {
   constructor(
     private readonly conversationQueryRepo: IConversationQueryRepository,
+    private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
+    private readonly messageCommandRepo: IMessageCommandRepository,
+    private readonly userQueryRepo: IUserQueryRepository,
   ) {}
 
   async execute(command: { groupId: string; userId: string; requesterId: string }): Promise<void> {
@@ -54,6 +62,36 @@ export class RejectMemberHandler implements ICommandHandler<{ groupId: string; u
 
     await this.conversationMemberCommandRepo.update(member.id, {
       status: ConversationMemberStatus.REJECTED,
+    });
+
+    const now = new Date();
+    const [requester, targetUser] = await Promise.all([
+      this.userQueryRepo.get(requesterId),
+      this.userQueryRepo.get(userId),
+    ]);
+    const requesterDisplayName = requester?.displayName || "Unknown User";
+    const targetDisplayName = targetUser?.displayName || "Unknown User";
+
+    const systemMsg: Message = {
+      id: v7(),
+      conversationId: groupId,
+      senderId: requesterId,
+      type: MessageType.SYSTEM,
+      text: SystemMessageTemplate.REJECT_MEMBER(requesterDisplayName, targetDisplayName),
+      createdAt: now,
+      pinned: false,
+    };
+    await this.messageCommandRepo.insert(systemMsg);
+
+    await this.conversationCommandRepo.update(groupId, {
+      lastMessage: {
+        messageId: systemMsg.id,
+        senderId: requesterId,
+        type: MessageType.SYSTEM,
+        textPreview: systemMsg.text,
+        createdAt: now,
+      },
+      lastMessageAt: now,
     });
   }
 }

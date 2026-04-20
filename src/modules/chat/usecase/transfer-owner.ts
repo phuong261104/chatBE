@@ -1,18 +1,23 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
+import { v7 } from "uuid";
 import {
   IConversationQueryRepository,
   IConversationCommandRepository,
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
+  IMessageCommandRepository,
+  IUserQueryRepository,
 } from "../interface";
 import {
   Conversation,
   ConversationMemberRole,
   ConversationType,
-  ConversationMemberStatus,
+  Message,
+  MessageType,
 } from "../model/model";
 import { TransferOwnerCommand } from "../model/dto";
+import { SystemMessageTemplate } from "../constants/system-messages";
 
 export class TransferOwnerHandler implements ICommandHandler<TransferOwnerCommand, Conversation> {
   constructor(
@@ -20,6 +25,8 @@ export class TransferOwnerHandler implements ICommandHandler<TransferOwnerComman
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
+    private readonly messageCommandRepo: IMessageCommandRepository,
+    private readonly userQueryRepo: IUserQueryRepository,
   ) {}
 
   async execute(command: TransferOwnerCommand): Promise<Conversation> {
@@ -64,6 +71,36 @@ export class TransferOwnerHandler implements ICommandHandler<TransferOwnerComman
 
     await this.conversationMemberCommandRepo.update(newOwnerMember.id, {
       role: ConversationMemberRole.ADMIN,
+    });
+
+    const now = new Date();
+    const [requester, newOwner] = await Promise.all([
+      this.userQueryRepo.get(requesterId),
+      this.userQueryRepo.get(newOwnerId),
+    ]);
+    const requesterDisplayName = requester?.displayName || "Unknown User";
+    const newOwnerDisplayName = newOwner?.displayName || "Unknown User";
+
+    const systemMsg: Message = {
+      id: v7(),
+      conversationId: groupId,
+      senderId: requesterId,
+      type: MessageType.SYSTEM,
+      text: SystemMessageTemplate.TRANSFER_OWNER(requesterDisplayName, newOwnerDisplayName),
+      createdAt: now,
+      pinned: false,
+    };
+    await this.messageCommandRepo.insert(systemMsg);
+
+    await this.conversationCommandRepo.update(groupId, {
+      lastMessage: {
+        messageId: systemMsg.id,
+        senderId: requesterId,
+        type: MessageType.SYSTEM,
+        textPreview: systemMsg.text,
+        createdAt: now,
+      },
+      lastMessageAt: now,
     });
 
     const updatedConversation = await this.conversationQueryRepo.get(groupId);

@@ -1,16 +1,21 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
-import { Message } from "../model/model";
+import { v7 } from "uuid";
+import { Message, MessageType } from "../model/model";
 import {
   IMessageQueryRepository,
   IMessageCommandRepository,
   IConversationMemberQueryRepository,
+  IConversationQueryRepository,
+  IConversationCommandRepository,
+  IUserQueryRepository,
 } from "../interface";
 import {
   unpinMessageDTOSchema,
   UnpinMessageCommand,
 } from "../model/dto";
 import { ErrMessageNotFound, ErrNotMember, ErrMessageNotPinned } from "../model/errors";
+import { SystemMessageTemplate } from "../constants/system-messages";
 
 export class UnpinMessageHandler
   implements ICommandHandler<UnpinMessageCommand, Message>
@@ -19,6 +24,9 @@ export class UnpinMessageHandler
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly conversationQueryRepo: IConversationQueryRepository,
+    private readonly conversationCommandRepo: IConversationCommandRepository,
+    private readonly userQueryRepo: IUserQueryRepository,
   ) {}
 
   async execute(command: UnpinMessageCommand) {
@@ -53,9 +61,41 @@ export class UnpinMessageHandler
       pinned: false,
     });
 
-    return {
+    const updatedMessage = {
       ...message,
       pinned: false,
     };
+
+    const [actor, conversation] = await Promise.all([
+      this.userQueryRepo.get(data.userId),
+      this.conversationQueryRepo.get(message.conversationId),
+    ]);
+    const actorDisplayName = actor?.displayName || "Unknown User";
+
+    const systemMsg: Message = {
+      id: v7(),
+      conversationId: message.conversationId,
+      senderId: data.userId,
+      type: MessageType.SYSTEM,
+      text: SystemMessageTemplate.UNPIN_MESSAGE(actorDisplayName),
+      createdAt: new Date(),
+      pinned: false,
+    };
+    await this.messageCommandRepo.insert(systemMsg);
+
+    if (conversation) {
+      await this.conversationCommandRepo.update(message.conversationId, {
+        lastMessage: {
+          messageId: systemMsg.id,
+          senderId: data.userId,
+          type: MessageType.SYSTEM,
+          textPreview: systemMsg.text,
+          createdAt: new Date(),
+        },
+        lastMessageAt: new Date(),
+      });
+    }
+
+    return updatedMessage;
   }
 }

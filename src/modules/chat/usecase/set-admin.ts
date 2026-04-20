@@ -1,18 +1,23 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
+import { v7 } from "uuid";
 import {
   IConversationQueryRepository,
   IConversationCommandRepository,
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
+  IMessageCommandRepository,
+  IUserQueryRepository,
 } from "../interface";
 import {
   Conversation,
   ConversationMemberRole,
   ConversationType,
-  ConversationMemberStatus,
+  Message,
+  MessageType,
 } from "../model/model";
 import { SetAdminCommand } from "../model/dto";
+import { SystemMessageTemplate } from "../constants/system-messages";
 
 export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Conversation> {
   constructor(
@@ -20,6 +25,8 @@ export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Convers
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
+    private readonly messageCommandRepo: IMessageCommandRepository,
+    private readonly userQueryRepo: IUserQueryRepository,
   ) {}
 
   async execute(command: SetAdminCommand): Promise<Conversation> {
@@ -65,6 +72,38 @@ export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Convers
     }
 
     await this.conversationCommandRepo.update(groupId, { admins: newAdmins });
+
+    const now = new Date();
+    const [requester, targetUser] = await Promise.all([
+      this.userQueryRepo.get(requesterId),
+      this.userQueryRepo.get(targetUserId),
+    ]);
+    const requesterDisplayName = requester?.displayName || "Unknown User";
+    const targetDisplayName = targetUser?.displayName || "Unknown User";
+
+    const systemMsg: Message = {
+      id: v7(),
+      conversationId: groupId,
+      senderId: requesterId,
+      type: MessageType.SYSTEM,
+      text: isAdmin
+        ? SystemMessageTemplate.SET_ADMIN(requesterDisplayName, targetDisplayName)
+        : SystemMessageTemplate.REMOVE_ADMIN(requesterDisplayName, targetDisplayName),
+      createdAt: now,
+      pinned: false,
+    };
+    await this.messageCommandRepo.insert(systemMsg);
+
+    await this.conversationCommandRepo.update(groupId, {
+      lastMessage: {
+        messageId: systemMsg.id,
+        senderId: requesterId,
+        type: MessageType.SYSTEM,
+        textPreview: systemMsg.text,
+        createdAt: now,
+      },
+      lastMessageAt: now,
+    });
 
     const updatedConversation = await this.conversationQueryRepo.get(groupId);
     if (!updatedConversation) {

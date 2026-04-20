@@ -1,6 +1,7 @@
 import { IMessagingUseCase } from "../../interface";
 import { Server as SocketIOServer, Namespace, Socket } from "socket.io";
 import { MediaAttachment } from "../../model";
+import { SocketEvent } from "../../constants/socket-events";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -98,96 +99,104 @@ export class MessagingSocketService {
         socket.join(`user_room:${socket.userId}`);
       }
 
-      socket.on("joinGroup", async (payload: any, callback) => {
+      socket.on(SocketEvent.JOIN_GROUP, async (payload: any, callback) => {
         await this.handleJoinGroup(socket, payload, callback);
       });
 
-      socket.on("leaveGroup", async (payload: any, callback) => {
+      socket.on(SocketEvent.LEAVE_GROUP, async (payload: any, callback) => {
         await this.handleLeaveGroup(socket, payload, callback);
       });
 
-      socket.on("messageSeen", async (payload: any, callback) => {
+      socket.on(SocketEvent.MESSAGE_SEEN, async (payload: any, callback) => {
         await this.handleMessageSeen(socket, payload, callback);
       });
 
-      socket.on("messageDelivered", async (payload: any, callback) => {
+      socket.on(SocketEvent.MESSAGE_DELIVERED, async (payload: any, callback) => {
         await this.handleMessageDelivered(socket, payload, callback);
       });
 
-      socket.on("typing:start", async (payload: any) => {
-        await this.handleTyping(socket, payload, "typing:start");
+      socket.on(SocketEvent.TYPING_START, async (payload: any) => {
+        await this.handleTypingStart(socket, payload);
       });
 
-      socket.on("typing:stop", async (payload: any) => {
-        await this.handleTyping(socket, payload, "typing:stop");
+      socket.on(SocketEvent.TYPING_STOP, async (payload: any) => {
+        await this.handleTypingStop(socket, payload);
       });
 
-      socket.on("sendMessage", async (payload: any, callback) => {
+      socket.on(SocketEvent.SEND_MESSAGE, async (payload: any, callback) => {
         await this.handleSendMessage(socket, payload, callback);
       });
 
-      socket.on("editMessage", async (payload: any, callback) => {
+      socket.on(SocketEvent.EDIT_MESSAGE, async (payload: any, callback) => {
         await this.handleEditMessage(socket, payload, callback);
       });
 
-      socket.on("deleteMessage", async (payload: any, callback) => {
+      socket.on(SocketEvent.DELETE_MESSAGE, async (payload: any, callback) => {
         await this.handleDeleteMessage(socket, payload, callback);
       });
 
-      socket.on("revokeMessage", async (payload: any, callback) => {
+      socket.on(SocketEvent.REVOKE_MESSAGE, async (payload: any, callback) => {
         await this.handleRevokeMessage(socket, payload, callback);
       });
 
-      socket.on("addReaction", async (payload: any, callback) => {
+      socket.on(SocketEvent.ADD_REACTION, async (payload: any, callback) => {
         await this.handleAddReaction(socket, payload, callback);
       });
 
-      socket.on("removeReaction", async (payload: any, callback) => {
+      socket.on(SocketEvent.REMOVE_REACTION, async (payload: any, callback) => {
         await this.handleRemoveReaction(socket, payload, callback);
       });
 
-      socket.on("markAllSeen", async (payload: any, callback) => {
+      socket.on(SocketEvent.MARK_ALL_SEEN, async (payload: any, callback) => {
         await this.handleMarkAllSeen(socket, payload, callback);
       });
 
-      socket.on("deleteMessageForEveryone", async (payload: any, callback) => {
+      socket.on(SocketEvent.DELETE_MESSAGE_FOR_EVERYONE, async (payload: any, callback) => {
         await this.handleDeleteMessageForEveryone(socket, payload, callback);
       });
 
-      socket.on("forwardMessages", async (payload: any, callback) => {
+      socket.on(SocketEvent.FORWARD_MESSAGES, async (payload: any, callback) => {
         await this.handleForwardMessages(socket, payload, callback);
       });
 
-      socket.on("quoteMessage", async (payload: any, callback) => {
+      socket.on(SocketEvent.QUOTE_MESSAGE, async (payload: any, callback) => {
         await this.handleQuoteMessage(socket, payload, callback);
       });
 
-      socket.on("dissolveGroup", async (payload: any, callback) => {
+      socket.on(SocketEvent.DISSOLVE_GROUP, async (payload: any, callback) => {
         await this.handleDissolveGroup(socket, payload, callback);
       });
 
-      socket.on("pinConversation", async (payload: any, callback) => {
+      socket.on(SocketEvent.PIN_CONVERSATION, async (payload: any, callback) => {
         await this.handlePinConversation(socket, payload, callback);
       });
 
-      socket.on("unpinConversation", async (payload: any, callback) => {
+      socket.on(SocketEvent.UNPIN_CONVERSATION, async (payload: any, callback) => {
         await this.handleUnpinConversation(socket, payload, callback);
       });
 
-      socket.on("archiveConversation", async (payload: any, callback) => {
+      socket.on(SocketEvent.ARCHIVE_CONVERSATION, async (payload: any, callback) => {
         await this.handleArchiveConversation(socket, payload, callback);
       });
 
-      socket.on("unarchiveConversation", async (payload: any, callback) => {
+      socket.on(SocketEvent.UNARCHIVE_CONVERSATION, async (payload: any, callback) => {
         await this.handleUnarchiveConversation(socket, payload, callback);
       });
 
-      socket.on("muteConversation", async (payload: any, callback) => {
+      socket.on(SocketEvent.MUTE_CONVERSATION, async (payload: any, callback) => {
         await this.handleMuteConversation(socket, payload, callback);
       });
 
-      socket.on("unmuteConversation", async (payload: any, callback) => {
+      socket.on(SocketEvent.UNMUTE_CONVERSATION, async (payload: any, callback) => {
         await this.handleUnmuteConversation(socket, payload, callback);
+      });
+
+      socket.on(SocketEvent.PIN_MESSAGE, async (payload: any, callback) => {
+        await this.handlePinMessage(socket, payload, callback);
+      });
+
+      socket.on(SocketEvent.UNPIN_MESSAGE, async (payload: any, callback) => {
+        await this.handleUnpinMessage(socket, payload, callback);
       });
 
       socket.on("disconnect", () => {});
@@ -289,7 +298,7 @@ export class MessagingSocketService {
       const memberUserIds = await this.getMemberUserIds(conversationId, userId);
 
       for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "messageSeen", {
+        this.emitToUser(memberId, SocketEvent.MESSAGE_SEEN, {
           conversationId,
           userId,
           lastSeenMessageId,
@@ -332,7 +341,7 @@ export class MessagingSocketService {
       const memberUserIds = await this.getMemberUserIds(conversationId, userId);
 
       for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "messageDelivered", {
+        this.emitToUser(memberId, SocketEvent.MESSAGE_DELIVERED, {
           conversationId,
           userId,
           lastDeliveredMessageId,
@@ -350,10 +359,9 @@ export class MessagingSocketService {
     }
   }
 
-  private async handleTyping(
+  private async handleTypingStart(
     socket: AuthenticatedSocket,
     payload: { toUserId?: string; groupId?: string },
-    eventName: "typing:start" | "typing:stop",
   ) {
     try {
       const userId = socket.userId;
@@ -362,18 +370,44 @@ export class MessagingSocketService {
       const { toUserId, groupId } = payload;
 
       if (toUserId) {
-        this.namespace.to(`user_room:${toUserId}`).emit(eventName, {
+        this.namespace.to(`user_room:${toUserId}`).emit(SocketEvent.TYPING_START, {
           userId,
           toUserId,
         });
       } else if (groupId) {
-        socket.to(`group_room:${groupId}`).emit(eventName, {
+        socket.to(`group_room:${groupId}`).emit(SocketEvent.TYPING_START, {
           userId,
           groupId,
         });
       }
     } catch (error) {
-      console.error(`Error handling ${eventName}:`, error);
+      console.error("Error handling typing:start:", error);
+    }
+  }
+
+  private async handleTypingStop(
+    socket: AuthenticatedSocket,
+    payload: { toUserId?: string; groupId?: string },
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) return;
+
+      const { toUserId, groupId } = payload;
+
+      if (toUserId) {
+        this.namespace.to(`user_room:${toUserId}`).emit(SocketEvent.TYPING_STOP, {
+          userId,
+          toUserId,
+        });
+      } else if (groupId) {
+        socket.to(`group_room:${groupId}`).emit(SocketEvent.TYPING_STOP, {
+          userId,
+          groupId,
+        });
+      }
+    } catch (error) {
+      console.error("Error handling typing:stop:", error);
     }
   }
 
@@ -418,7 +452,7 @@ export class MessagingSocketService {
 
       for (const msg of messages) {
         for (const memberId of memberUserIds) {
-          this.emitToUser(memberId, "receiveMessage", {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
             message: msg,
             conversationId,
           });
@@ -461,7 +495,7 @@ export class MessagingSocketService {
       const memberUserIds = await this.getMemberUserIds(message.conversationId);
 
       for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "message:edited", {
+        this.emitToUser(memberId, SocketEvent.MESSAGE_EDITED, {
           conversationId: message.conversationId,
           message,
         });
@@ -506,7 +540,7 @@ export class MessagingSocketService {
 
       await this.useCase.deleteMessageForMe(messageId, userId);
 
-      this.emitToUser(userId, "message:deleted", {
+      this.emitToUser(userId, SocketEvent.MESSAGE_DELETED, {
         conversationId: message.conversationId,
         messageId,
         deletedBy: userId,
@@ -548,7 +582,7 @@ export class MessagingSocketService {
       const memberUserIds = await this.getMemberUserIds(message.conversationId);
 
       for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "message:revoked", {
+        this.emitToUser(memberId, SocketEvent.MESSAGE_REVOKED, {
           conversationId: message.conversationId,
           messageId,
           revokedBy: userId,
@@ -602,7 +636,7 @@ export class MessagingSocketService {
       const memberUserIds = await this.getMemberUserIds(message.conversationId);
 
       for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "message:reaction", {
+        this.emitToUser(memberId, SocketEvent.MESSAGE_REACTION, {
           messageId,
           reaction,
         });
@@ -650,7 +684,7 @@ export class MessagingSocketService {
       const memberUserIds = await this.getMemberUserIds(message.conversationId);
 
       for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "message:reaction:remove", {
+        this.emitToUser(memberId, SocketEvent.MESSAGE_REACTION_REMOVE, {
           messageId,
           userId,
           emoji: emoji || undefined,
@@ -692,7 +726,7 @@ export class MessagingSocketService {
 
       const memberUserIds = await this.getMemberUserIds(message.conversationId);
       for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "message:deleted_for_everyone", {
+        this.emitToUser(memberId, SocketEvent.MESSAGE_DELETED_FOR_EVERYONE, {
           conversationId: message.conversationId,
           messageId,
           deletedBy: userId,
@@ -739,7 +773,7 @@ export class MessagingSocketService {
         const memberUserIds = await this.getMemberUserIds(conversationId, userId);
 
         for (const memberId of memberUserIds) {
-          this.emitToUser(memberId, "messageSeen", {
+          this.emitToUser(memberId, SocketEvent.MESSAGE_SEEN, {
             conversationId,
             userId,
             lastSeenMessageId: lastMessage.id,
@@ -760,26 +794,26 @@ export class MessagingSocketService {
 
   public notifyNewGroup(memberUserIds: string[], groupData: any) {
     for (const userId of memberUserIds) {
-      this.namespace.to(`user:${userId}`).emit("conversation:created", groupData);
+      this.namespace.to(`user:${userId}`).emit(SocketEvent.CONVERSATION_CREATED, groupData);
     }
   }
 
   public notifyMembersAdded(conversationId: string, newMembers: any[]) {
-    this.emitToGroupRoom(conversationId, "conversation:members_added", {
+    this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_MEMBERS_ADDED, {
       conversationId,
       newMembers,
     });
   }
 
   public notifyMemberRemoved(conversationId: string, removedUserId: string) {
-    this.emitToGroupRoom(conversationId, "conversation:member_removed", {
+    this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_MEMBER_REMOVED, {
       conversationId,
       removedUserId,
     });
   }
 
   public notifyMemberLeft(conversationId: string, leftUserId: string, leftBy: string) {
-    this.emitToGroupRoom(conversationId, "group:member_left", {
+    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_MEMBER_LEFT, {
       conversationId,
       leftUserId,
       leftBy,
@@ -788,7 +822,7 @@ export class MessagingSocketService {
 
   public notifyGroupDissolved(conversationId: string, dissolvedBy: string, memberUserIds: string[]) {
     for (const userId of memberUserIds) {
-      this.emitToUser(userId, "group:dissolved", {
+      this.emitToUser(userId, SocketEvent.GROUP_DISSOLVED, {
         conversationId,
         dissolvedBy,
       });
@@ -796,7 +830,7 @@ export class MessagingSocketService {
   }
 
   public notifyConversationPinned(conversationId: string, pinnedBy: string, pinned: boolean) {
-    this.namespace.to(`user:${pinnedBy}`).emit("conversation:pin_toggled", {
+    this.namespace.to(`user:${pinnedBy}`).emit(SocketEvent.CONVERSATION_PIN_TOGGLED, {
       conversationId,
       pinnedBy,
       pinned,
@@ -804,7 +838,7 @@ export class MessagingSocketService {
   }
 
   public notifyConversationArchived(conversationId: string, userId: string, archived: boolean) {
-    this.namespace.to(`user:${userId}`).emit("conversation:archived_toggled", {
+    this.namespace.to(`user:${userId}`).emit(SocketEvent.CONVERSATION_ARCHIVED_TOGGLED, {
       conversationId,
       userId,
       archived,
@@ -812,7 +846,7 @@ export class MessagingSocketService {
   }
 
   public notifyConversationMuted(conversationId: string, userId: string, mutedBy: string, muteUntil?: string) {
-    this.namespace.to(`user:${userId}`).emit("conversation:mute_changed", {
+    this.namespace.to(`user:${userId}`).emit(SocketEvent.CONVERSATION_MUTE_CHANGED, {
       conversationId,
       userId,
       mutedBy,
@@ -821,7 +855,7 @@ export class MessagingSocketService {
   }
 
   public notifyGroupRenamed(conversationId: string, newName: string, renamedBy: string) {
-    this.emitToGroupRoom(conversationId, "group:renamed", {
+    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_RENAMED, {
       conversationId,
       newName,
       renamedBy,
@@ -829,7 +863,7 @@ export class MessagingSocketService {
   }
 
   public notifyGroupAvatarChanged(conversationId: string, avatarUrl: string, changedBy: string) {
-    this.emitToGroupRoom(conversationId, "group:avatar_changed", {
+    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_AVATAR_CHANGED, {
       conversationId,
       avatarUrl,
       changedBy,
@@ -837,7 +871,7 @@ export class MessagingSocketService {
   }
 
   public notifyGroupUpdated(conversationId: string, updatedData: any) {
-    this.emitToGroupRoom(conversationId, "conversation:updated", {
+    this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_UPDATED, {
       conversationId,
       data: updatedData,
     });
@@ -849,7 +883,7 @@ export class MessagingSocketService {
     seenByUserId: string,
     lastSeenMessageId: string,
   ) {
-    this.emitToUser(userId, "messageSeen", {
+    this.emitToUser(userId, SocketEvent.MESSAGE_SEEN, {
       conversationId,
       userId: seenByUserId,
       lastSeenMessageId,
@@ -862,7 +896,7 @@ export class MessagingSocketService {
     deliveredByUserId: string,
     lastDeliveredMessageId: string,
   ) {
-    this.emitToUser(userId, "messageDelivered", {
+    this.emitToUser(userId, SocketEvent.MESSAGE_DELIVERED, {
       conversationId,
       userId: deliveredByUserId,
       lastDeliveredMessageId,
@@ -874,7 +908,7 @@ export class MessagingSocketService {
     messageId: string,
     deletedBy: string,
   ) {
-    this.emitToGroupRoom(conversationId, "message:deleted", {
+    this.emitToGroupRoom(conversationId, SocketEvent.MESSAGE_DELETED, {
       conversationId,
       messageId,
       deletedBy,
@@ -882,7 +916,7 @@ export class MessagingSocketService {
   }
 
   public notifyAdminChanged(conversationId: string, targetUserId: string, isAdmin: boolean) {
-    this.emitToGroupRoom(conversationId, "group:admin_changed", {
+    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_ADMIN_CHANGED, {
       conversationId,
       targetUserId,
       isAdmin,
@@ -890,7 +924,7 @@ export class MessagingSocketService {
   }
 
   public notifyOwnerTransferred(conversationId: string, oldOwnerId: string, newOwnerId: string) {
-    this.emitToGroupRoom(conversationId, "group:owner_transferred", {
+    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_OWNER_TRANSFERRED, {
       conversationId,
       oldOwnerId,
       newOwnerId,
@@ -898,14 +932,14 @@ export class MessagingSocketService {
   }
 
   public notifyPollCreated(conversationId: string, poll: any) {
-    this.emitToGroupRoom(conversationId, "poll:new", {
+    this.emitToGroupRoom(conversationId, SocketEvent.POLL_NEW, {
       conversationId,
       poll,
     });
   }
 
   public notifyPollVoted(conversationId: string, pollId: string, userId: string, poll: any) {
-    this.emitToGroupRoom(conversationId, "poll:vote", {
+    this.emitToGroupRoom(conversationId, SocketEvent.POLL_VOTE, {
       conversationId,
       pollId,
       userId,
@@ -914,12 +948,12 @@ export class MessagingSocketService {
   }
 
   public notifyMemberApproved(conversationId: string, userId: string, member: any) {
-    this.emitToGroupRoom(conversationId, "group:member_approved", {
+    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_MEMBER_APPROVED, {
       conversationId,
       userId,
       member,
     });
-    this.emitToUser(userId, "group:member_approved", {
+    this.emitToUser(userId, SocketEvent.GROUP_MEMBER_APPROVED, {
       conversationId,
       userId,
       member,
@@ -927,14 +961,14 @@ export class MessagingSocketService {
   }
 
   public notifyMemberRejected(conversationId: string, userId: string) {
-    this.emitToUser(userId, "group:member_rejected", {
+    this.emitToUser(userId, SocketEvent.GROUP_MEMBER_REJECTED, {
       conversationId,
       userId,
     });
   }
 
   public notifyGroupSettingsUpdated(conversationId: string, settings: any) {
-    this.emitToGroupRoom(conversationId, "group:settings_updated", {
+    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_SETTINGS_UPDATED, {
       conversationId,
       settings,
     });
@@ -979,7 +1013,7 @@ export class MessagingSocketService {
       for (const msg of forwardedMessages) {
         const memberUserIds = await this.getMemberUserIds(msg.conversationId, userId);
         for (const memberId of memberUserIds) {
-          this.emitToUser(memberId, "receiveMessage", {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
             message: msg,
             conversationId: msg.conversationId,
           });
@@ -1047,7 +1081,7 @@ export class MessagingSocketService {
 
       const memberUserIds = await this.getMemberUserIds(conversationId, userId);
       for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "receiveMessage", {
+        this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
           message,
           conversationId,
         });
@@ -1089,7 +1123,7 @@ export class MessagingSocketService {
       await this.useCase.dissolveGroup(groupId, userId);
 
       for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, "group:dissolved", {
+        this.emitToUser(memberId, SocketEvent.GROUP_DISSOLVED, {
           conversationId: groupId,
           dissolvedBy: userId,
         });
@@ -1128,7 +1162,7 @@ export class MessagingSocketService {
 
       await this.useCase.pinConversation(conversationId, userId);
 
-      this.emitToUser(userId, "conversation:pin_toggled", {
+      this.emitToUser(userId, SocketEvent.CONVERSATION_PIN_TOGGLED, {
         conversationId,
         pinnedBy: userId,
         pinned: true,
@@ -1167,7 +1201,7 @@ export class MessagingSocketService {
 
       await this.useCase.unpinConversation(conversationId, userId);
 
-      this.emitToUser(userId, "conversation:pin_toggled", {
+      this.emitToUser(userId, SocketEvent.CONVERSATION_PIN_TOGGLED, {
         conversationId,
         pinnedBy: userId,
         pinned: false,
@@ -1206,7 +1240,7 @@ export class MessagingSocketService {
 
       await this.useCase.archiveConversation(conversationId, userId);
 
-      this.emitToUser(userId, "conversation:archived_toggled", {
+      this.emitToUser(userId, SocketEvent.CONVERSATION_ARCHIVED_TOGGLED, {
         conversationId,
         userId,
         archived: true,
@@ -1245,7 +1279,7 @@ export class MessagingSocketService {
 
       await this.useCase.unarchiveConversation(conversationId, userId);
 
-      this.emitToUser(userId, "conversation:archived_toggled", {
+      this.emitToUser(userId, SocketEvent.CONVERSATION_ARCHIVED_TOGGLED, {
         conversationId,
         userId,
         archived: false,
@@ -1284,7 +1318,7 @@ export class MessagingSocketService {
 
       await this.useCase.muteConversation(conversationId, userId, muteUntil, duration);
 
-      this.emitToUser(userId, "conversation:mute_changed", {
+      this.emitToUser(userId, SocketEvent.CONVERSATION_MUTE_CHANGED, {
         conversationId,
         userId,
         mutedBy: userId,
@@ -1326,7 +1360,7 @@ export class MessagingSocketService {
 
       await this.useCase.unmuteConversation(conversationId, userId);
 
-      this.emitToUser(userId, "conversation:mute_changed", {
+      this.emitToUser(userId, SocketEvent.CONVERSATION_MUTE_CHANGED, {
         conversationId,
         userId,
         mutedBy: userId,
@@ -1338,6 +1372,98 @@ export class MessagingSocketService {
       }
     } catch (error) {
       console.error("Error handling unmuteConversation:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handlePinMessage(
+    socket: AuthenticatedSocket,
+    payload: { messageId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      if (!this.checkRateLimit(userId, "editMessage")) {
+        if (callback) callback({ success: false, error: "Rate limit exceeded" });
+        return;
+      }
+
+      const { messageId } = payload;
+
+      if (!messageId) {
+        if (callback) callback({ success: false, error: "messageId is required" });
+        return;
+      }
+
+      const message = await this.useCase.pinMessage(messageId, userId);
+
+      const memberUserIds = await this.getMemberUserIds(message.conversationId);
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, SocketEvent.MESSAGE_PINNED, {
+          conversationId: message.conversationId,
+          message,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true, message });
+      }
+    } catch (error) {
+      console.error("Error handling pinMessage:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleUnpinMessage(
+    socket: AuthenticatedSocket,
+    payload: { messageId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      if (!this.checkRateLimit(userId, "editMessage")) {
+        if (callback) callback({ success: false, error: "Rate limit exceeded" });
+        return;
+      }
+
+      const { messageId } = payload;
+
+      if (!messageId) {
+        if (callback) callback({ success: false, error: "messageId is required" });
+        return;
+      }
+
+      const message = await this.useCase.unpinMessage(messageId, userId);
+
+      const memberUserIds = await this.getMemberUserIds(message.conversationId);
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, SocketEvent.MESSAGE_UNPINNED, {
+          conversationId: message.conversationId,
+          message,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true, message });
+      }
+    } catch (error) {
+      console.error("Error handling unpinMessage:", error);
       if (callback) {
         callback({ success: false, error: (error as Error).message });
       }

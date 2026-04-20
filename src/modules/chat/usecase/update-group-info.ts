@@ -1,18 +1,24 @@
 import { ICommandHandler } from '@share/interface';
 import { AppError } from '@share/app-error';
+import { v7 } from 'uuid';
 import {
   IConversationQueryRepository,
   IConversationCommandRepository,
-  IConversationMemberQueryRepository
+  IConversationMemberQueryRepository,
+  IMessageCommandRepository,
+  IUserQueryRepository
 } from '../interface';
-import { Conversation, ConversationMemberRole, ConversationType } from '../model/model';
+import { Conversation, ConversationMemberRole, ConversationType, Message, MessageType } from '../model/model';
 import { updateGroupInfoDTOSchema, ConversationUpdateDTO, UpdateGroupInfoCommand } from '../model/dto';
+import { SystemMessageTemplate } from '../constants/system-messages';
 
 export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCommand, Conversation> {
   constructor(
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
-    private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository
+    private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly messageCommandRepo: IMessageCommandRepository,
+    private readonly userQueryRepo: IUserQueryRepository
   ) {}
 
   async execute(command: UpdateGroupInfoCommand): Promise<Conversation> {
@@ -50,6 +56,64 @@ export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCo
     }
 
     await this.conversationCommandRepo.update(validatedInput.conversationId, updateData);
+
+    const messages: Message[] = [];
+    const now = new Date();
+
+    const [requester] = await Promise.all([
+      this.userQueryRepo.get(validatedInput.requesterId),
+    ]);
+    const actorDisplayName = requester?.displayName || 'Unknown User';
+
+    const changedFields = new Set<string>();
+    if (validatedInput.name !== undefined) changedFields.add("name");
+    if (validatedInput.avatarUrl !== undefined) changedFields.add("avatarUrl");
+
+    if (changedFields.has("name")) {
+      const systemMsg: Message = {
+        id: v7(),
+        conversationId: validatedInput.conversationId,
+        senderId: validatedInput.requesterId,
+        type: MessageType.SYSTEM,
+        text: SystemMessageTemplate.RENAME_GROUP(
+          actorDisplayName,
+          conversation.name || "(không có tên)",
+          validatedInput.name!
+        ),
+        createdAt: now,
+        pinned: false,
+      };
+      await this.messageCommandRepo.insert(systemMsg);
+      messages.push(systemMsg);
+    }
+
+    if (changedFields.has("avatarUrl")) {
+      const systemMsg: Message = {
+        id: v7(),
+        conversationId: validatedInput.conversationId,
+        senderId: validatedInput.requesterId,
+        type: MessageType.SYSTEM,
+        text: SystemMessageTemplate.CHANGE_AVATAR(actorDisplayName),
+        createdAt: now,
+        pinned: false,
+      };
+      await this.messageCommandRepo.insert(systemMsg);
+      messages.push(systemMsg);
+    }
+
+    if (messages.length > 0) {
+      const lastSystemMsg = messages[messages.length - 1];
+      await this.conversationCommandRepo.update(validatedInput.conversationId, {
+        lastMessage: {
+          messageId: lastSystemMsg.id,
+          senderId: validatedInput.requesterId,
+          type: MessageType.SYSTEM,
+          textPreview: lastSystemMsg.text,
+          createdAt: now
+        },
+        lastMessageAt: now
+      });
+    }
 
     const updatedConversation = await this.conversationQueryRepo.get(validatedInput.conversationId);
     if (!updatedConversation) {

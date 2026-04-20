@@ -34,6 +34,7 @@ import { searchMessagesDTOSchema } from "../../model/dto/search-dto";
 import { z } from "zod";
 import { ConversationType } from "../../model";
 import { GetConversationMediaQuerySchema } from "../../model/dto/media-group-dto";
+import { SocketEvent } from "../../constants/socket-events";
 
 export class MessagingHttpService {
   private socketService?: MessagingSocketService;
@@ -264,14 +265,14 @@ export class MessagingHttpService {
         const memberUserIds = await this.useCase.getConversationMembers(groupId, currentUserId);
         for (const userId of memberUserIds) {
           if (validatedData.name) {
-            this.socketService.emitToUser(userId, "group:renamed", {
+            this.socketService.emitToUser(userId, SocketEvent.GROUP_RENAMED, {
               conversationId: groupId,
               newName: validatedData.name,
               renamedBy: currentUserId,
             });
           }
           if (validatedData.avatarUrl) {
-            this.socketService.emitToUser(userId, "group:avatar_changed", {
+            this.socketService.emitToUser(userId, SocketEvent.GROUP_AVATAR_CHANGED, {
               conversationId: groupId,
               avatarUrl: validatedData.avatarUrl,
               changedBy: currentUserId,
@@ -616,7 +617,7 @@ export class MessagingHttpService {
       if (this.socketService) {
         const memberUserIds = await this.useCase.getConversationMembers(groupId, currentUserId);
         for (const userId of memberUserIds) {
-          this.socketService.emitToUser(userId, "group:member_left", {
+          this.socketService.emitToUser(userId, SocketEvent.GROUP_MEMBER_LEFT, {
             conversationId: groupId,
             leftUserId: currentUserId,
             leftBy: currentUserId,
@@ -792,7 +793,7 @@ export class MessagingHttpService {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "message:revoked", {
+          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REVOKED, {
             conversationId: message.conversationId,
             message,
           });
@@ -889,7 +890,7 @@ export class MessagingHttpService {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "message:deleted_for_everyone", {
+          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_DELETED_FOR_EVERYONE, {
             conversationId: message.conversationId,
             messageId: validatedData.messageId,
             deletedBy: currentUserId,
@@ -1003,7 +1004,7 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, "conversation:mute_changed", {
+        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_MUTE_CHANGED, {
           conversationId,
           userId: currentUserId,
           mutedBy: currentUserId,
@@ -1046,7 +1047,7 @@ export class MessagingHttpService {
       await this.useCase.unmuteConversation(conversationId, currentUserId);
 
       if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, "conversation:mute_changed", {
+        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_MUTE_CHANGED, {
           conversationId,
           userId: currentUserId,
           mutedBy: currentUserId,
@@ -1087,7 +1088,7 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, "conversation:pin_toggled", {
+        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_PIN_TOGGLED, {
           conversationId,
           pinnedBy: currentUserId,
           pinned: true,
@@ -1135,7 +1136,7 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, "conversation:pin_toggled", {
+        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_PIN_TOGGLED, {
           conversationId,
           pinnedBy: currentUserId,
           pinned: false,
@@ -1183,7 +1184,7 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, "conversation:archived_toggled", {
+        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_ARCHIVED_TOGGLED, {
           conversationId,
           userId: currentUserId,
           archived: true,
@@ -1231,7 +1232,7 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, "conversation:archived_toggled", {
+        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_ARCHIVED_TOGGLED, {
           conversationId,
           userId: currentUserId,
           archived: false,
@@ -1287,7 +1288,7 @@ export class MessagingHttpService {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "message:edited", {
+          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_EDITED, {
             conversationId: message.conversationId,
             message,
           });
@@ -1340,7 +1341,7 @@ export class MessagingHttpService {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "message:pinned", {
+          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_PINNED, {
             conversationId: message.conversationId,
             message,
           });
@@ -1393,7 +1394,7 @@ export class MessagingHttpService {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "message:unpinned", {
+          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_UNPINNED, {
             conversationId: message.conversationId,
             message,
           });
@@ -1585,7 +1586,7 @@ export class MessagingHttpService {
             message.conversationId,
           );
           for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, "message:reaction", {
+            this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REACTION, {
               messageId: validatedData.messageId,
               reaction,
             });
@@ -1642,7 +1643,7 @@ export class MessagingHttpService {
             message.conversationId,
           );
           for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, "message:reaction:remove", {
+            this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REACTION_REMOVE, {
               messageId: validatedData.messageId,
               userId: currentUserId,
               emoji,
@@ -1700,7 +1701,7 @@ export class MessagingHttpService {
             message.conversationId,
           );
           for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, "message:reactions:clear", {
+            this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REACTIONS_CLEAR, {
               messageId: validatedData.messageId,
               userId: currentUserId,
             });
@@ -1839,7 +1840,7 @@ export class MessagingHttpService {
       const updatedConversation = await this.useCase.setAdmin(groupId, currentUserId, targetUserId, isAdmin);
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, "group:admin_changed", {
+        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_ADMIN_CHANGED, {
           conversationId: groupId,
           targetUserId,
           isAdmin,
@@ -1873,7 +1874,7 @@ export class MessagingHttpService {
       const updatedConversation = await this.useCase.transferOwner(groupId, currentUserId, newOwnerId);
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, "group:owner_transferred", {
+        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_OWNER_TRANSFERRED, {
           conversationId: groupId,
           oldOwnerId: currentUserId,
           newOwnerId,
@@ -1914,7 +1915,7 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, "poll:new", {
+        this.socketService.emitToGroupRoom(groupId, SocketEvent.POLL_NEW, {
           conversationId: groupId,
           poll,
         });
@@ -1970,7 +1971,7 @@ export class MessagingHttpService {
       const poll = await this.useCase.votePoll(pollId, currentUserId, optionIds);
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(poll.conversationId, "poll:vote", {
+        this.socketService.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_VOTE, {
           pollId,
           userId: currentUserId,
           poll,
@@ -2053,12 +2054,12 @@ export class MessagingHttpService {
       const approvedMember = await this.useCase.approveMember(groupId, userId, currentUserId);
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, "group:member_approved", {
+        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_MEMBER_APPROVED, {
           conversationId: groupId,
           userId,
           member: approvedMember,
         });
-        this.socketService.emitToUser(userId, "group:member_approved", {
+        this.socketService.emitToUser(userId, SocketEvent.GROUP_MEMBER_APPROVED, {
           conversationId: groupId,
           userId,
           member: approvedMember,
@@ -2093,7 +2094,7 @@ export class MessagingHttpService {
       await this.useCase.rejectMember(groupId, userId, currentUserId);
 
       if (this.socketService) {
-        this.socketService.emitToUser(userId, "group:member_rejected", {
+        this.socketService.emitToUser(userId, SocketEvent.GROUP_MEMBER_REJECTED, {
           conversationId: groupId,
           userId,
         });
@@ -2129,7 +2130,7 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, "group:settings_updated", {
+        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_SETTINGS_UPDATED, {
           conversationId: groupId,
           settings: updatedConversation.settings,
         });
@@ -2186,7 +2187,7 @@ export class MessagingHttpService {
       if (this.socketService) {
         const memberUserIds = await this.useCase.getConversationMembers(groupId);
         for (const userId of memberUserIds) {
-          this.socketService.emitToUser(userId, "group:dissolved", {
+          this.socketService.emitToUser(userId, SocketEvent.GROUP_DISSOLVED, {
             conversationId: groupId,
             dissolvedBy: currentUserId,
           });
