@@ -162,6 +162,34 @@ export class MessagingSocketService {
         await this.handleQuoteMessage(socket, payload, callback);
       });
 
+      socket.on("dissolveGroup", async (payload: any, callback) => {
+        await this.handleDissolveGroup(socket, payload, callback);
+      });
+
+      socket.on("pinConversation", async (payload: any, callback) => {
+        await this.handlePinConversation(socket, payload, callback);
+      });
+
+      socket.on("unpinConversation", async (payload: any, callback) => {
+        await this.handleUnpinConversation(socket, payload, callback);
+      });
+
+      socket.on("archiveConversation", async (payload: any, callback) => {
+        await this.handleArchiveConversation(socket, payload, callback);
+      });
+
+      socket.on("unarchiveConversation", async (payload: any, callback) => {
+        await this.handleUnarchiveConversation(socket, payload, callback);
+      });
+
+      socket.on("muteConversation", async (payload: any, callback) => {
+        await this.handleMuteConversation(socket, payload, callback);
+      });
+
+      socket.on("unmuteConversation", async (payload: any, callback) => {
+        await this.handleUnmuteConversation(socket, payload, callback);
+      });
+
       socket.on("disconnect", () => {});
     });
   }
@@ -750,6 +778,64 @@ export class MessagingSocketService {
     });
   }
 
+  public notifyMemberLeft(conversationId: string, leftUserId: string, leftBy: string) {
+    this.emitToGroupRoom(conversationId, "group:member_left", {
+      conversationId,
+      leftUserId,
+      leftBy,
+    });
+  }
+
+  public notifyGroupDissolved(conversationId: string, dissolvedBy: string, memberUserIds: string[]) {
+    for (const userId of memberUserIds) {
+      this.emitToUser(userId, "group:dissolved", {
+        conversationId,
+        dissolvedBy,
+      });
+    }
+  }
+
+  public notifyConversationPinned(conversationId: string, pinnedBy: string, pinned: boolean) {
+    this.namespace.to(`user:${pinnedBy}`).emit("conversation:pin_toggled", {
+      conversationId,
+      pinnedBy,
+      pinned,
+    });
+  }
+
+  public notifyConversationArchived(conversationId: string, userId: string, archived: boolean) {
+    this.namespace.to(`user:${userId}`).emit("conversation:archived_toggled", {
+      conversationId,
+      userId,
+      archived,
+    });
+  }
+
+  public notifyConversationMuted(conversationId: string, userId: string, mutedBy: string, muteUntil?: string) {
+    this.namespace.to(`user:${userId}`).emit("conversation:mute_changed", {
+      conversationId,
+      userId,
+      mutedBy,
+      muteUntil,
+    });
+  }
+
+  public notifyGroupRenamed(conversationId: string, newName: string, renamedBy: string) {
+    this.emitToGroupRoom(conversationId, "group:renamed", {
+      conversationId,
+      newName,
+      renamedBy,
+    });
+  }
+
+  public notifyGroupAvatarChanged(conversationId: string, avatarUrl: string, changedBy: string) {
+    this.emitToGroupRoom(conversationId, "group:avatar_changed", {
+      conversationId,
+      avatarUrl,
+      changedBy,
+    });
+  }
+
   public notifyGroupUpdated(conversationId: string, updatedData: any) {
     this.emitToGroupRoom(conversationId, "conversation:updated", {
       conversationId,
@@ -972,6 +1058,286 @@ export class MessagingSocketService {
       }
     } catch (error) {
       console.error("Error handling quoteMessage:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleDissolveGroup(
+    socket: AuthenticatedSocket,
+    payload: { groupId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { groupId } = payload;
+
+      if (!groupId) {
+        if (callback) callback({ success: false, error: "groupId is required" });
+        return;
+      }
+
+      const memberUserIds = await this.getMemberUserIds(groupId);
+
+      await this.useCase.dissolveGroup(groupId, userId);
+
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, "group:dissolved", {
+          conversationId: groupId,
+          dissolvedBy: userId,
+        });
+      }
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error) {
+      console.error("Error handling dissolveGroup:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handlePinConversation(
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { conversationId } = payload;
+
+      if (!conversationId) {
+        if (callback) callback({ success: false, error: "conversationId is required" });
+        return;
+      }
+
+      await this.useCase.pinConversation(conversationId, userId);
+
+      this.emitToUser(userId, "conversation:pin_toggled", {
+        conversationId,
+        pinnedBy: userId,
+        pinned: true,
+      });
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error) {
+      console.error("Error handling pinConversation:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleUnpinConversation(
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { conversationId } = payload;
+
+      if (!conversationId) {
+        if (callback) callback({ success: false, error: "conversationId is required" });
+        return;
+      }
+
+      await this.useCase.unpinConversation(conversationId, userId);
+
+      this.emitToUser(userId, "conversation:pin_toggled", {
+        conversationId,
+        pinnedBy: userId,
+        pinned: false,
+      });
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error) {
+      console.error("Error handling unpinConversation:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleArchiveConversation(
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { conversationId } = payload;
+
+      if (!conversationId) {
+        if (callback) callback({ success: false, error: "conversationId is required" });
+        return;
+      }
+
+      await this.useCase.archiveConversation(conversationId, userId);
+
+      this.emitToUser(userId, "conversation:archived_toggled", {
+        conversationId,
+        userId,
+        archived: true,
+      });
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error) {
+      console.error("Error handling archiveConversation:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleUnarchiveConversation(
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { conversationId } = payload;
+
+      if (!conversationId) {
+        if (callback) callback({ success: false, error: "conversationId is required" });
+        return;
+      }
+
+      await this.useCase.unarchiveConversation(conversationId, userId);
+
+      this.emitToUser(userId, "conversation:archived_toggled", {
+        conversationId,
+        userId,
+        archived: false,
+      });
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error) {
+      console.error("Error handling unarchiveConversation:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleMuteConversation(
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string; muteUntil?: string; duration?: number },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { conversationId, muteUntil, duration } = payload;
+
+      if (!conversationId) {
+        if (callback) callback({ success: false, error: "conversationId is required" });
+        return;
+      }
+
+      await this.useCase.muteConversation(conversationId, userId, muteUntil, duration);
+
+      this.emitToUser(userId, "conversation:mute_changed", {
+        conversationId,
+        userId,
+        mutedBy: userId,
+        muteUntil,
+        duration,
+        muted: true,
+      });
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error) {
+      console.error("Error handling muteConversation:", error);
+      if (callback) {
+        callback({ success: false, error: (error as Error).message });
+      }
+    }
+  }
+
+  private async handleUnmuteConversation(
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { conversationId } = payload;
+
+      if (!conversationId) {
+        if (callback) callback({ success: false, error: "conversationId is required" });
+        return;
+      }
+
+      await this.useCase.unmuteConversation(conversationId, userId);
+
+      this.emitToUser(userId, "conversation:mute_changed", {
+        conversationId,
+        userId,
+        mutedBy: userId,
+        muted: false,
+      });
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error) {
+      console.error("Error handling unmuteConversation:", error);
       if (callback) {
         callback({ success: false, error: (error as Error).message });
       }

@@ -98,8 +98,9 @@ export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery
 
     const nextCursor = hasMore && returnMessages.length > 0 ? returnMessages[returnMessages.length - 1].id : "";
 
-    const allMembers = await this.conversationMemberQueryRepo.listByConversationId(
-      validatedInput.conversationId,
+    const allMembers = await this.conversationMemberQueryRepo.list(
+      { conversationId: validatedInput.conversationId },
+      { page: 1, limit: 1000 }
     );
 
     const memberSeenMap: Record<string, string> = {};

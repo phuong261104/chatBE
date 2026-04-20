@@ -62,9 +62,7 @@ export interface IConversationMemberQueryRepository {
     cursor?: string,
     limit?: number,
   ): Promise<ConversationMemberCursorResult>;
-  listByConversationId(
-    conversationId: string,
-  ): Promise<ConversationMember[]>;
+  listByConversationId(conversationId: string): Promise<ConversationMember[]>;
 }
 
 export interface IConversationMemberCommandRepository {

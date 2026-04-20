@@ -261,7 +261,23 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        this.socketService.notifyGroupUpdated(groupId, updatedConversation);
+        const memberUserIds = await this.useCase.getConversationMembers(groupId, currentUserId);
+        for (const userId of memberUserIds) {
+          if (validatedData.name) {
+            this.socketService.emitToUser(userId, "group:renamed", {
+              conversationId: groupId,
+              newName: validatedData.name,
+              renamedBy: currentUserId,
+            });
+          }
+          if (validatedData.avatarUrl) {
+            this.socketService.emitToUser(userId, "group:avatar_changed", {
+              conversationId: groupId,
+              avatarUrl: validatedData.avatarUrl,
+              changedBy: currentUserId,
+            });
+          }
+        }
       }
 
       res.status(200).json({ data: updatedConversation });
@@ -598,7 +614,14 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        this.socketService.notifyMemberRemoved(groupId, currentUserId);
+        const memberUserIds = await this.useCase.getConversationMembers(groupId, currentUserId);
+        for (const userId of memberUserIds) {
+          this.socketService.emitToUser(userId, "group:member_left", {
+            conversationId: groupId,
+            leftUserId: currentUserId,
+            leftBy: currentUserId,
+          });
+        }
       }
 
       res.status(200).json({ success: true });
@@ -979,6 +1002,17 @@ export class MessagingHttpService {
         validatedData.duration,
       );
 
+      if (this.socketService) {
+        this.socketService.emitToUser(currentUserId, "conversation:mute_changed", {
+          conversationId,
+          userId: currentUserId,
+          mutedBy: currentUserId,
+          muteUntil: validatedData.muteUntil,
+          duration: validatedData.duration,
+          muted: true,
+        });
+      }
+
       res.status(200).json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1011,6 +1045,15 @@ export class MessagingHttpService {
 
       await this.useCase.unmuteConversation(conversationId, currentUserId);
 
+      if (this.socketService) {
+        this.socketService.emitToUser(currentUserId, "conversation:mute_changed", {
+          conversationId,
+          userId: currentUserId,
+          mutedBy: currentUserId,
+          muted: false,
+        });
+      }
+
       res.status(200).json({ success: true });
     } catch (error) {
       const err = error as any;
@@ -1042,6 +1085,14 @@ export class MessagingHttpService {
         validatedData.conversationId,
         validatedData.userId,
       );
+
+      if (this.socketService) {
+        this.socketService.emitToUser(currentUserId, "conversation:pin_toggled", {
+          conversationId,
+          pinnedBy: currentUserId,
+          pinned: true,
+        });
+      }
 
       res.status(200).json({ success: true });
     } catch (error) {
@@ -1083,6 +1134,14 @@ export class MessagingHttpService {
         validatedData.userId,
       );
 
+      if (this.socketService) {
+        this.socketService.emitToUser(currentUserId, "conversation:pin_toggled", {
+          conversationId,
+          pinnedBy: currentUserId,
+          pinned: false,
+        });
+      }
+
       res.status(200).json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1123,6 +1182,14 @@ export class MessagingHttpService {
         validatedData.userId,
       );
 
+      if (this.socketService) {
+        this.socketService.emitToUser(currentUserId, "conversation:archived_toggled", {
+          conversationId,
+          userId: currentUserId,
+          archived: true,
+        });
+      }
+
       res.status(200).json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1162,6 +1229,14 @@ export class MessagingHttpService {
         validatedData.conversationId,
         validatedData.userId,
       );
+
+      if (this.socketService) {
+        this.socketService.emitToUser(currentUserId, "conversation:archived_toggled", {
+          conversationId,
+          userId: currentUserId,
+          archived: false,
+        });
+      }
 
       res.status(200).json({ success: true });
     } catch (error) {
@@ -2109,10 +2184,13 @@ export class MessagingHttpService {
       await this.useCase.dissolveGroup(groupId, currentUserId);
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, "group:dissolved", {
-          conversationId: groupId,
-          dissolvedBy: currentUserId,
-        });
+        const memberUserIds = await this.useCase.getConversationMembers(groupId);
+        for (const userId of memberUserIds) {
+          this.socketService.emitToUser(userId, "group:dissolved", {
+            conversationId: groupId,
+            dissolvedBy: currentUserId,
+          });
+        }
       }
 
       res.status(200).json({ success: true, message: "Group dissolved successfully" });
