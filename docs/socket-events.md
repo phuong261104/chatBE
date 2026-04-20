@@ -434,6 +434,25 @@ socket.on("message:unpinned", (data) => {
 }
 ```
 
+#### `message:quoted` - Tin nhắn được reply
+
+```javascript
+socket.on("message:quoted", (data) => {
+  console.log("Tin nhắn được reply trong:", data.conversationId);
+  console.log("Tin nhắn reply:", data.message);
+  console.log("Reply cho tin nhắn:", data.quotedMessageId);
+});
+```
+
+**Payload:**
+```typescript
+{
+  conversationId: string;
+  message: MessageObject; // Tin nhắn reply (có chứa quotedMessageId và quotedMessagePreview)
+  quotedMessageId: string; // ID của tin nhắn gốc được reply
+}
+```
+
 ### 4.2 Trạng thái
 
 #### `messageSeen` - Tin nhắn đã đọc
@@ -794,6 +813,7 @@ socket.on("poll:vote", (data) => {
 | Event | Giới hạn | Window |
 |-------|----------|--------|
 | `sendMessage` | 60 | request/phút |
+| `quoteMessage` | 60 | request/phút |
 | `typing:start/stop` | 30 | request/phút |
 | `addReaction` | 60 | request/phút |
 | `editMessage` | 30 | request/phút |
@@ -827,6 +847,7 @@ class ChatSocket {
     this.socket.on("message:edited", (data) => this.handleEditedMessage(data));
     this.socket.on("message:deleted", (data) => this.handleDeletedMessage(data));
     this.socket.on("message:revoked", (data) => this.handleRevokedMessage(data));
+    this.socket.on("message:quoted", (data) => this.handleQuotedMessage(data));
 
     // Trạng thái
     this.socket.on("messageSeen", (data) => this.handleSeen(data));
@@ -887,6 +908,19 @@ class ChatSocket {
         res.success ? resolve(res.message) : reject(new Error(res.error));
       });
     });
+  }
+
+  quoteMessage(conversationId, quotedMessageId, text, media = []) {
+    return new Promise((resolve, reject) => {
+      this.socket.emit("quoteMessage", { conversationId, quotedMessageId, text, media }, (res) => {
+        res.success ? resolve(res.message) : reject(new Error(res.error));
+      });
+    });
+  }
+
+  handleQuotedMessage(data) {
+    console.log("Tin nhắn được reply:", data);
+    // Xử lý UI hiển thị reply (quoted message)
   }
 
   // Trạng thái

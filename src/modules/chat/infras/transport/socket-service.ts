@@ -1,6 +1,6 @@
 import { IMessagingUseCase } from "../../interface";
 import { Server as SocketIOServer, Namespace, Socket } from "socket.io";
-import { MediaAttachment } from "../../model";
+import { MediaAttachment, MessageType } from "../../model";
 import { SocketEvent } from "../../constants/socket-events";
 
 interface AuthenticatedSocket extends Socket {
@@ -1071,7 +1071,7 @@ export class MessagingSocketService {
         return;
       }
 
-      const message = await this.useCase.quoteMessage(
+      const messages = await this.useCase.quoteMessage(
         conversationId,
         userId,
         text,
@@ -1080,15 +1080,36 @@ export class MessagingSocketService {
       );
 
       const memberUserIds = await this.getMemberUserIds(conversationId, userId);
-      for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
-          message,
-          conversationId,
-        });
+
+      // Emit RECEIVE_MESSAGE cho tất cả messages
+      for (const msg of messages) {
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            message: msg,
+            conversationId,
+          });
+        }
+      }
+
+      // Emit MESSAGE_QUOTED cho primary message (tin nhắn chính)
+      const primaryMsg =
+        messages.find((m) => m.type === MessageType.TEXT) ||
+        messages.find((m) => m.type === MessageType.LINK) ||
+        messages.find((m) => m.type === MessageType.IMAGE) ||
+        messages[0];
+
+      if (primaryMsg) {
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.MESSAGE_QUOTED, {
+            conversationId,
+            message: primaryMsg,
+            quotedMessageId,
+          });
+        }
       }
 
       if (callback) {
-        callback({ success: true, message });
+        callback({ success: true, message: primaryMsg || messages[0] });
       }
     } catch (error) {
       console.error("Error handling quoteMessage:", error);

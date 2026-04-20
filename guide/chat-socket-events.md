@@ -45,6 +45,7 @@ Các sự kiện này Server gửi về để Frontend cập nhật giao diện 
 | `message:deleted_for_everyone` | `{ conversationId: string, messageId: string, deletedBy: string }` | Tin nhắn bị xóa đối với tất cả thành viên. |
 | `message:reaction` | `{ messageId: string, reaction: ReactionObj }` | Người dùng khác vừa thả cảm xúc. |
 | `message:reaction:remove` | `{ messageId: string, userId: string, emoji?: string }` | Người dùng vừa gỡ cảm xúc. |
+| `message:quoted` | `{ conversationId: string, message: MessageObj, quotedMessageId: string }` | Một tin nhắn vừa được reply (quote). |
 | `typing:start` | `{ userId: string, toUserId?: string, groupId?: string }` | Ai đó đang gõ phím. |
 | `typing:stop` | `{ userId: string, toUserId?: string, groupId?: string }` | Ai đó đã ngừng gõ. |
 | `conversation:created` | `GroupDataObj` | Khi bạn được thêm vào một nhóm mới hoặc nhóm mới được tạo. |
