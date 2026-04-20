@@ -1809,6 +1809,7 @@ Error:
 | message:edited | { conversationId: string, message: Message } |  |
 | message:pinned | { conversationId: string, message: Message } |  |
 | message:unpinned | { conversationId: string, message: Message } |  |
+| message:quoted | { conversationId: string, message: Message, quotedMessageId: string } | Tin nhắn được reply |
 | message:reaction | { messageId: string, reaction: MessageReaction } |  |
 | message:reaction:remove | { messageId: string, userId: string, emoji?: string } | emoji co the khong co |
 | message:reactions:clear | { messageId: string, userId: string } |  |

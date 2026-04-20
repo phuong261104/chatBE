@@ -38,6 +38,7 @@ export const SocketEvent = {
   MESSAGE_REACTIONS_CLEAR: "message:reactions:clear",
   MESSAGE_PINNED: "message:pinned",
   MESSAGE_UNPINNED: "message:unpinned",
+  MESSAGE_QUOTED: "message:quoted",
   CONVERSATION_CREATED: "conversation:created",
   CONVERSATION_MEMBERS_ADDED: "conversation:members_added",
   CONVERSATION_MEMBER_REMOVED: "conversation:member_removed",
