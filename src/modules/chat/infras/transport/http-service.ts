@@ -35,6 +35,24 @@ import { z } from "zod";
 import { ConversationType } from "../../model";
 import { GetConversationMediaQuerySchema } from "../../model/dto/media-group-dto";
 import { SocketEvent } from "../../constants/socket-events";
+import {
+  getConversationStatisticsSchema,
+} from "../../model/dto/conversation-statistics-dto";
+import {
+  getSharedConversationsSchema,
+} from "../../model/dto/shared-conversations-dto";
+import {
+  deleteMessagesBulkSchema,
+} from "../../model/dto/delete-messages-bulk-dto";
+import {
+  translateMessageSchema,
+} from "../../model/dto/translate-message-dto";
+import {
+  copyConversationSchema,
+} from "../../model/dto/copy-conversation-dto";
+import {
+  getDraftsSchema,
+} from "../../model/dto/draft-dto";
 
 export class MessagingHttpService {
   private socketService?: MessagingSocketService;
@@ -2189,6 +2207,258 @@ export class MessagingHttpService {
 
       res.status(200).json({ success: true, message: "Group dissolved successfully" });
     } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async getConversationStatisticsAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = getConversationStatisticsSchema.parse({
+        conversationId,
+        userId: currentUserId,
+      });
+
+      const stats = await this.useCase.getConversationStatistics(
+        validatedData.conversationId,
+        validatedData.userId,
+      );
+
+      res.status(200).json({ data: stats });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: error.errors });
+        return;
+      }
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async getSharedConversationsAPI(req: Request, res: Response) {
+    try {
+      const userId = Array.isArray(req.params.userId)
+        ? req.params.userId[0]
+        : req.params.userId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = getSharedConversationsSchema.parse({
+        userId,
+        currentUserId,
+      });
+
+      const conversations = await this.useCase.getSharedConversations(
+        validatedData.userId,
+        validatedData.currentUserId,
+      );
+
+      res.status(200).json({ data: conversations });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: error.errors });
+        return;
+      }
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async deleteMessagesBulkAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+      const { before, after, messageIds } = req.body;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = deleteMessagesBulkSchema.parse({
+        conversationId,
+        userId: currentUserId,
+        before,
+        after,
+        messageIds,
+      });
+
+      const result = await this.useCase.deleteMessagesBulk(
+        validatedData.conversationId,
+        validatedData.userId,
+        validatedData.before,
+        validatedData.after,
+        validatedData.messageIds,
+      );
+
+      res.status(200).json({ data: result });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: error.errors });
+        return;
+      }
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async getConversationOnlineMembersAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const members = await this.useCase.getConversationOnlineMembers(conversationId, currentUserId);
+
+      res.status(200).json({ data: members });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async getDraftsAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = getDraftsSchema.parse({
+        conversationId,
+        userId: currentUserId,
+      });
+
+      const drafts = await this.useCase.getDrafts(
+        validatedData.conversationId,
+        validatedData.userId,
+      );
+
+      res.status(200).json({ data: drafts });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: error.errors });
+        return;
+      }
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async translateMessageAPI(req: Request, res: Response) {
+    try {
+      const messageId = Array.isArray(req.params.messageId)
+        ? req.params.messageId[0]
+        : req.params.messageId;
+      const { targetLanguage } = req.body;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = translateMessageSchema.parse({
+        messageId,
+        userId: currentUserId,
+        targetLanguage,
+      });
+
+      const result = await this.useCase.translateMessage(
+        validatedData.messageId,
+        validatedData.userId,
+        validatedData.targetLanguage,
+      );
+
+      res.status(200).json({ data: result });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: error.errors });
+        return;
+      }
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async copyConversationAPI(req: Request, res: Response) {
+    try {
+      const conversationId = Array.isArray(req.params.conversationId)
+        ? req.params.conversationId[0]
+        : req.params.conversationId;
+      const { targetUserId, memberIds, before, after } = req.body;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = copyConversationSchema.parse({
+        conversationId,
+        requesterId: currentUserId,
+        targetUserId,
+        memberIds,
+        before,
+        after,
+      });
+
+      const result = await this.useCase.copyConversation(
+        validatedData.conversationId,
+        validatedData.requesterId,
+        validatedData.targetUserId,
+        validatedData.memberIds,
+        validatedData.before,
+        validatedData.after,
+      );
+
+      res.status(201).json({ data: result });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: error.errors });
+        return;
+      }
       const err = error as any;
       const statusCode = err.statusCode || 400;
       res.status(statusCode).json({ error: err.message });

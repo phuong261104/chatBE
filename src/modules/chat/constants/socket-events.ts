@@ -69,4 +69,14 @@ export const SocketEvent = {
   REJECT_MEMBER: "rejectMember",
   CREATE_POLL: "createPoll",
   VOTE_POLL: "votePoll",
+
+  // NEW: Outgoing server -> client events
+  ONLINE_STATUS: "online_status",
+  USER_PRESENCE: "user_presence",
+  MESSAGE_REACTION_SUMMARY: "message:reaction_summary",
+  RECALL_MESSAGE: "message:recall",
+  EDIT_MESSAGE_START: "message:edit_start",
+  EDIT_MESSAGE_END: "message:edit_end",
+  VOICE_MESSAGE: "voice_message",
+  LOCATION_SHARE: "location_share",
 } as const;

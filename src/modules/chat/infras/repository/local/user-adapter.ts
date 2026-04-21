@@ -28,20 +28,24 @@ export class UserRepositoryAdapter implements IUserQueryRepository {
   }
 
   async findByIds(ids: string[]): Promise<UserInfo[]> {
-    try {
-      const users: UserInfo[] = [];
-
-      for (const id of ids) {
-        const user = await this.userUseCase.profile(id);
-        if (user) {
-          users.push(this.mapToUserInfo(user));
-        }
-      }
-
-      return users;
-    } catch (error) {
-      return [];
+    if (ids.length === 0) return [];
+    const BATCH_SIZE = 50;
+    const results: UserInfo[] = [];
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batch = ids.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (id) => {
+          try {
+            const user = await this.userUseCase.profile(id);
+            return user ? this.mapToUserInfo(user) : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      results.push(...batchResults.filter((u): u is UserInfo => u !== null));
     }
+    return results;
   }
 
   private mapToUserInfo(user: any): UserInfo {

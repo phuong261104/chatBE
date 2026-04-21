@@ -47,3 +47,4 @@ output
 tasks
 test-*
 docker
+tests

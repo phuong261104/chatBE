@@ -48,4 +48,12 @@ export { HideUserMessagesHandler, UnhideUserMessagesHandler, GetHiddenUsersHandl
 export { SendStickerHandler, SendGifHandler } from "./send-sticker-gif";
 export { GetReadReceiptsHandler, MarkMultipleAsReadHandler } from "./read-receipts";
 
+export { GetConversationStatisticsQueryHandler } from "./get-conversation-statistics";
+export { GetSharedConversationsQueryHandler } from "./get-shared-conversations";
+export { DeleteMessagesBulkHandler } from "./delete-messages-bulk";
+export { GetConversationOnlineMembersQueryHandler } from "./get-conversation-online-members";
+export { GetDraftsQueryHandler } from "./get-drafts";
+export { TranslateMessageHandler } from "./translate-message";
+export { CopyConversationHandler } from "./copy-conversation";
+
 export { MessagingUseCaseFacade } from "./messaging-usecase-facade";

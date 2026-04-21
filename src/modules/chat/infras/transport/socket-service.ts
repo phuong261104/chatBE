@@ -207,10 +207,6 @@ export class MessagingSocketService {
         await this.handleRemoveMember(socket, payload, callback);
       });
 
-      socket.on(SocketEvent.LEAVE_GROUP, async (payload: any, callback) => {
-        await this.handleLeaveGroupSocket(socket, payload, callback);
-      });
-
       socket.on(SocketEvent.SET_ADMIN, async (payload: any, callback) => {
         await this.handleSetAdmin(socket, payload, callback);
       });
@@ -233,6 +229,14 @@ export class MessagingSocketService {
 
       socket.on(SocketEvent.VOTE_POLL, async (payload: any, callback) => {
         await this.handleVotePoll(socket, payload, callback);
+      });
+
+      socket.on(SocketEvent.VOICE_MESSAGE, async (payload: any, callback) => {
+        await this.handleVoiceMessage(socket, payload, callback);
+      });
+
+      socket.on(SocketEvent.LOCATION_SHARE, async (payload: any, callback) => {
+        await this.handleLocationShare(socket, payload, callback);
       });
 
       socket.on("disconnect", () => {});
@@ -295,11 +299,19 @@ export class MessagingSocketService {
         return;
       }
 
+      await this.useCase.leaveGroup(conversationId, userId);
+
+      this.emitToGroupRoom(conversationId, SocketEvent.GROUP_MEMBER_LEFT, {
+        conversationId,
+        leftUserId: userId,
+        leftBy: userId,
+      });
+
       socket.leave(`group:${conversationId}`);
       socket.leave(`group_room:${conversationId}`);
 
       if (callback) {
-        callback({ success: true, message: `Left group ${conversationId}` });
+        callback({ success: true });
       }
     } catch (error) {
       console.error("Error handling leaveGroup:", error);
@@ -1010,6 +1022,38 @@ export class MessagingSocketService {
     });
   }
 
+  public notifyOnlineStatus(userId: string, isOnline: boolean) {
+    this.namespace.to(`user:${userId}`).emit(SocketEvent.ONLINE_STATUS, { userId, isOnline });
+  }
+
+  public notifyUserPresence(userId: string, lastSeen: Date) {
+    this.namespace.to(`user:${userId}`).emit(SocketEvent.USER_PRESENCE, { userId, lastSeen });
+  }
+
+  public notifyReactionSummary(conversationId: string, messageId: string, summary: Record<string, number>) {
+    this.emitToGroupRoom(conversationId, SocketEvent.MESSAGE_REACTION_SUMMARY, { messageId, summary });
+  }
+
+  public notifyMessageRecall(conversationId: string, messageId: string, recallBy: string) {
+    this.emitToGroupRoom(conversationId, SocketEvent.RECALL_MESSAGE, { messageId, recallBy });
+  }
+
+  public notifyEditStart(conversationId: string, messageId: string, userId: string) {
+    this.emitToGroupRoom(conversationId, SocketEvent.EDIT_MESSAGE_START, { messageId, userId });
+  }
+
+  public notifyEditEnd(conversationId: string, messageId: string, userId: string) {
+    this.emitToGroupRoom(conversationId, SocketEvent.EDIT_MESSAGE_END, { messageId, userId });
+  }
+
+  public notifyVoiceMessage(conversationId: string, message: any) {
+    this.emitToGroupRoom(conversationId, SocketEvent.VOICE_MESSAGE, { conversationId, message });
+  }
+
+  public notifyLocationShare(conversationId: string, userId: string, location: any) {
+    this.emitToGroupRoom(conversationId, SocketEvent.LOCATION_SHARE, { conversationId, userId, location });
+  }
+
   private async handleForwardMessages(
     socket: AuthenticatedSocket,
     payload: { messageIds: string[]; targetConversationIds: string[] },
@@ -1611,45 +1655,6 @@ export class MessagingSocketService {
     }
   }
 
-  private async handleLeaveGroupSocket(
-    socket: AuthenticatedSocket,
-    payload: { groupId: string },
-    callback?: (response: any) => void,
-  ) {
-    try {
-      const userId = socket.userId;
-
-      if (!userId) {
-        if (callback) callback({ success: false, error: "Unauthorized" });
-        return;
-      }
-
-      const { groupId } = payload;
-
-      if (!groupId) {
-        if (callback) callback({ success: false, error: "groupId is required" });
-        return;
-      }
-
-      await this.useCase.leaveGroup(groupId, userId);
-
-      this.emitToGroupRoom(groupId, SocketEvent.GROUP_MEMBER_LEFT, {
-        conversationId: groupId,
-        leftUserId: userId,
-        leftBy: userId,
-      });
-
-      if (callback) {
-        callback({ success: true });
-      }
-    } catch (error) {
-      console.error("Error handling leaveGroup:", error);
-      if (callback) {
-        callback({ success: false, error: (error as Error).message });
-      }
-    }
-  }
-
   private async handleSetAdmin(
     socket: AuthenticatedSocket,
     payload: { groupId: string; targetUserId: string; isAdmin: boolean },
@@ -1910,6 +1915,88 @@ export class MessagingSocketService {
       if (callback) {
         callback({ success: false, error: (error as Error).message });
       }
+    }
+  }
+
+  private async handleVoiceMessage(
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string; mediaUrl: string; duration?: number },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { conversationId, mediaUrl, duration } = payload;
+      if (!conversationId || !mediaUrl) {
+        if (callback) callback({ success: false, error: "conversationId and mediaUrl are required" });
+        return;
+      }
+
+      const media = [{
+        url: mediaUrl,
+        mediaType: "audio" as const,
+        size: 0,
+      }];
+
+      const conversationDetail = await this.useCase.getConversationDetail(conversationId, userId);
+      const messages = conversationDetail.conversation.type === "group"
+        ? await this.useCase.sendGroupMessage(conversationId, userId, undefined, media as any)
+        : await this.useCase.sendMessage(conversationId, userId, undefined, media as any);
+
+      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+      for (const msg of messages) {
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.VOICE_MESSAGE, {
+            message: msg,
+            conversationId,
+          });
+        }
+      }
+
+      if (callback) callback({ success: true, messages });
+    } catch (error) {
+      console.error("Error handling voiceMessage:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  }
+
+  private async handleLocationShare(
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string; latitude: number; longitude: number; accuracy?: number },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { conversationId, latitude, longitude, accuracy } = payload;
+      if (!conversationId || latitude === undefined || longitude === undefined) {
+        if (callback) callback({ success: false, error: "conversationId, latitude, and longitude are required" });
+        return;
+      }
+
+      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+      const location = { latitude, longitude, accuracy };
+
+      for (const memberId of memberUserIds) {
+        this.emitToUser(memberId, SocketEvent.LOCATION_SHARE, {
+          conversationId,
+          userId,
+          location,
+        });
+      }
+
+      if (callback) callback({ success: true });
+    } catch (error) {
+      console.error("Error handling locationShare:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
     }
   }
 }

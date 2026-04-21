@@ -150,7 +150,7 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
           ":userId": userId,
           ":nullVal": null,
         },
-        Limit: 1000,
+        Limit: 30,
       }),
     );
 

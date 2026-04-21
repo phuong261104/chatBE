@@ -87,6 +87,13 @@ import {
   GetConversationMediaQueryHandler,
   DissolveGroupHandler,
   SearchMessagesHandler,
+  GetConversationStatisticsQueryHandler,
+  GetSharedConversationsQueryHandler,
+  DeleteMessagesBulkHandler,
+  GetConversationOnlineMembersQueryHandler,
+  GetDraftsQueryHandler,
+  TranslateMessageHandler,
+  CopyConversationHandler,
 } from "./usecase";
 
 export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) => {
@@ -360,6 +367,39 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const searchMessagesHandler = new SearchMessagesHandler(conversationMemberRepo, messageRepo);
 
+  const getConversationStatisticsQueryHandler = new GetConversationStatisticsQueryHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    messageRepo,
+  );
+
+  const getSharedConversationsQueryHandler = new GetSharedConversationsQueryHandler(
+    conversationRepo,
+    conversationMemberRepo,
+  );
+
+  const deleteMessagesBulkHandler = new DeleteMessagesBulkHandler(
+    conversationMemberRepo,
+    messageRepo,
+    messageRepo,
+  );
+
+  const getConversationOnlineMembersQueryHandler = new GetConversationOnlineMembersQueryHandler(
+    conversationMemberRepo,
+  );
+
+  const getDraftsQueryHandler = new GetDraftsQueryHandler(conversationMemberRepo);
+
+  const translateMessageHandler = new TranslateMessageHandler(messageRepo);
+
+  const copyConversationHandler = new CopyConversationHandler(
+    conversationMemberRepo,
+    messageRepo,
+    messageRepo,
+    conversationRepo,
+    conversationRepo,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -411,6 +451,13 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     getConversationsCursorQueryHandler,
     dissolveGroupHandler,
     searchMessagesHandler,
+    getConversationStatisticsQueryHandler,
+    getSharedConversationsQueryHandler,
+    deleteMessagesBulkHandler,
+    getConversationOnlineMembersQueryHandler,
+    getDraftsQueryHandler,
+    translateMessageHandler,
+    copyConversationHandler,
   );
 
   const httpService = new MessagingHttpService(useCase);
@@ -553,6 +600,20 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     mdlFactory.auth,
     httpService.getPollResultsAPI.bind(httpService),
   );
+
+  router.get("/conversations/:conversationId/statistics", mdlFactory.auth, httpService.getConversationStatisticsAPI.bind(httpService));
+
+  router.get("/users/:userId/conversations", mdlFactory.auth, httpService.getSharedConversationsAPI.bind(httpService));
+
+  router.delete("/conversations/:conversationId/messages/bulk", mdlFactory.auth, httpService.deleteMessagesBulkAPI.bind(httpService));
+
+  router.get("/conversations/:conversationId/members/online", mdlFactory.auth, httpService.getConversationOnlineMembersAPI.bind(httpService));
+
+  router.get("/conversations/:conversationId/drafts", mdlFactory.auth, httpService.getDraftsAPI.bind(httpService));
+
+  router.post("/messages/:messageId/translate", mdlFactory.auth, httpService.translateMessageAPI.bind(httpService));
+
+  router.post("/conversations/:conversationId/copy", mdlFactory.auth, httpService.copyConversationAPI.bind(httpService));
 
   return {
     router,

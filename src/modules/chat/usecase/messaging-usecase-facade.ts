@@ -60,6 +60,13 @@ import { GetGroupInfoHandler } from "./get-group-info";
 import { GetConversationMediaQueryHandler } from "./get-conversation-media";
 import { DissolveGroupHandler } from "./dissolve-group";
 import { SearchMessagesHandler } from "./search-messages";
+import { GetConversationStatisticsQueryHandler } from "./get-conversation-statistics";
+import { GetSharedConversationsQueryHandler } from "./get-shared-conversations";
+import { DeleteMessagesBulkHandler } from "./delete-messages-bulk";
+import { GetConversationOnlineMembersQueryHandler } from "./get-conversation-online-members";
+import { GetDraftsQueryHandler } from "./get-drafts";
+import { TranslateMessageHandler } from "./translate-message";
+import { CopyConversationHandler } from "./copy-conversation";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -113,6 +120,13 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly getConversationsCursorQueryHandler: GetConversationsCursorQueryHandler,
     private readonly dissolveGroupHandler: DissolveGroupHandler,
     private readonly searchMessagesHandler: SearchMessagesHandler,
+    private readonly getConversationStatisticsQueryHandler: GetConversationStatisticsQueryHandler,
+    private readonly getSharedConversationsQueryHandler: GetSharedConversationsQueryHandler,
+    private readonly deleteMessagesBulkHandler: DeleteMessagesBulkHandler,
+    private readonly getConversationOnlineMembersQueryHandler: GetConversationOnlineMembersQueryHandler,
+    private readonly getDraftsQueryHandler: GetDraftsQueryHandler,
+    private readonly translateMessageHandler: TranslateMessageHandler,
+    private readonly copyConversationHandler: CopyConversationHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -521,6 +535,83 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       query,
       cursor,
       limit: limit || 20,
+    });
+  }
+
+  async getConversationStatistics(conversationId: string, userId: string): Promise<{
+    messageCount: number;
+    memberCount: number;
+    activeMemberCount: number;
+    lastActivity: Date | null;
+    createdAt: Date;
+  }> {
+    return this.getConversationStatisticsQueryHandler.query({ conversationId, userId });
+  }
+
+  async getSharedConversations(userId: string, currentUserId: string): Promise<Conversation[]> {
+    return this.getSharedConversationsQueryHandler.query({ userId, currentUserId });
+  }
+
+  async deleteMessagesBulk(
+    conversationId: string,
+    userId: string,
+    before?: string,
+    after?: string,
+    messageIds?: string[],
+  ): Promise<{ deletedCount: number }> {
+    return this.deleteMessagesBulkHandler.execute({ conversationId, userId, before, after, messageIds });
+  }
+
+  async getConversationOnlineMembers(conversationId: string, userId: string): Promise<Array<{
+    userId: string;
+    isOnline: boolean;
+    lastSeen: Date | null;
+  }>> {
+    return this.getConversationOnlineMembersQueryHandler.query({ conversationId, userId });
+  }
+
+  async getDrafts(conversationId: string, userId: string): Promise<{
+    drafts: Array<{
+      id: string;
+      conversationId: string;
+      userId: string;
+      text: string;
+      media: any[];
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
+  }> {
+    return this.getDraftsQueryHandler.query({ conversationId, userId });
+  }
+
+  async translateMessage(
+    messageId: string,
+    userId: string,
+    targetLanguage?: string,
+  ): Promise<{
+    originalText: string;
+    translatedText: string;
+    detectedLanguage: string;
+    targetLanguage: string;
+  }> {
+    return this.translateMessageHandler.execute({ messageId, userId, targetLanguage: targetLanguage || "en" });
+  }
+
+  async copyConversation(
+    conversationId: string,
+    requesterId: string,
+    targetUserId?: string,
+    memberIds?: string[],
+    before?: string,
+    after?: string,
+  ): Promise<{ conversation: Conversation; messages: Message[] }> {
+    return this.copyConversationHandler.execute({
+      conversationId,
+      requesterId,
+      targetUserId,
+      memberIds,
+      before,
+      after,
     });
   }
 }

@@ -399,4 +399,63 @@ export interface IMessagingUseCase {
   }>;
 
   dissolveGroup(groupId: string, requesterId: string): Promise<void>;
+
+  getConversationStatistics(conversationId: string, userId: string): Promise<{
+    messageCount: number;
+    memberCount: number;
+    activeMemberCount: number;
+    lastActivity: Date | null;
+    createdAt: Date;
+  }>;
+
+  getSharedConversations(userId: string, currentUserId: string): Promise<Conversation[]>;
+
+  deleteMessagesBulk(
+    conversationId: string,
+    userId: string,
+    before?: string,
+    after?: string,
+    messageIds?: string[],
+  ): Promise<{ deletedCount: number }>;
+
+  getConversationOnlineMembers(conversationId: string, userId: string): Promise<Array<{
+    userId: string;
+    isOnline: boolean;
+    lastSeen: Date | null;
+  }>>;
+
+  getDrafts(conversationId: string, userId: string): Promise<{
+    drafts: Array<{
+      id: string;
+      conversationId: string;
+      userId: string;
+      text: string;
+      media: any[];
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
+  }>;
+
+  translateMessage(
+    messageId: string,
+    userId: string,
+    targetLanguage?: string,
+  ): Promise<{
+    originalText: string;
+    translatedText: string;
+    detectedLanguage: string;
+    targetLanguage: string;
+  }>;
+
+  copyConversation(
+    conversationId: string,
+    requesterId: string,
+    targetUserId?: string,
+    memberIds?: string[],
+    before?: string,
+    after?: string,
+  ): Promise<{
+    conversation: Conversation;
+    messages: Message[];
+  }>;
 }

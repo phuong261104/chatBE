@@ -52,6 +52,11 @@ export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; 
       throw AppError.from(new Error("Only group owner or admin can dissolve the group"), 403);
     }
 
+    // Fetch members BEFORE any delete so member data is preserved in case of partial failure
+    const members = await this.conversationMemberQueryRepo.listByConversationId(groupId);
+    const memberUserIds = members.map((m) => m.userId);
+
+    // Delete in dependency order (messages/reactions/classifications/polls → members → conversation)
     await this.messageCommandRepo.deleteByConversationId(groupId);
     await this.reactionCommandRepo.deleteByConversationId(groupId);
     await this.classificationRepo.deleteByConversationId(groupId);

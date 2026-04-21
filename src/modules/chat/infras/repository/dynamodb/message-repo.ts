@@ -353,47 +353,70 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
     hasMore: boolean;
     total: number;
   }> {
-    const q = new DynamoMessageQueryRepository();
+    const docClient = getDocClient();
+    const tableName = getTableName(TABLE_NAMES.MESSAGES);
     const lowerQuery = query.toLowerCase();
 
     const allMessages: Message[] = [];
-    let lastEvaluatedKey: Record<string, any> | undefined = undefined;
-    const maxFetch = 1000;
+    let lastEvaluatedKey: Record<string, unknown> | undefined = undefined;
+    let totalScanned = 0;
+    const maxScan = 2000;
 
-    do {
-      const result = await q.listByConversation(conversationId, maxFetch, lastEvaluatedKey
+    while (totalScanned < maxScan) {
+      const exclusiveStartKeyStr: string | undefined = lastEvaluatedKey
         ? Buffer.from(JSON.stringify(lastEvaluatedKey)).toString("base64")
-        : undefined);
-      allMessages.push(...result.messages);
-      lastEvaluatedKey = result.nextCursor
-        ? JSON.parse(Buffer.from(result.nextCursor, "base64").toString("utf-8"))
         : undefined;
-    } while (lastEvaluatedKey && allMessages.length < maxFetch);
+      const exclusiveStartKeyObj: Record<string, unknown> | undefined = exclusiveStartKeyStr
+        ? JSON.parse(Buffer.from(exclusiveStartKeyStr, "base64").toString("utf-8"))
+        : undefined;
 
-    const filteredMessages = allMessages.filter((msg) => {
-      if (msg.deletedAt) return false;
-      if (msg.deletedForUserIds?.includes(userId)) return false;
-      if (msg.text && msg.text.toLowerCase().includes(lowerQuery)) return true;
-      return false;
-    });
+      const result: { Items?: Record<string, unknown>[]; LastEvaluatedKey?: Record<string, unknown> } = await docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+          FilterExpression:
+            "attribute_not_exists(deletedAt) AND (attribute_not_exists(deletedForUserIds) OR NOT contains(deletedForUserIds, :userId)) AND contains(#text, :query)",
+          ExpressionAttributeNames: {
+            "#text": "text",
+          },
+          ExpressionAttributeValues: {
+            ":pk": `CONV#${conversationId}`,
+            ":skPrefix": "MSG#",
+            ":query": lowerQuery,
+            ":userId": userId,
+          },
+          Limit: limit,
+          ScanIndexForward: false,
+          ExclusiveStartKey: exclusiveStartKeyObj,
+        }),
+      );
 
-    const sortedMessages = filteredMessages.sort(
+      const items: Record<string, unknown>[] = result.Items || [];
+      const mapped: Message[] = items.map((item: Record<string, unknown>) => {
+        const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, pinnedAt, ...rest } = item;
+        return {
+          ...rest,
+          id: item.id as string || (sk as string)?.split("#")[2],
+          conversationId: item.conversationId as string || (pk as string)?.replace("CONV#", ""),
+          createdAt: createdAt ? new Date(createdAt as string) : new Date(),
+          editedAt: editedAt ? new Date(editedAt as string) : null,
+          deletedAt: deletedAt ? new Date(deletedAt as string) : null,
+          pinnedAt: pinnedAt ? new Date(pinnedAt as string) : null,
+        } as Message;
+      });
+      allMessages.push(...mapped);
+      totalScanned += mapped.length;
+      lastEvaluatedKey = result.LastEvaluatedKey;
+
+      if (!result.LastEvaluatedKey) break;
+      if (allMessages.length >= limit + 1) break;
+    }
+
+    const sortedMessages = allMessages.sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
     );
 
-    let startIndex = 0;
-    if (cursor) {
-      try {
-        const decoded = Buffer.from(cursor, "base64").toString("utf-8");
-        const cursorTime = new Date(decoded).getTime();
-        const idx = sortedMessages.findIndex((m) => m.createdAt.getTime() === cursorTime);
-        startIndex = idx >= 0 ? idx + 1 : 0;
-      } catch {
-        startIndex = 0;
-      }
-    }
-
-    const pageMessages = sortedMessages.slice(startIndex, startIndex + limit + 1);
+    const pageMessages = sortedMessages.slice(0, limit + 1);
     const hasMore = pageMessages.length > limit;
     const results = hasMore ? pageMessages.slice(0, limit) : pageMessages;
 
@@ -407,7 +430,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
       messages: results,
       nextCursor,
       hasMore,
-      total: filteredMessages.length,
+      total: sortedMessages.length,
     };
   }
 
