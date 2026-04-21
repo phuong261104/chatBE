@@ -6,6 +6,7 @@ import {
   leaveGroupDTOSchema,
   archiveConversationDTOSchema,
 } from "../../../model/dto";
+import { SocketEvent } from "../../../constants/socket-events";
 import { z } from "zod";
 
 export class GroupController extends BaseController {
@@ -110,7 +111,7 @@ export class GroupController extends BaseController {
       );
 
       if (this.socketService) {
-        this.socketService.notifyMemberRemoved(groupId, currentUserId);
+        this.socketService.notifyMemberLeft(groupId, currentUserId, currentUserId);
       }
 
       res.status(200).json({ success: true });
@@ -158,7 +159,7 @@ export class GroupController extends BaseController {
       );
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, "group:settings_updated", {
+        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_SETTINGS_UPDATED, {
           conversationId: groupId,
           settings: updatedConversation.settings,
         });
@@ -184,7 +185,7 @@ export class GroupController extends BaseController {
       const updatedConversation = await this.useCase.setAdmin(groupId, currentUserId, targetUserId, isAdmin);
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, "group:admin_changed", {
+        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_ADMIN_CHANGED, {
           conversationId: groupId,
           targetUserId,
           isAdmin,
@@ -212,7 +213,7 @@ export class GroupController extends BaseController {
       const updatedConversation = await this.useCase.transferOwner(groupId, currentUserId, newOwnerId);
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, "group:owner_transferred", {
+        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_OWNER_TRANSFERRED, {
           conversationId: groupId,
           oldOwnerId: currentUserId,
           newOwnerId,
@@ -256,12 +257,12 @@ export class GroupController extends BaseController {
       const approvedMember = await this.useCase.approveMember(groupId, userId, currentUserId);
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, "group:member_approved", {
+        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_MEMBER_APPROVED, {
           conversationId: groupId,
           userId,
           member: approvedMember,
         });
-        this.socketService.emitToUser(userId, "group:member_approved", {
+        this.socketService.emitToUser(userId, SocketEvent.GROUP_MEMBER_APPROVED, {
           conversationId: groupId,
           userId,
           member: approvedMember,
@@ -288,7 +289,7 @@ export class GroupController extends BaseController {
       await this.useCase.rejectMember(groupId, userId, currentUserId);
 
       if (this.socketService) {
-        this.socketService.emitToUser(userId, "group:member_rejected", {
+        this.socketService.emitToUser(userId, SocketEvent.GROUP_MEMBER_REJECTED, {
           conversationId: groupId,
           userId,
         });

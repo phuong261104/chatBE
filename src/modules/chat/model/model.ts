@@ -30,6 +30,8 @@ export enum MessageType {
 
 export enum ClassificationType {
   IMAGE = "image",
+  VIDEO = "video",
+  VOICE = "voice",
   FILE = "file",
   LINK = "link",
 }

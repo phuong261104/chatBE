@@ -47,6 +47,7 @@ export const SocketEvent = {
   CONVERSATION_ARCHIVED_TOGGLED: "conversation:archived_toggled",
   CONVERSATION_MUTE_CHANGED: "conversation:mute_changed",
   GROUP_MEMBER_LEFT: "group:member_left",
+  GROUP_MEMBER_JOINED: "group:member_joined",
   GROUP_DISSOLVED: "group:dissolved",
   GROUP_RENAMED: "group:renamed",
   GROUP_AVATAR_CHANGED: "group:avatar_changed",
@@ -57,4 +58,15 @@ export const SocketEvent = {
   GROUP_SETTINGS_UPDATED: "group:settings_updated",
   POLL_NEW: "poll:new",
   POLL_VOTE: "poll:vote",
+  POLL_CLOSED: "poll:closed",
+
+  // Incoming (Client -> Server)
+  ADD_MEMBERS: "addMembers",
+  REMOVE_MEMBER: "removeMember",
+  SET_ADMIN: "setAdmin",
+  TRANSFER_OWNER: "transferOwner",
+  APPROVE_MEMBER: "approveMember",
+  REJECT_MEMBER: "rejectMember",
+  CREATE_POLL: "createPoll",
+  VOTE_POLL: "votePoll",
 } as const;

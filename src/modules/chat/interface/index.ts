@@ -378,7 +378,7 @@ export interface IMessagingUseCase {
     userId: string,
     cursor: string | undefined,
     limit: number,
-    type: "all" | "image" | "file" | "link",
+    type: "all" | "image" | "file" | "link" | "video" | "voice",
   ): Promise<{
     images: any[];
     files: any[];

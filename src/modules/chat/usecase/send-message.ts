@@ -42,6 +42,13 @@ function extractLinks(text: string): string[] {
   return matches || [];
 }
 
+function mimetypeToClassificationType(mimetype: string): ClassificationType {
+  if (mimetype.startsWith('image/')) return ClassificationType.IMAGE;
+  if (mimetype.startsWith('video/')) return ClassificationType.VIDEO;
+  if (mimetype.startsWith('audio/')) return ClassificationType.VOICE;
+  return ClassificationType.FILE;
+}
+
 export class SendMessageHandler implements ICommandHandler<SendMessageCommand, Message[]> {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
@@ -98,7 +105,7 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
         const msg = this.buildMessage(msgType, hasTextAndNoLink ? text : undefined, mapMediaToDbFormat([m]), conversationId, senderId);
         await this.messageCommandRepo.insert(msg);
         createdMessages.push(msg);
-        classifications.push(this.buildClassification(msg, isImg ? ClassificationType.IMAGE : ClassificationType.FILE, m));
+        classifications.push(this.buildClassification(msg, mimetypeToClassificationType(m.mimetype), m));
       }
       if (hasText && hasLinks) {
         const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId);
@@ -121,7 +128,7 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
       await this.messageCommandRepo.insert(mediaMsg);
       createdMessages.push(mediaMsg);
       for (const m of media) {
-        classifications.push(this.buildClassification(mediaMsg, m.mimetype.startsWith('image/') ? ClassificationType.IMAGE : ClassificationType.FILE, m));
+        classifications.push(this.buildClassification(mediaMsg, mimetypeToClassificationType(m.mimetype), m));
       }
       const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId);
       await this.messageCommandRepo.insert(linkMsg);
@@ -142,7 +149,7 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);
       for (const m of media) {
-        classifications.push(this.buildClassification(msg, m.mimetype.startsWith('image/') ? ClassificationType.IMAGE : ClassificationType.FILE, m));
+        classifications.push(this.buildClassification(msg, mimetypeToClassificationType(m.mimetype), m));
       }
     } else {
       const msgType = hasLinks ? MessageType.LINK : MessageType.TEXT;

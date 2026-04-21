@@ -615,14 +615,7 @@ export class MessagingHttpService {
       );
 
       if (this.socketService) {
-        const memberUserIds = await this.useCase.getConversationMembers(groupId, currentUserId);
-        for (const userId of memberUserIds) {
-          this.socketService.emitToUser(userId, SocketEvent.GROUP_MEMBER_LEFT, {
-            conversationId: groupId,
-            leftUserId: currentUserId,
-            leftBy: currentUserId,
-          });
-        }
+        this.socketService.notifyMemberLeft(groupId, currentUserId, currentUserId);
       }
 
       res.status(200).json({ success: true });
@@ -737,7 +730,7 @@ export class MessagingHttpService {
         );
         for (const msg of messages) {
           for (const userId of memberUserIds) {
-            this.socketService.emitToUser(userId, "receiveMessage", {
+            this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
               message: msg,
               conversationId: validatedData.conversationId,
             });
@@ -948,7 +941,7 @@ export class MessagingHttpService {
           );
 
           for (const userId of memberUserIds) {
-            this.socketService.emitToUser(userId, "receiveMessage", {
+            this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
               message,
               conversationId: message.conversationId,
             });
@@ -1799,7 +1792,7 @@ export class MessagingHttpService {
           validatedData.senderId,
         );
         for (const userId of memberUserIds) {
-          this.socketService.emitToUser(userId, "receiveMessage", {
+          this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
             message: quotedMsg,
             conversationId,
           });

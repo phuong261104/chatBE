@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { BaseController } from "./base-controller";
+import { SocketEvent } from "../../../constants/socket-events";
 import {
   addReactionDTOSchema,
   removeReactionDTOSchema,
@@ -39,7 +40,7 @@ export class ReactionController extends BaseController {
             message.conversationId,
           );
           for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, "message:reaction", {
+            this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REACTION, {
               messageId: validatedData.messageId,
               reaction,
             });
@@ -86,7 +87,7 @@ export class ReactionController extends BaseController {
             message.conversationId,
           );
           for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, "message:reaction:remove", {
+            this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REACTION_REMOVE, {
               messageId: validatedData.messageId,
               userId: currentUserId,
               emoji,
@@ -132,7 +133,7 @@ export class ReactionController extends BaseController {
             message.conversationId,
           );
           for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, "message:reactions:clear", {
+            this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REACTIONS_CLEAR, {
               messageId: validatedData.messageId,
               userId: currentUserId,
             });

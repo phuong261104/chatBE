@@ -475,7 +475,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     userId: string,
     cursor: string | undefined,
     limit: number,
-    type: "all" | "image" | "file" | "link",
+    type: "all" | "image" | "file" | "link" | "video" | "voice",
   ): Promise<{ images: any[]; files: any[]; links: any[]; nextCursor: string; hasMore: boolean }> {
     return this.getConversationMediaQueryHandler.query({
       conversationId,

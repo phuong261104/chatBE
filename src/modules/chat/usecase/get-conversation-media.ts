@@ -57,6 +57,8 @@ export class GetConversationMediaQueryHandler
         image: ClassificationType.IMAGE,
         file: ClassificationType.FILE,
         link: ClassificationType.LINK,
+        video: ClassificationType.VIDEO,
+        voice: ClassificationType.VOICE,
       };
       const type = typeMap[data.type];
       result = await this.classificationRepo.listByConversationAndType(
@@ -101,6 +103,28 @@ export class GetConversationMediaQueryHandler
         links.push({
           messageId: item.messageId,
           url: item.linkUrl,
+          senderId: item.senderId,
+          createdAt: new Date(item.createdAt),
+        });
+      } else if (item.type === ClassificationType.VIDEO) {
+        images.push({
+          messageId: item.messageId,
+          url: item.url,
+          name: item.name,
+          size: undefined,
+          width: undefined,
+          height: undefined,
+          mediaType: MediaType.VIDEO,
+          senderId: item.senderId,
+          createdAt: new Date(item.createdAt),
+        });
+      } else if (item.type === ClassificationType.VOICE) {
+        files.push({
+          messageId: item.messageId,
+          url: item.url,
+          name: item.name,
+          size: undefined,
+          mediaType: MediaType.AUDIO,
           senderId: item.senderId,
           createdAt: new Date(item.createdAt),
         });

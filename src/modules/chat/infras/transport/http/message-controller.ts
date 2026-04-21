@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { BaseController } from "./base-controller";
+import { SocketEvent } from "../../../constants/socket-events";
 import {
   sendMessageDTOSchema,
   revokeMessageDTOSchema,
@@ -63,7 +64,7 @@ export class MessageController extends BaseController {
         if (isGroup) {
           this.socketService.emitToGroupRoom(
             validatedData.conversationId,
-            "receiveMessage",
+            SocketEvent.RECEIVE_MESSAGE,
             {
               message,
               conversationId: validatedData.conversationId,
@@ -76,7 +77,7 @@ export class MessageController extends BaseController {
         );
 
         for (const userId of memberUserIds) {
-          this.socketService.emitToUser(userId, "receiveMessage", {
+          this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
             message,
             conversationId: validatedData.conversationId,
           });
@@ -119,7 +120,7 @@ export class MessageController extends BaseController {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "message:revoked", {
+          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REVOKED, {
             conversationId: message.conversationId,
             message,
           });
@@ -192,7 +193,7 @@ export class MessageController extends BaseController {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "message:deleted_for_everyone", {
+          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_DELETED_FOR_EVERYONE, {
             conversationId: message.conversationId,
             messageId: validatedData.messageId,
             deletedBy: currentUserId,
@@ -240,7 +241,7 @@ export class MessageController extends BaseController {
           );
 
           for (const userId of memberUserIds) {
-            this.socketService.emitToUser(userId, "receiveMessage", {
+            this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
               message,
               conversationId: message.conversationId,
             });
@@ -287,7 +288,7 @@ export class MessageController extends BaseController {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "message:edited", {
+          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_EDITED, {
             conversationId: message.conversationId,
             message,
           });
@@ -330,7 +331,7 @@ export class MessageController extends BaseController {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "message:pinned", {
+          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_PINNED, {
             conversationId: message.conversationId,
             message,
           });
@@ -373,7 +374,7 @@ export class MessageController extends BaseController {
         );
 
         for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, "message:unpinned", {
+          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_UNPINNED, {
             conversationId: message.conversationId,
             message,
           });
@@ -467,7 +468,7 @@ export class MessageController extends BaseController {
           validatedData.senderId,
         );
         for (const userId of memberUserIds) {
-          this.socketService.emitToUser(userId, "receiveMessage", {
+          this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
             message: primaryMsg,
             conversationId: quotedMsg.conversationId,
           });

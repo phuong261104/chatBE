@@ -7,7 +7,7 @@ export const GetConversationMediaQuerySchema = z.object({
   userId: uuidV7("Invalid user ID"),
   cursor: z.string().optional(),
   limit: z.number().min(1).max(100).default(20),
-  type: z.enum(["all", "image", "file", "link"]).default("all"),
+  type: z.enum(["all", "image", "file", "link", "video", "voice"]).default("all"),
 });
 
 export type GetConversationMediaQuery = z.infer<typeof GetConversationMediaQuerySchema>;

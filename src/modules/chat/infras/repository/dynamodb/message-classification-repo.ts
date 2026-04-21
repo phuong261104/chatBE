@@ -130,8 +130,10 @@ export class DynamoMessageClassificationRepository {
           ":type1": ClassificationType.IMAGE,
           ":type2": ClassificationType.FILE,
           ":type3": ClassificationType.LINK,
+          ":type4": ClassificationType.VIDEO,
+          ":type5": ClassificationType.VOICE,
         },
-        FilterExpression: "#t IN (:type1, :type2, :type3)",
+        FilterExpression: "#t IN (:type1, :type2, :type3, :type4, :type5)",
         ExpressionAttributeNames: {
           "#t": "type",
         },
