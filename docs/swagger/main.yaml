@@ -239,8 +239,26 @@ paths:
   # ==================== MY CLOUD ====================
   /my-cloud:
     $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud"
+  /my-cloud/items:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1items"
   /my-cloud/{id}:
     $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1{id}"
+  /my-cloud/{id}/pin:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1{id}~1pin"
+  /my-cloud/{id}/restore:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1{id}~1restore"
+  /my-cloud/{id}/permanent:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1{id}~1permanent"
+  /my-cloud/{id}/share:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1{id}~1share"
+  /my-cloud/shared/{shareToken}:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1shared~1{shareToken}"
+  /my-cloud/search:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1search"
+  /my-cloud/stats:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1stats"
+  /my-cloud/batch-delete:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1batch-delete"
 
   # ==================== SEARCH ====================
   /search:

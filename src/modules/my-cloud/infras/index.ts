@@ -1,2 +1,2 @@
 export { DynamoCloudItemRepository } from "./repository/dynamodb";
-export { MyCloudHTTPService } from "./transport";
+export { MyCloudHTTPService, MyCloudSocketService } from "./transport";

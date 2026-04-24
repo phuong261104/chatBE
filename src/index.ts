@@ -139,7 +139,7 @@ config();
   app.use("/v1", friendRequestRouter);
   app.use("/v1", friendshipRouter);
 
-  const myCloudRouter = setupMyCloudHexagon(sctx);
+  const myCloudRouter = setupMyCloudHexagon(sctx, io);
   const searchRouter = setupSearchHexagon(sctx);
   const postRouter = setupPostHexagon(sctx);
   const storyRouter = setupStoryHexagon(sctx);

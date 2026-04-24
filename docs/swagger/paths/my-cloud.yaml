@@ -1,25 +1,247 @@
+components:
+  schemas:
+    CloudItemType:
+      type: string
+      enum: [file, image, video, voice, link, note]
+      description: "Loại item trong My Cloud"
+      example: "note"
+
+    CloudItem:
+      type: object
+      description: "Một item trong My Cloud"
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "UUID của item"
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        userId:
+          type: string
+          format: uuid
+          description: "UUID của người dùng sở hữu"
+          example: "f1e2d3c4-b5a6-7890-1234-567890abcdef"
+        type:
+          $ref: '#/components/schemas/CloudItemType'
+        title:
+          type: string
+          description: "Tiêu đề item"
+          example: "Ghi chú công việc"
+        content:
+          type: string
+          nullable: true
+          description: "Nội dung (cho loại note)"
+          example: "Mua sữa, trả bills..."
+        fileUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: "URL của file đính kèm"
+          example: "https://cdn.example.com/files/doc.pdf"
+        fileName:
+          type: string
+          nullable: true
+          description: "Tên file gốc"
+          example: "baocao-thang6.pdf"
+        fileSize:
+          type: integer
+          nullable: true
+          description: "Kích thước file (bytes)"
+          example: 1048576
+        mimetype:
+          type: string
+          nullable: true
+          description: "MIME type của file"
+          example: "application/pdf"
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: "URL thumbnail (cho ảnh/video)"
+        isPinned:
+          type: boolean
+          description: "Đã ghim lên đầu"
+          example: false
+        isDeleted:
+          type: boolean
+          description: "Đã xóa (thùng rác)"
+          example: false
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Thời điểm xóa"
+        shareToken:
+          type: string
+          nullable: true
+          description: "Token chia sẻ công khai"
+        shareExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Hết hạn chia sẻ"
+        createdAt:
+          type: string
+          format: date-time
+          description: "Thời điểm tạo"
+          example: "2026-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: "Thời điểm cập nhật"
+          example: "2026-04-21T10:00:00Z"
+
+    CloudItemStats:
+      type: object
+      description: "Thống kê My Cloud của người dùng"
+      properties:
+        totalItems:
+          type: integer
+          description: "Tổng số item"
+          example: 42
+        totalSize:
+          type: integer
+          description: "Tổng kích thước (bytes)"
+          example: 52428800
+        pinnedCount:
+          type: integer
+          description: "Số item đã ghim"
+          example: 3
+        trashCount:
+          type: integer
+          description: "Số item trong thùng rác"
+          example: 5
+        byType:
+          type: object
+          description: "Thống kê theo từng loại"
+          properties:
+            image:
+              type: object
+              properties:
+                count: { type: integer, example: 10 }
+                size: { type: integer, example: 20971520 }
+            video:
+              type: object
+              properties:
+                count: { type: integer, example: 5 }
+                size: { type: integer, example: 31457280 }
+            voice:
+              type: object
+              properties:
+                count: { type: integer, example: 2 }
+                size: { type: integer, example: 102400 }
+            file:
+              type: object
+              properties:
+                count: { type: integer, example: 15 }
+                size: { type: integer, example: 5242880 }
+            link:
+              type: object
+              properties:
+                count: { type: integer, example: 8 }
+                size: { type: integer, example: 0 }
+            note:
+              type: object
+              properties:
+                count: { type: integer, example: 2 }
+                size: { type: integer, example: 0 }
+
+    ShareResult:
+      type: object
+      description: "Kết quả tạo link chia sẻ"
+      properties:
+        shareToken:
+          type: string
+          description: "Token chia sẻ"
+          example: "abc123xyz"
+        shareUrl:
+          type: string
+          format: uri
+          description: "URL chia sẻ"
+          example: "https://app.example.com/my-cloud/shared/abc123xyz"
+        expiresAt:
+          type: string
+          format: date-time
+          description: "Thời điểm hết hạn"
+          example: "2026-04-28T10:00:00Z"
+
 paths:
+  # ==================== MY CLOUD CRUD ====================
+
   /my-cloud:
     get:
-      summary: Get my cloud items
+      summary: "Get all my cloud items"
       tags: [My Cloud]
+      description: |
+        Lấy danh sách tất cả items của người dùng hiện tại (không tính thùng rác).
+        Hỗ trợ lọc theo loại item và phân trang.
       security:
         - BearerAuth: []
+      parameters:
+        - in: query
+          name: type
+          schema:
+            $ref: '#/components/schemas/CloudItemType'
+          description: "Lọc theo loại item (mặc định: all)"
+          example: "image"
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: "Số trang"
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Số item mỗi trang"
+          example: 20
       responses:
         '200':
-          description: List of cloud items
+          description: "Danh sách items"
           content:
             application/json:
-              example:
-                data:
-                  - _id: "60d0fe4f53..."
-                    name: "tailieu.pdf"
-                    url: "https://example.com/tailieu.pdf"
-                    type: "FILE"
-                    size: 1048576
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CloudItem'
+                      hasMore:
+                        type: boolean
+                        example: true
+                      total:
+                        type: integer
+                        example: 42
+        '401':
+          description: "Unauthorized"
+        '422':
+          description: "Validation error"
+
     post:
-      summary: Upload item to my cloud
+      summary: "Create a new my cloud item"
       tags: [My Cloud]
+      description: |
+        Tạo một item mới trong My Cloud.
+
+        ## Loại item và trường bắt buộc
+
+        | Loại | Bắt buộc |
+        |------|----------|
+        | note | title |
+        | image | title, fileUrl, fileName |
+        | video | title, fileUrl, fileName |
+        | voice | title, fileUrl, fileName |
+        | file | title, fileUrl, fileName |
+        | link | title, fileUrl |
       security:
         - BearerAuth: []
       requestBody:
@@ -28,50 +250,553 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - type
+                - title
               properties:
-                name: 
+                type:
+                  $ref: '#/components/schemas/CloudItemType'
+                  example: "note"
+                title:
                   type: string
-                  example: "hinhanh.jpg"
-                type: 
+                  minLength: 1
+                  maxLength: 500
+                  example: "Ghi chú học tập"
+                content:
                   type: string
-                  example: "IMAGE"
-                  enum: [IMAGE, FILE, LINK, TEXT]
-                url: 
+                  description: "Nội dung (cho loại note)"
+                  example: "Học typescript tuần này"
+                fileUrl:
                   type: string
-                  example: "https://example.com/hinhanh.jpg"
-                size: 
-                  type: number
-                  example: 5242880
-                metadata: 
-                  type: object
-                  example: { "resolution": "1920x1080" }
+                  format: uri
+                  description: "URL của file (cho image/video/voice/file/link)"
+                  example: "https://cdn.example.com/image.jpg"
+                fileName:
+                  type: string
+                  description: "Tên file gốc (cho image/video/voice/file)"
+                  example: "photo.jpg"
+                fileSize:
+                  type: integer
+                  description: "Kích thước file (bytes)"
+                  example: 204800
+                mimetype:
+                  type: string
+                  description: "MIME type"
+                  example: "image/jpeg"
+                thumbnailUrl:
+                  type: string
+                  format: uri
+                  description: "URL thumbnail"
+                  example: "https://cdn.example.com/thumb.jpg"
+            example:
+              type: "note"
+              title: "Todo hôm nay"
+              content: "- Meeting 10h\n- Code review\n- Gửi email"
       responses:
         '201':
-          description: Item created
+          description: "Item đã được tạo"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CloudItem'
+        '401':
+          description: "Unauthorized"
+        '422':
+          description: "Validation error"
           content:
             application/json:
               example:
-                data:
-                  _id: "60d0fe4f5311236168a5"
-                  name: "hinhanh.jpg"
+                error:
+                  code: "VALIDATION_ERROR"
+                  message: "Validation error"
+
+  # ==================== MY CLOUD - PAGINATED LIST ====================
+
+  /my-cloud/items:
+    get:
+      summary: "Get my cloud items (cursor-based pagination)"
+      tags: [My Cloud]
+      description: |
+        Lấy danh sách items với cursor-based pagination.
+        Hỗ trợ lọc theo loại, trạng thái xóa, và trạng thái ghim.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Số item mỗi lần load"
+          example: 20
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: "Cursor từ response trước"
+          example: "eyJpZCI6ImFiY2RlIn0="
+        - in: query
+          name: type
+          schema:
+            $ref: '#/components/schemas/CloudItemType'
+          description: "Lọc theo loại"
+        - in: query
+          name: isDeleted
+          schema:
+            type: boolean
+          description: "Lọc items đã xóa (true = thùng rác)"
+        - in: query
+          name: isPinned
+          schema:
+            type: boolean
+          description: "Lọc items đã ghim"
+        - in: query
+          name: sortOrder
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: "Thứ tự sắp xếp theo thời gian tạo"
+      responses:
+        '200':
+          description: "Danh sách items với cursor"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CloudItem'
+                  nextCursor:
+                    type: string
+                    nullable: true
+                    description: "Cursor cho lần load tiếp theo"
+                    example: "eyJpZCI6ImFiY2RlIn0="
+        '401':
+          description: "Unauthorized"
+
+  # ==================== MY CLOUD - GET SINGLE ====================
 
   /my-cloud/{id}:
-    delete:
-      summary: Delete my cloud item
+    get:
+      summary: "Get a single my cloud item"
       tags: [My Cloud]
       security:
         - BearerAuth: []
       parameters:
         - in: path
           name: id
-          schema: 
-            type: string
-            example: "60d0fe4f5311236168a5"
           required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của item"
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
       responses:
         '200':
-          description: Item deleted
+          description: "Item details"
           content:
             application/json:
-              example:
-                data: true
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CloudItem'
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden - không sở hữu item này"
+        '404':
+          description: "Item not found"
+
+    patch:
+      summary: "Update a my cloud item"
+      tags: [My Cloud]
+      description: "Cập nhật tiêu đề và nội dung của một item."
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của item"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  example: "Tiêu đề đã cập nhật"
+                content:
+                  type: string
+                  description: "Nội dung mới (cho note)"
+                  example: "Nội dung đã cập nhật"
+      responses:
+        '200':
+          description: "Item đã được cập nhật"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CloudItem'
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Item not found"
+        '422':
+          description: "Validation error"
+
+    delete:
+      summary: "Soft delete a my cloud item (move to trash)"
+      tags: [My Cloud]
+      description: |
+        Xóa mềm - di chuyển item vào thùng rác.
+        Item vẫn còn trong DB và có thể khôi phục.
+        Tự động xóa vĩnh viễn sau 30 ngày.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của item"
+      responses:
+        '204':
+          description: "Item đã được xóa (soft delete)"
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Item not found"
+
+  # ==================== MY CLOUD - PIN ====================
+
+  /my-cloud/{id}/pin:
+    patch:
+      summary: "Pin or unpin a my cloud item"
+      tags: [My Cloud]
+      description: "Ghim hoặc bỏ ghim một item để hiển thị ở đầu danh sách."
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của item"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pinned
+              properties:
+                pinned:
+                  type: boolean
+                  description: "`true` = ghim, `false` = bỏ ghim"
+                  example: true
+      responses:
+        '200':
+          description: "Item đã được ghim/bỏ ghim"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CloudItem'
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Item not found"
+
+  # ==================== MY CLOUD - TRASH ====================
+
+  /my-cloud/{id}/restore:
+    post:
+      summary: "Restore a my cloud item from trash"
+      tags: [My Cloud]
+      description: "Khôi phục một item từ thùng rác."
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của item"
+      responses:
+        '200':
+          description: "Item đã được khôi phục"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CloudItem'
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Item not found or not in trash"
+
+  /my-cloud/{id}/permanent:
+    delete:
+      summary: "Permanently delete a my cloud item"
+      tags: [My Cloud]
+      description: |
+        Xóa vĩnh viễn một item (khỏi thùng rác).
+        **Hành động này không thể hoàn tác.**
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của item"
+      responses:
+        '204':
+          description: "Item đã được xóa vĩnh viễn"
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Item not found"
+
+  # ==================== MY CLOUD - SEARCH ====================
+
+  /my-cloud/search:
+    get:
+      summary: "Search my cloud items"
+      tags: [My Cloud]
+      description: "Tìm kiếm items theo tiêu đề. Không tìm trong thùng rác."
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: "Từ khóa tìm kiếm"
+          example: "báo cáo"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          description: "Số kết quả tối đa"
+      responses:
+        '200':
+          description: "Kết quả tìm kiếm"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CloudItem'
+        '400':
+          description: "Thiếu tham số q"
+        '401':
+          description: "Unauthorized"
+
+  # ==================== MY CLOUD - STATS ====================
+
+  /my-cloud/stats:
+    get:
+      summary: "Get my cloud statistics"
+      tags: [My Cloud]
+      description: |
+        Lấy thống kê My Cloud của người dùng hiện tại.
+        Bao gồm tổng số item, tổng kích thước, số item đã ghim,
+        số item trong thùng rác, và thống kê theo từng loại.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: "Thống kê My Cloud"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CloudItemStats'
+        '401':
+          description: "Unauthorized"
+
+  # ==================== MY CLOUD - BATCH DELETE ====================
+
+  /my-cloud/batch-delete:
+    post:
+      summary: "Batch delete my cloud items"
+      tags: [My Cloud]
+      description: |
+        Xóa mềm nhiều items cùng lúc (di chuyển vào thùng rác).
+        Tối đa 100 items mỗi lần gọi.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - itemIds
+              properties:
+                itemIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  maxItems: 100
+                  description: "Danh sách UUID của các items cần xóa"
+                  example: ["a1b2c3d4-e5f6-7890-abcd-ef1234567890", "b2c3d4e5-f6a7-8901-bcde-f23456789012"]
+            example:
+              itemIds:
+                - "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                - "b2c3d4e5-f6a7-8901-bcde-f23456789012"
+      responses:
+        '200':
+          description: "Items đã được xóa"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      deleted:
+                        type: integer
+                        description: "Số items đã xóa"
+                        example: 2
+        '401':
+          description: "Unauthorized"
+        '422':
+          description: "Validation error"
+
+  # ==================== MY CLOUD - SHARE ====================
+
+  /my-cloud/{id}/share:
+    post:
+      summary: "Create a public share link for an item"
+      tags: [My Cloud]
+      description: |
+        Tạo link chia sẻ công khai cho một item.
+        Ai có link đều có thể xem item mà không cần đăng nhập.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của item"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expiresInDays:
+                  type: integer
+                  minimum: 1
+                  maximum: 365
+                  default: 7
+                  description: "Số ngày hết hạn (mặc định: 7)"
+                  example: 7
+            example:
+              expiresInDays: 7
+      responses:
+        '200':
+          description: "Link chia sẻ đã được tạo"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ShareResult'
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Item not found"
+
+  /my-cloud/shared/{shareToken}:
+    get:
+      summary: "Get a shared item by share token (public)"
+      tags: [My Cloud]
+      description: |
+        Lấy thông tin một item được chia sẻ qua link công khai.
+        **Không cần đăng nhập** - endpoint này public.
+      parameters:
+        - in: path
+          name: shareToken
+          required: true
+          schema:
+            type: string
+          description: "Share token từ link chia sẻ"
+          example: "abc123xyz"
+      responses:
+        '200':
+          description: "Thông tin item được chia sẻ"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CloudItem'
+        '404':
+          description: "Shared item not found or expired"

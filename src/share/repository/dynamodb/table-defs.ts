@@ -387,6 +387,41 @@ export const CLOUD_ITEMS_TABLE: TableDefinition = {
   KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
+    { AttributeName: "userId", AttributeType: "S" },
+    { AttributeName: "type", AttributeType: "S" },
+    { AttributeName: "isDeleted", AttributeType: "S" },
+    { AttributeName: "isPinned", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "userId-index",
+      KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "userId-type-index",
+      KeySchema: [
+        { AttributeName: "userId", KeyType: "HASH" },
+        { AttributeName: "type", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "userId-isDeleted-index",
+      KeySchema: [
+        { AttributeName: "userId", KeyType: "HASH" },
+        { AttributeName: "isDeleted", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "userId-isPinned-index",
+      KeySchema: [
+        { AttributeName: "userId", KeyType: "HASH" },
+        { AttributeName: "isPinned", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
   ],
   BillingMode: "PAY_PER_REQUEST",
 };
