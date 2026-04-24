@@ -24,21 +24,12 @@ components:
       type: object
       properties:
         error:
-          type: object
-          properties:
-            code:
-              type: string
-              example: "VALIDATION_ERROR"
-            message:
-              type: string
-              example: "Lỗi hệ thống hoặc lỗi dữ liệu đầu vào."
+          type: string
+          example: "Lỗi hệ thống hoặc lỗi dữ liệu đầu vào."
     ApiError:
       type: object
       properties:
-        code:
-          type: string
-          example: "ERROR_CODE"
-        message:
+        error:
           type: string
           example: "Error message"
 
@@ -241,6 +232,12 @@ paths:
     $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud"
   /my-cloud/items:
     $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1items"
+  /my-cloud/upload:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1upload"
+  /my-cloud/upload/presigned:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1upload~1presigned"
+  /my-cloud/upload/confirm:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1upload~1confirm"
   /my-cloud/{id}:
     $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1{id}"
   /my-cloud/{id}/pin:
@@ -251,6 +248,8 @@ paths:
     $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1{id}~1permanent"
   /my-cloud/{id}/share:
     $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1{id}~1share"
+  /my-cloud/{id}/forward:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1{id}~1forward"
   /my-cloud/shared/{shareToken}:
     $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1shared~1{shareToken}"
   /my-cloud/search:
@@ -259,6 +258,8 @@ paths:
     $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1stats"
   /my-cloud/batch-delete:
     $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1batch-delete"
+  /my-cloud/trash/empty:
+    $ref: "./paths/my-cloud.yaml#/paths/~1my-cloud~1trash~1empty"
 
   # ==================== SEARCH ====================
   /search:

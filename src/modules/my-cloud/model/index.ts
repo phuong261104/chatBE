@@ -2,6 +2,10 @@ export {
   CloudItemType,
   CloudItemSchema,
   CloudItem,
+  CollectionSchema,
+  Collection,
+  CollectionItemSchema,
+  CollectionItem,
 } from "./model";
 
 export {
@@ -19,6 +23,15 @@ export {
   ShareCloudItemDTOSchema,
   ShareCloudItemDTO,
   ShareResult,
+  CreateCollectionDTOSchema,
+  CreateCollectionDTO,
+  UpdateCollectionDTOSchema,
+  UpdateCollectionDTO,
+  CollectionCondDTOSchema,
+  CollectionCondDTO,
+  AddItemToCollectionDTOSchema,
+  AddItemToCollectionDTO,
+  CollectionWithStats,
 } from "./dto";
 
 export {

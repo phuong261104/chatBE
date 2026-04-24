@@ -20,6 +20,10 @@ export class MyCloudSocketService {
     }
   }
 
+  private emitToUser(userId: string, event: string, data: any): void {
+    this.io.to(`user:${userId}`).emit(event, data);
+  }
+
   private registerHandlers(): void {
     this.io.on("connection", async (socket: any) => {
       const token =
@@ -33,6 +37,7 @@ export class MyCloudSocketService {
       if (!userId) return;
 
       socket.userId = userId;
+      socket.join(`user:${userId}`);
 
       socket.on(MyCloudSocketEvents.LOAD_ITEMS, (data: any) =>
         this.handleLoadItems(socket, data)
@@ -64,10 +69,27 @@ export class MyCloudSocketService {
       socket.on(MyCloudSocketEvents.EMPTY_TRASH, (data: any) =>
         this.handleEmptyTrash(socket, data)
       );
+
+      socket.on(MyCloudSocketEvents.CREATE_COLLECTION, (data: any) =>
+        this.handleCreateCollection(socket, data)
+      );
+      socket.on(MyCloudSocketEvents.UPDATE_COLLECTION, (data: any) =>
+        this.handleUpdateCollection(socket, data)
+      );
+      socket.on(MyCloudSocketEvents.DELETE_COLLECTION, (data: any) =>
+        this.handleDeleteCollection(socket, data)
+      );
+      socket.on(MyCloudSocketEvents.LIST_COLLECTIONS, (_data: any) =>
+        this.handleListCollections(socket)
+      );
+      socket.on(MyCloudSocketEvents.ADD_ITEM_TO_COLLECTION, (data: any) =>
+        this.handleAddItemToCollection(socket, data)
+      );
+      socket.on(MyCloudSocketEvents.REMOVE_ITEM_FROM_COLLECTION, (data: any) =>
+        this.handleRemoveItemFromCollection(socket, data)
+      );
     });
   }
-
-  // ========== HANDLERS ==========
 
   private async handleLoadItems(socket: any, data: any): Promise<void> {
     try {
@@ -79,7 +101,7 @@ export class MyCloudSocketService {
         isPinned,
         cursor,
       });
-      socket.emit(MyCloudSocketEvents.ITEMS_LOADED, { data: result });
+      this.emitToUser(socket.userId, MyCloudSocketEvents.ITEMS_LOADED, { data: result });
     } catch (error) {
       this.emitError(socket, error);
     }
@@ -88,7 +110,7 @@ export class MyCloudSocketService {
   private async handleCreateItem(socket: any, data: any): Promise<void> {
     try {
       const result = await this.useCase.createItem(socket.userId, data);
-      socket.emit(MyCloudSocketEvents.ITEM_CREATED, { data: result });
+      this.emitToUser(socket.userId, MyCloudSocketEvents.ITEM_CREATED, { data: result });
     } catch (error) {
       this.emitError(socket, error);
     }
@@ -102,7 +124,7 @@ export class MyCloudSocketService {
         itemId,
         updates
       );
-      socket.emit(MyCloudSocketEvents.ITEM_UPDATED, { data: result });
+      this.emitToUser(socket.userId, MyCloudSocketEvents.ITEM_UPDATED, { data: result });
     } catch (error) {
       this.emitError(socket, error);
     }
@@ -111,7 +133,7 @@ export class MyCloudSocketService {
   private async handleDeleteItem(socket: any, data: any): Promise<void> {
     try {
       await this.useCase.deleteItem(socket.userId, data.itemId);
-      socket.emit(MyCloudSocketEvents.ITEM_DELETED, { data: { deleted: true } });
+      this.emitToUser(socket.userId, MyCloudSocketEvents.ITEM_DELETED, { data: { deleted: true } });
     } catch (error) {
       this.emitError(socket, error);
     }
@@ -120,7 +142,7 @@ export class MyCloudSocketService {
   private async handleRestoreItem(socket: any, data: any): Promise<void> {
     try {
       const result = await this.useCase.restoreItem(socket.userId, data.itemId);
-      socket.emit(MyCloudSocketEvents.ITEM_RESTORED, { data: result });
+      this.emitToUser(socket.userId, MyCloudSocketEvents.ITEM_RESTORED, { data: result });
     } catch (error) {
       this.emitError(socket, error);
     }
@@ -133,7 +155,7 @@ export class MyCloudSocketService {
         data.itemId,
         data.pinned
       );
-      socket.emit(MyCloudSocketEvents.ITEM_PINNED, { data: result });
+      this.emitToUser(socket.userId, MyCloudSocketEvents.ITEM_PINNED, { data: result });
     } catch (error) {
       this.emitError(socket, error);
     }
@@ -142,7 +164,7 @@ export class MyCloudSocketService {
   private async handleGetStats(socket: any, _data: any): Promise<void> {
     try {
       const result = await this.useCase.getStats(socket.userId);
-      socket.emit(MyCloudSocketEvents.STATS_LOADED, { data: result });
+      this.emitToUser(socket.userId, MyCloudSocketEvents.STATS_LOADED, { data: result });
     } catch (error) {
       this.emitError(socket, error);
     }
@@ -156,7 +178,7 @@ export class MyCloudSocketService {
         query,
         limit || 20
       );
-      socket.emit(MyCloudSocketEvents.SEARCH_RESULT, { data: result });
+      this.emitToUser(socket.userId, MyCloudSocketEvents.SEARCH_RESULT, { data: result });
     } catch (error) {
       this.emitError(socket, error);
     }
@@ -169,7 +191,7 @@ export class MyCloudSocketService {
         data.itemId,
         data.expiresInDays
       );
-      socket.emit(MyCloudSocketEvents.ITEM_SHARED, { data: result });
+      this.emitToUser(socket.userId, MyCloudSocketEvents.ITEM_SHARED, { data: result });
     } catch (error) {
       this.emitError(socket, error);
     }
@@ -178,7 +200,62 @@ export class MyCloudSocketService {
   private async handleEmptyTrash(socket: any, _data: any): Promise<void> {
     try {
       const result = await this.useCase.emptyTrash(socket.userId);
-      socket.emit(MyCloudSocketEvents.TRASH_EMPTIED, { data: result });
+      this.emitToUser(socket.userId, MyCloudSocketEvents.TRASH_EMPTIED, { data: result });
+    } catch (error) {
+      this.emitError(socket, error);
+    }
+  }
+
+  private async handleCreateCollection(socket: any, data: any): Promise<void> {
+    try {
+      const result = await this.useCase.createCollection(socket.userId, data);
+      this.emitToUser(socket.userId, MyCloudSocketEvents.COLLECTION_CREATED, { data: result });
+    } catch (error) {
+      this.emitError(socket, error);
+    }
+  }
+
+  private async handleUpdateCollection(socket: any, data: any): Promise<void> {
+    try {
+      const { collectionId, ...updates } = data;
+      const result = await this.useCase.updateCollection(socket.userId, collectionId, updates);
+      this.emitToUser(socket.userId, MyCloudSocketEvents.COLLECTION_UPDATED, { data: result });
+    } catch (error) {
+      this.emitError(socket, error);
+    }
+  }
+
+  private async handleDeleteCollection(socket: any, data: any): Promise<void> {
+    try {
+      await this.useCase.deleteCollection(socket.userId, data.collectionId);
+      this.emitToUser(socket.userId, MyCloudSocketEvents.COLLECTION_DELETED, { data: { deleted: true, collectionId: data.collectionId } });
+    } catch (error) {
+      this.emitError(socket, error);
+    }
+  }
+
+  private async handleListCollections(socket: any): Promise<void> {
+    try {
+      const result = await this.useCase.listCollections(socket.userId);
+      this.emitToUser(socket.userId, MyCloudSocketEvents.COLLECTIONS_LISTED, { data: result });
+    } catch (error) {
+      this.emitError(socket, error);
+    }
+  }
+
+  private async handleAddItemToCollection(socket: any, data: any): Promise<void> {
+    try {
+      await this.useCase.addItemToCollection(socket.userId, data.collectionId, data.itemId);
+      this.emitToUser(socket.userId, MyCloudSocketEvents.COLLECTION_ITEM_ADDED, { data: { success: true, collectionId: data.collectionId, itemId: data.itemId } });
+    } catch (error) {
+      this.emitError(socket, error);
+    }
+  }
+
+  private async handleRemoveItemFromCollection(socket: any, data: any): Promise<void> {
+    try {
+      await this.useCase.removeItemFromCollection(socket.userId, data.collectionId, data.itemId);
+      this.emitToUser(socket.userId, MyCloudSocketEvents.COLLECTION_ITEM_REMOVED, { data: { success: true, collectionId: data.collectionId, itemId: data.itemId } });
     } catch (error) {
       this.emitError(socket, error);
     }

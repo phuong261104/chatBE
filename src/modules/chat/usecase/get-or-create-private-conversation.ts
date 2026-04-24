@@ -28,17 +28,23 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
       throw new Error('Invalid data');
     }
 
-    const targetUser = await this.userQueryRepo.get(validatedInput.targetUserId);
+    const isSelfConversation = validatedInput.currentUserId === validatedInput.targetUserId;
 
-    if (!targetUser) {
-      throw AppError.from(new Error('Target user not found'), 404);
+    if (!isSelfConversation) {
+      const targetUser = await this.userQueryRepo.get(validatedInput.targetUserId);
+
+      if (!targetUser) {
+        throw AppError.from(new Error('Target user not found'), 404);
+      }
+
+      if (targetUser.status !== UserStatus.ACTIVE) {
+        throw AppError.from(new Error('Target user is not active'), 400);
+      }
     }
 
-    if (targetUser.status !== UserStatus.ACTIVE) {
-      throw AppError.from(new Error('Target user is not active'), 400);
-    }
-
-    const pairKey = [validatedInput.currentUserId, validatedInput.targetUserId].sort().join('_');
+    const pairKey = isSelfConversation
+      ? `self_${validatedInput.currentUserId}`
+      : [validatedInput.currentUserId, validatedInput.targetUserId].sort().join('_');
 
     let conversation = await this.conversationQueryRepo.findByCond({
       type: ConversationType.PRIVATE,
@@ -53,7 +59,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
         id: conversationId,
         type: ConversationType.PRIVATE,
         pairKey: pairKey,
-        membersCount: 2,
+        membersCount: isSelfConversation ? 1 : 2,
         createdAt: now,
         updatedAt: now
       };
@@ -74,20 +80,22 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
       };
       await this.conversationMemberCommandRepo.insert(member1);
 
-      const member2 = {
-        id: v7(),
-        conversationId: conversationId,
-        userId: validatedInput.targetUserId,
-        role: ConversationMemberRole.MEMBER,
-        status: ConversationMemberStatus.ACTIVE,
-        joinedAt: now,
-        unreadCount: 0,
-        pinned: false,
-        archived: false,
-        hiddenUserIds: [],
-        updatedAt: now
-      };
-      await this.conversationMemberCommandRepo.insert(member2);
+      if (!isSelfConversation) {
+        const member2 = {
+          id: v7(),
+          conversationId: conversationId,
+          userId: validatedInput.targetUserId,
+          role: ConversationMemberRole.MEMBER,
+          status: ConversationMemberStatus.ACTIVE,
+          joinedAt: now,
+          unreadCount: 0,
+          pinned: false,
+          archived: false,
+          hiddenUserIds: [],
+          updatedAt: now
+        };
+        await this.conversationMemberCommandRepo.insert(member2);
+      }
     }
 
     return conversation;

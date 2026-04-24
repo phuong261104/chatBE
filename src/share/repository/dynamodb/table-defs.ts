@@ -72,6 +72,8 @@ export const TABLE_NAMES = {
   STORIES: "stories",
   STORY_VIEWS: "story_views",
   CLOUD_ITEMS: "cloud_items",
+  COLLECTIONS: "collections",
+  COLLECTION_ITEMS: "collection_items",
 } as const;
 
 export const MESSAGE_CLASSIFICATIONS_TABLE: TableDefinition = {
@@ -391,6 +393,8 @@ export const CLOUD_ITEMS_TABLE: TableDefinition = {
     { AttributeName: "type", AttributeType: "S" },
     { AttributeName: "isDeleted", AttributeType: "S" },
     { AttributeName: "isPinned", AttributeType: "S" },
+    { AttributeName: "collectionId", AttributeType: "S" },
+    { AttributeName: "shareToken", AttributeType: "S" },
   ],
   GlobalSecondaryIndexes: [
     {
@@ -422,6 +426,81 @@ export const CLOUD_ITEMS_TABLE: TableDefinition = {
       ],
       Projection: { ProjectionType: "ALL" },
     },
+    {
+      IndexName: "userId-collectionId-index",
+      KeySchema: [
+        { AttributeName: "userId", KeyType: "HASH" },
+        { AttributeName: "collectionId", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "shareToken-index",
+      KeySchema: [{ AttributeName: "shareToken", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+  BillingMode: "PAY_PER_REQUEST",
+};
+
+export const COLLECTIONS_TABLE: TableDefinition = {
+  TableName: TABLE_NAMES.COLLECTIONS,
+  KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+  AttributeDefinitions: [
+    { AttributeName: "id", AttributeType: "S" },
+    { AttributeName: "userId", AttributeType: "S" },
+    { AttributeName: "parentId", AttributeType: "S" },
+    { AttributeName: "isDefault", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "userId-index",
+      KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "userId-parentId-index",
+      KeySchema: [
+        { AttributeName: "userId", KeyType: "HASH" },
+        { AttributeName: "parentId", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "userId-isDefault-index",
+      KeySchema: [
+        { AttributeName: "userId", KeyType: "HASH" },
+        { AttributeName: "isDefault", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+  BillingMode: "PAY_PER_REQUEST",
+};
+
+export const COLLECTION_ITEMS_TABLE: TableDefinition = {
+  TableName: TABLE_NAMES.COLLECTION_ITEMS,
+  KeySchema: [
+    { AttributeName: "pk", KeyType: "HASH" },
+    { AttributeName: "sk", KeyType: "RANGE" },
+  ],
+  AttributeDefinitions: [
+    { AttributeName: "pk", AttributeType: "S" },
+    { AttributeName: "sk", AttributeType: "S" },
+    { AttributeName: "collectionId", AttributeType: "S" },
+    { AttributeName: "itemId", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "collectionId-index",
+      KeySchema: [{ AttributeName: "collectionId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "itemId-index",
+      KeySchema: [{ AttributeName: "itemId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
   ],
   BillingMode: "PAY_PER_REQUEST",
 };
@@ -443,4 +522,6 @@ export const ALL_TABLES: TableDefinition[] = [
   STORIES_TABLE,
   STORY_VIEWS_TABLE,
   CLOUD_ITEMS_TABLE,
+  COLLECTIONS_TABLE,
+  COLLECTION_ITEMS_TABLE,
 ];

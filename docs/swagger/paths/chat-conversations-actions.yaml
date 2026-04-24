@@ -151,3 +151,4 @@ paths:
                 success: true
         "401":
           description: Unauthorized
+

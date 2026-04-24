@@ -20,6 +20,12 @@ components:
           format: uuid
           description: "UUID của người dùng sở hữu"
           example: "f1e2d3c4-b5a6-7890-1234-567890abcdef"
+        collectionId:
+          type: string
+          format: uuid
+          nullable: true
+          description: "UUID của collection chứa item"
+          example: "c1d2e3f4-a5b6-7890-1234-567890abcdef"
         type:
           $ref: '#/components/schemas/CloudItemType'
         title:
@@ -89,6 +95,94 @@ components:
           format: date-time
           description: "Thời điểm cập nhật"
           example: "2026-04-21T10:00:00Z"
+
+    Collection:
+      type: object
+      description: "Một collection (thư mục) trong My Cloud"
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "UUID của collection"
+          example: "c1d2e3f4-a5b6-7890-1234-567890abcdef"
+        userId:
+          type: string
+          format: uuid
+          description: "UUID của người dùng sở hữu"
+          example: "f1e2d3c4-b5a6-7890-1234-567890abcdef"
+        name:
+          type: string
+          description: "Tên collection"
+          example: "My Document"
+        description:
+          type: string
+          nullable: true
+          description: "Mô tả collection"
+          example: "Your default document collection"
+        color:
+          type: string
+          nullable: true
+          description: "Màu sắc collection (hex code)"
+          example: "#4F46E5"
+        icon:
+          type: string
+          nullable: true
+          description: "Icon của collection"
+          example: "folder"
+        coverImageUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: "URL ảnh bìa collection"
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: "UUID của collection cha (null = root)"
+        isDefault:
+          type: boolean
+          description: "Là collection mặc định (không thể xóa)"
+          example: true
+        isDeleted:
+          type: boolean
+          description: "Đã xóa"
+          example: false
+        itemCount:
+          type: integer
+          description: "Số lượng items trong collection"
+          example: 15
+        createdAt:
+          type: string
+          format: date-time
+          description: "Thời điểm tạo"
+          example: "2026-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: "Thời điểm cập nhật"
+          example: "2026-04-21T10:00:00Z"
+
+    PresignedUploadResult:
+      type: object
+      description: "Kết quả tạo presigned URL để upload lên S3"
+      properties:
+        uploadUrl:
+          type: string
+          format: uri
+          description: "Presigned URL để upload file"
+          example: "https://bucket.s3.amazonaws.com/file.pdf?X-Amz-Signature=..."
+        fileKey:
+          type: string
+          description: "Key của file trong S3"
+          example: "uploads/file-uuid.pdf"
+        draftToken:
+          type: string
+          description: "Token để xác nhận upload sau khi hoàn tất"
+          example: "draft-token-uuid"
+        expiresIn:
+          type: integer
+          description: "Thời gian hết hạn (giây)"
+          example: 3600
 
     CloudItemStats:
       type: object
@@ -600,6 +694,32 @@ paths:
         '404':
           description: "Item not found"
 
+  /my-cloud/trash/empty:
+    post:
+      summary: "Empty the trash (delete all trashed items permanently)"
+      tags: [My Cloud]
+      description: |
+        Xóa vĩnh viễn tất cả items trong thùng rác của người dùng.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: "Trash emptied successfully"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      deleted:
+                        type: integer
+                        description: "Số items đã xóa"
+                        example: 5
+        '401':
+          description: "Unauthorized"
+
   # ==================== MY CLOUD - SEARCH ====================
 
   /my-cloud/search:
@@ -800,3 +920,547 @@ paths:
                     $ref: '#/components/schemas/CloudItem'
         '404':
           description: "Shared item not found or expired"
+
+  # ==================== MY CLOUD - UPLOAD ====================
+
+  /my-cloud/upload:
+    post:
+      summary: "Upload a file to My Cloud"
+      tags: [My Cloud]
+      description: |
+        Upload một file lên My Cloud qua server.
+        File sẽ được lưu trên S3 và tự động phân loại theo MIME type.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: "File cần upload"
+                title:
+                  type: string
+                  description: "Tiêu đề (mặc định = tên file)"
+      responses:
+        '201':
+          description: "File đã được upload và tạo item"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CloudItem'
+        '400':
+          description: "Không có file được upload"
+        '401':
+          description: "Unauthorized"
+
+  /my-cloud/upload/presigned:
+    post:
+      summary: "Get presigned URL for direct S3 upload"
+      tags: [My Cloud]
+      description: |
+        Lấy presigned URL để client có thể upload trực tiếp lên S3.
+        Sau khi upload xong, client cần gọi `/my-cloud/upload/confirm` để tạo CloudItem.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fileName
+                - contentType
+              properties:
+                fileName:
+                  type: string
+                  description: "Tên file gốc"
+                  example: "document.pdf"
+                contentType:
+                  type: string
+                  description: "MIME type của file"
+                  example: "application/pdf"
+                fileSize:
+                  type: integer
+                  description: "Kích thước file (bytes)"
+                  example: 1048576
+            example:
+              fileName: "bao-cao.pdf"
+              contentType: "application/pdf"
+              fileSize: 524288
+      responses:
+        '200':
+          description: "Presigned URL đã được tạo"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PresignedUploadResult'
+        '401':
+          description: "Unauthorized"
+        '422':
+          description: "Validation error"
+
+  /my-cloud/upload/confirm:
+    post:
+      summary: "Confirm uploaded file and create CloudItem"
+      tags: [My Cloud]
+      description: |
+        Xác nhận file đã upload lên S3 và tạo CloudItem.
+        Gọi sau khi client đã upload file thành công qua presigned URL.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fileKey
+                - contentType
+              properties:
+                draftToken:
+                  type: string
+                  description: "Token từ bước presigned"
+                fileKey:
+                  type: string
+                  description: "Key của file trong S3"
+                  example: "uploads/document-uuid.pdf"
+                fileName:
+                  type: string
+                  description: "Tên file gốc"
+                  example: "bao-cao.pdf"
+                contentType:
+                  type: string
+                  description: "MIME type"
+                  example: "application/pdf"
+                fileSize:
+                  type: integer
+                  description: "Kích thước file"
+                  example: 524288
+                title:
+                  type: string
+                  description: "Tiêu đề item"
+                collectionId:
+                  type: string
+                  format: uuid
+                  description: "UUID của collection (mặc định = My Document)"
+            example:
+              fileKey: "uploads/document-uuid.pdf"
+              fileName: "bao-cao.pdf"
+              contentType: "application/pdf"
+              fileSize: 524288
+              title: "Báo cáo tháng 4"
+      responses:
+        '201':
+          description: "CloudItem đã được tạo"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CloudItem'
+        '400':
+          description: "Thiếu thông tin file"
+        '401':
+          description: "Unauthorized"
+
+  # ==================== MY CLOUD - FORWARD TO CHAT ====================
+
+  /my-cloud/{id}/forward:
+    post:
+      summary: "Forward a cloud item to a chat conversation"
+      tags: [My Cloud]
+      description: |
+        Gửi một cloud item đến một cuộc trò chuyện chat.
+        Item sẽ được gửi dưới dạng media attachment trong tin nhắn.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của cloud item"
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversationId
+              properties:
+                conversationId:
+                  type: string
+                  format: uuid
+                  description: "UUID của cuộc trò chuyện"
+                  example: "c2d3e4f5-a6b7-8901-2345-67890abcdef0"
+            example:
+              conversationId: "c2d3e4f5-a6b7-8901-2345-67890abcdef0"
+      responses:
+        '200':
+          description: "Item đã được gửi đến chat"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    description: "Message object đã được tạo"
+        '400':
+          description: "Thiếu conversationId"
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden - không sở hữu item này"
+        '404':
+          description: "Item not found hoặc conversation not found"
+
+  # ==================== MY CLOUD - COLLECTIONS ====================
+
+  /my-cloud/collections:
+    get:
+      summary: "List user's collections"
+      tags: [My Cloud]
+      description: |
+        Lấy danh sách tất cả collections của người dùng.
+        Luôn bao gồm collection mặc định "My Document".
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: "Danh sách collections"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Collection'
+        '401':
+          description: "Unauthorized"
+
+    post:
+      summary: "Create a new collection"
+      tags: [My Cloud]
+      description: |
+        Tạo một collection mới.
+        Hệ thống sẽ tự động đảm bảo collection mặc định "My Document" tồn tại.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: "Tên collection"
+                  example: "Công việc"
+                description:
+                  type: string
+                  maxLength: 500
+                  description: "Mô tả collection"
+                  example: "Tài liệu liên quan đến công việc"
+                color:
+                  type: string
+                  maxLength: 20
+                  description: "Màu sắc (hex code)"
+                  example: "#4F46E5"
+                icon:
+                  type: string
+                  maxLength: 50
+                  description: "Icon name"
+                  example: "folder"
+                coverImageUrl:
+                  type: string
+                  format: uri
+                  description: "URL ảnh bìa"
+                parentId:
+                  type: string
+                  format: uuid
+                  description: "UUID của collection cha"
+            example:
+              name: "Công việc"
+              description: "Tài liệu công việc"
+              color: "#4F46E5"
+      responses:
+        '201':
+          description: "Collection đã được tạo"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Collection'
+        '401':
+          description: "Unauthorized"
+        '422':
+          description: "Validation error"
+
+  /my-cloud/collections/{id}:
+    get:
+      summary: "Get a single collection"
+      tags: [My Cloud]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của collection"
+      responses:
+        '200':
+          description: "Collection details"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Collection'
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Collection not found"
+
+    patch:
+      summary: "Update a collection"
+      tags: [My Cloud]
+      description: "Cập nhật thông tin collection. Không thể cập nhật collection mặc định."
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của collection"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                description:
+                  type: string
+                  maxLength: 500
+                color:
+                  type: string
+                  maxLength: 20
+                icon:
+                  type: string
+                  maxLength: 50
+                coverImageUrl:
+                  type: string
+                  format: uri
+                parentId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: "Collection đã được cập nhật"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Collection'
+        '400':
+          description: "Không thể cập nhật collection mặc định"
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Collection not found"
+
+    delete:
+      summary: "Delete a collection"
+      tags: [My Cloud]
+      description: |
+        Xóa một collection (soft delete).
+        Items trong collection sẽ được di chuyển sang "My Document".
+        **Không thể xóa collection mặc định.**
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của collection"
+      responses:
+        '204':
+          description: "Collection đã được xóa"
+        '400':
+          description: "Không thể xóa collection mặc định"
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Collection not found"
+
+  /my-cloud/collections/{id}/items:
+    get:
+      summary: "Get items in a collection"
+      tags: [My Cloud]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của collection"
+      responses:
+        '200':
+          description: "Danh sách items trong collection"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CloudItem'
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Collection not found"
+
+    post:
+      summary: "Add item to collection"
+      tags: [My Cloud]
+      description: "Thêm một item vào collection."
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của collection"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - itemId
+              properties:
+                itemId:
+                  type: string
+                  format: uuid
+                  description: "UUID của item cần thêm"
+            example:
+              itemId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        '200':
+          description: "Item đã được thêm vào collection"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Collection hoặc item not found"
+
+  /my-cloud/collections/{id}/items/{itemId}:
+    delete:
+      summary: "Remove item from collection"
+      tags: [My Cloud]
+      description: |
+        Xóa một item khỏi collection.
+        Item sẽ được di chuyển vào collection mặc định "My Document".
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của collection"
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "UUID của item"
+      responses:
+        '200':
+          description: "Item đã được xóa khỏi collection"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: "Forbidden"
+        '404':
+          description: "Collection hoặc item not found"

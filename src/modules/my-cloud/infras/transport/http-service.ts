@@ -7,15 +7,60 @@ import {
   LoadCloudItemsDTOSchema,
   BatchDeleteCloudItemDTOSchema,
   ShareCloudItemDTOSchema,
+  CreateCollectionDTOSchema,
+  UpdateCollectionDTOSchema,
+  AddItemToCollectionDTOSchema,
 } from "../../model";
+import { CloudItemType } from "../../model";
+import { v7 } from "uuid";
+import { createUploadMiddleware } from "@share/middleware/upload/upload-middleware";
+import { CloudStorage } from "@share/middleware/upload/cloud-storage";
+
+const DEFAULT_UPLOAD_CONFIG = {
+  maxFileSize: 50 * 1024 * 1024,
+  allowedMimeTypes: [
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "video/mp4", "video/mpeg", "video/quicktime",
+    "audio/mpeg", "audio/wav", "audio/mp4", "audio/x-m4a",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/zip",
+  ],
+};
+
+function detectItemType(mimetype: string): CloudItemType {
+  if (mimetype.startsWith("image/")) return CloudItemType.IMAGE;
+  if (mimetype.startsWith("video/")) return CloudItemType.VIDEO;
+  if (mimetype.startsWith("audio/")) return CloudItemType.VOICE;
+  return CloudItemType.FILE;
+}
 
 const PageLimitSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+const PresignedUploadDTOSchema = z.object({
+  fileName: z.string().min(1),
+  contentType: z.string().min(1),
+  fileSize: z.number().optional(),
+});
+
 export class MyCloudHTTPService {
-  constructor(private readonly useCase: IMyCloudUseCase) {}
+  private uploadMiddleware: any;
+  private cloudStorage: CloudStorage;
+
+  constructor(private readonly useCase: IMyCloudUseCase) {
+    this.cloudStorage = new CloudStorage(
+      DEFAULT_UPLOAD_CONFIG as any,
+      process.env.AWS_S3_BUCKET || "your-bucket-name",
+      process.env.AWS_REGION || "us-east-1"
+    );
+    this.uploadMiddleware = createUploadMiddleware(DEFAULT_UPLOAD_CONFIG as any, this.cloudStorage);
+  }
 
   // ========== LOAD ==========
 
@@ -255,13 +300,13 @@ export class MyCloudHTTPService {
 
   async getSharedItemAPI(req: Request, res: Response): Promise<void> {
     try {
-      const token = req.params.token;
-      if (!token) {
-        res.status(400).json({ error: "Token is required" });
+      const shareToken = req.params.shareToken;
+      if (!shareToken) {
+        res.status(400).json({ error: "shareToken is required" });
         return;
       }
 
-      const item = await this.useCase.getByShareToken(token);
+      const item = await this.useCase.getByShareToken(shareToken);
       if (!item) {
         res.status(404).json({ error: "Shared item not found or expired" });
         return;
@@ -276,6 +321,250 @@ export class MyCloudHTTPService {
           mimetype: item.mimetype,
         },
       });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  // ========== UPLOAD ==========
+
+  async uploadAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const file = req.file as any;
+      if (!file) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
+
+      const itemType = detectItemType(file.mimetype);
+      const item = await this.useCase.createItem(userId, {
+        type: itemType,
+        title: req.body.title || file.originalname,
+        fileUrl: file.url,
+        fileName: file.originalname,
+        fileSize: file.size,
+        mimetype: file.mimetype,
+        thumbnailUrl: itemType === CloudItemType.IMAGE ? file.url : undefined,
+      });
+
+      res.status(201).json({ data: item });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async getPresignedUploadUrlAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const parsed = PresignedUploadDTOSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(422).json({ error: "Validation error", details: parsed.error.errors });
+        return;
+      }
+
+      const { fileName, contentType } = parsed.data;
+      const draftToken = v7();
+      const filename = this.cloudStorage.generateFilename(fileName);
+
+      const uploadUrl = await this.cloudStorage.getPresignedUploadUrl(filename, contentType, 3600);
+
+      res.status(200).json({
+        data: {
+          uploadUrl,
+          fileKey: filename,
+          draftToken,
+          expiresIn: 3600,
+        },
+      });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async confirmUploadAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const { draftToken, fileKey, fileName, contentType, fileSize, title, collectionId } = req.body;
+
+      if (!fileKey || !contentType) {
+        res.status(400).json({ error: "Missing fileKey or contentType" });
+        return;
+      }
+
+      const itemType = detectItemType(contentType);
+      const fileUrl = this.cloudStorage.getFileUrl(fileKey);
+
+      const item = await this.useCase.createItem(userId, {
+        type: itemType,
+        title: title || fileName,
+        fileUrl,
+        fileName: fileName || fileKey,
+        fileSize: fileSize || 0,
+        mimetype: contentType,
+        thumbnailUrl: itemType === CloudItemType.IMAGE ? fileUrl : undefined,
+        collectionId,
+      });
+
+      res.status(201).json({ data: item });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  getUploadMiddleware(): any {
+    return this.uploadMiddleware;
+  }
+
+  // ========== UPLOAD ==========
+
+  async forwardToChatAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const { conversationId } = req.body;
+      const itemId = req.params.id;
+
+      if (!conversationId) {
+        res.status(400).json({ error: "conversationId is required" });
+        return;
+      }
+
+      const item = await this.useCase.forwardToChat(
+        userId,
+        itemId,
+        conversationId,
+        (req as any).messagingFacade
+      );
+
+      res.status(200).json({ data: item });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  // ========== COLLECTIONS ==========
+
+  async createCollectionAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const parsed = CreateCollectionDTOSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(422).json({ error: "Validation error", details: parsed.error.errors });
+        return;
+      }
+
+      const collection = await this.useCase.createCollection(userId, parsed.data);
+      res.status(201).json({ data: collection });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async listCollectionsAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const collections = await this.useCase.listCollections(userId);
+      res.status(200).json({ data: collections });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async getCollectionAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const collection = await this.useCase.getCollection(userId, req.params.id);
+      if (!collection) {
+        res.status(404).json({ error: "Collection not found" });
+        return;
+      }
+      res.status(200).json({ data: collection });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async updateCollectionAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const parsed = UpdateCollectionDTOSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(422).json({ error: "Validation error", details: parsed.error.errors });
+        return;
+      }
+
+      const collection = await this.useCase.updateCollection(userId, req.params.id, parsed.data);
+      res.status(200).json({ data: collection });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async deleteCollectionAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      await this.useCase.deleteCollection(userId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async addItemToCollectionAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const parsed = AddItemToCollectionDTOSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(422).json({ error: "Validation error", details: parsed.error.errors });
+        return;
+      }
+
+      await this.useCase.addItemToCollection(userId, req.params.id, parsed.data.itemId);
+      res.status(200).json({ success: true });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async removeItemFromCollectionAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      await this.useCase.removeItemFromCollection(userId, req.params.id, req.params.itemId);
+      res.status(200).json({ success: true });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  async getCollectionItemsAPI(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = this.getUserId(req, res);
+      if (!userId) return;
+
+      const items = await this.useCase.getCollectionItems(userId, req.params.id);
+      res.status(200).json({ data: items });
     } catch (error) {
       this.handleError(error, res);
     }

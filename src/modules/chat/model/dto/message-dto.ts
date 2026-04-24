@@ -177,3 +177,9 @@ export interface LoadMessagesResult {
   /** userId -> lastSeenMessageId of other members (excluding current viewer) */
   memberSeenMap?: Record<string, string>;
 }
+
+export interface ForwardFromCloudCommand {
+  cloudItemId: string;
+  conversationId: string;
+  senderId: string;
+}

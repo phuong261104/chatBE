@@ -8,15 +8,24 @@ import {
   UpdateCloudItemDTOSchema,
   CloudItemStats,
   LoadCloudItemsDTO,
+  Collection,
+  CreateCollectionDTO,
+  UpdateCollectionDTO,
 } from "../model";
-import { DynamoCloudItemRepository } from "../infras/repository/dynamodb";
+import { DynamoCloudItemRepository, DynamoCollectionRepository } from "../infras/repository/dynamodb";
 import { PagingDTO } from "@share/model/paging";
+import { MediaType } from "@modules/chat/model/model";
 
 const notFound = () => AppError.from(new Error("Cloud item not found"), 404);
 const forbidden = () => AppError.from(new Error("Unauthorized"), 403);
+const collectionNotFound = () => AppError.from(new Error("Collection not found"), 404);
+const cannotDeleteDefault = () => AppError.from(new Error("Cannot delete default collection"), 400);
 
 export class MyCloudUseCase implements IMyCloudUseCase {
-  constructor(private readonly repository: DynamoCloudItemRepository) {}
+  constructor(
+    private readonly repository: DynamoCloudItemRepository,
+    private readonly collectionRepository: DynamoCollectionRepository
+  ) {}
 
   async getItems(
     userId: string,
@@ -73,10 +82,17 @@ export class MyCloudUseCase implements IMyCloudUseCase {
   async createItem(userId: string, data: any): Promise<CloudItem> {
     const validated = CreateCloudItemDTOSchema.parse(data);
 
+    let collectionId = validated.collectionId;
+    if (!collectionId) {
+      const defaultCollection = await this.collectionRepository.ensureDefaultCollection(userId);
+      collectionId = defaultCollection.id;
+    }
+
     const now = new Date();
     const newItem: CloudItem = {
       id: v7(),
       userId,
+      collectionId,
       type: validated.type,
       title: validated.title,
       content: validated.content,
@@ -92,6 +108,8 @@ export class MyCloudUseCase implements IMyCloudUseCase {
     };
 
     await this.repository.insert(newItem);
+    await this.collectionRepository.updateItemCount(collectionId, 1);
+
     return newItem;
   }
 
@@ -116,6 +134,10 @@ export class MyCloudUseCase implements IMyCloudUseCase {
     if (item.userId !== userId) throw forbidden();
 
     await this.repository.softDelete(itemId);
+
+    if (item.collectionId) {
+      await this.collectionRepository.updateItemCount(item.collectionId, -1);
+    }
   }
 
   async restoreItem(userId: string, itemId: string): Promise<CloudItem> {
@@ -124,6 +146,10 @@ export class MyCloudUseCase implements IMyCloudUseCase {
     if (item.userId !== userId) throw forbidden();
 
     await this.repository.restore(itemId);
+
+    if (item.collectionId) {
+      await this.collectionRepository.updateItemCount(item.collectionId, 1);
+    }
 
     return { ...item, isDeleted: false, deletedAt: undefined };
   }
@@ -137,6 +163,10 @@ export class MyCloudUseCase implements IMyCloudUseCase {
     if (item.userId !== userId) throw forbidden();
 
     await this.repository.delete(itemId, true);
+
+    if (item.collectionId) {
+      await this.collectionRepository.updateItemCount(item.collectionId, -1);
+    }
   }
 
   async emptyTrash(userId: string): Promise<{ deleted: number }> {
@@ -209,5 +239,176 @@ export class MyCloudUseCase implements IMyCloudUseCase {
 
   async getByShareToken(token: string): Promise<CloudItem | null> {
     return this.repository.getByShareToken(token);
+  }
+
+  async createCollection(userId: string, data: CreateCollectionDTO): Promise<Collection> {
+    await this.collectionRepository.ensureDefaultCollection(userId);
+
+    const now = new Date();
+    const collection: Collection = {
+      id: v7(),
+      userId,
+      name: data.name,
+      description: data.description,
+      color: data.color,
+      icon: data.icon,
+      coverImageUrl: data.coverImageUrl,
+      parentId: data.parentId,
+      isDefault: false,
+      isDeleted: false,
+      itemCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await this.collectionRepository.insert(collection);
+    return collection;
+  }
+
+  async updateCollection(
+    userId: string,
+    collectionId: string,
+    data: UpdateCollectionDTO
+  ): Promise<Collection> {
+    const collection = await this.collectionRepository.get(collectionId);
+    if (!collection) throw collectionNotFound();
+    if (collection.userId !== userId) throw forbidden();
+    if (collection.isDefault) {
+      throw AppError.from(new Error("Cannot update default collection"), 400);
+    }
+
+    await this.collectionRepository.update(collectionId, data);
+    return { ...collection, ...data, updatedAt: new Date() };
+  }
+
+  async deleteCollection(userId: string, collectionId: string): Promise<void> {
+    const collection = await this.collectionRepository.get(collectionId);
+    if (!collection) throw collectionNotFound();
+    if (collection.userId !== userId) throw forbidden();
+    if (collection.isDefault) throw cannotDeleteDefault();
+
+    const defaultCollection = await this.collectionRepository.getDefaultCollection(userId);
+    if (defaultCollection && collection.itemCount > 0) {
+      const { itemIds } = await this.collectionRepository.getCollectionItems(collectionId);
+      for (const itemId of itemIds) {
+        await this.collectionRepository.addItemToCollection(defaultCollection.id, itemId, userId);
+        await this.collectionRepository.updateItemCount(defaultCollection.id, 1);
+      }
+    }
+
+    if (collection.itemCount > 0) {
+      await this.collectionRepository.updateItemCount(collectionId, -collection.itemCount);
+    }
+
+    await this.collectionRepository.softDelete(collectionId);
+  }
+
+  async listCollections(userId: string): Promise<Collection[]> {
+    return this.collectionRepository.list({ userId });
+  }
+
+  async getCollection(userId: string, collectionId: string): Promise<Collection | null> {
+    const collection = await this.collectionRepository.get(collectionId);
+    if (!collection) return null;
+    if (collection.userId !== userId) return null;
+    return collection;
+  }
+
+  async addItemToCollection(
+    userId: string,
+    collectionId: string,
+    itemId: string
+  ): Promise<void> {
+    const collection = await this.collectionRepository.get(collectionId);
+    if (!collection) throw collectionNotFound();
+    if (collection.userId !== userId) throw forbidden();
+
+    const item = await this.repository.get(itemId);
+    if (!item) throw notFound();
+    if (item.userId !== userId) throw forbidden();
+
+    if (item.collectionId && item.collectionId !== collectionId) {
+      await this.collectionRepository.removeItemFromCollection(item.collectionId, itemId);
+      const oldCollection = await this.collectionRepository.get(item.collectionId);
+      if (oldCollection) {
+        await this.collectionRepository.updateItemCount(oldCollection.id, -1);
+      }
+    }
+
+    await this.collectionRepository.addItemToCollection(collectionId, itemId, userId);
+    await this.collectionRepository.updateItemCount(collectionId, 1);
+
+    await this.repository.update(itemId, { collectionId } as any);
+  }
+
+  async removeItemFromCollection(
+    userId: string,
+    collectionId: string,
+    itemId: string
+  ): Promise<void> {
+    const collection = await this.collectionRepository.get(collectionId);
+    if (!collection) throw collectionNotFound();
+    if (collection.userId !== userId) throw forbidden();
+
+    const item = await this.repository.get(itemId);
+    if (!item) throw notFound();
+    if (item.userId !== userId) throw forbidden();
+
+    await this.collectionRepository.removeItemFromCollection(collectionId, itemId);
+    await this.collectionRepository.updateItemCount(collectionId, -1);
+
+    const defaultCollection = await this.collectionRepository.ensureDefaultCollection(userId);
+    await this.collectionRepository.addItemToCollection(defaultCollection.id, itemId, userId);
+    await this.collectionRepository.updateItemCount(defaultCollection.id, 1);
+
+    await this.repository.update(itemId, { collectionId: defaultCollection.id } as any);
+  }
+
+  async getCollectionItems(userId: string, collectionId: string): Promise<CloudItem[]> {
+    const collection = await this.collectionRepository.get(collectionId);
+    if (!collection) throw collectionNotFound();
+    if (collection.userId !== userId) throw forbidden();
+
+    const { itemIds } = await this.collectionRepository.getCollectionItems(collectionId);
+    return this.repository.listByIds(itemIds);
+  }
+
+  async getDefaultCollection(userId: string): Promise<Collection> {
+    return this.collectionRepository.ensureDefaultCollection(userId);
+  }
+
+  async forwardToChat(
+    userId: string,
+    cloudItemId: string,
+    conversationId: string,
+    messagingFacade: any
+  ): Promise<any> {
+    const item = await this.repository.get(cloudItemId);
+    if (!item) throw notFound();
+    if (item.userId !== userId) throw forbidden();
+
+    const mediaType = this.getMediaType(item.type);
+    const media = [{
+      url: item.fileUrl!,
+      mediaType,
+      name: item.fileName || item.title,
+      size: item.fileSize,
+      thumbnailUrl: item.thumbnailUrl,
+    }];
+
+    return messagingFacade.sendMessage(conversationId, userId, item.title, media);
+  }
+
+  private getMediaType(type: CloudItemType): MediaType {
+    switch (type) {
+      case CloudItemType.IMAGE:
+        return MediaType.IMAGE;
+      case CloudItemType.VIDEO:
+        return MediaType.VIDEO;
+      case CloudItemType.VOICE:
+        return MediaType.AUDIO;
+      default:
+        return MediaType.FILE;
+    }
   }
 }

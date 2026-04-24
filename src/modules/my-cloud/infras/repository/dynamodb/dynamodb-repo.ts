@@ -24,6 +24,7 @@ export class DynamoCloudItemRepository {
     return {
       id: doc.id,
       userId: doc.userId,
+      collectionId: doc.collectionId,
       type: doc.itemType as CloudItemType ?? doc.type as CloudItemType,
       title: doc.title,
       content: doc.content,
@@ -69,11 +70,11 @@ export class DynamoCloudItemRepository {
 
     while (items.length < limit && pageNum <= 100) {
       const result = await docClient.send(
-        new ScanCommand({
+        new QueryCommand({
           TableName: this.tableName,
-          FilterExpression: this.buildFilter(cond),
-          ExpressionAttributeNames: this.buildAttrNames(cond),
-          ExpressionAttributeValues: this.buildAttrValues(cond),
+          IndexName: "userId-index",
+          KeyConditionExpression: "userId = :uid",
+          ExpressionAttributeValues: { ":uid": cond.userId },
           ExclusiveStartKey: lastKey,
           Limit: limit,
         })
@@ -121,31 +122,29 @@ export class DynamoCloudItemRepository {
 
   async countByUserId(userId: string, type?: string): Promise<number> {
     const docClient = getDocClient();
-    let total = 0;
-    let lastKey: Record<string, any> | undefined;
-
-    while (true) {
-      const result = await docClient.send(
-        new ScanCommand({
-          TableName: this.tableName,
-          FilterExpression:
-            "userId = :uid AND isDeleted = :false" +
-            (type ? " AND #itemType = :type" : ""),
-          ExpressionAttributeNames: type ? { "#itemType": "type" } : undefined,
-          ExpressionAttributeValues: {
-            ":uid": userId,
-            ":false": "false",
-            ...(type ? { ":type": type } : {}),
-          },
-          ExclusiveStartKey: lastKey,
-          Select: "COUNT",
-        })
-      );
-      total += result.Count || 0;
-      lastKey = result.LastEvaluatedKey;
-      if (!lastKey) break;
+    const attrNames: Record<string, string> = {};
+    const attrValues: Record<string, any> = { ":uid": userId };
+    
+    let indexName = "userId-index";
+    let keyCondition = "userId = :uid";
+    
+    if (type) {
+      indexName = "userId-type-index";
+      keyCondition = "userId = :uid AND #itemType = :type";
+      attrNames["#itemType"] = "type";
+      attrValues[":type"] = type;
     }
-    return total;
+    
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: indexName,
+        KeyConditionExpression: keyCondition,
+        ExpressionAttributeNames: Object.keys(attrNames).length > 0 ? attrNames : undefined,
+        ExpressionAttributeValues: attrValues,
+      })
+    );
+    return (result.Items || []).filter(item => !(item.isDeleted === "true" || item.isDeleted === true)).length;
   }
 
   async loadByUserId(options: {
@@ -169,31 +168,32 @@ export class DynamoCloudItemRepository {
       }
     }
 
-    const conditions: string[] = ["userId = :uid"];
-    const attrNames: Record<string, string> = {};
+    let indexName = "userId-index";
+    let keyCondition = "userId = :uid";
     const attrValues: Record<string, any> = { ":uid": options.userId };
+    const attrNames: Record<string, string> = {};
 
     if (options.type) {
-      attrNames["#itemType"] = "type";
-      conditions.push("#itemType = :type");
+      indexName = "userId-type-index";
+      keyCondition = "userId = :uid AND #itemType = :type";
       attrValues[":type"] = options.type;
-    }
-    if (options.isDeleted !== undefined) {
-      conditions.push("isDeleted = :isDel");
+      attrNames["#itemType"] = "type";
+    } else if (options.isDeleted !== undefined) {
+      indexName = "userId-isDeleted-index";
+      keyCondition = "userId = :uid AND isDeleted = :isDel";
       attrValues[":isDel"] = String(options.isDeleted);
-    }
-    if (options.isPinned !== undefined) {
-      attrNames["#itemPinned"] = "isPinned";
-      conditions.push("#itemPinned = :isPin");
+    } else if (options.isPinned !== undefined) {
+      indexName = "userId-isPinned-index";
+      keyCondition = "userId = :uid AND isPinned = :isPin";
       attrValues[":isPin"] = String(options.isPinned);
     }
 
     const result = await docClient.send(
-      new ScanCommand({
+      new QueryCommand({
         TableName: this.tableName,
-        FilterExpression: conditions.join(" AND "),
-        ExpressionAttributeNames:
-          Object.keys(attrNames).length > 0 ? attrNames : undefined,
+        IndexName: indexName,
+        KeyConditionExpression: keyCondition,
+        ExpressionAttributeNames: Object.keys(attrNames).length > 0 ? attrNames : undefined,
         ExpressionAttributeValues: attrValues,
         Limit: options.limit,
         ExclusiveStartKey: exclusiveStartKey,
@@ -240,9 +240,10 @@ export class DynamoCloudItemRepository {
 
     while (true) {
       const result = await docClient.send(
-        new ScanCommand({
+        new QueryCommand({
           TableName: this.tableName,
-          FilterExpression: "userId = :uid",
+          IndexName: "userId-index",
+          KeyConditionExpression: "userId = :uid",
           ExpressionAttributeValues: { ":uid": userId },
           ExclusiveStartKey: lastKey,
         })
@@ -284,10 +285,11 @@ export class DynamoCloudItemRepository {
   ): Promise<CloudItem[]> {
     const docClient = getDocClient();
     const result = await docClient.send(
-      new ScanCommand({
+      new QueryCommand({
         TableName: this.tableName,
-        FilterExpression:
-          "userId = :uid AND contains(#title, :q) AND isDeleted = :false",
+        IndexName: "userId-index",
+        KeyConditionExpression: "userId = :uid",
+        FilterExpression: "contains(#title, :q) AND isDeleted = :false",
         ExpressionAttributeNames: { "#title": "title" },
         ExpressionAttributeValues: {
           ":uid": userId,
@@ -314,6 +316,7 @@ export class DynamoCloudItemRepository {
         Item: {
           id: data.id,
           userId: data.userId,
+          collectionId: data.collectionId || null,
           itemType: data.type,
           type: data.type,
           title: data.title,
@@ -350,6 +353,11 @@ export class DynamoCloudItemRepository {
       attrNames["#c"] = "content";
       updateExprs.push("#c = :content");
       attrValues[":content"] = d.content;
+    }
+    if (d.collectionId !== undefined) {
+      attrNames["#col"] = "collectionId";
+      updateExprs.push("#col = :collectionId");
+      attrValues[":collectionId"] = d.collectionId || null;
     }
 
     await docClient.send(
@@ -429,10 +437,11 @@ export class DynamoCloudItemRepository {
 
     while (true) {
       const result = await docClient.send(
-        new ScanCommand({
+        new QueryCommand({
           TableName: this.tableName,
-          FilterExpression: "userId = :uid AND isDeleted = :true",
-          ExpressionAttributeValues: { ":uid": userId, ":true": "true" },
+          IndexName: "userId-isDeleted-index",
+          KeyConditionExpression: "userId = :uid AND isDeleted = :isDel",
+          ExpressionAttributeValues: { ":uid": userId, ":isDel": "true" },
           ExclusiveStartKey: lastKey,
           ProjectionExpression: "id",
         })
@@ -480,28 +489,23 @@ export class DynamoCloudItemRepository {
 
   async getByShareToken(token: string): Promise<CloudItem | null> {
     const docClient = getDocClient();
-    let lastKey: Record<string, any> | undefined;
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: "shareToken-index",
+        KeyConditionExpression: "shareToken = :token",
+        FilterExpression: "isDeleted = :false",
+        ExpressionAttributeValues: {
+          ":token": token,
+          ":false": "false",
+        },
+        Limit: 1,
+      })
+    );
 
-    while (true) {
-      const result = await docClient.send(
-        new ScanCommand({
-          TableName: this.tableName,
-          FilterExpression:
-            "shareToken = :token AND isDeleted = :false",
-          ExpressionAttributeValues: { ":token": token, ":false": "false" },
-          ExclusiveStartKey: lastKey,
-          Limit: 1,
-        })
-      );
-
-      if (result.Items && result.Items.length > 0) {
-        return this.toEntity(result.Items[0]);
-      }
-
-      lastKey = result.LastEvaluatedKey;
-      if (!lastKey) break;
+    if (result.Items && result.Items.length > 0) {
+      return this.toEntity(result.Items[0]);
     }
-
     return null;
   }
 

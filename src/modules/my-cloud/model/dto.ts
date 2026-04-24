@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CloudItemType } from "./model";
+import { CloudItemType, Collection } from "./model";
 
 // --- Create DTO ---
 export const CreateCloudItemDTOSchema = z.object({
@@ -11,6 +11,7 @@ export const CreateCloudItemDTOSchema = z.object({
   fileSize: z.number().nonnegative().optional(),
   mimetype: z.string().optional(),
   thumbnailUrl: z.string().optional(),
+  collectionId: z.string().optional(),
 }).refine(
   (data) => {
     if (
@@ -34,6 +35,7 @@ export type CreateCloudItemDTO = z.infer<typeof CreateCloudItemDTOSchema>;
 export const UpdateCloudItemDTOSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   content: z.string().max(50000).optional(),
+  collectionId: z.string().optional(),
 });
 
 export type UpdateCloudItemDTO = z.infer<typeof UpdateCloudItemDTOSchema>;
@@ -97,4 +99,45 @@ export interface ShareResult {
   shareToken: string;
   shareUrl: string;
   expiresAt: Date;
+}
+
+// --- Collection DTOs ---
+export const CreateCollectionDTOSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  color: z.string().max(20).optional(),
+  icon: z.string().max(50).optional(),
+  coverImageUrl: z.string().optional(),
+  parentId: z.string().optional(),
+});
+
+export type CreateCollectionDTO = z.infer<typeof CreateCollectionDTOSchema>;
+
+export const UpdateCollectionDTOSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  color: z.string().max(20).optional(),
+  icon: z.string().max(50).optional(),
+  coverImageUrl: z.string().optional(),
+  parentId: z.string().optional(),
+});
+
+export type UpdateCollectionDTO = z.infer<typeof UpdateCollectionDTOSchema>;
+
+export const CollectionCondDTOSchema = z.object({
+  userId: z.string().optional(),
+  parentId: z.string().optional(),
+  isDefault: z.boolean().optional(),
+});
+
+export type CollectionCondDTO = z.infer<typeof CollectionCondDTOSchema>;
+
+export const AddItemToCollectionDTOSchema = z.object({
+  itemId: z.string(),
+});
+
+export type AddItemToCollectionDTO = z.infer<typeof AddItemToCollectionDTOSchema>;
+
+export interface CollectionWithStats extends Collection {
+  itemCount: number;
 }
