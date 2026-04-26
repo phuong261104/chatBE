@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Friendship } from './model';
+import { Friendship, FriendshipStatus } from './model';
 
 export const FriendshipCreateSchema = z
   .object({
@@ -54,7 +54,17 @@ export const GetFriendsListQuerySchema = z.object({
 export type GetFriendsListQuery = z.infer<typeof GetFriendsListQuerySchema>;
 
 export interface GetFriendsListResult {
-  friendships: Friendship[];
+  friends: FriendDTO[];
   nextCursor: string;
   hasMore: boolean;
+}
+
+export interface FriendDTO {
+  id: string;
+  userId: string;
+  displayName?: string;
+  username?: string;
+  avatarUrl?: string;
+  status: FriendshipStatus;
+  createdAt: Date;
 }

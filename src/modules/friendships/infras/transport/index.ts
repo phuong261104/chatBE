@@ -48,7 +48,7 @@ export class FriendshipHTTPService extends BaseHttpService<
 
       res.status(200).json({
         data: {
-          items: result.friendships,
+          items: result.friends,
           nextCursor: result.nextCursor,
           hasMore: result.hasMore,
         },

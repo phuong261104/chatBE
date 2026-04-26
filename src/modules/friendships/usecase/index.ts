@@ -18,6 +18,7 @@ import {
   FriendSuggestionDTO,
   GetFriendsListQuery,
   GetFriendsListResult,
+  FriendDTO,
 } from '../model';
 import { FriendRequestStatus } from '@modules/friend-requests/model/model';
 
@@ -31,7 +32,7 @@ export class FriendshipUseCase implements IFriendshipUseCase {
   async getFriendsList(userId: string, query: GetFriendsListQuery): Promise<GetFriendsListResult> {
     const friendships = await this.repository.findFriendshipsForUser(userId);
     if (friendships.length === 0) {
-      return { friendships: [], nextCursor: "", hasMore: false };
+      return { friends: [], nextCursor: "", hasMore: false };
     }
 
     const sortBy = query.sortBy ?? "newest";
@@ -58,7 +59,34 @@ export class FriendshipUseCase implements IFriendshipUseCase {
       ? Buffer.from(JSON.stringify({ idx: startIndex + pageLimit })).toString("base64")
       : "";
 
-    return { friendships: pageItems, nextCursor, hasMore };
+    // Enrich with user data
+    const friendIds = pageItems.map((f) => (f.userA === userId ? f.userB : f.userA));
+    const batchSize = 100;
+    const userMap = new Map<string, any>();
+
+    for (let i = 0; i < friendIds.length; i += batchSize) {
+      const batch = friendIds.slice(i, i + batchSize);
+      const users = await this.userRepository.listByIds(batch);
+      for (const u of users) {
+        userMap.set(u.id, u);
+      }
+    }
+
+    const friends: FriendDTO[] = pageItems.map((f) => {
+      const friendId = f.userA === userId ? f.userB : f.userA;
+      const friendUser = userMap.get(friendId);
+      return {
+        id: f.id,
+        userId: friendId,
+        displayName: friendUser?.displayName,
+        username: friendUser?.username,
+        avatarUrl: friendUser?.avatarUrl,
+        status: f.status,
+        createdAt: f.createdAt,
+      };
+    });
+
+    return { friends, nextCursor, hasMore };
   }
 
   async areFriends(userId1: string, userId2: string): Promise<boolean> {

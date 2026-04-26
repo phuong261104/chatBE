@@ -1,6 +1,5 @@
 import { IUseCase } from '@share/interface';
-import { FriendshipCreateDTO, FriendshipCondDTO, Friendship, MutualFriendDTO, FriendSuggestionDTO } from '../model';
-import { GetFriendsListQuery, GetFriendsListResult } from '../model/dto';
+import { FriendshipCreateDTO, FriendshipCondDTO, Friendship, MutualFriendDTO, FriendSuggestionDTO, GetFriendsListQuery, GetFriendsListResult } from '../model';
 
 export interface IFriendshipUseCase extends IUseCase<FriendshipCreateDTO, never, Friendship, FriendshipCondDTO> {
   getFriendsList(userId: string, query: GetFriendsListQuery): Promise<GetFriendsListResult>;
