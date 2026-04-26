@@ -51,6 +51,25 @@ export class UserHTTPService extends BaseHttpService<
     }
   }
 
+  async searchUsersAPI(req: Request, res: Response) {
+    try {
+      const requester = res.locals["requester"] as Requester;
+      const currentUserId = requester.sub;
+      const q = (req.query.q as string) || "";
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      if (!q.trim()) {
+        res.status(200).json({ data: [] });
+        return;
+      }
+
+      const users = await this.usecase.searchUsers(q, currentUserId, limit);
+      res.status(200).json({ data: users });
+    } catch (error) {
+      res.status(422).json({ message: (error as Error).message });
+    }
+  }
+
   async profileAPI(req: Request, res: Response) {
     try {
       const requester = res.locals["requester"] as Requester;

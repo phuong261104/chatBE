@@ -57,6 +57,17 @@ export class UserUseCase implements IUserUseCase {
     return UserPublicSchema.parse(publicData);
   }
 
+  async searchUsers(query: string, currentUserId: string, limit: number = 20): Promise<{ id: string; displayName?: string; avatarUrl?: string; username?: string }[]> {
+    if (!query.trim()) return [];
+    const users = await (this.repository as any).searchUsers(query, currentUserId, limit);
+    return users.map((u: User) => ({
+      id: u.id,
+      displayName: u.displayName,
+      username: u.username,
+      avatarUrl: u.avatarUrl,
+    }));
+  }
+
   async searchByPhone(phone: string): Promise<User | null> {
     const validatedPhone = UserPhoneSchema.parse(phone);
     const normalizedPhone = validatedPhone.replace(/\s+/g, "");

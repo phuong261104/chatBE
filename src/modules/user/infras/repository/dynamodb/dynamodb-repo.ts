@@ -1,4 +1,4 @@
-import { User } from "@modules/user/model/model";
+import { User, UserStatus } from "@modules/user/model/model";
 import { UserCondDTO, UserUpdateDTO } from "@modules/user/model/dto";
 import { IUserLastSeenSyncPort } from "@modules/user/interface";
 import { config } from "@share/component/config";
@@ -147,6 +147,64 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
       }),
     );
     return result.Items && result.Items.length > 0 ? this.toEntity(result.Items[0]) : null;
+  }
+
+  async searchUsers(query: string, currentUserId: string, limit: number = 20): Promise<User[]> {
+    const docClient = getDocClient();
+    const searchLower = query.toLowerCase().trim();
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: getTableName(TABLE_NAMES.USERS),
+        FilterExpression: "(contains(#displayName, :q) OR contains(#username, :q)) AND #status = :active AND #id <> :currentUser",
+        ExpressionAttributeNames: {
+          "#displayName": "displayName",
+          "#username": "username",
+          "#status": "status",
+          "#id": "id",
+        },
+        ExpressionAttributeValues: {
+          ":q": searchLower,
+          ":active": "active",
+          ":currentUser": currentUserId,
+        },
+        Limit: 1000,
+      }),
+    );
+
+    const users = (result.Items || [])
+      .map((item) => this.toEntity(item))
+      .filter((u) => u && u.status === UserStatus.ACTIVE);
+
+    const matched = users.filter((u) =>
+      (u.displayName && u.displayName.toLowerCase().includes(searchLower)) ||
+      (u.username && u.username.toLowerCase().includes(searchLower))
+    );
+
+    return matched.slice(0, limit);
+  }
+
+  async getRandomActiveUsers(excludeIds: string[], limit: number = 20): Promise<User[]> {
+    const docClient = getDocClient();
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: getTableName(TABLE_NAMES.USERS),
+        FilterExpression: "#status = :active",
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: { ":active": "active" },
+        Limit: 1000,
+      }),
+    );
+
+    const allUsers = (result.Items || [])
+      .map((item) => this.toEntity(item))
+      .filter((u) => u && u.status === UserStatus.ACTIVE && !excludeIds.includes(u.id));
+
+    for (let i = allUsers.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allUsers[i], allUsers[j]] = [allUsers[j], allUsers[i]];
+    }
+
+    return allUsers.slice(0, limit);
   }
 }
 

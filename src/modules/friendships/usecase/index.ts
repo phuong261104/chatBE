@@ -29,12 +29,36 @@ export class FriendshipUseCase implements IFriendshipUseCase {
   ) {}
 
   async getFriendsList(userId: string, query: GetFriendsListQuery): Promise<GetFriendsListResult> {
-    return await this.repository.findFriendshipsWithCursor(
-      userId,
-      query.cursor,
-      query.limit,
-      query.sortBy,
-    );
+    const friendships = await this.repository.findFriendshipsForUser(userId);
+    if (friendships.length === 0) {
+      return { friendships: [], nextCursor: "", hasMore: false };
+    }
+
+    const sortBy = query.sortBy ?? "newest";
+    const sorted = [...friendships].sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return sortBy === "newest" ? timeB - timeA : timeA - timeB;
+    });
+
+    const pageLimit = Math.min(query.limit ?? 20, 50);
+    let startIndex = 0;
+    if (query.cursor) {
+      try {
+        const decoded = JSON.parse(Buffer.from(query.cursor, "base64").toString("utf-8"));
+        startIndex = decoded.idx ?? 0;
+      } catch {
+        startIndex = 0;
+      }
+    }
+
+    const pageItems = sorted.slice(startIndex, startIndex + pageLimit);
+    const hasMore = startIndex + pageLimit < sorted.length;
+    const nextCursor = hasMore
+      ? Buffer.from(JSON.stringify({ idx: startIndex + pageLimit })).toString("base64")
+      : "";
+
+    return { friendships: pageItems, nextCursor, hasMore };
   }
 
   async areFriends(userId1: string, userId2: string): Promise<boolean> {
@@ -215,6 +239,26 @@ export class FriendshipUseCase implements IFriendshipUseCase {
           avatarUrl: user.avatarUrl,
           mutualFriendsCount: mutualFriendIds.size,
           mutualFriendIds: Array.from(mutualFriendIds),
+        });
+      }
+    }
+
+    if (suggestions.length < limit) {
+      const needed = limit - suggestions.length;
+      const excludeIds = [
+        userId,
+        ...Array.from(myFriendIds),
+        ...pendingUserIds,
+        ...suggestions.map((s) => s.id),
+      ];
+      const randomUsers = await (this.userRepository as any).getRandomActiveUsers(excludeIds, needed);
+      for (const u of randomUsers) {
+        suggestions.push({
+          id: u.id,
+          displayName: u.displayName,
+          avatarUrl: u.avatarUrl,
+          mutualFriendsCount: 0,
+          mutualFriendIds: [],
         });
       }
     }

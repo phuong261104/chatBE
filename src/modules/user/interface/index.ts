@@ -8,6 +8,7 @@ export interface IUserUseCase extends IUseCase<
   User,
   UserCondDTO
 > {
+  searchUsers(query: string, currentUserId: string, limit?: number): Promise<{ id: string; displayName?: string; avatarUrl?: string; username?: string }[]>;
   searchByPhone(phone: string): Promise<User | null>;
   updateProfile(requester: Requester, data: UpdateProfileDTO): Promise<boolean>;
   profile(userId: string): Promise<User>;
