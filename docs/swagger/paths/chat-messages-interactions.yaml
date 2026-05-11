@@ -25,8 +25,6 @@ paths:
           description: Unauthorized
         "403":
           description: Only group admins can pin messages
-
-  /messages/{messageId}/unpin:
     delete:
       summary: Unpin a message
       tags: [Chat - Messages]
@@ -89,6 +87,13 @@ paths:
           description: Messages forwarded successfully
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "./chat-schemas.yaml#/components/schemas/MessageResponse"
               example:
                 data:
                   - _id: "msg_new_001"
@@ -136,7 +141,7 @@ paths:
           required: true
           description: Message ID to quote/reply
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -150,11 +155,17 @@ paths:
                   type: array
                   items:
                     $ref: "./chat-schemas.yaml#/components/schemas/MediaAttachment"
+              description: At least one of text or media is required.
       responses:
         "201":
           description: Quote message sent
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "./chat-schemas.yaml#/components/schemas/MessageResponse"
               example:
                 data:
                   _id: "msg_quote_001"
@@ -216,6 +227,16 @@ paths:
           description: Messages deleted
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      deletedCount:
+                        type: integer
+                        description: Number of messages deleted
+                        example: 2
               example:
                 data:
                   deletedCount: 2
@@ -238,17 +259,15 @@ paths:
           example: "0192a3bc-def0-7abc-8901-23456789abcd"
           required: true
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              required:
-                - targetLanguage
               properties:
                 targetLanguage:
                   type: string
-                  description: Target language code (e.g., "vi", "en", "zh")
+                  description: Target language code (e.g., "vi", "en", "zh"). Defaults to "en" if not provided.
                   example: "en"
             example:
               targetLanguage: "en"
@@ -257,11 +276,33 @@ paths:
           description: Translated text
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      originalText:
+                        type: string
+                        description: Original message text
+                        example: "Xin chào"
+                      translatedText:
+                        type: string
+                        description: Translated text
+                        example: "Hello"
+                      detectedLanguage:
+                        type: string
+                        description: Detected source language code
+                        example: "vi"
+                      targetLanguage:
+                        type: string
+                        description: Target language code used
+                        example: "en"
               example:
                 data:
                   originalText: "Xin chào"
                   translatedText: "Hello"
-                  sourceLanguage: "vi"
+                  detectedLanguage: "vi"
                   targetLanguage: "en"
         "401":
           description: Unauthorized

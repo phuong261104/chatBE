@@ -10,11 +10,11 @@ paths:
           name: messageId
           schema:
             type: string
-            example: "msg_001"
+          example: "msg_001"
           required: true
       responses:
         "200":
-          description: List of reactions
+          description: List of reactions grouped by emoji
           content:
             application/json:
               schema:
@@ -33,23 +33,26 @@ paths:
                     - emoji: "👍"
                       users:
                         - _id: "user_1"
-                          name: "Nguyễn Văn A"
-                          avatar: "https://cdn.example.com/avatars/a.png"
+                          displayName: "Nguyễn Văn A"
+                          avatarUrl: "https://cdn.example.com/avatars/a.png"
                         - _id: "user_2"
-                          name: "Trần Thị B"
-                          avatar: "https://cdn.example.com/avatars/b.png"
+                          displayName: "Trần Thị B"
+                          avatarUrl: "https://cdn.example.com/avatars/b.png"
                       count: 2
                     - emoji: "❤️"
                       users:
                         - _id: "user_3"
-                          name: "Lê Văn C"
-                          avatar: "https://cdn.example.com/avatars/c.png"
+                          displayName: "Lê Văn C"
+                          avatarUrl: "https://cdn.example.com/avatars/c.png"
                       count: 1
         "401":
           description: Unauthorized
 
     delete:
-      summary: Remove all reactions from message
+      summary: Remove all reactions from a message
+      description: |
+        Removes ALL reactions from the message. Requires admin permission.
+        Returns the count of reactions removed.
       tags: [Chat - Reactions]
       security:
         - BearerAuth: []
@@ -58,22 +61,38 @@ paths:
           name: messageId
           schema:
             type: string
-            example: "msg_001"
+          example: "msg_001"
           required: true
       responses:
         "200":
           description: All reactions removed
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      deletedCount:
+                        type: integer
+                        description: Number of reactions removed
+                        example: 5
               example:
-                success: true
-                deletedCount: 5
+                data:
+                  success: true
+                  deletedCount: 5
         "401":
           description: Unauthorized
+        "403":
+          description: Only conversation admins can clear all reactions
 
   /messages/{messageId}/react:
     post:
-      summary: Add reaction to message
+      summary: Add a reaction to a message
       tags: [Chat - Reactions]
       security:
         - BearerAuth: []
@@ -82,7 +101,7 @@ paths:
           name: messageId
           schema:
             type: string
-            example: "msg_001"
+          example: "msg_001"
           required: true
       requestBody:
         required: true
@@ -95,13 +114,18 @@ paths:
               properties:
                 emoji:
                   type: string
-                  description: Emoji unicode or emoji code
+                  description: Emoji unicode or emoji code to add
                   example: "👍"
       responses:
         "201":
           description: Reaction added
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "./chat-schemas.yaml#/components/schemas/ReactionDetail"
               example:
                 data:
                   _id: "react_001"
@@ -115,7 +139,10 @@ paths:
           description: Reaction already exists
 
     delete:
-      summary: Remove specific reaction (emoji) from message
+      summary: Remove a specific reaction or all reactions from a message
+      description: |
+        - If `emoji` is provided: removes only that specific emoji reaction from the current user
+        - If `emoji` is omitted: removes ALL reactions by the current user from this message
       tags: [Chat - Reactions]
       security:
         - BearerAuth: []
@@ -124,28 +151,40 @@ paths:
           name: messageId
           schema:
             type: string
-            example: "msg_001"
+          example: "msg_001"
           required: true
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              required:
-                - emoji
               properties:
                 emoji:
                   type: string
-                  description: Emoji to remove
+                  description: Specific emoji to remove. If omitted, removes all reactions by the current user.
                   example: "👍"
       responses:
         "200":
-          description: Reaction removed
+          description: Reaction(s) removed
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      deletedCount:
+                        type: integer
+                        description: Number of reactions removed
+                        example: 1
               example:
-                success: true
-                deletedCount: 1
+                data:
+                  success: true
+                  deletedCount: 1
         "401":
           description: Unauthorized

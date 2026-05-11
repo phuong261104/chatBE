@@ -148,6 +148,8 @@ paths:
     $ref: "./paths/chat-messages-actions.yaml#/paths/~1messages~1{messageId}~1delete-for-everyone"
   /messages/{messageId}/pin:
     $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1pin"
+  /messages/{messageId}/unpin:
+    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1pin"
   /messages/{messageId}/quote:
     $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1quote"
 
@@ -160,8 +162,8 @@ paths:
     $ref: "./paths/chat-reactions.yaml#/paths/~1messages~1{messageId}~1reactions"
   /messages/{messageId}/react:
     $ref: "./paths/chat-reactions.yaml#/paths/~1messages~1{messageId}~1react"
-  /messages/{messageId}/unpin:
-    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1unpin"
+
+  # ==================== CHAT - BULK DELETE & TRANSLATE ====================
   /conversations/{conversationId}/messages/bulk-delete:
     $ref: "./paths/chat-messages-interactions.yaml#/paths/~1conversations~1{conversationId}~1messages~1bulk-delete"
   /messages/{messageId}/translate:

@@ -10,26 +10,46 @@ paths:
           name: conversationId
           schema:
             type: string
-          example: "60d0fe4f5311236168a109cc"
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
           required: true
       responses:
         "200":
           description: List of pinned messages
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "./chat-schemas.yaml#/components/schemas/MessageResponse"
               example:
                 data:
-                  messages:
-                    - _id: "msg_001"
-                      text: "Thông báo quan trọng"
-                      pinnedAt: "2024-01-10T10:00:00Z"
-                      pinnedBy: "user_123"
-                    - _id: "msg_002"
-                      text: "Thông báo mới hơn"
-                      pinnedAt: "2024-01-15T10:00:00Z"
-                      pinnedBy: "user_123"
+                  - _id: "msg_001"
+                    conversationId: "conv_001"
+                    senderId: "user_123"
+                    senderName: "Nguyễn Văn A"
+                    type: "text"
+                    text: "Thông báo quan trọng"
+                    media: []
+                    isPinned: true
+                    pinnedAt: "2024-01-10T10:00:00Z"
+                    createdAt: "2024-01-10T09:00:00Z"
+                  - _id: "msg_002"
+                    conversationId: "conv_001"
+                    senderId: "user_456"
+                    senderName: "Trần Thị B"
+                    type: "text"
+                    text: "Thông báo mới hơn"
+                    media: []
+                    isPinned: true
+                    pinnedAt: "2024-01-15T10:00:00Z"
+                    createdAt: "2024-01-15T09:00:00Z"
         "401":
           description: Unauthorized
+        "403":
+          description: Not a member of this conversation
 
   /conversations/{conversationId}/search:
     get:

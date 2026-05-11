@@ -42,6 +42,7 @@ paths:
                           $ref: "./chat-schemas.yaml#/components/schemas/MessageResponse"
                       nextCursor:
                         type: string
+                        nullable: true
                         description: Cursor for next page (message ID). Empty string if no more messages.
                         example: "0192a3bc-def0-7abc-8901-23456789abcf"
                       hasMore:
@@ -50,17 +51,14 @@ paths:
                         example: true
                       memberSeenMap:
                         type: object
-                        description: |
-                          Map of userId -> lastSeenMessageId for other members in the conversation.
-                          Used by frontend to compute isSeen: message.id <= memberSeenMap[otherUserId].
-                          Only includes members who have called markAsSeen (excludes current viewer).
                         additionalProperties:
                           type: string
                           description: The last message ID seen by this member.
                           example: "0192a3bc-def0-7abc-8901-23456789abca"
-                        example:
-                          user_456: "msg_001"
-                          user_789: "msg_003"
+                        description: |
+                          Map of userId -> lastSeenMessageId for other members in the conversation.
+                          Used by frontend to compute isSeen: message.id <= memberSeenMap[otherUserId].
+                          Only includes members who have called markAsSeen (excludes current viewer).
               example:
                 data:
                   messages:
@@ -74,18 +72,24 @@ paths:
                       media: []
                       reactions:
                         - emoji: "👍"
-                          count: 5
-                          userIds: ["user_1", "user_2"]
+                          count: 2
+                          users:
+                            - _id: "user_1"
+                              displayName: "Nguyễn Văn B"
+                              avatarUrl: "https://cdn.example.com/avatars/b.png"
+                            - _id: "user_2"
+                              displayName: "Trần Thị C"
+                              avatarUrl: "https://cdn.example.com/avatars/c.png"
+                      replyToId: "msg_000"
                       replyTo:
                         _id: "msg_000"
-                        text: "Cuộc họp bắt đầu lúc 2h"
+                        senderId: "user_456"
                         senderName: "Trần Thị B"
+                        text: "Cuộc họp bắt đầu lúc 2h"
                       isPinned: false
                       isRevoked: false
                       createdAt: "2024-01-15T10:30:00Z"
                       updatedAt: "2024-01-15T10:30:00Z"
-                      seenBy: ["user_1", "user_2"]
-                      deliveredTo: ["user_1", "user_2", "user_3"]
                   nextCursor: "msg_abc456"
                   hasMore: true
                   memberSeenMap:
@@ -122,12 +126,10 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - text
               properties:
                 text:
                   type: string
-                  description: Message text content
+                  description: Message text content (optional if media is provided)
                   maxLength: 5000
                   example: "Xin chào mọi người!"
                 media:
@@ -135,11 +137,24 @@ paths:
                   items:
                     $ref: "./chat-schemas.yaml#/components/schemas/MediaAttachment"
                   description: Attached media files
+                links:
+                  type: array
+                  items:
+                    type: string
+                  description: URLs detected in the message text (optional, auto-detected if not provided)
+                  example: ["https://example.com"]
       responses:
         "201":
           description: Messages sent successfully (returns array of Message)
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "./chat-schemas.yaml#/components/schemas/MessageResponse"
               example:
                 data:
                   - _id: "msg_001"
@@ -204,12 +219,25 @@ paths:
           description: Message edited successfully
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "./chat-schemas.yaml#/components/schemas/MessageResponse"
               example:
                 data:
                   _id: "msg_001"
+                  conversationId: "conv_001"
+                  senderId: "user_123"
+                  senderName: "Nguyễn Văn A"
+                  type: "text"
                   text: "Nội dung đã chỉnh sửa"
+                  media: []
+                  links: []
                   isEdited: true
                   editedAt: "2024-01-15T11:00:00Z"
+                  createdAt: "2024-01-15T10:30:00Z"
+                  updatedAt: "2024-01-15T11:00:00Z"
         "401":
           description: Unauthorized
         "403":
