@@ -10,7 +10,7 @@ paths:
           name: messageId
           schema:
             type: string
-            example: "msg_001"
+          example: "msg_001"
           required: true
       responses:
         "200":
@@ -26,6 +26,7 @@ paths:
         "403":
           description: Only group admins can pin messages
 
+  /messages/{messageId}/unpin:
     delete:
       summary: Unpin a message
       tags: [Chat - Messages]
@@ -36,7 +37,7 @@ paths:
           name: messageId
           schema:
             type: string
-            example: "msg_001"
+          example: "msg_001"
           required: true
       responses:
         "200":
@@ -171,3 +172,98 @@ paths:
           description: Unauthorized
         "404":
           description: Original message not found
+
+  /conversations/{conversationId}/messages/bulk-delete:
+    delete:
+      summary: Delete multiple messages at once (for me only)
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+          required: true
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                before:
+                  type: string
+                  format: date-time
+                  description: Delete messages sent before this time
+                  example: "2024-01-15T12:00:00Z"
+                after:
+                  type: string
+                  format: date-time
+                  description: Delete messages sent after this time
+                  example: "2024-01-01T00:00:00Z"
+                messageIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Specific message IDs to delete. At least one of before, after, or messageIds required.
+                  example: ["0192a3bc-def0-7abc-8901-23456789abcd"]
+            example:
+              messageIds: ["0192a3bc-def0-7abc-8901-23456789abcd", "0192a3bc-def0-7abc-8901-23456789abce"]
+      responses:
+        "200":
+          description: Messages deleted
+          content:
+            application/json:
+              example:
+                data:
+                  deletedCount: 2
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this conversation
+
+  /messages/{messageId}/translate:
+    post:
+      summary: Translate a message using AI
+      tags: [Chat - Messages]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetLanguage
+              properties:
+                targetLanguage:
+                  type: string
+                  description: Target language code (e.g., "vi", "en", "zh")
+                  example: "en"
+            example:
+              targetLanguage: "en"
+      responses:
+        "200":
+          description: Translated text
+          content:
+            application/json:
+              example:
+                data:
+                  originalText: "Xin chào"
+                  translatedText: "Hello"
+                  sourceLanguage: "vi"
+                  targetLanguage: "en"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Message not found

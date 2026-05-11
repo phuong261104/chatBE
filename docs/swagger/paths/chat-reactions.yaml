@@ -17,6 +17,16 @@ paths:
           description: List of reactions
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      reactions:
+                        type: array
+                        items:
+                          $ref: "./chat-schemas.yaml#/components/schemas/ReactionItem"
               example:
                 data:
                   reactions:

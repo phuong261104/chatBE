@@ -112,6 +112,16 @@ paths:
     $ref: "./paths/chat-conversations-actions.yaml#/paths/~1conversations~1{conversationId}~1archive"
   /conversations/unread-count:
     $ref: "./paths/chat-conversations-base.yaml#/paths/~1conversations~1unread-count"
+  /conversations/{conversationId}/statistics:
+    $ref: "./paths/chat-conversations-base.yaml#/paths/~1conversations~1{conversationId}~1statistics"
+  /conversations/{conversationId}/members/online:
+    $ref: "./paths/chat-conversations-base.yaml#/paths/~1conversations~1{conversationId}~1members~1online"
+  /conversations/{conversationId}/drafts:
+    $ref: "./paths/chat-conversations-base.yaml#/paths/~1conversations~1{conversationId}~1drafts"
+  /conversations/{conversationId}/copy:
+    $ref: "./paths/chat-conversations-base.yaml#/paths/~1conversations~1{conversationId}~1copy"
+  /users/{userId}/conversations:
+    $ref: "./paths/chat-conversations-base.yaml#/paths/~1users~1{userId}~1conversations"
 
   # ==================== CHAT - MESSAGES ====================
   /conversations/{conversationId}/messages:
@@ -150,6 +160,12 @@ paths:
     $ref: "./paths/chat-reactions.yaml#/paths/~1messages~1{messageId}~1reactions"
   /messages/{messageId}/react:
     $ref: "./paths/chat-reactions.yaml#/paths/~1messages~1{messageId}~1react"
+  /messages/{messageId}/unpin:
+    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1unpin"
+  /conversations/{conversationId}/messages/bulk-delete:
+    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1conversations~1{conversationId}~1messages~1bulk-delete"
+  /messages/{messageId}/translate:
+    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1translate"
 
   # ==================== CHAT - GROUPS ====================
   /groups:

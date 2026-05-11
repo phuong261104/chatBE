@@ -279,7 +279,7 @@ export class FriendshipUseCase implements IFriendshipUseCase {
         ...pendingUserIds,
         ...suggestions.map((s) => s.id),
       ];
-      const randomUsers = await (this.userRepository as any).getRandomActiveUsers(excludeIds, needed);
+      const randomUsers = await this.userRepository.queryRepo.getRandomActiveUsers(excludeIds, needed);
       for (const u of randomUsers) {
         suggestions.push({
           id: u.id,

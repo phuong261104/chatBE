@@ -125,3 +125,281 @@ components:
         editedAt:
           type: string
           format: date-time
+
+    ConversationListItem:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+        name:
+          type: string
+          example: "Nguyễn Văn A"
+        type:
+          type: string
+          enum: [private, group]
+          example: "private"
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        lastMessage:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+            text:
+              type: string
+              nullable: true
+            senderId:
+              type: string
+            senderName:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+        unreadCount:
+          type: integer
+          example: 3
+        isPinned:
+          type: boolean
+          example: false
+        isMuted:
+          type: boolean
+          example: false
+        isArchived:
+          type: boolean
+          example: false
+        members:
+          type: array
+          description: Only for private conversations (2 members)
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+              displayName:
+                type: string
+              avatarUrl:
+                type: string
+                format: uri
+                nullable: true
+        memberIds:
+          type: array
+          description: Only for group conversations
+          items:
+            type: string
+        lastMessageAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ConversationDetail:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+        name:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [private, group]
+          example: "group"
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        pairKey:
+          type: string
+          nullable: true
+        createdBy:
+          type: string
+        ownerId:
+          type: string
+          nullable: true
+        adminIds:
+          type: array
+          items:
+            type: string
+        membersCount:
+          type: integer
+        settings:
+          type: object
+          nullable: true
+          properties:
+            allowSendLink:
+              type: boolean
+            requireApproval:
+              type: boolean
+            allowMemberInvite:
+              type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ConversationMemberItem:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abce"
+        userId:
+          type: string
+          example: "user_123"
+        displayName:
+          type: string
+          example: "Nguyễn Văn A"
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        role:
+          type: string
+          enum: [owner, admin, member]
+          example: "admin"
+        joinedAt:
+          type: string
+          format: date-time
+        lastReadAt:
+          type: string
+          format: date-time
+          nullable: true
+        isOnline:
+          type: boolean
+          example: false
+
+    ConversationStatistics:
+      type: object
+      properties:
+        messageCount:
+          type: integer
+          example: 128
+        memberCount:
+          type: integer
+          example: 5
+        activeMemberCount:
+          type: integer
+          example: 4
+        lastActivity:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-01-15T14:30:00Z"
+        createdAt:
+          type: string
+          format: date-time
+
+    OnlineMember:
+      type: object
+      properties:
+        userId:
+          type: string
+          example: "user_123"
+        isOnline:
+          type: boolean
+          example: false
+        lastSeen:
+          type: string
+          format: date-time
+          nullable: true
+
+    Draft:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "draft_001"
+        conversationId:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+        userId:
+          type: string
+          example: "user_123"
+        text:
+          type: string
+          example: "Draft message text..."
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaAttachment"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CopyConversationResult:
+      type: object
+      properties:
+        conversation:
+          type: object
+          properties:
+            _id:
+              type: string
+              example: "0192a3bc-def0-7abc-8901-23456789abce"
+            type:
+              type: string
+              enum: [private]
+            createdBy:
+              type: string
+            membersCount:
+              type: integer
+            createdAt:
+              type: string
+              format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageResponse"
+
+    ReactionItem:
+      type: object
+      properties:
+        emoji:
+          type: string
+          example: "👍"
+        users:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              name:
+                type: string
+              avatar:
+                type: string
+                format: uri
+                nullable: true
+        count:
+          type: integer
+          example: 3
+
+    ReactionDetail:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+        messageId:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abce"
+        userId:
+          type: string
+          example: "user_123"
+        emoji:
+          type: string
+          example: "👍"
+        createdAt:
+          type: string
+          format: date-time

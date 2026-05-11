@@ -25,7 +25,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "./chat-schemas.yaml#/components/schemas/ConversationResponse"
+                $ref: "./chat-schemas.yaml#/components/schemas/ConversationDetail"
         "401":
           description: Unauthorized
         "422":
@@ -90,8 +90,8 @@ paths:
           name: cursor
           schema:
             type: string
-          description: Cursor cho phân trang (ID tinh nhắn hoặc timestamp)
-          example: "60d0fe4f5311236168a109cc"
+          description: Cursor for pagination (last message ID from previous response). Empty/null to start from the beginning.
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
         - in: query
           name: limit
           schema:
@@ -101,22 +101,66 @@ paths:
             example: 20
       responses:
         "200":
-          description: Danh sách hội thoại theo cursor
+          description: Conversations grouped by pinned and unpinned
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  msg:
+                    type: string
+                    example: "OK"
+                  pinned:
+                    type: array
+                    items:
+                      $ref: "./chat-schemas.yaml#/components/schemas/ConversationListItem"
+                  data:
+                    type: array
+                    items:
+                      $ref: "./chat-schemas.yaml#/components/schemas/ConversationListItem"
+                  nextCursor:
+                    type: string
+                    nullable: true
+                    description: Cursor for next page. Null if no more conversations.
+                    example: "0192a3bc-def0-7abc-8901-23456789abcd"
+                  hasMore:
+                    type: boolean
+                    example: true
               example:
                 status: "success"
                 msg: "OK"
                 pinned: []
-                data: []
-                nextCursor: "msg_abc123"
+                data:
+                  - _id: "conv_001"
+                    name: "Nguyễn Văn A"
+                    type: "private"
+                    avatarUrl: "https://cdn.example.com/avatars/a.png"
+                    lastMessage:
+                      _id: "msg_001"
+                      text: "Chào bạn!"
+                      senderId: "user_123"
+                      senderName: "Nguyễn Văn A"
+                      createdAt: "2024-01-15T10:30:00Z"
+                    unreadCount: 0
+                    isPinned: false
+                    isMuted: false
+                    isArchived: false
+                    members:
+                      - userId: "user_123"
+                        displayName: "Nguyễn Văn A"
+                        avatarUrl: "https://cdn.example.com/avatars/a.png"
+                    lastMessageAt: "2024-01-15T10:30:00Z"
+                nextCursor: "0192a3bc-def0-7abc-8901-23456789abcd"
                 hasMore: true
         "401":
           description: Unauthorized
 
   /conversations/{conversationId}:
     get:
-      summary: Get conversation details
+      summary: Get conversation details with members
       tags: [Chat - Conversations]
       security:
         - BearerAuth: []
@@ -125,26 +169,25 @@ paths:
           name: conversationId
           schema:
             type: string
-            example: "60d0fe4f5311236168a109cc"
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
           required: true
       responses:
         "200":
           description: Conversation details
           content:
             application/json:
-              example:
-                data:
-                  conversation:
-                    _id: "conv_001"
-                    name: "Nhóm Dev Team"
-                    type: "group"
-                    avatarUrl: "https://cdn.example.com/avatar.png"
-                    createdAt: "2024-01-01T00:00:00Z"
-                    members: [...]
-                    settings:
-                      allowSendLink: true
-                      requireApproval: false
-                      allowMemberInvite: true
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversation:
+                        $ref: "./chat-schemas.yaml#/components/schemas/ConversationDetail"
+                      members:
+                        type: array
+                        items:
+                          $ref: "./chat-schemas.yaml#/components/schemas/ConversationMemberItem"
         "401":
           description: Unauthorized
         "403":
@@ -154,7 +197,7 @@ paths:
 
   /conversations/unread-count:
     get:
-      summary: Get total unread message count
+      summary: Get total unread message count across all conversations
       tags: [Chat - Conversations]
       security:
         - BearerAuth: []
@@ -163,7 +206,395 @@ paths:
           description: Total unread count
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  totalUnread:
+                    type: integer
+                    example: 42
               example:
                 totalUnread: 42
         "401":
           description: Unauthorized
+
+  /conversations/{conversationId}/statistics:
+    get:
+      summary: Get conversation statistics
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+          required: true
+      responses:
+        "200":
+          description: Conversation statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "./chat-schemas.yaml#/components/schemas/ConversationStatistics"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this conversation
+        "404":
+          description: Conversation not found
+
+  /conversations/{conversationId}/members/online:
+    get:
+      summary: Get online members in a conversation
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+          required: true
+      responses:
+        "200":
+          description: List of online members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "./chat-schemas.yaml#/components/schemas/OnlineMember"
+              example:
+                data:
+                  - userId: "user_123"
+                    isOnline: true
+                    lastSeen: "2024-01-15T10:00:00Z"
+                  - userId: "user_456"
+                    isOnline: false
+                    lastSeen: null
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this conversation
+
+  /conversations/{conversationId}/drafts:
+    get:
+      summary: Get message drafts for a conversation
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+          required: true
+      responses:
+        "200":
+          description: List of drafts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      drafts:
+                        type: array
+                        items:
+                          $ref: "./chat-schemas.yaml#/components/schemas/Draft"
+              example:
+                data:
+                  drafts:
+                    - id: "draft_001"
+                      conversationId: "0192a3bc-def0-7abc-8901-23456789abcd"
+                      userId: "user_123"
+                      text: "Draft message text..."
+                      media: []
+                      createdAt: "2024-01-15T10:00:00Z"
+                      updatedAt: "2024-01-15T10:30:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this conversation
+
+  /conversations/{conversationId}/copy:
+    post:
+      summary: Copy messages from a conversation to another (or self)
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+          required: true
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetUserId:
+                  type: string
+                  format: uuid
+                  description: Target user to copy to (creates/uses private conversation). Either this or memberIds required.
+                  example: "0192a3bc-def0-7abc-8901-23456789abce"
+                memberIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Specific members to copy to. Either this or targetUserId required.
+                  example: ["0192a3bc-def0-7abc-8901-23456789abce"]
+                before:
+                  type: string
+                  format: date-time
+                  description: Only copy messages sent before this time
+                  example: "2024-01-20T00:00:00Z"
+                after:
+                  type: string
+                  format: date-time
+                  description: Only copy messages sent after this time
+                  example: "2024-01-01T00:00:00Z"
+      responses:
+        "201":
+          description: Messages copied successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "./chat-schemas.yaml#/components/schemas/CopyConversationResult"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this conversation
+        "404":
+          description: Conversation not found
+
+  /users/{userId}/conversations:
+    get:
+      summary: Get shared conversations between current user and target user
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: userId
+          schema:
+            type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+          required: true
+      responses:
+        "200":
+          description: Shared conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "./chat-schemas.yaml#/components/schemas/ConversationListItem"
+              example:
+                data:
+                  - _id: "conv_001"
+                    name: "Nguyễn Văn A"
+                    type: "private"
+                    avatarUrl: "https://cdn.example.com/avatars/a.png"
+                    lastMessage:
+                      _id: "msg_001"
+                      text: "Chào bạn!"
+                      senderId: "user_123"
+                      createdAt: "2024-01-15T10:30:00Z"
+                    unreadCount: 0
+                    isPinned: false
+                    isMuted: false
+                    members:
+                      - userId: "user_123"
+                        displayName: "Nguyễn Văn A"
+                        avatarUrl: "https://cdn.example.com/avatars/a.png"
+                    lastMessageAt: "2024-01-15T10:30:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: User not found
+
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+        name:
+          type: string
+          example: "Nguyễn Văn A"
+        type:
+          type: string
+          enum: [private, group]
+          example: "private"
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://cdn.example.com/avatars/a.png"
+        lastMessage:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+              example: "msg_001"
+            text:
+              type: string
+              nullable: true
+              example: "Chào bạn!"
+            senderId:
+              type: string
+              example: "user_123"
+            senderName:
+              type: string
+              example: "Nguyễn Văn A"
+            createdAt:
+              type: string
+              format: date-time
+        unreadCount:
+          type: integer
+          example: 3
+        isPinned:
+          type: boolean
+          example: false
+        isMuted:
+          type: boolean
+          example: false
+        isArchived:
+          type: boolean
+          example: false
+        members:
+          type: array
+          description: Only populated for private conversations (2 members)
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+              displayName:
+                type: string
+              avatarUrl:
+                type: string
+                format: uri
+                nullable: true
+        memberIds:
+          type: array
+          description: Only populated for group conversations
+          items:
+            type: string
+        lastMessageAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ConversationDetail:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+        name:
+          type: string
+          nullable: true
+          example: "Nhóm Dev Team"
+        type:
+          type: string
+          enum: [private, group]
+          example: "group"
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        pairKey:
+          type: string
+          nullable: true
+          description: Only for private conversations
+        createdBy:
+          type: string
+          example: "user_123"
+        ownerId:
+          type: string
+          nullable: true
+          description: Only for group conversations
+        adminIds:
+          type: array
+          items:
+            type: string
+          description: Only for group conversations
+        membersCount:
+          type: integer
+          example: 5
+        settings:
+          type: object
+          nullable: true
+          properties:
+            allowSendLink:
+              type: boolean
+            requireApproval:
+              type: boolean
+            allowMemberInvite:
+              type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ConversationMemberItem:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abce"
+        userId:
+          type: string
+          example: "user_123"
+        displayName:
+          type: string
+          example: "Nguyễn Văn A"
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://cdn.example.com/avatars/a.png"
+        role:
+          type: string
+          enum: [owner, admin, member]
+          example: "admin"
+        joinedAt:
+          type: string
+          format: date-time
+        lastReadAt:
+          type: string
+          format: date-time
+          nullable: true
+        isOnline:
+          type: boolean
+          example: false
