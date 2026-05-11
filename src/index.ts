@@ -34,6 +34,7 @@ import swaggerUi from "swagger-ui-express";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { RedisClient } from "@share/component/redis-pubsub/redis";
 import { initDynamoDBTables } from "@share/repository/dynamodb/auto-init";
+import cors from "cors";
 
 config();
 
@@ -60,24 +61,28 @@ config();
   app.use(morgan("dev"));
 
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+  app.use(cors({
+    origin: '*',
+    methods: 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    allowedHeaders: '*'
+  }));
+  // app.use((req, res, next) => {
+  //   res.header("Access-Control-Allow-Origin", "*");
+  //   res.header(
+  //     "Access-Control-Allow-Methods",
+  //     "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  //   );
+  //   res.header(
+  //     "Access-Control-Allow-Headers",
+  //     "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Device-Id, x-display-label",
+  //   );
 
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    );
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Device-Id",
-    );
+  //   if (req.method === "OPTIONS") {
+  //     return res.sendStatus(200);
+  //   }
 
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
-    }
-
-    next();
-  });
+  //   next();
+  // });
 
   try {
     const swaggerDocument = (await SwaggerParser.dereference(
