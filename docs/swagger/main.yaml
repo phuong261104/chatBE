@@ -86,8 +86,12 @@ paths:
     $ref: "./paths/user.yaml#/paths/~1users"
   /users/search:
     $ref: "./paths/user.yaml#/paths/~1users~1search"
+  /users/search-by-phone:
+    $ref: "./paths/user.yaml#/paths/~1users~1search-by-phone"
   /users/{id}:
     $ref: "./paths/user.yaml#/paths/~1users~1{id}"
+  /users/{id}/public:
+    $ref: "./paths/user.yaml#/paths/~1users~1{id}~1public"
   /users/{id}/presence:
     $ref: "./paths/user.yaml#/paths/~1users~1{id}~1presence"
 

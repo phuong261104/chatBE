@@ -202,7 +202,57 @@ paths:
 
   /users/search:
     get:
-      summary: Search users by phone
+      summary: Tim kiem nguoi dung theo tu khoa
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+            example: "Phuong"
+          required: true
+          description: "Tu khoa tim kiem (theo displayName hoac username)"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            example: 20
+          required: false
+          description: "So luong ket qua toi da (mac dinh 20)"
+      responses:
+        '200':
+          description: Danh sach nguoi dung phu hop
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: "660c1d..."
+                        displayName:
+                          type: string
+                          example: "Boss Phuong"
+                        avatarUrl:
+                          type: string
+                          example: "https://example.com/avatar.jpg"
+                        username:
+                          type: string
+                          example: "phuongboss2026"
+        '422':
+          description: Tu khoa trong
+
+  /users/search-by-phone:
+    get:
+      summary: Tim nguoi dung bang so dien thoai
       tags: [Users]
       security:
         - BearerAuth: []
@@ -211,12 +261,114 @@ paths:
           name: phone
           schema:
             type: string
-            example: "0988776655"
+            example: "0912345678"
           required: true
-          description: "Tìm kiếm bằng SĐT chính xác"
+          description: "So dien thoai chinh xac (10 chu so)"
       responses:
         '200':
-          description: User found
+          description: Tim thay nguoi dung
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "660c1d..."
+                      displayName:
+                        type: string
+                        example: "Boss Phuong"
+                      avatarUrl:
+                        type: string
+                        example: "https://example.com/avatar.jpg"
+                      bio:
+                        type: string
+                        example: "Gioi thieu ban than"
+                      phone:
+                        type: string
+                        example: "0912345678"
+                      email:
+                        type: string
+                        example: "phuong.boss@example.com"
+                      username:
+                        type: string
+                        example: "phuongboss2026"
+                      verified:
+                        type: object
+                        properties:
+                          email:
+                            type: boolean
+                          phone:
+                            type: boolean
+                      privacy:
+                        type: object
+                        properties:
+                          searchableByEmail:
+                            type: boolean
+                          searchableByPhone:
+                            type: boolean
+                          searchableByUsername:
+                            type: boolean
+                      settings:
+                        type: object
+                      createdAt:
+                        type: string
+                        format: date-time
+                      updatedAt:
+                        type: string
+                        format: date-time
+        '404':
+          description: Khong tim thay nguoi dung
+        '422':
+          description: So dien thoai khong hop le
+
+  /users/{id}/public:
+    get:
+      summary: Lay ho so cong khai cua nguoi dung
+      tags: [Users]
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            example: "660c1d..."
+          required: true
+          description: "ID cua nguoi dung can xem ho so"
+      responses:
+        '200':
+          description: Ho so cong khai cua nguoi dung
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "660c1d..."
+                      displayName:
+                        type: string
+                        example: "Boss Phuong"
+                      avatarUrl:
+                        type: string
+                        example: "https://example.com/avatar.jpg"
+                      bio:
+                        type: string
+                        example: "Gioi thieu ban than"
+                      verified:
+                        type: object
+                        properties:
+                          email:
+                            type: boolean
+                          phone:
+                            type: boolean
+        '400':
+          description: Khong lay duoc ho so
 
   /users/{id}:
     get:
@@ -272,26 +424,38 @@ paths:
 
   /users/{id}/presence:
     get:
-      summary: Get user presence (online status)
+      summary: Lay trang thai online cua nguoi dung
       tags: [Users]
       security:
         - BearerAuth: []
       parameters:
         - in: path
           name: id
-          schema: 
+          schema:
             type: string
-            example: "60d0fe4f5311236168a109ca"
+            example: "660c1d..."
           required: true
+          description: "ID cua nguoi dung can kiem tra"
       responses:
         '200':
-          description: Presence info
+          description: Trang thai online cua nguoi dung
           content:
             application/json:
               schema:
                 type: object
-                example:
+                properties:
                   data:
-                    userId: "60d0fe..."
-                    isOnline: true
-                    lastSeen: "2026-04-01T10:15:30Z"
+                    type: object
+                    properties:
+                      userId:
+                        type: string
+                        example: "660c1d..."
+                      isOnline:
+                        type: boolean
+                        example: true
+                      lastSeen:
+                        type: string
+                        format: date-time
+                        example: "2026-04-01T10:15:30Z"
+        '422':
+          description: ID nguoi dung khong hop le
