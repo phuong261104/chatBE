@@ -698,7 +698,7 @@ paths:
           
           const { data } = await response.json();
           
-          if (data.isOk && data.payload) {
+          if (data.active && data.payload) {
             console.log('Token is valid');
             console.log('User ID:', data.payload.sub);
             console.log('Role:', data.payload.role);
@@ -711,11 +711,11 @@ paths:
         ```
         
         ## Response Meaning
-        
-        | `isOk` | `payload` | Meaning |
-        |--------|-----------|---------|
-        | `true` | object | Token is valid |
-        | `false` | `null` | Token is invalid/expired/blacklisted |
+
+        | `active` | `payload` | Meaning |
+        |---------|-----------|---------|
+        | `true` | object | Token hop le |
+        | `false` | `null` | Token khong hop le/het han/blacklisted |
       requestBody:
         required: true
         content:
@@ -742,10 +742,10 @@ paths:
                   data:
                     type: object
                     properties:
-                      isOk:
+                      active:
                         type: boolean
                         example: true
-                        description: "`true` = token hợp lệ, `false` = token không hợp lệ"
+                        description: "`true` = token hop le, `false` = token khong hop le"
                       payload:
                         type: object
                         nullable: true
@@ -836,6 +836,20 @@ paths:
                     example: "Verification code sent successfully"
         '404':
           description: "Email not found in the system"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Email not found"
+        '401':
+          description: "Unauthorized - valid access token required"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Unauthorized"
         '429':
           description: "Rate limit exceeded - too many requests"
           content:
@@ -935,6 +949,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized - valid access token required"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
           description: "Too many failed attempts - code is invalidated"
           content:
@@ -1005,6 +1025,14 @@ paths:
                   message:
                     type: string
                     example: "Verification code resent successfully"
+        '404':
+          description: "Email not found"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Email not found"
         '429':
           description: "Rate limit exceeded"
           content:
@@ -1091,6 +1119,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Email not found"
+        '401':
+          description: "Unauthorized - valid access token required"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Unauthorized"
         '429':
           description: "Rate limit exceeded"
           content:
@@ -1251,6 +1289,14 @@ paths:
                   expiresIn:
                     type: integer
                     example: 300
+        '404':
+          description: "Email not found"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Email not found"
         '429':
           description: "Rate limit exceeded"
           content:
@@ -1354,6 +1400,12 @@ paths:
                     example: "Password has been reset successfully"
         '400':
           description: "Invalid or expired token"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: "Unauthorized - invalid or expired tempToken"
           content:
             application/json:
               schema:
