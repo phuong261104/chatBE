@@ -124,11 +124,13 @@ paths:
             type: string
             example: "60d0fe4f5311236168a1"
           required: true
+          description: "ID người dùng hiện tại"
         - in: query
           name: limit
           schema:
             type: integer
             default: 20
+          description: "Số lượng gợi ý"
       responses:
         "200":
           description: List of friend suggestions
@@ -139,4 +141,65 @@ paths:
                   items:
                     - id: "60d0fe4f5311236168a40000"
                       displayName: "Gợi ý kết bạn"
+                      avatarUrl: "https://example.com/avatar.jpg"
+                      mutualFriendsCount: 5
                   total: 1
+
+  /friendships/count:
+    get:
+      summary: Get total number of friends
+      tags: [Friendships]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Total friends count
+          content:
+            application/json:
+              example:
+                data:
+                  count: 42
+
+  /friendships/search:
+    get:
+      summary: Search friends by name or username
+      tags: [Friendships]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          required: true
+          description: "Từ khóa tìm kiếm"
+          example: "phuong"
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: "Cursor phân trang"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 50
+          description: "Số lượng kết quả mỗi trang"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              example:
+                data:
+                  items:
+                    - id: "60d0fe4f5311236168a10002"
+                      displayName: "Boss Phương"
+                      username: "phuongboss2026"
+                      avatarUrl: "https://example.com/avatar.jpg"
+                  nextCursor: "eyJpZCI6IjEwMCJ9"
+                  hasMore: false
+        "400":
+          description: Missing query parameter 'q'
