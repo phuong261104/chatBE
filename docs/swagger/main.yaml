@@ -210,8 +210,8 @@ paths:
     $ref: "./paths/media.yaml#/paths/~1media~1upload-multiple"
   /media/{filename}:
     $ref: "./paths/media.yaml#/paths/~1media~1{filename}"
-  /media/presigned-url:
-    $ref: "./paths/media.yaml#/paths/~1media~1presigned-url"
+  /media/request-upload-url:
+    $ref: "./paths/media.yaml#/paths/~1media~1request-upload-url"
   /media/confirm-upload:
     $ref: "./paths/media.yaml#/paths/~1media~1confirm-upload"
   /media/upload-methods:

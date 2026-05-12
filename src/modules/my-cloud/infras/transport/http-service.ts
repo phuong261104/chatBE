@@ -15,6 +15,7 @@ import { CloudItemType } from "../../model";
 import { v7 } from "uuid";
 import { createUploadMiddleware } from "@share/middleware/upload/upload-middleware";
 import { CloudStorage } from "@share/middleware/upload/cloud-storage";
+import { config } from "@share/component/config";
 
 const DEFAULT_UPLOAD_CONFIG = {
   maxFileSize: 50 * 1024 * 1024,
@@ -54,12 +55,13 @@ export class MyCloudHTTPService {
   private cloudStorage: CloudStorage;
 
   constructor(private readonly useCase: IMyCloudUseCase) {
+    const cloudConfig = config.upload.cloud;
     this.cloudStorage = new CloudStorage(
-      DEFAULT_UPLOAD_CONFIG as any,
-      process.env.AWS_S3_BUCKET || "your-bucket-name",
-      process.env.AWS_REGION || "us-east-1"
+      { ...DEFAULT_UPLOAD_CONFIG } as any,
+      cloudConfig.bucketName || "your-bucket-name",
+      cloudConfig.region || "us-east-1",
     );
-    this.uploadMiddleware = createUploadMiddleware(DEFAULT_UPLOAD_CONFIG as any, this.cloudStorage);
+    this.uploadMiddleware = createUploadMiddleware({ ...DEFAULT_UPLOAD_CONFIG } as any, this.cloudStorage);
   }
 
   // ========== LOAD ==========

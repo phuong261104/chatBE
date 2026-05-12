@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { uuidV7 } from "@share/utils/zod-validators";
+import { uuidV7, uuidV4 } from "@share/utils/zod-validators";
 
 export enum MediaFileType {
   IMAGE = "IMAGE",
@@ -46,10 +46,12 @@ export const RequestPresignedUrlDTOSchema = z.object({
   fileSize: z.number().positive("File size must be positive"),
   originalName: z.string().optional(),
   expiresIn: z.number().int().min(60).max(3600).optional().default(300),
-  conversationId: uuidV7("Invalid conversation ID").optional(),
+  conversationId: z.string().optional(),
 });
 
-export type RequestPresignedUrlDTO = z.infer<typeof RequestPresignedUrlDTOSchema>;
+export type RequestPresignedUrlDTO = z.infer<
+  typeof RequestPresignedUrlDTOSchema
+>;
 
 export interface RequestPresignedUrlResponseDTO {
   fileId: string;
@@ -120,7 +122,10 @@ export const uploadRegistry = {
   cleanup(): void {
     const now = Date.now();
     for (const [fileId, upload] of pendingUploads.entries()) {
-      if (upload.expiresAt.getTime() < now && upload.status === UploadStatus.PENDING) {
+      if (
+        upload.expiresAt.getTime() < now &&
+        upload.status === UploadStatus.PENDING
+      ) {
         upload.status = UploadStatus.EXPIRED;
         pendingUploads.delete(fileId);
       }

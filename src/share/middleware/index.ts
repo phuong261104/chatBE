@@ -17,6 +17,10 @@ export const setupMiddlewares = (
     maxFileSize: config.upload.maxFileSize,
     allowedMimeTypes: config.upload.allowedMimeTypes,
     destination: config.upload.destination,
+    cloudBucket: config.upload.cloud.bucketName,
+    cloudRegion: config.upload.cloud.region,
+    cloudAccessKeyId: config.upload.cloud.accessKeyId,
+    cloudSecretAccessKey: config.upload.cloud.secretAccessKey,
   });
 
   return {

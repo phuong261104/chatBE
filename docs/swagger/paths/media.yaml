@@ -200,7 +200,7 @@ paths:
                   code: "NOT_FOUND"
                   message: "File not found"
 
-  /media/presigned-url:
+  /media/request-upload-url:
     post:
       summary: Request a pre-signed URL for direct file upload to S3
       tags: [Media]
@@ -439,7 +439,7 @@ paths:
         **Luồng hoàn chỉnh:**
 
         ```
-        1. Frontend  -->POST /media/presigned-url          --> Backend
+        1. Frontend  -->POST /media/request-upload-url     --> Backend
         2. Frontend  <-- { fileId, presignedUrl }          <-- Backend
         3. Frontend  -->PUT presignedUrl (file data)       --> AWS S3
         4. Frontend  <-- HTTP 200 (upload success)          <-- AWS S3
@@ -467,7 +467,7 @@ paths:
                 fileId:
                   type: string
                   format: uuid
-                  description: "UUID nhận được từ `/media/presigned-url`"
+                  description: "UUID nhận được từ `/media/request-upload-url`"
                   example: "7a3f8b2d-4e9c-11ef-a716-446655440000"
                 uploadedUrl:
                   type: string
@@ -588,7 +588,7 @@ paths:
                   code: "CONFLICT"
                   message: "Upload already confirmed"
         '410':
-          description: "Gone - Presigned URL đã hết hạn, cần gọi lại `/media/presigned-url`"
+          description: "Gone - Presigned URL đã hết hạn, cần gọi lại `/media/request-upload-url`"
           content:
             application/json:
               example:

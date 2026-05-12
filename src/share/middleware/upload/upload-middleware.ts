@@ -198,8 +198,8 @@ export function createUploadMiddleware(config?: Partial<IUploadConfig>, storage?
     storage ||
     new CloudStorage(
       finalConfig,
-      process.env.AWS_S3_BUCKET || "your-bucket-name",
-      process.env.AWS_REGION || "us-east-1",
+      finalConfig.cloudBucket || "your-bucket-name",
+      finalConfig.cloudRegion || "us-east-1",
     );
 
   return new UploadMiddleware(storageStrategy, finalConfig);

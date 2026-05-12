@@ -12,6 +12,10 @@ export interface IUploadConfig {
   maxFileSize: number;
   allowedMimeTypes: string[];
   destination: string;
+  cloudBucket?: string;
+  cloudRegion?: string;
+  cloudAccessKeyId?: string;
+  cloudSecretAccessKey?: string;
 }
 
 export interface UploadedFile extends Express.Multer.File {
