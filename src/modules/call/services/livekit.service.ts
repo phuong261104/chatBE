@@ -1,9 +1,13 @@
 import { AccessToken } from 'livekit-server-sdk';
+import { config } from '@share/component/config';
 
 class LivekitService {
   async generateToken(roomName: string, participantId: string, participantName: string): Promise<string> {
-    const apiKey = process.env.LIVEKIT_API_KEY!;
-    const apiSecret = process.env.LIVEKIT_API_SECRET!;
+    const apiKey = config.livekit.apiKey;
+    const apiSecret = config.livekit.apiSecret;
+    if (!apiKey || !apiSecret) {
+      throw new Error('LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required');
+    }
 
     const at = new AccessToken(apiKey, apiSecret, {
       identity: participantId,
@@ -15,7 +19,7 @@ class LivekitService {
   }
 
   getWsUrl(): string {
-    return process.env.LIVEKIT_WS_URL || 'ws://localhost:7880';
+    return config.livekit.wsUrl;
   }
 }
 

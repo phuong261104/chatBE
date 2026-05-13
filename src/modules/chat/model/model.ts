@@ -25,6 +25,7 @@ export enum MessageType {
   VOICE = "voice",
   STICKER = "sticker",
   GIF = "gif",
+  CALL = "call",
   SYSTEM = "system",
 }
 
@@ -176,6 +177,21 @@ export const MessageMentionSchema = z.object({
 
 export type MessageMention = z.infer<typeof MessageMentionSchema>;
 
+export const CallMessageMetadataSchema = z.object({
+  callId: z.string(),
+  roomName: z.string(),
+  callType: z.enum(["audio", "video"]),
+  status: z.enum(["completed", "missed", "rejected", "cancelled"]),
+  callerId: z.string(),
+  calleeIds: z.array(z.string()),
+  answeredAt: z.date().optional(),
+  endedAt: z.date(),
+  endedBy: z.string().optional(),
+  durationSeconds: z.number().optional(),
+});
+
+export type CallMessageMetadata = z.infer<typeof CallMessageMetadataSchema>;
+
 export const MessageSchema = z.object({
   id: z.string(),
   conversationId: z.string(),
@@ -184,6 +200,7 @@ export const MessageSchema = z.object({
   text: z.string().optional(),
   media: z.array(MessageMediaSchema).optional(),
   links: z.array(z.string()).optional(),
+  call: CallMessageMetadataSchema.optional(),
   deletedForUserIds: z.array(z.string()).optional(),
   quotedMessageId: z.string().optional(),
   quotedMessagePreview: z.string().optional(),

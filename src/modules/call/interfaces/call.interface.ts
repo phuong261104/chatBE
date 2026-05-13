@@ -7,6 +7,7 @@ export enum CallStatus {
   RINGING = 'ringing',
   ANSWERED = 'answered',
   REJECTED = 'rejected',
+  CANCELLED = 'cancelled',
   ENDED = 'ended',
   MISSED = 'missed',
 }
@@ -22,4 +23,6 @@ export interface CallSession {
   createdAt: number;
   answeredAt?: number;
   endedAt?: number;
+  endedBy?: string;
+  loggedMessageId?: string;
 }

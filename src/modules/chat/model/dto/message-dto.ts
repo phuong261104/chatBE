@@ -3,6 +3,7 @@ import { uuidV7 } from "@share/utils/zod-validators";
 import {
   MessageType,
   MessageMediaSchema,
+  CallMessageMetadataSchema,
   MediaAttachmentSchema,
   MediaAttachment,
   Message,
@@ -21,6 +22,7 @@ export const MessageUpdateDTOSchema = z.object({
   text: z.string().optional(),
   media: z.array(MessageMediaSchema).optional(),
   links: z.array(z.string()).optional(),
+  call: CallMessageMetadataSchema.optional(),
   editedAt: z.date().optional(),
   deletedAt: z.date().optional(),
   deletedForUserIds: z.array(z.string()).optional(),

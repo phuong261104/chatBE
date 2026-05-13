@@ -75,4 +75,9 @@ export const config = {
     maxTokens: parseInt(process.env.AI_MAX_TOKENS || "1024"),
     temperature: parseFloat(process.env.AI_TEMPERATURE || "0.7"),
   },
+  livekit: {
+    apiKey: process.env.LIVEKIT_API_KEY || "",
+    apiSecret: process.env.LIVEKIT_API_SECRET || "",
+    wsUrl: process.env.LIVEKIT_WS_URL || "ws://localhost:7880",
+  },
 };

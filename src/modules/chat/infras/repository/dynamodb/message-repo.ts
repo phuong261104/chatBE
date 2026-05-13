@@ -30,11 +30,21 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
       ...rest,
       id: doc.id || sk?.split("#")[2],
       conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
+      call: this.toCallEntity(doc.call),
       createdAt: createdAt ? new Date(createdAt) : new Date(),
       editedAt: editedAt ? new Date(editedAt) : null,
       deletedAt: deletedAt ? new Date(deletedAt) : null,
       pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
     } as Message;
+  }
+
+  private toCallEntity(call: Record<string, any> | undefined) {
+    if (!call) return undefined;
+    return {
+      ...call,
+      answeredAt: call.answeredAt ? new Date(call.answeredAt) : undefined,
+      endedAt: call.endedAt ? new Date(call.endedAt) : new Date(),
+    };
   }
 
   async listByConversation(conversationId: string, limit: number, cursor?: string): Promise<{ messages: Message[]; nextCursor?: string }> {
@@ -171,6 +181,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
       text: data.text,
       media: data.media,
       links: data.links || [],
+      call: data.call ? this.toCallDocument(data.call) : undefined,
       deletedForUserIds: data.deletedForUserIds || [],
       quotedMessageId: data.quotedMessageId,
       quotedMessagePreview: data.quotedMessagePreview,
@@ -184,12 +195,21 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     };
   }
 
+  private toCallDocument(call: NonNullable<Message["call"]>): Record<string, any> {
+    return {
+      ...call,
+      answeredAt: call.answeredAt instanceof Date ? call.answeredAt.toISOString() : call.answeredAt,
+      endedAt: call.endedAt instanceof Date ? call.endedAt.toISOString() : call.endedAt,
+    };
+  }
+
   protected beforeUpdate(id: string, data: MessageUpdateDTO): Record<string, any> {
     const updateData: Record<string, any> = {};
     if (data.type !== undefined) updateData.type = data.type;
     if (data.text !== undefined) updateData.text = data.text;
     if (data.media !== undefined) updateData.media = data.media;
     if (data.links !== undefined) updateData.links = data.links;
+    if (data.call !== undefined) updateData.call = this.toCallDocument(data.call);
     if (data.editedAt !== undefined && data.editedAt !== null) updateData.editedAt = (data.editedAt as Date).toISOString();
     if (data.deletedAt !== undefined && data.deletedAt !== null) updateData.deletedAt = (data.deletedAt as Date).toISOString();
     if (data.deletedForUserIds !== undefined) updateData.deletedForUserIds = data.deletedForUserIds;

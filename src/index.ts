@@ -134,7 +134,8 @@ config();
   app.use("/v1", userRouter);
 
   const mediaRouter = setupMediaHexagon(sctx);
-  const { router: messagingRouter } = setupMessagingHexagon(io, sctx);
+  const { router: messagingRouter, socketService: messagingSocketService } =
+    setupMessagingHexagon(io, sctx);
   const { router: blockRouter } = setupBlockHexagon(sctx, io);
   const { router: friendRequestRouter, socketService } =
     setupFriendRequestHexagon(sctx, io);
@@ -154,7 +155,7 @@ config();
   app.use("/v1", postRouter);
   app.use("/v1", storyRouter);
 
-  const { router: callRouter } = setupCallHexagon(io, sctx);
+  const { router: callRouter } = setupCallHexagon(io, sctx, messagingSocketService);
   app.use("/v1", callRouter);
 
   const { router: aiRouter } = setupAiHexagon({

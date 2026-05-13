@@ -639,4 +639,5 @@ export {
   DynamoMessageReactionCommandRepository,
   DynamoPollQueryRepository,
   DynamoPollCommandRepository,
+  MessagingSocketService,
 } from "./infras";

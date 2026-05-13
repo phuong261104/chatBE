@@ -1,0 +1,24 @@
+keys:
+  devkey: devsecret
+
+port: 7880
+
+rtc:
+  use_external_ip: false
+  node_ip:
+    ipv4: 127.0.0.1
+  port_range_start: 30100
+  port_range_end: 30400
+  stun_servers:
+    - stun.l.google.com:19302
+    - stun1.l.google.com:19302
+
+turn:
+  enabled: false
+
+room:
+  empty_timeout: 300
+  max_participants: 100
+
+logging:
+  level: debug

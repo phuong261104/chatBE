@@ -3,7 +3,7 @@ version: "3"
 services:
   livekit:
     image: livekit/livekit-server:latest
-    command: --config /etc/livekit.yaml --node-ip 127.0.0.1
+    command: --config /etc/livekit.yaml --node-ip ${LIVEKIT_NODE_IP:-127.0.0.1}
     ports:
       - "7880:7880"
       - "7881:7881"
@@ -13,7 +13,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./config.yml:/etc/livekit.yaml:ro
+      - ./${LIVEKIT_CONFIG_FILE:-config.yml}:/etc/livekit.yaml:ro
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"

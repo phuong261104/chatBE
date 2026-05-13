@@ -1,0 +1,22 @@
+keys:
+  replace_with_livekit_api_key: replace_with_livekit_api_secret
+
+port: 7880
+
+rtc:
+  use_external_ip: true
+  port_range_start: 30100
+  port_range_end: 30400
+  stun_servers:
+    - stun.l.google.com:19302
+    - stun1.l.google.com:19302
+
+turn:
+  enabled: false
+
+room:
+  empty_timeout: 300
+  max_participants: 100
+
+logging:
+  level: info

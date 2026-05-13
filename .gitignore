@@ -48,3 +48,6 @@ tasks
 test-*
 docker
 tests
+tests/
+tests/*
+!tests/call-log.service.test.ts

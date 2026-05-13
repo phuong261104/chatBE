@@ -4,13 +4,20 @@ import { livekitService } from '../services/livekit.service';
 import { CallSocketService } from '../infras/transport/call-socket.service';
 import { CreateCallDtoSchema } from '../dto/create-call.dto';
 import { DynamoConversationMemberRepository } from '@modules/chat';
+import { CallStatus } from '../interfaces/call.interface';
+import { CallLogService, TerminalCallLogStatus } from '../services/call-log.service';
 
 export class CallController {
   private socketService: CallSocketService | null = null;
   private conversationMemberRepo: DynamoConversationMemberRepository;
+  private callLogService: CallLogService | null;
 
-  constructor(conversationMemberRepo: DynamoConversationMemberRepository) {
+  constructor(
+    conversationMemberRepo: DynamoConversationMemberRepository,
+    callLogService?: CallLogService,
+  ) {
     this.conversationMemberRepo = conversationMemberRepo;
+    this.callLogService = callLogService ?? null;
   }
 
   setSocketService(socketService: CallSocketService) {
@@ -107,10 +114,11 @@ export class CallController {
 
       const { callId } = req.params;
       const session = callService.rejectCall(callId, userId);
+      const callMessage = await this.logTerminalCall(session, 'rejected', userId);
 
       this.socketService?.notifyRejected(session.callerId, session.callId);
 
-      return res.json({ callId: session.callId, status: session.status });
+      return res.json({ callId: session.callId, status: session.status, callMessage });
     } catch (err: any) {
       return res.status(400).json({ error: err.message });
     }
@@ -123,10 +131,11 @@ export class CallController {
 
       const { callId } = req.params;
       const session = callService.markMissed(callId, userId);
+      const callMessage = await this.logTerminalCall(session, 'missed', userId);
 
       this.socketService?.notifyMissed(session.callerId, session.callId);
 
-      return res.json({ callId: session.callId, status: session.status });
+      return res.json({ callId: session.callId, status: session.status, callMessage });
     } catch (err: any) {
       return res.status(400).json({ error: err.message });
     }
@@ -139,13 +148,18 @@ export class CallController {
 
       const { callId } = req.params;
       const session = callService.endCall(callId, userId);
+      const callMessage = await this.logTerminalCall(
+        session,
+        session.status === CallStatus.CANCELLED ? 'cancelled' : 'completed',
+        userId,
+      );
 
       this.socketService?.notifyEnded(session.callerId, session.callId);
       for (const calleeId of session.calleeIds) {
         this.socketService?.notifyEnded(calleeId, session.callId);
       }
 
-      return res.json({ callId: session.callId, status: session.status });
+      return res.json({ callId: session.callId, status: session.status, callMessage });
     } catch (err: any) {
       return res.status(400).json({ error: err.message });
     }
@@ -172,4 +186,22 @@ export class CallController {
       return res.status(500).json({ error: err.message });
     }
   };
+
+  private async logTerminalCall(
+    session: Parameters<CallLogService['createTerminalLog']>[0],
+    status: TerminalCallLogStatus,
+    endedBy: string,
+  ) {
+    if (!this.callLogService) return null;
+    try {
+      const message = await this.callLogService.createTerminalLog(session, status, endedBy);
+      if (message) {
+        callService.markLogged(session.callId, message.id);
+      }
+      return message;
+    } catch (err) {
+      console.error('[CallController] Failed to create call log message:', err);
+      return null;
+    }
+  }
 }

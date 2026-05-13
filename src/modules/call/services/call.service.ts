@@ -66,6 +66,7 @@ class CallService {
     if (session.status !== CallStatus.RINGING) throw new Error('Call is not ringing');
     session.status = CallStatus.REJECTED;
     session.endedAt = Date.now();
+    session.endedBy = userId;
     this.conversationCalls.delete(session.conversationId);
     return session;
   }
@@ -76,11 +77,17 @@ class CallService {
     if (userId !== session.callerId && !session.calleeIds.includes(userId)) {
       throw new Error('User not authorized to end this call');
     }
-    if (session.status === CallStatus.ENDED || session.status === CallStatus.MISSED || session.status === CallStatus.REJECTED) {
+    if (
+      session.status === CallStatus.ENDED ||
+      session.status === CallStatus.CANCELLED ||
+      session.status === CallStatus.MISSED ||
+      session.status === CallStatus.REJECTED
+    ) {
       throw new Error('Call has already ended');
     }
-    session.status = CallStatus.ENDED;
+    session.status = session.answeredAt ? CallStatus.ENDED : CallStatus.CANCELLED;
     session.endedAt = Date.now();
+    session.endedBy = userId;
     this.conversationCalls.delete(session.conversationId);
     return session;
   }
@@ -94,8 +101,16 @@ class CallService {
     if (session.status !== CallStatus.RINGING) throw new Error('Call is not ringing');
     session.status = CallStatus.MISSED;
     session.endedAt = Date.now();
+    session.endedBy = userId;
     this.conversationCalls.delete(session.conversationId);
     return session;
+  }
+
+  markLogged(callId: string, messageId: string): void {
+    const session = this.activeCalls.get(callId);
+    if (session) {
+      session.loggedMessageId = messageId;
+    }
   }
 
   getCall(callId: string): CallSession | undefined {
