@@ -24,6 +24,7 @@ import { setupSearchHexagon } from "@modules/search";
 import { setupPostHexagon } from "@modules/posts";
 import { setupStoryHexagon } from "@modules/stories";
 import { setupAiHexagon } from "@modules/ai";
+import { setupCallHexagon } from "@modules/call";
 // import { seedAiTestData } from "@modules/ai/infras/ai-seed";
 import {
   DynamoMessageRepository,
@@ -152,6 +153,9 @@ config();
   app.use("/v1", searchRouter);
   app.use("/v1", postRouter);
   app.use("/v1", storyRouter);
+
+  const { router: callRouter } = setupCallHexagon(io, sctx);
+  app.use("/v1", callRouter);
 
   const { router: aiRouter } = setupAiHexagon({
     messageRepo: new DynamoMessageRepository(),
