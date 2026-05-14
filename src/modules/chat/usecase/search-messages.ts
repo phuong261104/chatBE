@@ -5,6 +5,7 @@ import {
   IMessageQueryRepository,
 } from "../interface";
 import { SearchMessagesResult } from "../model/dto/search-dto";
+import { ConversationMemberStatus } from "../model/model";
 
 export class SearchMessagesHandler
   implements IQueryHandler<{ conversationId: string; query: string; cursor?: string; limit: number; userId: string }, SearchMessagesResult>
@@ -28,7 +29,7 @@ export class SearchMessagesHandler
       userId,
     });
 
-    if (!member) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("You are not a member of this conversation"), 403);
     }
 

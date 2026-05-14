@@ -391,8 +391,8 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.removeAllReactionsHandler.execute(messageId, userId);
   }
 
-  async getReactions(messageId: string): Promise<ReactionResult> {
-    return this.getReactionsHandler.execute(messageId);
+  async getReactions(messageId: string, userId: string): Promise<ReactionResult> {
+    return this.getReactionsHandler.execute(messageId, userId);
   }
 
   async quoteMessage(
@@ -439,16 +439,16 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     });
   }
 
-  async getPolls(conversationId: string): Promise<Poll[]> {
-    return this.getPollsHandler.query({ conversationId });
+  async getPolls(conversationId: string, userId: string): Promise<Poll[]> {
+    return this.getPollsHandler.query({ conversationId, userId });
   }
 
   async votePoll(pollId: string, userId: string, optionIds: string[]): Promise<Poll> {
     return this.votePollHandler.execute({ pollId, userId, optionIds });
   }
 
-  async getPollResults(pollId: string): Promise<Poll> {
-    return this.getPollResultsHandler.query({ pollId });
+  async getPollResults(pollId: string, userId: string): Promise<Poll> {
+    return this.getPollResultsHandler.query({ pollId, userId });
   }
 
   async getPendingMembers(groupId: string): Promise<ConversationMember[]> {
@@ -513,7 +513,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.getConversationsCursorQueryHandler.query({ userId, cursor, limit });
   }
 
-  async dissolveGroup(groupId: string, requesterId: string): Promise<void> {
+  async dissolveGroup(groupId: string, requesterId: string): Promise<string[]> {
     return this.dissolveGroupHandler.execute({ groupId, requesterId });
   }
 

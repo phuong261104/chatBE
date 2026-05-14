@@ -1,3 +1,4 @@
+export { ChatAccessPolicy } from "./chat-access-policy";
 export { GetOrCreatePrivateConversationHandler } from "./get-or-create-private-conversation";
 export { SendMessageHandler } from "./send-message";
 export { CreateGroupHandler } from "./create-group";

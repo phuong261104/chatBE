@@ -9,7 +9,14 @@ import {
   IMessageCommandRepository,
   IUserQueryRepository
 } from '../interface';
-import { ConversationMember, ConversationMemberRole, ConversationType, Message, MessageType } from '../model/model';
+import {
+  ConversationMember,
+  ConversationMemberRole,
+  ConversationMemberStatus,
+  ConversationType,
+  Message,
+  MessageType,
+} from '../model/model';
 import { leaveGroupDTOSchema, LeaveGroupCommand } from '../model/dto';
 
 export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, void> {
@@ -44,7 +51,7 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
       userId: validatedInput.userId
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error('You are not a member of this group'), 404);
     }
 
@@ -95,5 +102,7 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
       },
       lastMessageAt: now
     });
+
+    await this.conversationMemberCommandRepo.touchActivityForConversation(validatedInput.conversationId, now);
   }
 }

@@ -29,7 +29,20 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
   }
 
   protected toEntity(doc: Record<string, any>): ConversationMember {
-    const { pk, sk, joinedAt, leftAt, lastReadAt, muteUntil, updatedAt, pinnedAt, ...rest } = doc;
+    const {
+      pk,
+      sk,
+      joinedAt,
+      leftAt,
+      lastReadAt,
+      lastSeenAt,
+      lastDeliveredAt,
+      lastActivityAt,
+      muteUntil,
+      updatedAt,
+      pinnedAt,
+      ...rest
+    } = doc;
     return {
       ...rest,
       id: doc.id || sk?.replace("MEM#", ""),
@@ -37,6 +50,9 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
       joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
       leftAt: leftAt ? new Date(leftAt) : undefined,
       lastReadAt: lastReadAt ? new Date(lastReadAt) : null,
+      lastSeenAt: lastSeenAt ? new Date(lastSeenAt) : undefined,
+      lastDeliveredAt: lastDeliveredAt ? new Date(lastDeliveredAt) : undefined,
+      lastActivityAt: lastActivityAt ? new Date(lastActivityAt) : undefined,
       muteUntil: muteUntil ? new Date(muteUntil) : null,
       updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
       pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
@@ -169,8 +185,8 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
     const normalMembersRaw = allMembers
       .filter((m) => !m.pinned)
       .sort((a, b) => {
-        const updatedA = a.updatedAt?.getTime() ?? 0;
-        const updatedB = b.updatedAt?.getTime() ?? 0;
+        const updatedA = (a.lastActivityAt || a.updatedAt || a.joinedAt)?.getTime() ?? 0;
+        const updatedB = (b.lastActivityAt || b.updatedAt || b.joinedAt)?.getTime() ?? 0;
         if (updatedA !== updatedB) return updatedB - updatedA;
         return a.conversationId.localeCompare(b.conversationId);
       });
@@ -345,7 +361,79 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
           Item: {
             ...member,
             unreadCount: (member.unreadCount || 0) + 1,
+            lastActivityAt: now,
             updatedAt: now,
+          },
+        },
+      }));
+      await docClient.send(
+        new BatchWriteCommand({
+          RequestItems: { [tableName]: writeRequests },
+        }),
+      );
+    }
+
+    const senderTargets = excludeUserId
+      ? members.filter((m) => m.userId === excludeUserId)
+      : [];
+    if (senderTargets.length > 0) {
+      const senderChunks = this.chunkArray(senderTargets, 25);
+      for (const chunk of senderChunks) {
+        const writeRequests = chunk.map((member) => ({
+          PutRequest: {
+            Item: {
+              ...member,
+              lastActivityAt: now,
+              updatedAt: now,
+            },
+          },
+        }));
+        await docClient.send(
+          new BatchWriteCommand({
+            RequestItems: { [tableName]: writeRequests },
+          }),
+        );
+      }
+    }
+  }
+
+  async touchActivityForConversation(
+    conversationId: string,
+    activityAt?: Date,
+  ): Promise<void> {
+    const docClient = getDocClient();
+    const tableName = getTableName(TABLE_NAMES.CONVERSATION_MEMBERS);
+    const activity = (activityAt || new Date()).toISOString();
+
+    const members: Record<string, any>[] = [];
+    let lastEvaluatedKey: Record<string, any> | undefined;
+
+    do {
+      const result = await docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+          ExpressionAttributeValues: {
+            ":pk": `CONV#${conversationId}`,
+            ":skPrefix": "MEM#",
+          },
+          ExclusiveStartKey: lastEvaluatedKey,
+        }),
+      );
+      if (result.Items) {
+        members.push(...result.Items.filter((item) => !item.leftAt));
+      }
+      lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+
+    const chunks = this.chunkArray(members, 25);
+    for (const chunk of chunks) {
+      const writeRequests = chunk.map((member) => ({
+        PutRequest: {
+          Item: {
+            ...member,
+            lastActivityAt: activity,
+            updatedAt: activity,
           },
         },
       }));
@@ -417,6 +505,9 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       lastReadAt: data.lastReadAt ? data.lastReadAt.toISOString() : null,
       lastSeenMessageId: data.lastSeenMessageId,
       lastDeliveredMessageId: data.lastDeliveredMessageId,
+      lastSeenAt: data.lastSeenAt ? data.lastSeenAt.toISOString() : null,
+      lastDeliveredAt: data.lastDeliveredAt ? data.lastDeliveredAt.toISOString() : null,
+      lastActivityAt: data.lastActivityAt ? data.lastActivityAt.toISOString() : data.updatedAt?.toISOString?.() || now,
       muteUntil: data.muteUntil ? data.muteUntil.toISOString() : null,
       pinned: data.pinned || false,
       pinnedAt: data.pinnedAt ? data.pinnedAt.toISOString() : null,
@@ -431,6 +522,9 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     const updateData: Record<string, any> = { updatedAt: now };
     if (data.role !== undefined) updateData.role = data.role;
     if (data.status !== undefined) updateData.status = data.status;
+    if ((data as any).joinedAt !== undefined && (data as any).joinedAt !== null) {
+      updateData.joinedAt = ((data as any).joinedAt as Date).toISOString();
+    }
     if (data.leftAt !== undefined) {
       updateData.leftAt = data.leftAt ? (data.leftAt as Date).toISOString() : null;
     }
@@ -439,6 +533,9 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     if (data.lastSeenMessageId !== undefined) updateData.lastSeenMessageId = data.lastSeenMessageId;
     if (data.lastDeliveredMessageId !== undefined) updateData.lastDeliveredMessageId = data.lastDeliveredMessageId;
     if (data.lastReadAt !== undefined && data.lastReadAt !== null) updateData.lastReadAt = (data.lastReadAt as Date).toISOString();
+    if (data.lastSeenAt !== undefined && data.lastSeenAt !== null) updateData.lastSeenAt = (data.lastSeenAt as Date).toISOString();
+    if (data.lastDeliveredAt !== undefined && data.lastDeliveredAt !== null) updateData.lastDeliveredAt = (data.lastDeliveredAt as Date).toISOString();
+    if (data.lastActivityAt !== undefined && data.lastActivityAt !== null) updateData.lastActivityAt = (data.lastActivityAt as Date).toISOString();
     if (data.muteUntil !== undefined && data.muteUntil !== null) updateData.muteUntil = (data.muteUntil as Date).toISOString();
     if (data.pinned !== undefined) updateData.pinned = data.pinned;
     if (data.pinnedAt !== undefined) updateData.pinnedAt = data.pinnedAt ? (data.pinnedAt as Date).toISOString() : null;
@@ -473,6 +570,14 @@ export class DynamoConversationMemberRepository extends BaseRepositoryDynamoDB<
   ): Promise<void> {
     return (this.cmdRepo as DynamoConversationMemberCommandRepository)
       .incrementUnreadCountForConversation(conversationId, excludeUserId);
+  }
+
+  async touchActivityForConversation(
+    conversationId: string,
+    activityAt?: Date,
+  ): Promise<void> {
+    return (this.cmdRepo as DynamoConversationMemberCommandRepository)
+      .touchActivityForConversation(conversationId, activityAt);
   }
 
   async deleteByConversationId(conversationId: string): Promise<void> {

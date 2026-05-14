@@ -1,11 +1,12 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { v7 } from "uuid";
-import { Message, MessageType } from "../model/model";
+import { ConversationMemberStatus, Message, MessageStatus, MessageType } from "../model/model";
 import {
   IMessageQueryRepository,
   IMessageCommandRepository,
   IConversationMemberQueryRepository,
+  IConversationMemberCommandRepository,
   IConversationQueryRepository,
   IConversationCommandRepository,
   IUserQueryRepository,
@@ -24,6 +25,7 @@ export class UnpinMessageHandler
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly userQueryRepo: IUserQueryRepository,
@@ -49,8 +51,12 @@ export class UnpinMessageHandler
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
+    }
+
+    if (message.deletedAt || message.messageStatus === MessageStatus.REVOKED) {
+      throw AppError.from(ErrMessageNotFound, 404);
     }
 
     if (!message.pinned) {
@@ -72,13 +78,14 @@ export class UnpinMessageHandler
     ]);
     const actorDisplayName = actor?.displayName || "Unknown User";
 
+    const now = new Date();
     const systemMsg: Message = {
       id: v7(),
       conversationId: message.conversationId,
       senderId: data.userId,
       type: MessageType.SYSTEM,
       text: SystemMessageTemplate.UNPIN_MESSAGE(actorDisplayName),
-      createdAt: new Date(),
+      createdAt: now,
       pinned: false,
     };
     await this.messageCommandRepo.insert(systemMsg);
@@ -90,10 +97,11 @@ export class UnpinMessageHandler
           senderId: data.userId,
           type: MessageType.SYSTEM,
           textPreview: systemMsg.text,
-          createdAt: new Date(),
+          createdAt: now,
         },
-        lastMessageAt: new Date(),
+        lastMessageAt: now,
       });
+      await this.conversationMemberCommandRepo.touchActivityForConversation(message.conversationId, now);
     }
 
     return updatedMessage;

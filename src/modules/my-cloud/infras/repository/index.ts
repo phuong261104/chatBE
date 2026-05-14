@@ -1,2 +1,2 @@
-export * from "./dynamodb-repo";
+export * from "./dynamodb";
 export * from "./dynamodb/collection-repo";

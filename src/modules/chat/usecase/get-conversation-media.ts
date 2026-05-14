@@ -3,10 +3,13 @@ import { AppError } from "@share/app-error";
 import {
   IConversationMemberQueryRepository,
   IMessageClassificationRepository,
+  IMessageQueryRepository,
 } from "@modules/chat/interface";
 import {
   ClassificationType,
+  ConversationMemberStatus,
   MediaType,
+  MessageStatus,
 } from "@modules/chat/model/model";
 import {
   GetConversationMediaQuerySchema,
@@ -23,6 +26,7 @@ export class GetConversationMediaQueryHandler
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly classificationRepo: IMessageClassificationRepository,
+    private readonly messageQueryRepo: IMessageQueryRepository,
   ) {}
 
   async query(query: GetConversationMediaQuery): Promise<GetConversationMediaResult> {
@@ -40,7 +44,7 @@ export class GetConversationMediaQueryHandler
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("Unauthorized: You are not a member of this conversation"), 403);
     }
 
@@ -77,6 +81,16 @@ export class GetConversationMediaQueryHandler
     const links: LinkItem[] = [];
 
     for (const item of returnItems) {
+      const message = await this.messageQueryRepo.get(item.messageId);
+      if (
+        !message ||
+        message.messageStatus === MessageStatus.REVOKED ||
+        message.deletedAt ||
+        message.deletedForUserIds?.includes(data.userId)
+      ) {
+        continue;
+      }
+
       if (item.type === ClassificationType.IMAGE) {
         images.push({
           messageId: item.messageId,

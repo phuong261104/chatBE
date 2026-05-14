@@ -22,12 +22,16 @@ export type ConversationMemberCondDTO = z.infer<
 export const ConversationMemberUpdateDTOSchema = z.object({
   role: z.nativeEnum(ConversationMemberRole).optional(),
   status: z.nativeEnum(ConversationMemberStatus).optional(),
+  joinedAt: z.date().optional(),
   leftAt: z.date().optional(),
   unreadCount: z.number().optional(),
   lastReadMessageId: z.string().optional(),
   lastSeenMessageId: z.string().optional(),
   lastDeliveredMessageId: z.string().optional(),
   lastReadAt: z.date().optional(),
+  lastSeenAt: z.date().optional(),
+  lastDeliveredAt: z.date().optional(),
+  lastActivityAt: z.date().optional(),
   muteUntil: z.date().optional(),
   pinned: z.boolean().optional(),
   pinnedAt: z.date().optional(),
@@ -44,7 +48,10 @@ export const createGroupDTOSchema = z.object({
     .string()
     .min(1, "Group name is required")
     .max(100, "Group name is too long"),
-  memberIds: z.array(z.string()).min(1, "At least one member is required"),
+  memberIds: z
+    .array(uuidV7("Invalid member ID"))
+    .min(2, "Group must have at least 3 members including creator")
+    .max(49, "Group cannot have more than 50 members including creator"),
   avatarUrl: z.string().url("Invalid avatar URL").optional(),
 });
 
@@ -53,7 +60,10 @@ export type CreateGroupDTO = z.infer<typeof createGroupDTOSchema>;
 export const addMembersToGroupDTOSchema = z.object({
   conversationId: z.string(),
   requesterId: z.string(),
-  memberIds: z.array(z.string()).min(1, "At least one member is required"),
+  memberIds: z
+    .array(uuidV7("Invalid member ID"))
+    .min(1, "At least one member is required")
+    .max(49, "Cannot add more than 49 members at once"),
 });
 
 export type AddMembersToGroupDTO = z.infer<typeof addMembersToGroupDTOSchema>;

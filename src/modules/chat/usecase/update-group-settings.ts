@@ -8,6 +8,7 @@ import {
 import {
   Conversation,
   ConversationMemberRole,
+  ConversationMemberStatus,
   ConversationType,
 } from "../model/model";
 import { UpdateGroupSettingsCommand } from "../model/dto";
@@ -36,7 +37,7 @@ export class UpdateGroupSettingsHandler implements ICommandHandler<UpdateGroupSe
       userId: requesterId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("You are not a member of this group"), 403);
     }
 

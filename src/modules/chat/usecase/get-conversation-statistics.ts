@@ -6,6 +6,7 @@ import {
   IMessageQueryRepository,
 } from "../interface";
 import { GetConversationStatisticsDTO, ConversationStatistics } from "../model/dto/conversation-statistics-dto";
+import { ConversationMemberStatus } from "../model/model";
 
 export class GetConversationStatisticsQueryHandler
   implements IQueryHandler<GetConversationStatisticsDTO, ConversationStatistics>
@@ -24,7 +25,7 @@ export class GetConversationStatisticsQueryHandler
       userId,
     });
 
-    if (!member) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("You are not a member of this conversation"), 403);
     }
 
@@ -34,7 +35,9 @@ export class GetConversationStatisticsQueryHandler
     }
 
     const allMembers = await this.conversationMemberQueryRepo.listByConversationId(conversationId);
-    const activeMembers = allMembers.filter((m) => !m.leftAt);
+    const activeMembers = allMembers.filter(
+      (m) => m.status === ConversationMemberStatus.ACTIVE && !m.leftAt,
+    );
 
     let messageCount = 0;
     let lastActivity: Date | null = null;

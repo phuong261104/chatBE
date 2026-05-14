@@ -14,6 +14,7 @@ import {
   ErrConversationAlreadyArchived,
   ErrConversationNotArchived,
 } from "../model/errors";
+import { ConversationMemberStatus } from "../model/model";
 
 export class ArchiveConversationHandler
   implements ICommandHandler<ArchiveConversationCommand, void>
@@ -39,7 +40,7 @@ export class ArchiveConversationHandler
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 
@@ -75,7 +76,7 @@ export class UnarchiveConversationHandler
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 

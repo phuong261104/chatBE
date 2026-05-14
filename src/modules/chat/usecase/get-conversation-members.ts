@@ -1,7 +1,7 @@
 import { IQueryHandler } from '@share/interface';
-import { PagingDTO } from '@share/model/paging';
 import { IConversationMemberQueryRepository } from '../interface';
 import { GetConversationMembersQuery } from '../model/dto';
+import { ConversationMemberStatus } from '../model/model';
 
 export class GetConversationMembersQueryHandler implements IQueryHandler<GetConversationMembersQuery, string[]> {
   constructor(private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository) {}
@@ -14,7 +14,10 @@ export class GetConversationMembersQueryHandler implements IQueryHandler<GetConv
     );
 
     const activeMembers = members.filter(
-      (member) => !member.leftAt && (!query.excludeUserId || member.userId !== query.excludeUserId)
+      (member) =>
+        member.status === ConversationMemberStatus.ACTIVE &&
+        !member.leftAt &&
+        (!query.excludeUserId || member.userId !== query.excludeUserId)
     );
 
     return activeMembers.map((member) => member.userId);

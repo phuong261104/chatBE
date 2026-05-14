@@ -9,7 +9,13 @@ import {
   IMessageCommandRepository,
   IUserQueryRepository
 } from '../interface';
-import { ConversationMember, ConversationMemberRole, Message, MessageType } from '../model/model';
+import {
+  ConversationMember,
+  ConversationMemberRole,
+  ConversationMemberStatus,
+  Message,
+  MessageType,
+} from '../model/model';
 import { removeMemberFromGroupDTOSchema, RemoveMemberFromGroupCommand } from '../model/dto';
 
 export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMemberFromGroupCommand, void> {
@@ -35,7 +41,11 @@ export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMembe
       userId: validatedInput.requesterId
     });
 
-    if (!requesterMember) {
+    if (
+      !requesterMember ||
+      requesterMember.leftAt ||
+      requesterMember.status !== ConversationMemberStatus.ACTIVE
+    ) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this group'), 403);
     }
 
@@ -56,7 +66,7 @@ export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMembe
       userId: validatedInput.targetUserId
     });
 
-    if (!targetMember) {
+    if (!targetMember || targetMember.leftAt || targetMember.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error('Target user is not a member'), 404);
     }
 
@@ -74,6 +84,7 @@ export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMembe
         );
         const activeAdmins = allMembers.filter((m: ConversationMember) =>
           m.role === ConversationMemberRole.ADMIN &&
+          m.status === ConversationMemberStatus.ACTIVE &&
           !m.leftAt &&
           m.userId !== validatedInput.targetUserId
         );
@@ -130,5 +141,7 @@ export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMembe
       },
       lastMessageAt: now
     });
+
+    await this.conversationMemberCommandRepo.touchActivityForConversation(validatedInput.conversationId, now);
   }
 }

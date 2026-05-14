@@ -1,7 +1,6 @@
 import { ICommandHandler } from '@share/interface';
 import { AppError } from '@share/app-error';
 import { v7 } from 'uuid';
-import { PagingDTO } from '@share/model/paging';
 import {
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
@@ -76,6 +75,13 @@ function extractMentions(text: string, members: { userId: string; displayName?: 
   return mentions;
 }
 
+function mimetypeToClassificationType(mimetype: string): ClassificationType {
+  if (mimetype.startsWith('image/')) return ClassificationType.IMAGE;
+  if (mimetype.startsWith('video/')) return ClassificationType.VIDEO;
+  if (mimetype.startsWith('audio/')) return ClassificationType.VOICE;
+  return ClassificationType.FILE;
+}
+
 export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessageCommand, Message[]> {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
@@ -139,7 +145,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
         const msg = this.buildMessage(msgType, hasTextAndNoLink ? text : undefined, mapMediaToDbFormat([m]), conversationId, senderId);
         await this.messageCommandRepo.insert(msg);
         createdMessages.push(msg);
-        classifications.push(this.buildClassification(msg, isImg ? ClassificationType.IMAGE : ClassificationType.FILE, m));
+        classifications.push(this.buildClassification(msg, mimetypeToClassificationType(m.mimetype), m));
       }
       if (hasText && hasLinks) {
         const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId);
@@ -162,7 +168,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
       await this.messageCommandRepo.insert(mediaMsg);
       createdMessages.push(mediaMsg);
       for (const m of media) {
-        classifications.push(this.buildClassification(mediaMsg, m.mimetype.startsWith('image/') ? ClassificationType.IMAGE : ClassificationType.FILE, m));
+        classifications.push(this.buildClassification(mediaMsg, mimetypeToClassificationType(m.mimetype), m));
       }
       const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId);
       await this.messageCommandRepo.insert(linkMsg);
@@ -183,7 +189,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);
       for (const m of media) {
-        classifications.push(this.buildClassification(msg, m.mimetype.startsWith('image/') ? ClassificationType.IMAGE : ClassificationType.FILE, m));
+        classifications.push(this.buildClassification(msg, mimetypeToClassificationType(m.mimetype), m));
       }
     } else {
       const msgType = hasLinks ? MessageType.LINK : MessageType.TEXT;
@@ -193,7 +199,12 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
         { page: 1, limit: 1000 },
       );
       
-      const textMentions = hasText ? extractMentions(text, allMembers) : undefined;
+      const textMentions = hasText
+        ? extractMentions(
+            text,
+            allMembers.filter((m) => m.status === ConversationMemberStatus.ACTIVE && !m.leftAt),
+          )
+        : undefined;
       const msg = this.buildMessage(msgType, text, undefined, conversationId, senderId, textMentions);
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);

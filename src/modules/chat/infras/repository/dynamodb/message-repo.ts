@@ -1,4 +1,4 @@
-import { Message } from "../../../model";
+import { Message, MessageStatus } from "../../../model";
 import { MessageCondDTO, MessageUpdateDTO } from "../../../model/dto";
 import {
   BaseQueryRepositoryDynamoDB,
@@ -25,15 +25,18 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
   }
 
   protected toEntity(doc: Record<string, any>): Message {
-    const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, pinnedAt, ...rest } = doc;
+    const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, revokedAt, pinnedAt, ...rest } = doc;
+    const status = rest.messageStatus || (deletedAt ? MessageStatus.REVOKED : MessageStatus.ACTIVE);
     return {
       ...rest,
       id: doc.id || sk?.split("#")[2],
       conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
       call: this.toCallEntity(doc.call),
+      messageStatus: status,
       createdAt: createdAt ? new Date(createdAt) : new Date(),
       editedAt: editedAt ? new Date(editedAt) : null,
       deletedAt: deletedAt ? new Date(deletedAt) : null,
+      revokedAt: revokedAt ? new Date(revokedAt) : undefined,
       pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
     } as Message;
   }
@@ -47,7 +50,12 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
     };
   }
 
-  async listByConversation(conversationId: string, limit: number, cursor?: string): Promise<{ messages: Message[]; nextCursor?: string }> {
+  async listByConversation(
+    conversationId: string,
+    limit: number,
+    cursor?: string,
+    viewerUserId?: string,
+  ): Promise<{ messages: Message[]; nextCursor?: string }> {
     const docClient = getDocClient();
 
     let exclusiveStartKey: Record<string, any> | undefined;
@@ -74,14 +82,22 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
       }
     }
 
+    const expressionAttributeValues: Record<string, any> = {
+      ":pk": `CONV#${conversationId}`,
+      ":skPrefix": "MSG#",
+    };
+    let filterExpression: string | undefined;
+    if (viewerUserId) {
+      expressionAttributeValues[":viewerUserId"] = viewerUserId;
+      filterExpression = "attribute_not_exists(deletedForUserIds) OR NOT contains(deletedForUserIds, :viewerUserId)";
+    }
+
     const result = await docClient.send(
       new QueryCommand({
         TableName: getTableName(TABLE_NAMES.MESSAGES),
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
-        ExpressionAttributeValues: {
-          ":pk": `CONV#${conversationId}`,
-          ":skPrefix": "MSG#",
-        },
+        ExpressionAttributeValues: expressionAttributeValues,
+        FilterExpression: filterExpression,
         Limit: limit,
         ScanIndexForward: false,
         ExclusiveStartKey: exclusiveStartKey,
@@ -182,6 +198,9 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
       media: data.media,
       links: data.links || [],
       call: data.call ? this.toCallDocument(data.call) : undefined,
+      messageStatus: data.messageStatus || MessageStatus.ACTIVE,
+      deletedBy: data.deletedBy,
+      revokedAt: data.revokedAt ? data.revokedAt.toISOString() : null,
       deletedForUserIds: data.deletedForUserIds || [],
       quotedMessageId: data.quotedMessageId,
       quotedMessagePreview: data.quotedMessagePreview,
@@ -210,6 +229,9 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     if (data.media !== undefined) updateData.media = data.media;
     if (data.links !== undefined) updateData.links = data.links;
     if (data.call !== undefined) updateData.call = this.toCallDocument(data.call);
+    if (data.messageStatus !== undefined) updateData.messageStatus = data.messageStatus;
+    if (data.deletedBy !== undefined) updateData.deletedBy = data.deletedBy;
+    if (data.revokedAt !== undefined && data.revokedAt !== null) updateData.revokedAt = (data.revokedAt as Date).toISOString();
     if (data.editedAt !== undefined && data.editedAt !== null) updateData.editedAt = (data.editedAt as Date).toISOString();
     if (data.deletedAt !== undefined && data.deletedAt !== null) updateData.deletedAt = (data.deletedAt as Date).toISOString();
     if (data.deletedForUserIds !== undefined) updateData.deletedForUserIds = data.deletedForUserIds;
@@ -321,9 +343,10 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
     conversationId: string,
     cursor: string | undefined,
     limit: number,
+    viewerUserId?: string,
   ): Promise<Message[]> {
     const q = new DynamoMessageQueryRepository();
-    const result = await q.listByConversation(conversationId, limit, cursor);
+    const result = await q.listByConversation(conversationId, limit, cursor, viewerUserId);
     return result.messages;
   }
 
@@ -333,25 +356,28 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
       new QueryCommand({
         TableName: getTableName(TABLE_NAMES.MESSAGES),
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
-        FilterExpression: "pinned = :pinned AND (attribute_not_exists(deletedAt) OR deletedAt = :null)",
+        FilterExpression: "pinned = :pinned AND (attribute_not_exists(messageStatus) OR messageStatus = :active) AND (attribute_not_exists(deletedAt) OR deletedAt = :nullVal)",
         ExpressionAttributeValues: {
           ":pk": `CONV#${conversationId}`,
           ":skPrefix": "MSG#",
           ":pinned": true,
-          ":null": null,
+          ":active": MessageStatus.ACTIVE,
+          ":nullVal": null,
         },
         ScanIndexForward: true,
       }),
     );
     return (result.Items || []).map((item) => {
-      const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, pinnedAt, ...rest } = item;
+      const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, revokedAt, pinnedAt, ...rest } = item;
       return {
         ...rest,
         id: item.id || sk?.split("#")[2],
         conversationId: item.conversationId || item.pk?.replace("CONV#", ""),
+        messageStatus: rest.messageStatus || (deletedAt ? MessageStatus.REVOKED : MessageStatus.ACTIVE),
         createdAt: createdAt ? new Date(createdAt) : new Date(),
         editedAt: editedAt ? new Date(editedAt) : null,
         deletedAt: deletedAt ? new Date(deletedAt) : null,
+        revokedAt: revokedAt ? new Date(revokedAt) : undefined,
         pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
       } as Message;
     });
@@ -395,7 +421,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
           TableName: tableName,
           KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
           FilterExpression:
-            "attribute_not_exists(deletedAt) AND (attribute_not_exists(deletedForUserIds) OR NOT contains(deletedForUserIds, :userId)) AND contains(#text, :query)",
+            "(attribute_not_exists(messageStatus) OR messageStatus = :active) AND (attribute_not_exists(deletedAt) OR deletedAt = :nullVal) AND (attribute_not_exists(deletedForUserIds) OR NOT contains(deletedForUserIds, :userId)) AND contains(#text, :query)",
           ExpressionAttributeNames: {
             "#text": "text",
           },
@@ -404,6 +430,8 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
             ":skPrefix": "MSG#",
             ":query": lowerQuery,
             ":userId": userId,
+            ":active": MessageStatus.ACTIVE,
+            ":nullVal": null,
           },
           Limit: limit,
           ScanIndexForward: false,
@@ -413,14 +441,16 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
 
       const items: Record<string, unknown>[] = result.Items || [];
       const mapped: Message[] = items.map((item: Record<string, unknown>) => {
-        const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, pinnedAt, ...rest } = item;
+        const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, revokedAt, pinnedAt, ...rest } = item;
         return {
           ...rest,
           id: item.id as string || (sk as string)?.split("#")[2],
           conversationId: item.conversationId as string || (pk as string)?.replace("CONV#", ""),
+          messageStatus: (rest as any).messageStatus || (deletedAt ? MessageStatus.REVOKED : MessageStatus.ACTIVE),
           createdAt: createdAt ? new Date(createdAt as string) : new Date(),
           editedAt: editedAt ? new Date(editedAt as string) : null,
           deletedAt: deletedAt ? new Date(deletedAt as string) : null,
+          revokedAt: revokedAt ? new Date(revokedAt as string) : undefined,
           pinnedAt: pinnedAt ? new Date(pinnedAt as string) : null,
         } as Message;
       });

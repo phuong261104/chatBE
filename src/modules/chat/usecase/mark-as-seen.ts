@@ -5,6 +5,7 @@ import {
   IConversationMemberCommandRepository,
   IMessageQueryRepository
 } from '../interface';
+import { ConversationMemberStatus } from '../model/model';
 import { markAsSeenDTOSchema, MarkAsSeenCommand } from '../model/dto';
 
 export class MarkAsSeenHandler implements ICommandHandler<MarkAsSeenCommand, void> {
@@ -27,7 +28,7 @@ export class MarkAsSeenHandler implements ICommandHandler<MarkAsSeenCommand, voi
       userId: validatedInput.userId
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this conversation'), 403);
     }
 
@@ -36,9 +37,37 @@ export class MarkAsSeenHandler implements ICommandHandler<MarkAsSeenCommand, voi
       throw AppError.from(new Error('Message not found'), 404);
     }
 
+    if (message.deletedForUserIds?.includes(validatedInput.userId)) {
+      throw AppError.from(new Error('Message not found'), 404);
+    }
+
+    if (member.lastSeenMessageId) {
+      const currentSeen = await this.messageQueryRepo.get(member.lastSeenMessageId);
+      if (
+        currentSeen &&
+        currentSeen.conversationId === validatedInput.conversationId &&
+        currentSeen.createdAt.getTime() >= message.createdAt.getTime()
+      ) {
+        return;
+      }
+    }
+
+    const latestVisible = await this.messageQueryRepo.listWithCursor(
+      validatedInput.conversationId,
+      undefined,
+      1,
+      validatedInput.userId,
+    );
+    const shouldClearUnread =
+      latestVisible.length === 0 ||
+      message.createdAt.getTime() >= latestVisible[0].createdAt.getTime();
+
     await this.conversationMemberCommandRepo.update(member.id, {
       lastSeenMessageId: validatedInput.lastSeenMessageId,
-      unreadCount: 0
+      lastReadMessageId: validatedInput.lastSeenMessageId,
+      lastSeenAt: new Date(),
+      lastReadAt: new Date(),
+      ...(shouldClearUnread ? { unreadCount: 0 } : {}),
     });
   }
 }

@@ -4,11 +4,14 @@ import {
   IConversationQueryRepository,
   IConversationMemberQueryRepository,
   IUserQueryRepository,
+  IMessageQueryRepository,
 } from "../interface";
 import {
   Conversation,
   ConversationMemberRole,
+  ConversationMemberStatus,
   ConversationType,
+  MessageStatus,
 } from "../model/model";
 import {
   GetConversationsCursorQuery,
@@ -23,6 +26,7 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly userQueryRepo: IUserQueryRepository,
+    private readonly messageQueryRepo: IMessageQueryRepository,
   ) {}
 
   async query(
@@ -42,8 +46,12 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
         query.cursor,
         limit,
       );
-      pinnedMembers = result.pinnedMembers;
-      normalMembers = result.normalMembers;
+      pinnedMembers = result.pinnedMembers.filter(
+        (member) => member.status === ConversationMemberStatus.ACTIVE && !member.leftAt,
+      );
+      normalMembers = result.normalMembers.filter(
+        (member) => member.status === ConversationMemberStatus.ACTIVE && !member.leftAt,
+      );
       nextCursor = result.nextCursor;
       hasMore = result.hasMore;
     } catch (e) {
@@ -174,8 +182,19 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
           }
         }
 
+        const visibleLast = await this.resolveVisibleLastMessage(conv, userId);
+        const activityAt =
+          member?.lastActivityAt ||
+          visibleLast.lastMessageAt ||
+          conv.lastMessageAt ||
+          conv.updatedAt ||
+          conv.createdAt;
+
         const enriched: any = {
           ...conv,
+          lastMessage: visibleLast.lastMessage,
+          lastMessageAt: visibleLast.lastMessageAt,
+          activityAt,
           name,
           avatarUrl,
           unreadCount: member?.unreadCount || 0,
@@ -191,5 +210,49 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
         return enriched;
       }),
     );
+  }
+
+  private async resolveVisibleLastMessage(
+    conv: Conversation,
+    userId: string,
+  ): Promise<{ lastMessage: Conversation["lastMessage"]; lastMessageAt: Date | undefined }> {
+    if (!conv.lastMessage) {
+      return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
+    }
+
+    const message = await this.messageQueryRepo.get(conv.lastMessage.messageId);
+    if (!message) {
+      return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
+    }
+
+    if (message.deletedForUserIds?.includes(userId)) {
+      const visible = await this.messageQueryRepo.listWithCursor(conv.id, undefined, 1, userId);
+      const latest = visible[0];
+      if (!latest) return { lastMessage: undefined, lastMessageAt: undefined };
+      return {
+        lastMessage: {
+          messageId: latest.id,
+          senderId: latest.senderId,
+          type: latest.type,
+          textPreview: latest.messageStatus === MessageStatus.REVOKED
+            ? "Tin nhắn đã được thu hồi"
+            : latest.text,
+          createdAt: latest.createdAt,
+        },
+        lastMessageAt: latest.createdAt,
+      };
+    }
+
+    if (message.messageStatus === MessageStatus.REVOKED || message.deletedAt) {
+      return {
+        lastMessage: {
+          ...conv.lastMessage,
+          textPreview: "Tin nhắn đã được thu hồi",
+        },
+        lastMessageAt: conv.lastMessageAt || message.createdAt,
+      };
+    }
+
+    return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
   }
 }

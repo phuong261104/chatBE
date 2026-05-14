@@ -16,9 +16,9 @@ import {
   ConversationType,
   Message,
   MessageType,
-  UserStatus
 } from '../model/model';
 import { addMembersToGroupDTOSchema, AddMembersToGroupCommand } from '../model/dto';
+import { ChatAccessPolicy } from './chat-access-policy';
 
 export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGroupCommand, ConversationMember[]> {
   constructor(
@@ -27,7 +27,8 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
-    private readonly userQueryRepo: IUserQueryRepository
+    private readonly userQueryRepo: IUserQueryRepository,
+    private readonly accessPolicy: ChatAccessPolicy,
   ) {}
 
   async execute(command: AddMembersToGroupCommand): Promise<ConversationMember[]> {
@@ -35,20 +36,7 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
     const { success, data: validatedInput, error } = addMembersToGroupDTOSchema.safeParse(command);
 
     if (!success) {
-      throw new Error('Invalid data');
-    }
-
-    const users = await this.userQueryRepo.findByIds(validatedInput.memberIds);
-    const userMap = new Map(users.map((u) => [u.id, u]));
-
-    for (const memberId of validatedInput.memberIds) {
-      const user = userMap.get(memberId);
-      if (!user) {
-        throw AppError.from(new Error(`User ${memberId} not found`), 404);
-      }
-      if (user.status !== UserStatus.ACTIVE) {
-        throw AppError.from(new Error(`User ${memberId} is not active`), 400);
-      }
+      throw AppError.from(new Error('Invalid data'), 400).withDetail('validationErrors', error.errors);
     }
 
     const requesterMember = await this.conversationMemberQueryRepo.findByCond({
@@ -56,7 +44,12 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       userId: validatedInput.requesterId
     });
 
-    if (!requesterMember || requesterMember.role !== ConversationMemberRole.ADMIN) {
+    if (
+      !requesterMember ||
+      requesterMember.leftAt ||
+      requesterMember.status !== ConversationMemberStatus.ACTIVE ||
+      requesterMember.role !== ConversationMemberRole.ADMIN
+    ) {
       throw AppError.from(new Error('Unauthorized: Only admins can add members'), 403);
     }
 
@@ -70,7 +63,6 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
     }
 
     const newMembers: ConversationMember[] = [];
-    const actuallyAddedCount = { count: 0 };
     const now = new Date();
     const settings = conversation.settings || {
       allowSendLink: true,
@@ -82,12 +74,24 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       throw AppError.from(new Error("Member invites are disabled for this group"), 403);
     }
 
+    const uniqueMemberIds = await this.accessPolicy.validateAddGroupMembers(
+      validatedInput.requesterId,
+      validatedInput.memberIds,
+      conversation.membersCount || 0,
+    );
+
+    const users = await this.userQueryRepo.findByIds([validatedInput.requesterId, ...uniqueMemberIds]);
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
     const defaultStatus = settings.requireApproval
       ? ConversationMemberStatus.PENDING
       : ConversationMemberStatus.ACTIVE;
 
-    for (const memberId of validatedInput.memberIds) {
+    const existingToRestore: ConversationMember[] = [];
+    const membersToInsert: ConversationMember[] = [];
+    const membersToUpdate: { existing: ConversationMember; updated: ConversationMember }[] = [];
 
+    for (const memberId of uniqueMemberIds) {
       const existingMember = await this.conversationMemberQueryRepo.findByCond({
         conversationId: validatedInput.conversationId,
         userId: memberId
@@ -105,37 +109,59 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
           pinned: false,
           archived: false,
           hiddenUserIds: [],
+          lastActivityAt: now,
           updatedAt: now
         };
-        await this.conversationMemberCommandRepo.insert(member);
-        newMembers.push(member);
-        actuallyAddedCount.count++;
+        membersToInsert.push(member);
       } else if (existingMember.leftAt !== undefined) {
-        await this.conversationMemberCommandRepo.update(existingMember.id, {
-          status: ConversationMemberStatus.ACTIVE,
-          joinedAt: now,
-          leftAt: null,
-          updatedAt: now,
-        } as any);
         const reJoinedMember: ConversationMember = {
           ...existingMember,
-          status: ConversationMemberStatus.ACTIVE,
+          status: defaultStatus,
           joinedAt: now,
           leftAt: undefined,
+          lastActivityAt: now,
           updatedAt: now,
         };
-        newMembers.push(reJoinedMember);
-        actuallyAddedCount.count++;
+        existingToRestore.push(existingMember);
+        membersToUpdate.push({ existing: existingMember, updated: reJoinedMember });
+      } else {
+        throw AppError.from(new Error(`User ${memberId} is already a member of this group`), 400)
+          .withDetail("code", "duplicate");
       }
     }
 
-    if (actuallyAddedCount.count > 0) {
-      await this.conversationCommandRepo.update(validatedInput.conversationId, {
-        membersCount: (conversation.membersCount || 0) + actuallyAddedCount.count
-      });
-    }
+    const activeAddedCount =
+      membersToInsert.filter((m) => m.status === ConversationMemberStatus.ACTIVE).length +
+      membersToUpdate.filter((m) => m.updated.status === ConversationMemberStatus.ACTIVE).length;
 
-    if (newMembers.length > 0) {
+    const insertedMembers: ConversationMember[] = [];
+
+    try {
+      for (const member of membersToInsert) {
+        await this.conversationMemberCommandRepo.insert(member);
+        insertedMembers.push(member);
+        newMembers.push(member);
+      }
+      for (const item of membersToUpdate) {
+        await this.conversationMemberCommandRepo.update(item.existing.id, {
+          status: defaultStatus,
+          joinedAt: now,
+          leftAt: null,
+          lastActivityAt: now,
+        } as any);
+        newMembers.push(item.updated);
+      }
+
+      if (activeAddedCount > 0) {
+        await this.conversationCommandRepo.update(validatedInput.conversationId, {
+          membersCount: (conversation.membersCount || 0) + activeAddedCount
+        });
+      }
+
+      if (newMembers.length === 0) {
+        return [];
+      }
+
       const messageId = v7();
       const requester = userMap.get(validatedInput.requesterId);
       const requesterDisplayName = requester?.displayName || 'Unknown User';
@@ -170,6 +196,19 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
         },
         lastMessageAt: now
       });
+      await this.conversationMemberCommandRepo.touchActivityForConversation(validatedInput.conversationId, now);
+    } catch (err) {
+      await Promise.allSettled([
+        ...insertedMembers.map((member) => this.conversationMemberCommandRepo.delete(member.id, true)),
+        ...existingToRestore.map((member) =>
+          this.conversationMemberCommandRepo.update(member.id, {
+            status: member.status,
+            leftAt: member.leftAt,
+            lastActivityAt: member.lastActivityAt,
+          } as any),
+        ),
+      ]);
+      throw err;
     }
 
     return newMembers;

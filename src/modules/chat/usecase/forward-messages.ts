@@ -10,7 +10,14 @@ import {
   IMessageCommandRepository,
   IMessageClassificationRepository,
 } from "../interface";
-import { Message, MessageType, MessageClassification, ClassificationType } from "../model/model";
+import {
+  ConversationMemberStatus,
+  Message,
+  MessageStatus,
+  MessageType,
+  MessageClassification,
+  ClassificationType,
+} from "../model/model";
 import { forwardMessagesDTOSchema, ForwardMessagesCommand } from "../model/dto";
 import {
   ErrConversationNotFound,
@@ -132,7 +139,7 @@ export class ForwardMessagesHandler implements ICommandHandler<
         lastMessageAt: now,
       });
 
-      await this.increaseUnreadForOtherMembers(conversationId, data.userId);
+      await this.conversationMemberCommandRepo.incrementUnreadCountForConversation(conversationId, data.userId);
 
       result.push(...messagesToInsert);
     }
@@ -155,7 +162,11 @@ export class ForwardMessagesHandler implements ICommandHandler<
 
       await this.ensureConversationMember(message.conversationId, userId);
 
-      if (message.deletedAt) {
+      if (
+        message.deletedAt ||
+        message.messageStatus === MessageStatus.REVOKED ||
+        message.deletedForUserIds?.includes(userId)
+      ) {
         throw AppError.from(ErrMessageUnauthorized, 400);
       }
 
@@ -187,7 +198,7 @@ export class ForwardMessagesHandler implements ICommandHandler<
       userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
   }
@@ -208,23 +219,4 @@ export class ForwardMessagesHandler implements ICommandHandler<
     return "Forwarded message";
   }
 
-  private async increaseUnreadForOtherMembers(
-    conversationId: string,
-    senderId: string,
-  ): Promise<void> {
-    const members = await this.conversationMemberQueryRepo.list(
-      { conversationId },
-      { page: 1, limit: 200 },
-    );
-
-    for (const member of members) {
-      if (member.userId === senderId || member.leftAt) {
-        continue;
-      }
-
-      await this.conversationMemberCommandRepo.update(member.id, {
-        unreadCount: (member.unreadCount || 0) + 1,
-      });
-    }
-  }
 }

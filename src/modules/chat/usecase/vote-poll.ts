@@ -1,12 +1,13 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
-import { IPollQueryRepository, IPollCommandRepository } from "../interface";
-import { Poll, PollOption } from "../model/model";
+import { IConversationMemberQueryRepository, IPollQueryRepository, IPollCommandRepository } from "../interface";
+import { ConversationMemberStatus, Poll } from "../model/model";
 
 export class VotePollHandler implements ICommandHandler<{ pollId: string; userId: string; optionIds: string[] }, Poll> {
   constructor(
     private readonly pollQueryRepo: IPollQueryRepository,
     private readonly pollCommandRepo: IPollCommandRepository,
+    private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
   ) {}
 
   async execute(command: { pollId: string; userId: string; optionIds: string[] }): Promise<Poll> {
@@ -19,6 +20,14 @@ export class VotePollHandler implements ICommandHandler<{ pollId: string; userId
 
     if (poll.expiresAt && new Date() > poll.expiresAt) {
       throw AppError.from(new Error("Poll has expired"), 400);
+    }
+
+    const member = await this.conversationMemberQueryRepo.findByCond({
+      conversationId: poll.conversationId,
+      userId,
+    });
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
+      throw AppError.from(new Error("You are not a member of this group"), 403);
     }
 
     if (!poll.options || poll.options.length === 0) {
@@ -36,24 +45,30 @@ export class VotePollHandler implements ICommandHandler<{ pollId: string; userId
       throw AppError.from(new Error("Only one option can be selected for this poll"), 400);
     }
 
+    const selectedOptionIds = new Set(optionIds);
     const updatedOptions = poll.options.map((opt) => {
-      if (optionIds.includes(opt.id)) {
-        if (!opt.votedUserIds.includes(userId)) {
-          return {
-            ...opt,
-            voteCount: opt.voteCount + 1,
-            votedUserIds: [...opt.votedUserIds, userId],
-          };
-        }
-      }
-      return opt;
+      const existingVotes = opt.votedUserIds.filter((id) => id !== userId);
+      const votedUserIds = selectedOptionIds.has(opt.id)
+        ? [...existingVotes, userId]
+        : existingVotes;
+
+      return {
+        ...opt,
+        votedUserIds,
+        voteCount: votedUserIds.length,
+      };
     });
 
-    const newTotalVotes = updatedOptions.reduce((sum, opt) => sum + opt.voteCount, 0);
+    const uniqueVoters = new Set<string>();
+    for (const option of updatedOptions) {
+      for (const votedUserId of option.votedUserIds) {
+        uniqueVoters.add(votedUserId);
+      }
+    }
 
     await this.pollCommandRepo.update(pollId, {
       options: updatedOptions,
-      totalVotes: newTotalVotes,
+      totalVotes: uniqueVoters.size,
     });
 
     const updatedPoll = await this.pollQueryRepo.get(pollId);

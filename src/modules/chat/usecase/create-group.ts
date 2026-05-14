@@ -2,7 +2,6 @@ import { ICommandHandler } from '@share/interface';
 import { AppError } from '@share/app-error';
 import { v7 } from 'uuid';
 import {
-  IConversationQueryRepository,
   IConversationCommandRepository,
   IConversationMemberCommandRepository,
   IMessageCommandRepository,
@@ -16,16 +15,17 @@ import {
   ConversationMemberStatus,
   Message,
   MessageType,
-  UserStatus
 } from '../model/model';
-import { createGroupDTOSchema, CreateGroupDTO, CreateGroupCommand, CreateGroupResult } from '../model/dto';
+import { createGroupDTOSchema, CreateGroupCommand, CreateGroupResult } from '../model/dto';
+import { ChatAccessPolicy } from './chat-access-policy';
 
 export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, CreateGroupResult> {
   constructor(
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
-    private readonly userQueryRepo: IUserQueryRepository
+    private readonly userQueryRepo: IUserQueryRepository,
+    private readonly accessPolicy: ChatAccessPolicy,
   ) {}
 
   async execute(command: CreateGroupCommand): Promise<CreateGroupResult> {
@@ -33,31 +33,13 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
     const { success, data: validatedData, error } = createGroupDTOSchema.safeParse(command.data);
 
     if (!success) {
-      throw new Error('Invalid data');
+      throw AppError.from(new Error('Invalid data'), 400).withDetail('validationErrors', error.errors);
     }
 
     const { name, memberIds, avatarUrl } = validatedData;
-
-    if (!memberIds || memberIds.length < 2) {
-      throw AppError.from(new Error('Group must have at least 3 members'), 400);
-    }
-
-    const users = await this.userQueryRepo.findByIds([command.creatorId, ...memberIds]);
+    const validatedMemberIds = await this.accessPolicy.validateCreateGroupMembers(command.creatorId, memberIds);
+    const users = await this.userQueryRepo.findByIds([command.creatorId, ...validatedMemberIds]);
     const userMap = new Map(users.map((u) => [u.id, u]));
-
-    if (!userMap.has(command.creatorId)) {
-      throw AppError.from(new Error('Creator not found'), 404);
-    }
-
-    for (const memberId of memberIds) {
-      const user = userMap.get(memberId);
-      if (!user) {
-        throw AppError.from(new Error(`User ${memberId} not found`), 404);
-      }
-      if (user.status !== UserStatus.ACTIVE) {
-        throw AppError.from(new Error(`User ${memberId} is not active`), 400);
-      }
-    }
 
     const conversationId = v7();
     const now = new Date();
@@ -70,15 +52,17 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
       createdBy: command.creatorId,
       ownerId: command.creatorId,
       admins: [command.creatorId],
-      membersCount: memberIds.length + 1,
+      membersCount: validatedMemberIds.length + 1,
+      settings: {
+        allowSendLink: true,
+        requireApproval: false,
+        allowMemberInvite: true,
+      },
       createdAt: now,
       updatedAt: now
     };
 
-    await this.conversationCommandRepo.insert(conversation);
-
     const members: ConversationMember[] = [];
-
     const creatorMember: ConversationMember = {
       id: v7(),
       conversationId: conversationId,
@@ -90,12 +74,12 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
       pinned: false,
       archived: false,
       hiddenUserIds: [],
+      lastActivityAt: now,
       updatedAt: now
     };
     members.push(creatorMember);
-    await this.conversationMemberCommandRepo.insert(creatorMember);
 
-    for (const memberId of memberIds) {
+    for (const memberId of validatedMemberIds) {
       const member: ConversationMember = {
         id: v7(),
         conversationId: conversationId,
@@ -107,10 +91,10 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
         pinned: false,
         archived: false,
         hiddenUserIds: [],
+        lastActivityAt: now,
         updatedAt: now
       };
       members.push(member);
-      await this.conversationMemberCommandRepo.insert(member);
     }
 
     const messageId = v7();
@@ -127,18 +111,31 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
       createdAt: now,
       pinned: false,
     };
-    await this.messageCommandRepo.insert(systemMessage);
 
-    await this.conversationCommandRepo.update(conversationId, {
-      lastMessage: {
-        messageId: messageId,
-        senderId: command.creatorId,
-        type: MessageType.SYSTEM,
-        textPreview: systemMessageText,
-        createdAt: now
-      },
-      lastMessageAt: now
-    });
+    try {
+      await this.conversationCommandRepo.insert(conversation);
+      for (const member of members) {
+        await this.conversationMemberCommandRepo.insert(member);
+      }
+      await this.messageCommandRepo.insert(systemMessage);
+      await this.conversationCommandRepo.update(conversationId, {
+        lastMessage: {
+          messageId: messageId,
+          senderId: command.creatorId,
+          type: MessageType.SYSTEM,
+          textPreview: systemMessageText,
+          createdAt: now
+        },
+        lastMessageAt: now
+      });
+    } catch (err) {
+      await Promise.allSettled([
+        this.messageCommandRepo.deleteByConversationId(conversationId),
+        this.conversationMemberCommandRepo.deleteByConversationId(conversationId),
+        this.conversationCommandRepo.delete(conversationId, true),
+      ]);
+      throw err;
+    }
 
     return {
       conversation,

@@ -6,10 +6,12 @@ import {
   IConversationMemberCommandRepository,
   IMessageCommandRepository,
   IConversationCommandRepository,
+  IConversationQueryRepository,
   IMessageClassificationRepository,
 } from '../interface';
 import {
   ConversationMemberStatus,
+  ConversationType,
   Message,
   MessageType,
   MediaAttachment,
@@ -18,6 +20,7 @@ import {
   ClassificationType,
 } from '../model/model';
 import { SendMessageCommand } from '../model/dto';
+import { ChatAccessPolicy } from './chat-access-policy';
 
 function mapMediaToDbFormat(media: MediaAttachment[]) {
   return media.map((m) => {
@@ -55,7 +58,9 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
+    private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly classificationRepo: IMessageClassificationRepository,
+    private readonly accessPolicy: ChatAccessPolicy,
   ) {}
 
   async execute(command: SendMessageCommand): Promise<Message[]> {
@@ -78,6 +83,21 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
 
     if (member.status !== ConversationMemberStatus.ACTIVE || member.leftAt !== undefined) {
       throw AppError.from(new Error('Unauthorized: You have left this conversation'), 403);
+    }
+
+    const conversation = await this.conversationQueryRepo.get(conversationId);
+    if (!conversation) {
+      throw AppError.from(new Error('Conversation not found'), 404);
+    }
+    if (conversation.type === ConversationType.PRIVATE) {
+      const members = await this.conversationMemberQueryRepo.list(
+        { conversationId },
+        { page: 1, limit: 10 },
+      );
+      const target = members.find((m) => m.userId !== senderId && m.status === ConversationMemberStatus.ACTIVE && !m.leftAt);
+      if (target) {
+        await this.accessPolicy.assertNotBlockedBetween(senderId, target.userId);
+      }
     }
 
     const hasText = !!text;

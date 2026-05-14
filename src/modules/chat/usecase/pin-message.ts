@@ -1,11 +1,12 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { v7 } from "uuid";
-import { Message, MessageType } from "../model/model";
+import { ConversationMemberStatus, Message, MessageStatus, MessageType } from "../model/model";
 import {
   IMessageQueryRepository,
   IMessageCommandRepository,
   IConversationMemberQueryRepository,
+  IConversationMemberCommandRepository,
   IConversationQueryRepository,
   IConversationCommandRepository,
   IUserQueryRepository,
@@ -26,6 +27,7 @@ export class PinMessageHandler
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly userQueryRepo: IUserQueryRepository,
@@ -46,7 +48,7 @@ export class PinMessageHandler
       throw AppError.from(ErrMessageNotFound, 404);
     }
 
-    if (message.deletedAt) {
+    if (message.deletedAt || message.messageStatus === MessageStatus.REVOKED) {
       throw AppError.from(ErrMessageNotFound, 404);
     }
 
@@ -55,7 +57,7 @@ export class PinMessageHandler
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 
@@ -116,6 +118,7 @@ export class PinMessageHandler
         },
         lastMessageAt: pinnedAt,
       });
+      await this.conversationMemberCommandRepo.touchActivityForConversation(message.conversationId, pinnedAt);
     }
 
     return updatedMessage;

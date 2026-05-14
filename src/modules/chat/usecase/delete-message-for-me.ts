@@ -10,7 +10,7 @@ import {
   DeleteMessageForMeCommand,
 } from "../model/dto";
 import { ErrMessageNotFound, ErrNotMember } from "../model/errors";
-import { Message } from "../model/model";
+import { ConversationMemberStatus, Message } from "../model/model";
 
 export class DeleteMessageForMeHandler implements ICommandHandler<
   DeleteMessageForMeCommand,
@@ -47,7 +47,7 @@ export class DeleteMessageForMeHandler implements ICommandHandler<
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 

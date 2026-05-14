@@ -1,8 +1,7 @@
 import { IQueryHandler } from '@share/interface';
 import { AppError } from '@share/app-error';
-import { PagingDTO } from '@share/model/paging';
 import { IConversationQueryRepository, IConversationMemberQueryRepository } from '../interface';
-import { ConversationMember, ConversationType } from '../model/model';
+import { ConversationMember, ConversationMemberStatus, ConversationType } from '../model/model';
 import { getGroupMembersDTOSchema, GetGroupMembersQuery } from '../model/dto';
 
 export class GetGroupMembersQueryHandler implements IQueryHandler<GetGroupMembersQuery, ConversationMember[]> {
@@ -33,7 +32,11 @@ export class GetGroupMembersQueryHandler implements IQueryHandler<GetGroupMember
       userId: validatedInput.userId
     });
 
-    if (!currentUserMember || currentUserMember.leftAt) {
+    if (
+      !currentUserMember ||
+      currentUserMember.leftAt ||
+      currentUserMember.status !== ConversationMemberStatus.ACTIVE
+    ) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this group'), 403);
     }
 
@@ -42,7 +45,9 @@ export class GetGroupMembersQueryHandler implements IQueryHandler<GetGroupMember
       { page: 1, limit: 1000 }
     );
 
-    const activeMembers = allMembers.filter((member) => !member.leftAt);
+    const activeMembers = allMembers.filter(
+      (member) => member.status === ConversationMemberStatus.ACTIVE && !member.leftAt,
+    );
 
     return activeMembers;
   }

@@ -16,6 +16,7 @@ import { ServiceContext } from "@/share/interface/service-context";
 // ==================== External Dependencies (User Module) ====================
 import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb/dynamodb-repo";
 import { UserUseCase } from "@modules/user/usecase";
+import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
 
 // ==================== Chat Module Components (using barrel exports) ====================
 // Infrastructure: Repositories & Transport
@@ -94,6 +95,7 @@ import {
   GetDraftsQueryHandler,
   TranslateMessageHandler,
   CopyConversationHandler,
+  ChatAccessPolicy,
 } from "./usecase";
 
 export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) => {
@@ -107,18 +109,25 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const pollQueryRepo = new DynamoPollQueryRepository();
   const pollCmdRepo = new DynamoPollCommandRepository();
   const pollRepo = new DynamoPollRepository(pollQueryRepo, pollCmdRepo);
+  const blockRepo = new DynamoBlockRepository();
 
   const classificationRepo = new DynamoMessageClassificationRepository();
 
   const userRepo = new DynamoUserRepository();
   const userUseCase = new UserUseCase(userRepo);
   const userAdapter = new UserRepositoryAdapter(userUseCase);
+  const accessPolicy = new ChatAccessPolicy(
+    userAdapter,
+    blockRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
 
   const getOrCreatePrivateConversationHandler = new GetOrCreatePrivateConversationHandler(
     conversationRepo,
     conversationRepo,
     conversationMemberRepo,
-    userAdapter,
+    accessPolicy,
   );
 
   const sendMessageHandler = new SendMessageHandler(
@@ -126,10 +135,18 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationMemberRepo,
     messageRepo,
     conversationRepo,
+    conversationRepo,
     classificationRepo,
+    accessPolicy,
   );
 
-  const createGroupHandler = new CreateGroupHandler(conversationRepo, conversationMemberRepo, messageRepo, userAdapter);
+  const createGroupHandler = new CreateGroupHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    messageRepo,
+    userAdapter,
+    accessPolicy,
+  );
 
   const sendGroupMessageHandler = new SendGroupMessageHandler(
     conversationMemberRepo,
@@ -147,6 +164,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationMemberRepo,
     messageRepo,
     userAdapter,
+    accessPolicy,
   );
 
   const removeMemberFromGroupHandler = new RemoveMemberFromGroupHandler(
@@ -161,6 +179,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const updateGroupInfoHandler = new UpdateGroupInfoHandler(
     conversationRepo,
     conversationRepo,
+    conversationMemberRepo,
     conversationMemberRepo,
     messageRepo,
     userAdapter,
@@ -187,6 +206,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationRepo,
     conversationMemberRepo,
     userAdapter,
+    messageRepo,
   );
 
   const getConversationDetailQueryHandler = new GetConversationDetailQueryHandler(
@@ -212,6 +232,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     messageRepo,
     conversationMemberRepo,
     classificationRepo,
+    conversationRepo,
+    conversationRepo,
   );
 
   const deleteMessageForMeHandler = new DeleteMessageForMeHandler(messageRepo, messageRepo, conversationMemberRepo);
@@ -221,6 +243,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     messageRepo,
     conversationMemberRepo,
     classificationRepo,
+    conversationRepo,
+    conversationRepo,
   );
 
   const forwardMessagesHandler = new ForwardMessagesHandler(
@@ -251,6 +275,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     messageRepo,
     messageRepo,
     conversationMemberRepo,
+    conversationMemberRepo,
     conversationRepo,
     conversationRepo,
     userAdapter,
@@ -259,6 +284,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const unpinMessageHandler = new UnpinMessageHandler(
     messageRepo,
     messageRepo,
+    conversationMemberRepo,
     conversationMemberRepo,
     conversationRepo,
     conversationRepo,
@@ -275,11 +301,11 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     userAdapter,
   );
 
-  const removeReactionHandler = new RemoveReactionHandler(messageRepo, reactionCmdRepo as any);
+  const removeReactionHandler = new RemoveReactionHandler(messageRepo, reactionCmdRepo as any, conversationMemberRepo);
 
-  const removeAllReactionsHandler = new RemoveAllReactionsHandler(messageRepo, reactionCmdRepo as any);
+  const removeAllReactionsHandler = new RemoveAllReactionsHandler(messageRepo, reactionCmdRepo as any, conversationMemberRepo);
 
-  const getReactionsHandler = new GetReactionsHandler(messageRepo, reactionQueryRepo, userAdapter);
+  const getReactionsHandler = new GetReactionsHandler(messageRepo, reactionQueryRepo, conversationMemberRepo, userAdapter);
 
   const quoteMessageHandler = new QuoteMessageHandler(
     messageRepo,
@@ -311,9 +337,9 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const getPollsHandler = new GetPollsHandler(pollQueryRepo as any, conversationRepo, conversationMemberRepo);
 
-  const votePollHandler = new VotePollHandler(pollQueryRepo, pollCmdRepo);
+  const votePollHandler = new VotePollHandler(pollQueryRepo, pollCmdRepo, conversationMemberRepo);
 
-  const getPollResultsHandler = new GetPollResultsHandler(pollQueryRepo);
+  const getPollResultsHandler = new GetPollResultsHandler(pollQueryRepo, conversationMemberRepo);
 
   const getPendingMembersHandler = new GetPendingMembersHandler(conversationRepo, conversationMemberRepo);
 
@@ -346,12 +372,14 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const getConversationMediaQueryHandler = new GetConversationMediaQueryHandler(
     conversationMemberRepo,
     classificationRepo,
+    messageRepo,
   );
 
   const getConversationsCursorQueryHandler = new GetConversationsCursorQueryHandler(
     conversationRepo,
     conversationMemberRepo as any,
     userAdapter,
+    messageRepo,
   );
 
   const dissolveGroupHandler = new DissolveGroupHandler(
@@ -394,10 +422,12 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const copyConversationHandler = new CopyConversationHandler(
     conversationMemberRepo,
+    conversationMemberRepo,
     messageRepo,
     messageRepo,
     conversationRepo,
     conversationRepo,
+    accessPolicy,
   );
 
   const useCase = new MessagingUseCaseFacade(

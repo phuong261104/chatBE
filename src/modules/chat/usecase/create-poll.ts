@@ -6,6 +6,7 @@ import {
   IConversationMemberQueryRepository,
 } from "../interface";
 import {
+  ConversationMemberStatus,
   ConversationType,
   PollOption,
   Poll,
@@ -37,7 +38,7 @@ export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Pol
       userId: creatorId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("You are not a member of this group"), 403);
     }
 

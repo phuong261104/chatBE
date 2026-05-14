@@ -1,8 +1,13 @@
 import { IQueryHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
-import { PagingDTO } from "@share/model/paging";
 import { IConversationQueryRepository, IConversationMemberQueryRepository } from "../interface";
-import { Conversation, ConversationMember, ConversationMemberRole, GroupSettings } from "../model/model";
+import {
+  Conversation,
+  ConversationMember,
+  ConversationMemberRole,
+  ConversationMemberStatus,
+  GroupSettings,
+} from "../model/model";
 
 export class GetGroupInfoHandler implements IQueryHandler<{ groupId: string; userId: string }, {
   conversation: Conversation;
@@ -33,7 +38,7 @@ export class GetGroupInfoHandler implements IQueryHandler<{ groupId: string; use
       userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("You are not a member of this group"), 403);
     }
 
@@ -42,7 +47,9 @@ export class GetGroupInfoHandler implements IQueryHandler<{ groupId: string; use
       { page: 1, limit: 1000 },
     );
 
-    const activeMembers = allMembers.filter((m) => !m.leftAt);
+    const activeMembers = allMembers.filter(
+      (m) => m.status === ConversationMemberStatus.ACTIVE && !m.leftAt,
+    );
 
     const settings: GroupSettings = conversation.settings || {
       allowSendLink: true,

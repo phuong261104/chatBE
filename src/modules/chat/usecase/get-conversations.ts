@@ -1,7 +1,6 @@
 import { IQueryHandler } from "@share/interface";
-import { PagingDTO } from "@share/model/paging";
-import { IConversationQueryRepository, IConversationMemberQueryRepository, IUserQueryRepository } from "../interface";
-import { Conversation, ConversationMemberRole, ConversationType } from "../model/model";
+import { IConversationQueryRepository, IConversationMemberQueryRepository, IUserQueryRepository, IMessageQueryRepository } from "../interface";
+import { Conversation, ConversationMemberRole, ConversationMemberStatus, ConversationType, MessageStatus } from "../model/model";
 import { GetConversationsQuery, ConversationWithMetadata } from "../model/dto";
 
 export class GetConversationsQueryHandler implements IQueryHandler<GetConversationsQuery, ConversationWithMetadata[]> {
@@ -9,6 +8,7 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly userQueryRepo: IUserQueryRepository,
+    private readonly messageQueryRepo: IMessageQueryRepository,
   ) {}
 
   async query(query: GetConversationsQuery): Promise<ConversationWithMetadata[]> {
@@ -17,7 +17,9 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
 
     const members = await this.conversationMemberQueryRepo.list({ userId: query.userId }, { page, limit });
 
-    const activeMembers = members.filter((member) => !member.leftAt);
+    const activeMembers = members.filter(
+      (member) => member.status === ConversationMemberStatus.ACTIVE && !member.leftAt,
+    );
 
     if (activeMembers.length === 0) {
       return [];
@@ -94,8 +96,19 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
           }
         }
 
+        const visibleLast = await this.resolveVisibleLastMessage(conv, query.userId);
+        const activityAt =
+          member?.lastActivityAt ||
+          visibleLast.lastMessageAt ||
+          conv.lastMessageAt ||
+          conv.updatedAt ||
+          conv.createdAt;
+
         return {
           ...conv,
+          lastMessage: visibleLast.lastMessage,
+          lastMessageAt: visibleLast.lastMessageAt,
+          activityAt,
           name,
           avatarUrl,
           unreadCount: member?.unreadCount || 0,
@@ -107,11 +120,55 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
     );
 
     result.sort((a, b) => {
-      const timeA = a.lastMessageAt?.getTime() || a.createdAt.getTime();
-      const timeB = b.lastMessageAt?.getTime() || b.createdAt.getTime();
+      const timeA = (a as any).activityAt?.getTime?.() || a.lastMessageAt?.getTime() || a.createdAt.getTime();
+      const timeB = (b as any).activityAt?.getTime?.() || b.lastMessageAt?.getTime() || b.createdAt.getTime();
       return timeB - timeA;
     });
 
     return result;
+  }
+
+  private async resolveVisibleLastMessage(
+    conv: Conversation,
+    userId: string,
+  ): Promise<{ lastMessage: Conversation["lastMessage"]; lastMessageAt: Date | undefined }> {
+    if (!conv.lastMessage) {
+      return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
+    }
+
+    const message = await this.messageQueryRepo.get(conv.lastMessage.messageId);
+    if (!message) {
+      return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
+    }
+
+    if (message.deletedForUserIds?.includes(userId)) {
+      const visible = await this.messageQueryRepo.listWithCursor(conv.id, undefined, 1, userId);
+      const latest = visible[0];
+      if (!latest) return { lastMessage: undefined, lastMessageAt: undefined };
+      return {
+        lastMessage: {
+          messageId: latest.id,
+          senderId: latest.senderId,
+          type: latest.type,
+          textPreview: latest.messageStatus === MessageStatus.REVOKED
+            ? "Tin nhắn đã được thu hồi"
+            : latest.text,
+          createdAt: latest.createdAt,
+        },
+        lastMessageAt: latest.createdAt,
+      };
+    }
+
+    if (message.messageStatus === MessageStatus.REVOKED || message.deletedAt) {
+      return {
+        lastMessage: {
+          ...conv.lastMessage,
+          textPreview: "Tin nhắn đã được thu hồi",
+        },
+        lastMessageAt: conv.lastMessageAt || message.createdAt,
+      };
+    }
+
+    return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
   }
 }

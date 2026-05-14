@@ -95,8 +95,14 @@ export class MessagingHttpService {
         return;
       }
 
-      res.status(400).json({
-        error: (error as Error).message,
+      const err = error as any;
+      const statusCode = typeof err.getStatusCode === "function" ? err.getStatusCode() : err.statusCode || 400;
+      const json = typeof err.toJSON === "function"
+        ? err.toJSON(process.env.NODE_ENV === "production")
+        : undefined;
+      res.status(statusCode).json({
+        error: json?.message || err.message,
+        ...(json?.details ? { details: json.details } : {}),
       });
     }
   }
@@ -190,9 +196,13 @@ export class MessagingHttpService {
       }
 
       const err = error as any;
-      const statusCode = err.statusCode || 400;
+      const statusCode = typeof err.getStatusCode === "function" ? err.getStatusCode() : err.statusCode || 400;
+      const json = typeof err.toJSON === "function"
+        ? err.toJSON(process.env.NODE_ENV === "production")
+        : undefined;
       res.status(statusCode).json({
-        error: err.message,
+        error: json?.message || err.message,
+        ...(json?.details ? { details: json.details } : {}),
       });
     }
   }
@@ -1744,7 +1754,14 @@ export class MessagingHttpService {
 
       const validatedData = getReactionsDTOSchema.parse({ messageId });
 
-      const result = await this.useCase.getReactions(validatedData.messageId);
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const result = await this.useCase.getReactions(validatedData.messageId, currentUserId);
 
       res.status(200).json({ data: result });
     } catch (error) {
@@ -1954,7 +1971,7 @@ export class MessagingHttpService {
         return;
       }
 
-      const polls = await this.useCase.getPolls(groupId);
+      const polls = await this.useCase.getPolls(groupId, currentUserId);
 
       res.status(200).json({ data: polls });
     } catch (error) {
@@ -2011,7 +2028,7 @@ export class MessagingHttpService {
         return;
       }
 
-      const poll = await this.useCase.getPollResults(pollId);
+      const poll = await this.useCase.getPollResults(pollId, currentUserId);
 
       res.status(200).json({ data: poll });
     } catch (error) {
@@ -2193,10 +2210,9 @@ export class MessagingHttpService {
         return;
       }
 
-      await this.useCase.dissolveGroup(groupId, currentUserId);
+      const memberUserIds = await this.useCase.dissolveGroup(groupId, currentUserId);
 
       if (this.socketService) {
-        const memberUserIds = await this.useCase.getConversationMembers(groupId);
         for (const userId of memberUserIds) {
           this.socketService.emitToUser(userId, SocketEvent.GROUP_DISSOLVED, {
             conversationId: groupId,

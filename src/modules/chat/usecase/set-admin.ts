@@ -12,6 +12,7 @@ import {
 import {
   Conversation,
   ConversationMemberRole,
+  ConversationMemberStatus,
   ConversationType,
   Message,
   MessageType,
@@ -46,6 +47,14 @@ export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Convers
       throw AppError.from(new Error("Only group owner can set admin"), 403);
     }
 
+    const requesterMember = await this.conversationMemberQueryRepo.findByCond({
+      conversationId: groupId,
+      userId: requesterId,
+    });
+    if (!requesterMember || requesterMember.leftAt || requesterMember.status !== ConversationMemberStatus.ACTIVE) {
+      throw AppError.from(new Error("You are not a member of this group"), 403);
+    }
+
     const targetMember = await this.conversationMemberQueryRepo.findByCond({
       conversationId: groupId,
       userId: targetUserId,
@@ -55,7 +64,7 @@ export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Convers
       throw AppError.from(new Error("Target user is not a member of this group"), 404);
     }
 
-    if (targetMember.leftAt) {
+    if (targetMember.leftAt || targetMember.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("Target user has left the group"), 400);
     }
 
@@ -104,6 +113,7 @@ export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Convers
       },
       lastMessageAt: now,
     });
+    await this.conversationMemberCommandRepo.touchActivityForConversation(groupId, now);
 
     const updatedConversation = await this.conversationQueryRepo.get(groupId);
     if (!updatedConversation) {

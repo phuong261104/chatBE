@@ -1,4 +1,5 @@
 import { v7 } from "uuid";
+import { AppError } from "@share/app-error";
 import {
   IMessageReactionQueryRepository,
   IMessageReactionCommandRepository,
@@ -7,7 +8,7 @@ import {
   IUserQueryRepository,
 } from "@modules/chat/interface";
 import { AddReactionCommand, ReactionResult } from "@modules/chat/model/dto";
-import { MessageReaction } from "@modules/chat/model/model";
+import { ConversationMemberStatus, MessageReaction, MessageStatus } from "@modules/chat/model/model";
 
 export class AddReactionHandler {
   constructor(
@@ -21,15 +22,22 @@ export class AddReactionHandler {
   async execute(command: AddReactionCommand): Promise<MessageReaction> {
     const message = await this.messageQueryRepo.get(command.messageId);
     if (!message) {
-      throw new Error("Message not found");
+      throw AppError.from(new Error("Message not found"), 404);
+    }
+    if (
+      message.messageStatus === MessageStatus.REVOKED ||
+      message.deletedAt ||
+      message.deletedForUserIds?.includes(command.userId)
+    ) {
+      throw AppError.from(new Error("Message cannot be reacted to"), 400);
     }
 
     const member = await this.memberQueryRepo.findByCond({
       conversationId: message.conversationId,
       userId: command.userId,
     });
-    if (!member) {
-      throw new Error("User is not a member of this conversation");
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
+      throw AppError.from(new Error("User is not an active member of this conversation"), 403);
     }
 
     const user = await this.userQueryRepo.get(command.userId);
@@ -59,12 +67,28 @@ export class RemoveReactionHandler {
   constructor(
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly reactionCmdRepo: IMessageReactionCommandRepository,
+    private readonly memberQueryRepo: IConversationMemberQueryRepository,
   ) {}
 
   async execute(messageId: string, userId: string, emoji?: string): Promise<number> {
     const message = await this.messageQueryRepo.get(messageId);
     if (!message) {
-      throw new Error("Message not found");
+      throw AppError.from(new Error("Message not found"), 404);
+    }
+    if (
+      message.messageStatus === MessageStatus.REVOKED ||
+      message.deletedAt ||
+      message.deletedForUserIds?.includes(userId)
+    ) {
+      throw AppError.from(new Error("Message cannot be reacted to"), 400);
+    }
+
+    const member = await this.memberQueryRepo.findByCond({
+      conversationId: message.conversationId,
+      userId,
+    });
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
+      throw AppError.from(new Error("User is not an active member of this conversation"), 403);
     }
 
     if (emoji) {
@@ -80,12 +104,28 @@ export class RemoveAllReactionsHandler {
   constructor(
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly reactionCmdRepo: IMessageReactionCommandRepository,
+    private readonly memberQueryRepo: IConversationMemberQueryRepository,
   ) {}
 
   async execute(messageId: string, userId: string): Promise<number> {
     const message = await this.messageQueryRepo.get(messageId);
     if (!message) {
-      throw new Error("Message not found");
+      throw AppError.from(new Error("Message not found"), 404);
+    }
+    if (
+      message.messageStatus === MessageStatus.REVOKED ||
+      message.deletedAt ||
+      message.deletedForUserIds?.includes(userId)
+    ) {
+      throw AppError.from(new Error("Message cannot be reacted to"), 400);
+    }
+
+    const member = await this.memberQueryRepo.findByCond({
+      conversationId: message.conversationId,
+      userId,
+    });
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
+      throw AppError.from(new Error("User is not an active member of this conversation"), 403);
     }
 
     return this.reactionCmdRepo.deleteAllByUserAndMessage(messageId, userId);
@@ -96,13 +136,25 @@ export class GetReactionsHandler {
   constructor(
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly reactionQueryRepo: IMessageReactionQueryRepository,
+    private readonly memberQueryRepo: IConversationMemberQueryRepository,
     private readonly userQueryRepo: IUserQueryRepository,
   ) {}
 
-  async execute(messageId: string): Promise<ReactionResult> {
+  async execute(messageId: string, userId: string): Promise<ReactionResult> {
     const message = await this.messageQueryRepo.get(messageId);
     if (!message) {
-      throw new Error("Message not found");
+      throw AppError.from(new Error("Message not found"), 404);
+    }
+    if (message.deletedForUserIds?.includes(userId)) {
+      throw AppError.from(new Error("Message not found"), 404);
+    }
+
+    const member = await this.memberQueryRepo.findByCond({
+      conversationId: message.conversationId,
+      userId,
+    });
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
+      throw AppError.from(new Error("User is not an active member of this conversation"), 403);
     }
 
     const [reactions, grouped] = await Promise.all([

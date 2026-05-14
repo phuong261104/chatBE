@@ -10,6 +10,7 @@ import {
   UnmuteConversationCommand,
 } from "../model/dto";
 import { ErrNotMember } from "../model/errors";
+import { ConversationMemberStatus } from "../model/model";
 
 export class MuteConversationHandler
   implements ICommandHandler<MuteConversationCommand, void>
@@ -35,7 +36,7 @@ export class MuteConversationHandler
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 
@@ -66,7 +67,7 @@ export class UnmuteConversationHandler
       userId: command.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 

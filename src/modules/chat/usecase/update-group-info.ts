@@ -5,10 +5,18 @@ import {
   IConversationQueryRepository,
   IConversationCommandRepository,
   IConversationMemberQueryRepository,
+  IConversationMemberCommandRepository,
   IMessageCommandRepository,
   IUserQueryRepository
 } from '../interface';
-import { Conversation, ConversationMemberRole, ConversationType, Message, MessageType } from '../model/model';
+import {
+  Conversation,
+  ConversationMemberRole,
+  ConversationMemberStatus,
+  ConversationType,
+  Message,
+  MessageType,
+} from '../model/model';
 import { updateGroupInfoDTOSchema, ConversationUpdateDTO, UpdateGroupInfoCommand } from '../model/dto';
 import { SystemMessageTemplate } from '../constants/system-messages';
 
@@ -17,6 +25,7 @@ export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCo
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly userQueryRepo: IUserQueryRepository
   ) {}
@@ -34,7 +43,12 @@ export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCo
       userId: validatedInput.requesterId
     });
 
-    if (!requesterMember || requesterMember.role !== ConversationMemberRole.ADMIN) {
+    if (
+      !requesterMember ||
+      requesterMember.leftAt ||
+      requesterMember.status !== ConversationMemberStatus.ACTIVE ||
+      requesterMember.role !== ConversationMemberRole.ADMIN
+    ) {
       throw AppError.from(new Error('Unauthorized: Only admins can update group info'), 403);
     }
 
@@ -113,6 +127,7 @@ export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCo
         },
         lastMessageAt: now
       });
+      await this.conversationMemberCommandRepo.touchActivityForConversation(validatedInput.conversationId, now);
     }
 
     const updatedConversation = await this.conversationQueryRepo.get(validatedInput.conversationId);

@@ -5,7 +5,7 @@ import {
   IMessageCommandRepository,
   IConversationMemberQueryRepository,
 } from "../interface";
-import { Message } from "../model/model";
+import { ConversationMemberStatus, Message, MessageStatus } from "../model/model";
 import { editMessageDTOSchema, EditMessageCommand } from "../model/dto";
 import {
   ErrMessageNotFound,
@@ -47,7 +47,7 @@ export class EditMessageHandler
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 
@@ -55,7 +55,7 @@ export class EditMessageHandler
       throw AppError.from(ErrMessageUnauthorized, 403);
     }
 
-    if (message.deletedAt) {
+    if (message.deletedAt || message.messageStatus === MessageStatus.REVOKED) {
       throw AppError.from(ErrMessageAlreadyDeleted, 400);
     }
 

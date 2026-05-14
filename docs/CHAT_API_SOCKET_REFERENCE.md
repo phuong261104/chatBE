@@ -1880,3 +1880,73 @@ interface PollOption {
 | `user:offline` | `{ userId, timestamp, reason }` | User disconnected |
 | `connected` | Connection confirmation with heartbeat config | Server confirmation |
 | `pong` | `{ timestamp, serverTime, latency }` | Heartbeat response |
+
+---
+
+## 15. Zalo-Like Business Rules Update
+
+### Group Creation
+
+`POST /groups` keeps the existing payload:
+
+```json
+{
+  "name": "Nhóm Dev Team",
+  "memberIds": ["user_a", "user_b"],
+  "avatarUrl": "https://..."
+}
+```
+
+Rules:
+- `memberIds` must contain 2 to 49 selected members. Total group size is creator plus selected members, max 50.
+- `memberIds` must be unique and must not include the creator.
+- Creator and all selected users must be `active`.
+- Friendship is not required.
+- Creation fails all-or-nothing if any selected user is invalid, disabled, duplicated, self, or blocked in either direction with the creator.
+- Default group settings are `allowSendLink=true`, `requireApproval=false`, `allowMemberInvite=true`.
+- Creator is stored as `ownerId`, remains role `admin`, and is included in `admins`.
+
+Validation errors include `details.code` when available, such as `duplicate`, `self`, `disabled`, `blocked`, or `too-many-members`.
+
+### Message Tombstone
+
+`Message` can include:
+
+```ts
+messageStatus?: "active" | "revoked";
+deletedBy?: string;
+revokedAt?: Date;
+```
+
+`revoke` and `delete-for-everyone` keep the message row and return a tombstone-style message with `messageStatus="revoked"`. Conversation preview becomes `Tin nhắn đã được thu hồi`.
+
+`delete-for-me` only adds the caller to `deletedForUserIds`; load/search/media APIs exclude messages hidden for that viewer.
+
+### Receipts And Conversation Cursor
+
+`ConversationMember` can include:
+
+```ts
+lastActivityAt?: Date;
+lastSeenAt?: Date;
+lastDeliveredAt?: Date;
+```
+
+Seen and delivered markers are monotonic by message `createdAt`; older markers are ignored. Unread count is cleared only when the seen marker reaches the latest visible message for that viewer.
+
+Conversation ordering uses member activity with fallback to existing legacy timestamps: `lastActivityAt || lastMessageAt || updatedAt || createdAt`.
+
+### Socket Permissions And Voice Payload
+
+Socket events that operate on a conversation require active membership. Group typing, voice, location, polls, reactions, pins, and message actions are denied for non-active members.
+
+Voice/media payloads use the `MediaAttachment` contract:
+
+```ts
+{
+  url: string;
+  filename: string;
+  mimetype: string;
+  size: number;
+}
+```

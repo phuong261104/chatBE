@@ -71,6 +71,7 @@ export interface IConversationMemberCommandRepository {
   delete(id: string, isHard: boolean): Promise<boolean>;
   deleteByConversationId(conversationId: string): Promise<void>;
   incrementUnreadCountForConversation(conversationId: string, excludeUserId?: string): Promise<void>;
+  touchActivityForConversation(conversationId: string, activityAt?: Date): Promise<void>;
 }
 
 export interface IMessageQueryRepository {
@@ -321,7 +322,7 @@ export interface IMessagingUseCase {
 
   removeAllReactions(messageId: string, userId: string): Promise<number>;
 
-  getReactions(messageId: string): Promise<{
+  getReactions(messageId: string, userId: string): Promise<{
     reactions: MessageReaction[];
     grouped: Record<string, number>;
   }>;
@@ -348,11 +349,11 @@ export interface IMessagingUseCase {
     expiresAt?: string,
   ): Promise<Poll>;
 
-  getPolls(conversationId: string): Promise<Poll[]>;
+  getPolls(conversationId: string, userId: string): Promise<Poll[]>;
 
   votePoll(pollId: string, userId: string, optionIds: string[]): Promise<Poll>;
 
-  getPollResults(pollId: string): Promise<Poll>;
+  getPollResults(pollId: string, userId: string): Promise<Poll>;
 
   getPendingMembers(groupId: string): Promise<ConversationMember[]>;
 
@@ -398,7 +399,7 @@ export interface IMessagingUseCase {
     hasMore: boolean;
   }>;
 
-  dissolveGroup(groupId: string, requesterId: string): Promise<void>;
+  dissolveGroup(groupId: string, requesterId: string): Promise<string[]>;
 
   getConversationStatistics(conversationId: string, userId: string): Promise<{
     messageCount: number;

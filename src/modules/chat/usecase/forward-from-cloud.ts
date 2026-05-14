@@ -1,14 +1,11 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
-import { v7 } from "uuid";
-import { IMessageCommandRepository } from "../../interface";
+import { IMessageCommandRepository } from "../interface";
 import {
-  ConversationType,
-  MessageType,
-  MessageMedia,
   MediaType,
-} from "../../model/model";
-import { ForwardFromCloudCommand } from "../../model/dto/message-dto";
+  MediaAttachment,
+} from "../model/model";
+import { ForwardFromCloudCommand } from "../model/dto/message-dto";
 import { DynamoCloudItemRepository } from "@modules/my-cloud/infras/repository/dynamodb";
 import { SendMessageHandler } from "./send-message";
 
@@ -34,13 +31,12 @@ export class ForwardFromCloudHandler implements ICommandHandler<
     }
 
     const mediaType = this.getMediaType(cloudItem.type as any);
-    const media: MessageMedia[] = [
+    const media: MediaAttachment[] = [
       {
         url: cloudItem.fileUrl!,
-        mediaType,
-        name: cloudItem.fileName || cloudItem.title,
-        size: cloudItem.fileSize,
-        thumbnailUrl: cloudItem.thumbnailUrl,
+        filename: cloudItem.fileName || cloudItem.title || "cloud-file",
+        mimetype: this.getMimeType(mediaType),
+        size: cloudItem.fileSize || 0,
       },
     ];
 
@@ -62,6 +58,19 @@ export class ForwardFromCloudHandler implements ICommandHandler<
         return MediaType.AUDIO;
       default:
         return MediaType.FILE;
+    }
+  }
+
+  private getMimeType(type: MediaType): string {
+    switch (type) {
+      case MediaType.IMAGE:
+        return "image/jpeg";
+      case MediaType.VIDEO:
+        return "video/mp4";
+      case MediaType.AUDIO:
+        return "audio/mpeg";
+      default:
+        return "application/octet-stream";
     }
   }
 }

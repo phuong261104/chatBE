@@ -1,14 +1,13 @@
 import { ICommandHandler } from '@share/interface';
-import { AppError } from '@share/app-error';
 import { v7 } from 'uuid';
 import {
   IConversationQueryRepository,
   IConversationCommandRepository,
   IConversationMemberCommandRepository,
-  IUserQueryRepository
 } from '../interface';
-import { Conversation, ConversationType, ConversationMemberRole, ConversationMemberStatus, UserStatus } from '../model/model';
+import { Conversation, ConversationType, ConversationMemberRole, ConversationMemberStatus } from '../model/model';
 import { getOrCreatePrivateConversationDTOSchema, GetOrCreatePrivateConversationCommand } from '../model/dto';
+import { ChatAccessPolicy } from './chat-access-policy';
 
 export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
   GetOrCreatePrivateConversationCommand,
@@ -18,7 +17,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
-    private readonly userQueryRepo: IUserQueryRepository
+    private readonly accessPolicy: ChatAccessPolicy,
   ) {}
 
   async execute(command: GetOrCreatePrivateConversationCommand): Promise<Conversation> {
@@ -30,26 +29,21 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
 
     const isSelfConversation = validatedInput.currentUserId === validatedInput.targetUserId;
 
-    if (!isSelfConversation) {
-      const targetUser = await this.userQueryRepo.get(validatedInput.targetUserId);
-
-      if (!targetUser) {
-        throw AppError.from(new Error('Target user not found'), 404);
-      }
-
-      if (targetUser.status !== UserStatus.ACTIVE) {
-        throw AppError.from(new Error('Target user is not active'), 400);
-      }
-    }
+    await this.accessPolicy.assertCanStartPrivateConversation(
+      validatedInput.currentUserId,
+      validatedInput.targetUserId,
+    );
 
     const pairKey = isSelfConversation
       ? `self_${validatedInput.currentUserId}`
       : [validatedInput.currentUserId, validatedInput.targetUserId].sort().join('_');
 
-    let conversation = await this.conversationQueryRepo.findByCond({
-      type: ConversationType.PRIVATE,
-      pairKey: pairKey
-    });
+    let conversation =
+      (await (this.conversationQueryRepo as any).findByPairKey?.(pairKey, ConversationType.PRIVATE)) ||
+      (await this.conversationQueryRepo.findByCond({
+        type: ConversationType.PRIVATE,
+        pairKey: pairKey
+      }));
 
     if (!conversation) {
       const conversationId = v7();
@@ -76,6 +70,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
         pinned: false,
         archived: false,
         hiddenUserIds: [],
+        lastActivityAt: now,
         updatedAt: now
       };
       await this.conversationMemberCommandRepo.insert(member1);
@@ -92,6 +87,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
           pinned: false,
           archived: false,
           hiddenUserIds: [],
+          lastActivityAt: now,
           updatedAt: now
         };
         await this.conversationMemberCommandRepo.insert(member2);

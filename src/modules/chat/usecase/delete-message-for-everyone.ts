@@ -5,8 +5,10 @@ import {
   IMessageCommandRepository,
   IConversationMemberQueryRepository,
   IMessageClassificationRepository,
+  IConversationQueryRepository,
+  IConversationCommandRepository,
 } from "../interface";
-import { Message, MessageType } from "../model/model";
+import { ConversationMemberStatus, Message, MessageStatus } from "../model/model";
 import { DeleteMessageForEveryoneDTO } from "../model/dto";
 import {
   ErrMessageNotFound,
@@ -24,6 +26,8 @@ export class DeleteMessageForEveryoneHandler implements ICommandHandler<
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly classificationRepo: IMessageClassificationRepository,
+    private readonly conversationQueryRepo: IConversationQueryRepository,
+    private readonly conversationCommandRepo: IConversationCommandRepository,
   ) {}
 
   async execute(dto: DeleteMessageForEveryoneDTO): Promise<Message> {
@@ -39,7 +43,7 @@ export class DeleteMessageForEveryoneHandler implements ICommandHandler<
       userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 
@@ -47,7 +51,7 @@ export class DeleteMessageForEveryoneHandler implements ICommandHandler<
       throw AppError.from(ErrMessageUnauthorized, 403);
     }
 
-    if (message.deletedAt) {
+    if (message.deletedAt || message.messageStatus === MessageStatus.REVOKED) {
       throw AppError.from(new Error("Message is already deleted"), 400);
     }
 
@@ -59,19 +63,42 @@ export class DeleteMessageForEveryoneHandler implements ICommandHandler<
     }
 
     const deletedAt = new Date();
+    const tombstoneText = "Tin nhắn đã được thu hồi";
 
     await this.messageCommandRepo.update(messageId, {
-      text: undefined,
+      text: tombstoneText,
       media: [],
+      links: [],
+      messageStatus: MessageStatus.REVOKED,
+      deletedBy: userId,
+      revokedAt: deletedAt,
       deletedAt,
     });
 
     await this.classificationRepo.deleteByMessageId(messageId);
 
+    const conversation = await this.conversationQueryRepo.get(message.conversationId);
+    if (conversation?.lastMessage?.messageId === message.id) {
+      await this.conversationCommandRepo.update(message.conversationId, {
+        lastMessage: {
+          messageId: message.id,
+          senderId: message.senderId,
+          type: message.type,
+          textPreview: tombstoneText,
+          createdAt: message.createdAt,
+        },
+        lastMessageAt: message.createdAt,
+      });
+    }
+
     return {
       ...message,
-      text: undefined,
+      text: tombstoneText,
       media: [],
+      links: [],
+      messageStatus: MessageStatus.REVOKED,
+      deletedBy: userId,
+      revokedAt: deletedAt,
       deletedAt,
     };
   }

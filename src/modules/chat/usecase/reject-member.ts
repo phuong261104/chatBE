@@ -39,7 +39,12 @@ export class RejectMemberHandler implements ICommandHandler<{ groupId: string; u
       userId: requesterId,
     });
 
-    if (!requesterMember || requesterMember.role !== ConversationMemberRole.ADMIN) {
+    if (
+      !requesterMember ||
+      requesterMember.leftAt ||
+      requesterMember.status !== ConversationMemberStatus.ACTIVE ||
+      requesterMember.role !== ConversationMemberRole.ADMIN
+    ) {
       throw AppError.from(new Error("Only admins can reject members"), 403);
     }
 
@@ -93,5 +98,6 @@ export class RejectMemberHandler implements ICommandHandler<{ groupId: string; u
       },
       lastMessageAt: now,
     });
+    await this.conversationMemberCommandRepo.touchActivityForConversation(groupId, now);
   }
 }

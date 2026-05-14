@@ -154,10 +154,16 @@ export class ReactionController extends BaseController {
   async getReactionsAPI(req: Request, res: Response) {
     try {
       const messageId = this.parseIdParam(req, "messageId");
+      const currentUserId = this.getCurrentUserId(req, res);
+
+      if (!currentUserId) {
+        this.sendUnauthorized(res);
+        return;
+      }
 
       const validatedData = getReactionsDTOSchema.parse({ messageId });
 
-      const result = await this.useCase.getReactions(validatedData.messageId);
+      const result = await this.useCase.getReactions(validatedData.messageId, currentUserId);
 
       res.status(200).json({ data: result });
     } catch (error) {

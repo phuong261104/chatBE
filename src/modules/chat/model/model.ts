@@ -29,6 +29,11 @@ export enum MessageType {
   SYSTEM = "system",
 }
 
+export enum MessageStatus {
+  ACTIVE = "active",
+  REVOKED = "revoked",
+}
+
 export enum ClassificationType {
   IMAGE = "image",
   VIDEO = "video",
@@ -100,6 +105,9 @@ export const ConversationMemberSchema = z.object({
   lastReadAt: z.date().optional(),
   lastSeenMessageId: z.string().optional(),
   lastDeliveredMessageId: z.string().optional(),
+  lastSeenAt: z.date().optional(),
+  lastDeliveredAt: z.date().optional(),
+  lastActivityAt: z.date().optional(),
 
   muteUntil: z.date().optional(),
   pinned: z.boolean().default(false),
@@ -201,6 +209,9 @@ export const MessageSchema = z.object({
   media: z.array(MessageMediaSchema).optional(),
   links: z.array(z.string()).optional(),
   call: CallMessageMetadataSchema.optional(),
+  messageStatus: z.nativeEnum(MessageStatus).default(MessageStatus.ACTIVE).optional(),
+  deletedBy: z.string().optional(),
+  revokedAt: z.date().optional(),
   deletedForUserIds: z.array(z.string()).optional(),
   quotedMessageId: z.string().optional(),
   quotedMessagePreview: z.string().optional(),

@@ -10,9 +10,9 @@ import {
   IMessageReactionCommandRepository,
   IPollCommandRepository,
 } from "../interface";
-import { ConversationType } from "../model/model";
+import { ConversationMemberStatus, ConversationType } from "../model/model";
 
-export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; requesterId: string }, void> {
+export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; requesterId: string }, string[]> {
   constructor(
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
@@ -24,7 +24,7 @@ export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; 
     private readonly pollCommandRepo: IPollCommandRepository,
   ) {}
 
-  async execute(command: { groupId: string; requesterId: string }): Promise<void> {
+  async execute(command: { groupId: string; requesterId: string }): Promise<string[]> {
     const { groupId, requesterId } = command;
 
     const conversation = await this.conversationQueryRepo.get(groupId);
@@ -41,7 +41,7 @@ export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; 
       userId: requesterId,
     });
 
-    if (!requesterMember || requesterMember.leftAt) {
+    if (!requesterMember || requesterMember.leftAt || requesterMember.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("You are not a member of this group"), 403);
     }
 
@@ -63,5 +63,7 @@ export class DissolveGroupHandler implements ICommandHandler<{ groupId: string; 
     await this.pollCommandRepo.deleteByConversationId(groupId);
     await this.conversationMemberCommandRepo.deleteByConversationId(groupId);
     await this.conversationCommandRepo.delete(groupId, true);
+
+    return memberUserIds;
   }
 }

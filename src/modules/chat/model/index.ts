@@ -3,6 +3,8 @@ export {
   ConversationMemberRole,
   ConversationMemberStatus,
   MessageType,
+  MessageStatus,
+  ClassificationType,
   MediaType,
   UserStatus,
   LastMessageSchema,

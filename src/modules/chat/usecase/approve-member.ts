@@ -46,7 +46,12 @@ export class ApproveMemberHandler implements ICommandHandler<{ groupId: string; 
       userId: requesterId,
     });
 
-    if (!requesterMember || requesterMember.role !== ConversationMemberRole.ADMIN) {
+    if (
+      !requesterMember ||
+      requesterMember.leftAt ||
+      requesterMember.status !== ConversationMemberStatus.ACTIVE ||
+      requesterMember.role !== ConversationMemberRole.ADMIN
+    ) {
       throw AppError.from(new Error("Only admins can approve members"), 403);
     }
 
@@ -104,6 +109,7 @@ export class ApproveMemberHandler implements ICommandHandler<{ groupId: string; 
       },
       lastMessageAt: now,
     });
+    await this.conversationMemberCommandRepo.touchActivityForConversation(groupId, now);
 
     const updatedMember = await this.conversationMemberQueryRepo.get(member.id);
     if (!updatedMember) {

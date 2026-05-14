@@ -423,6 +423,7 @@ export class MessagingSocketService {
           toUserId,
         });
       } else if (groupId) {
+        await this.useCase.getConversationDetail(groupId, userId);
         socket.to(`group_room:${groupId}`).emit(SocketEvent.TYPING_START, {
           userId,
           groupId,
@@ -449,6 +450,7 @@ export class MessagingSocketService {
           toUserId,
         });
       } else if (groupId) {
+        await this.useCase.getConversationDetail(groupId, userId);
         socket.to(`group_room:${groupId}`).emit(SocketEvent.TYPING_STOP, {
           userId,
           groupId,
@@ -1219,9 +1221,7 @@ export class MessagingSocketService {
         return;
       }
 
-      const memberUserIds = await this.getMemberUserIds(groupId);
-
-      await this.useCase.dissolveGroup(groupId, userId);
+      const memberUserIds = await this.useCase.dissolveGroup(groupId, userId);
 
       for (const memberId of memberUserIds) {
         this.emitToUser(memberId, SocketEvent.GROUP_DISSOLVED, {
@@ -1938,7 +1938,8 @@ export class MessagingSocketService {
 
       const media = [{
         url: mediaUrl,
-        mediaType: "audio" as const,
+        filename: `voice-${Date.now()}.webm`,
+        mimetype: "audio/webm",
         size: 0,
       }];
 
@@ -1947,6 +1948,7 @@ export class MessagingSocketService {
         ? await this.useCase.sendGroupMessage(conversationId, userId, undefined, media as any)
         : await this.useCase.sendMessage(conversationId, userId, undefined, media as any);
 
+      await this.useCase.getConversationDetail(conversationId, userId);
       const memberUserIds = await this.getMemberUserIds(conversationId, userId);
       for (const msg of messages) {
         for (const memberId of memberUserIds) {

@@ -5,6 +5,7 @@ import {
   IConversationMemberCommandRepository,
   IMessageQueryRepository
 } from '../interface';
+import { ConversationMemberStatus } from '../model/model';
 import { markAsDeliveredDTOSchema, MarkAsDeliveredCommand } from '../model/dto';
 
 export class MarkAsDeliveredHandler implements ICommandHandler<MarkAsDeliveredCommand, void> {
@@ -27,7 +28,7 @@ export class MarkAsDeliveredHandler implements ICommandHandler<MarkAsDeliveredCo
       userId: validatedInput.userId
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error('Unauthorized: You are not a member of this conversation'), 403);
     }
 
@@ -36,8 +37,24 @@ export class MarkAsDeliveredHandler implements ICommandHandler<MarkAsDeliveredCo
       throw AppError.from(new Error('Message not found'), 404);
     }
 
+    if (message.deletedForUserIds?.includes(validatedInput.userId)) {
+      throw AppError.from(new Error('Message not found'), 404);
+    }
+
+    if (member.lastDeliveredMessageId) {
+      const currentDelivered = await this.messageQueryRepo.get(member.lastDeliveredMessageId);
+      if (
+        currentDelivered &&
+        currentDelivered.conversationId === validatedInput.conversationId &&
+        currentDelivered.createdAt.getTime() >= message.createdAt.getTime()
+      ) {
+        return;
+      }
+    }
+
     await this.conversationMemberCommandRepo.update(member.id, {
-      lastDeliveredMessageId: validatedInput.lastDeliveredMessageId
+      lastDeliveredMessageId: validatedInput.lastDeliveredMessageId,
+      lastDeliveredAt: new Date(),
     });
   }
 }

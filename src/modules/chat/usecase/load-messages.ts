@@ -6,7 +6,7 @@ import {
   IMessageReactionQueryRepository,
   IUserQueryRepository,
 } from "../interface";
-import { Message } from "../model/model";
+import { ConversationMemberStatus, Message } from "../model/model";
 import { loadMessagesDTOSchema, LoadMessagesQuery, LoadMessagesResult } from "../model/dto";
 
 export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery, LoadMessagesResult> {
@@ -38,7 +38,7 @@ export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery
       userId: validatedInput.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("Unauthorized: You are not a member of this conversation"), 403);
     }
 
@@ -50,7 +50,8 @@ export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery
     );
 
     const hasMore = messages.length > validatedInput.limit;
-    const returnMessages = hasMore ? messages.slice(0, validatedInput.limit) : messages;
+    const returnMessages = (hasMore ? messages.slice(0, validatedInput.limit) : messages)
+      .filter((msg) => !msg.deletedForUserIds?.includes(validatedInput.userId));
 
     // Lấy reactions cho các tin nhắn được trả về
     await Promise.all(
@@ -105,7 +106,12 @@ export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery
 
     const memberSeenMap: Record<string, string> = {};
     for (const m of allMembers) {
-      if (m.userId !== validatedInput.userId && m.lastSeenMessageId) {
+      if (
+        m.userId !== validatedInput.userId &&
+        m.status === ConversationMemberStatus.ACTIVE &&
+        !m.leftAt &&
+        m.lastSeenMessageId
+      ) {
         memberSeenMap[m.userId] = m.lastSeenMessageId;
       }
     }

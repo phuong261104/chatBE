@@ -12,6 +12,7 @@ import {
 import {
   Conversation,
   ConversationMemberRole,
+  ConversationMemberStatus,
   ConversationType,
   Message,
   MessageType,
@@ -49,6 +50,14 @@ export class TransferOwnerHandler implements ICommandHandler<TransferOwnerComman
       throw AppError.from(new Error("Only group owner can transfer ownership"), 403);
     }
 
+    const requesterMember = await this.conversationMemberQueryRepo.findByCond({
+      conversationId: groupId,
+      userId: requesterId,
+    });
+    if (!requesterMember || requesterMember.leftAt || requesterMember.status !== ConversationMemberStatus.ACTIVE) {
+      throw AppError.from(new Error("You are not a member of this group"), 403);
+    }
+
     const newOwnerMember = await this.conversationMemberQueryRepo.findByCond({
       conversationId: groupId,
       userId: newOwnerId,
@@ -58,7 +67,7 @@ export class TransferOwnerHandler implements ICommandHandler<TransferOwnerComman
       throw AppError.from(new Error("New owner is not a member of this group"), 404);
     }
 
-    if (newOwnerMember.leftAt) {
+    if (newOwnerMember.leftAt || newOwnerMember.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("New owner has left the group"), 400);
     }
 
@@ -102,6 +111,7 @@ export class TransferOwnerHandler implements ICommandHandler<TransferOwnerComman
       },
       lastMessageAt: now,
     });
+    await this.conversationMemberCommandRepo.touchActivityForConversation(groupId, now);
 
     const updatedConversation = await this.conversationQueryRepo.get(groupId);
     if (!updatedConversation) {

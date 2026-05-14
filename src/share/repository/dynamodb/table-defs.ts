@@ -164,6 +164,7 @@ export const CONVERSATION_MEMBERS_TABLE: TableDefinition = {
     { AttributeName: "sk", AttributeType: "S" },
     { AttributeName: "id", AttributeType: "S" },
     { AttributeName: "userId", AttributeType: "S" },
+    { AttributeName: "lastActivityAt", AttributeType: "S" },
   ],
   GlobalSecondaryIndexes: [
     {
@@ -174,6 +175,14 @@ export const CONVERSATION_MEMBERS_TABLE: TableDefinition = {
     {
       IndexName: "id-index",
       KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "userId-lastActivityAt-index",
+      KeySchema: [
+        { AttributeName: "userId", KeyType: "HASH" },
+        { AttributeName: "lastActivityAt", KeyType: "RANGE" },
+      ],
       Projection: { ProjectionType: "ALL" },
     },
   ],

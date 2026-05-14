@@ -14,6 +14,7 @@ import {
   ErrConversationAlreadyPinned,
   ErrConversationNotPinned,
 } from "../model/errors";
+import { ConversationMemberStatus } from "../model/model";
 
 export class PinConversationHandler
   implements ICommandHandler<PinConversationCommand, void>
@@ -39,7 +40,7 @@ export class PinConversationHandler
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 
@@ -75,7 +76,7 @@ export class UnpinConversationHandler
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 

@@ -1,8 +1,7 @@
 import { IQueryHandler } from '@share/interface';
 import { AppError } from '@share/app-error';
-import { PagingDTO } from '@share/model/paging';
 import { IConversationQueryRepository, IConversationMemberQueryRepository } from '../interface';
-import { Conversation, ConversationMember, ConversationMemberRole, ConversationMemberStatus } from '../model/model';
+import { ConversationMemberStatus } from '../model/model';
 import { GetConversationDetailQuery, ConversationDetail, getConversationDetailDTOSchema } from '../model/dto';
 
 export class GetConversationDetailQueryHandler implements IQueryHandler<

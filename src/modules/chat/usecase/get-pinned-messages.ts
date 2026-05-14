@@ -1,6 +1,6 @@
 import { IQueryHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
-import { Message } from "../model/model";
+import { ConversationMemberStatus, Message } from "../model/model";
 import {
   IMessageQueryRepository,
   IConversationMemberQueryRepository,
@@ -34,7 +34,7 @@ export class GetPinnedMessagesHandler
       userId: data.userId,
     });
 
-    if (!member || member.leftAt) {
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(ErrNotMember, 403);
     }
 
