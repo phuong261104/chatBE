@@ -15,6 +15,9 @@ coverage
 
 # API keys and secrets
 .env
+.env.local
+.env.production
+.env.*.local
 
 # Dependency directory
 node_modules

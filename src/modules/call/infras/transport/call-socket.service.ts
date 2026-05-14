@@ -11,6 +11,7 @@ interface AnsweredPayload {
   roomName: string;
   token?: string;
   wsUrl?: string;
+  livekitProvider?: string;
 }
 
 export class CallSocketService {
@@ -86,8 +87,18 @@ export class CallSocketService {
     this.namespace.to(`user:${userId}`).emit('call:ringing', { callId });
   }
 
-  notifyAnswered(userId: string, callId: string, roomName: string, token?: string, wsUrl?: string) {
+  notifyAnswered(
+    userId: string,
+    callId: string,
+    roomName: string,
+    token?: string,
+    wsUrl?: string,
+    livekitProvider?: string,
+  ) {
     const payload: AnsweredPayload = { callId, roomName, token, wsUrl };
+    if (livekitProvider) {
+      payload.livekitProvider = livekitProvider;
+    }
     this.namespace.to(`user:${userId}`).emit('call:answered', payload);
   }
 

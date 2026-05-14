@@ -28,3 +28,16 @@ LIVEKIT_WS_URL=wss://call.example.com
 4. Set backend `.env` with the same key/secret and `LIVEKIT_WS_URL=wss://call.example.com`.
 5. Open/firewall these ports on the server: `7880/tcp`, `7882/udp`, `30100-30400/udp`.
 6. Terminate TLS at a reverse proxy for the public `wss://` domain and proxy to LiveKit `7880`.
+
+## LiveKit Cloud v2 API
+
+The existing `/v1/calls` API keeps using the self-hosted LiveKit settings.
+The optional `/v1/calls/v2` API uses LiveKit Cloud credentials from backend `.env`:
+
+```env
+LIVEKIT_CLOUD_API_KEY=<cloud-api-key>
+LIVEKIT_CLOUD_API_SECRET=<cloud-api-secret>
+LIVEKIT_CLOUD_WS_URL=wss://your-project.livekit.cloud
+```
+
+Socket events stay on `/socket/calls` with the existing event names.

@@ -11,6 +11,10 @@ RUN npm install
 
 COPY . .
 
+RUN mkdir -p uploads logs && chown -R node:node /app
+
+USER node
+
 EXPOSE 3000
 
-CMD ["npm", "run", "start"]
+CMD ["npm", "run", "demo"]

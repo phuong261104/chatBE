@@ -79,5 +79,10 @@ export const config = {
     apiKey: process.env.LIVEKIT_API_KEY || "",
     apiSecret: process.env.LIVEKIT_API_SECRET || "",
     wsUrl: process.env.LIVEKIT_WS_URL || "ws://localhost:7880",
+    cloud: {
+      apiKey: process.env.LIVEKIT_CLOUD_API_KEY || "",
+      apiSecret: process.env.LIVEKIT_CLOUD_API_SECRET || "",
+      wsUrl: process.env.LIVEKIT_CLOUD_WS_URL || "",
+    },
   },
 };

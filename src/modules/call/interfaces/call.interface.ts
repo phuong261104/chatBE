@@ -12,12 +12,18 @@ export enum CallStatus {
   MISSED = 'missed',
 }
 
+export enum LivekitProvider {
+  SELF_HOSTED = 'self-hosted',
+  CLOUD = 'cloud',
+}
+
 export interface CallSession {
   callId: string;
   callerId: string;
   calleeIds: string[];
   type: CallType;
   status: CallStatus;
+  livekitProvider: LivekitProvider;
   conversationId: string;
   roomName: string;
   createdAt: number;

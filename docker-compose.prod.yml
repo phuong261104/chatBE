@@ -1,0 +1,11 @@
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-chatbe-backend:prod}
+    container_name: ${BACKEND_CONTAINER_NAME:-chatbe-backend-prod}
+    env_file:
+      - ${BACKEND_ENV_FILE:-.env.production}
+    restart: always
+
+  redis:
+    container_name: ${REDIS_CONTAINER_NAME:-chatbe-redis-prod}
+    restart: always

@@ -2,159 +2,90 @@
 
 Backend chat application sử dụng Node.js, TypeScript, DynamoDB, Redis và Socket.IO.
 
-## Yêu Cầu Hệ Thống
+## Yêu Cầu
 
-- **Node.js**: v22.x trở lên
-- **Docker** & **Docker Compose** (để chạy với container)
-- **DynamoDB Local**: qua Docker
-- **Redis**: v7+
+- Node.js 22+
+- Docker + Docker Compose
+- AWS DynamoDB credentials trong env
 
-## Cài Đặt
+> Local và production đều dùng AWS DynamoDB. Redis chạy cùng Docker stack với backend trên cùng server, không dùng Redis cloud.
 
-### 1. Clone repository
-
-```bash
-git clone <repo-url>
-cd chatBE
-```
-
-### 2. Cài đặt dependencies
+## Chạy Trên Host
 
 ```bash
 npm install
-```
-
-### 3. Tạo file cấu hình môi trường
-
-Tạo file `.env` trong thư mục gốc với nội dung sau:
-
-```env
-PORT=3000
-NODE_ENV=development
-
-# Redis
-REDIS_URL=redis://localhost:6379
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# DynamoDB (Local)
-DYNAMODB_REGION=localhost
-DYNAMODB_ENDPOINT=http://localhost:8000
-DYNAMODB_TABLE_PREFIX=chatbe_
-
-# JWT
-ACCESS_TOKEN_SECRET=your-secret-key-here
-REFRESH_TOKEN_SECRET=your-refresh-secret-key-here
-
-# Upload
-UPLOAD_BASE_URL=http://localhost:3000/uploads
-MAX_FILE_SIZE=10485760
-```
-
-## Cách Chạy
-
-### Bước 1: Khởi động Database và Cache bằng Docker
-
-```bash
-docker-compose up -d
-```
-
-Lệnh này sẽ khởi động:
-- **DynamoDB Local** trên port `8000`
-- **Redis** trên port `6379`
-
-### Bước 2: Chạy ứng dụng trên máy host
-
-```bash
+cp .env.example .env
 npm run start
 ```
 
-Server sẽ chạy trên `http://localhost:3000`.
+Server chạy ở `http://localhost:3000`.
 
-### Xem logs Docker (tùy chọn)
-
-```bash
-docker-compose logs -f
-```
-
-### Dừng services
+## Docker Local
 
 ```bash
-docker-compose down
+cp .env.local.example .env.local
+# điền AWS DynamoDB, JWT, LiveKit secrets vào .env.local
+npm run docker:local
 ```
+
+Lệnh này build cùng Docker image dùng cho production và chạy `backend` + `redis` trong cùng Docker network.
+
+Redis local được publish ra host qua `REDIS_HOST_PORT`, mặc định `6379`, để khi cần chạy backend bằng `npm start` trên host vẫn có thể dùng Redis container:
+
+```bash
+REDIS_URL=redis://localhost:6379
+```
+
+## Docker Production
+
+```bash
+cp .env.production.example .env.production
+# điền production AWS/JWT/LiveKit secrets trên server
+npm run docker:prod
+```
+
+Production nên đặt reverse proxy/TLS phía trước container và map `BACKEND_PORT` theo hạ tầng triển khai.
+
+## Docker Commands
+
+```bash
+npm run docker:local   # docker compose local
+npm run docker:prod    # docker compose production
+npm run docker:logs    # xem logs backend
+npm run docker:down    # dừng stack
+```
+
+## Env Chính
+
+- `DYNAMODB_REGION`, `DYNAMODB_ENDPOINT`, `DYNAMODB_TABLE_PREFIX`
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- `REDIS_URL`
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
+- `APP_URL`, `FRONTEND_URL`
+- `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_WS_URL`
+- `LIVEKIT_CLOUD_API_KEY`, `LIVEKIT_CLOUD_API_SECRET`, `LIVEKIT_CLOUD_WS_URL`
+
+Để dùng AWS DynamoDB thật, để `DYNAMODB_ENDPOINT=` rỗng.
+Trong Docker local/prod, `REDIS_URL=redis://redis:6379` trỏ tới Redis service chạy cùng stack. Riêng local publish Redis ra host qua `REDIS_HOST_PORT` để hỗ trợ chạy backend bằng `npm start`; production không publish Redis port.
 
 ## API Documentation
 
-Swagger UI available tại: `http://localhost:3000/api-docs`
-
-## Các Module Chính
-
-| Module | Mô tả |
-|--------|--------|
-| `user` | Quản lý người dùng, authentication |
-| `chat` | Chat 1-1 và group chat |
-| `media` | Upload và quản lý media files |
-| `blocks` | Block người dùng |
-| `friend-requests` | Gửi/nhận lời mời kết bạn |
-| `friendships` | Quản lý bạn bè |
-| `my-cloud` | Cloud storage cho user |
-| `posts` | Bài đăng |
-| `stories` | Stories |
-| `search` | Tìm kiếm |
-
-## Real-time Events
-
-Socket.IO events được hỗ trợ cho:
-- Chat messages
-- Typing indicators
-- Online/offline status
-- Friend requests
-- Message reactions
+Swagger UI: `http://localhost:3000/api-docs`
 
 ## Scripts
 
 ```bash
-npm run start     # Chạy với nodemon (development)
-npm run demo      # Chạy một lần với ts-node
-npm run dynamodb:init  # Khởi tạo bảng DynamoDB
-npm test          # Chạy tests
-```
-
-## Cấu Trúc Project
-
-```
-chatBE/
-├── src/
-│   ├── modules/           # Business modules
-│   │   ├── blocks/
-│   │   ├── chat/
-│   │   ├── friend-requests/
-│   │   ├── friendships/
-│   │   ├── media/
-│   │   ├── my-cloud/
-│   │   ├── posts/
-│   │   ├── search/
-│   │   ├── stories/
-│   │   └── user/
-│   ├── share/              # Shared components
-│   │   ├── component/
-│   │   ├── middleware/
-│   │   ├── model/
-│   │   ├── repository/
-│   │   └── utils/
-│   └── index.ts            # Entry point
-├── docs/                   # API documentation
-├── docker-compose.yml
-├── Dockerfile
-├── package.json
-└── tsconfig.json
+npm run start          # nodemon cho development trên host
+npm run demo           # chạy một lần bằng ts-node
+npm run test           # chạy tests
+npm run dynamodb:init  # khởi tạo bảng DynamoDB trên endpoint trong env
 ```
 
 ## Ports
 
 | Service | Port |
 |---------|------|
-| API | 3000 |
-| DynamoDB Local (host) | 8000 |
-| Redis | 6379 |
-| Swagger UI | 3000/api-docs |
+| Backend API | `3000` trong container |
+| Host mapping | `BACKEND_PORT`, mặc định `3000` |
+| Redis local | `REDIS_HOST_PORT`, mặc định `6379` |
+| Redis production | `6379` trong Docker network, không expose ra host |

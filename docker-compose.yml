@@ -1,45 +1,55 @@
-# ============================================================================
-# Đặc tả: Chạy Docker để khởi động Database và Cache
-# ============================================================================
-# Boss muốn chạy npm run start trên máy host (không chạy trong container)
-#
-# Cách sử dụng:
-#   docker-compose up -d        # Khởi động Redis và DynamoDB Local
-#   npm run start              # Chạy app trên máy host (port 3000)
-#
-# Kết nối từ host:
-#   - DynamoDB Local: localhost:8000
-#   - Redis: localhost:6379
-# ============================================================================
-
 services:
-  redis:
-    image: redis:7
-    container_name: redis-chat
-    restart: always
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-chatbe-backend:local}
+    container_name: ${BACKEND_CONTAINER_NAME:-chatbe-backend}
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    depends_on:
+      redis:
+        condition: service_healthy
     ports:
-      - "6379:6379"
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_logs:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"require('http').get('http://127.0.0.1:3000/v1/users/profile', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - chatbe-network
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    container_name: ${REDIS_CONTAINER_NAME:-chatbe-redis}
+    restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     networks:
-      - chat-network
-
-  # dynamodb-local:
-  #   image: amazon/dynamodb-local:latest
-  #   container_name: dynamodb-local-chat
-  #   restart: always
-  #   ports:
-  #     - "8000:8000"
-  #   command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
-  #   volumes:
-  #     - ./docker/dynamodb:/home/dynamodblocal/data
-  #   networks:
-  #     - chat-network
+      - chatbe-network
 
 volumes:
+  backend_uploads:
+  backend_logs:
   redis_data:
 
 networks:
-  chat-network:
+  chatbe-network:
     driver: bridge

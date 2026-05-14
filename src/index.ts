@@ -62,11 +62,13 @@ config();
   app.use(morgan("dev"));
 
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
-  app.use(cors({
-    origin: '*',
-    methods: 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    allowedHeaders: '*'
-  }));
+  app.use(
+    cors({
+      origin: "*",
+      methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+      allowedHeaders: "*",
+    }),
+  );
   // app.use((req, res, next) => {
   //   res.header("Access-Control-Allow-Origin", "*");
   //   res.header(
@@ -155,7 +157,11 @@ config();
   app.use("/v1", postRouter);
   app.use("/v1", storyRouter);
 
-  const { router: callRouter } = setupCallHexagon(io, sctx, messagingSocketService);
+  const { router: callRouter } = setupCallHexagon(
+    io,
+    sctx,
+    messagingSocketService,
+  );
   app.use("/v1", callRouter);
 
   const { router: aiRouter } = setupAiHexagon({

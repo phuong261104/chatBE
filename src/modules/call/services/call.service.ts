@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { CallSession, CallStatus, CallType } from '../interfaces/call.interface';
+import { CallSession, CallStatus, CallType, LivekitProvider } from '../interfaces/call.interface';
 
 class CallService {
   private activeCalls: Map<string, CallSession> = new Map();
@@ -7,7 +7,13 @@ class CallService {
 
   private readonly STALE_CALL_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-  createCall(callerId: string, conversationId: string, type: CallType, calleeIds: string[]): CallSession {
+  createCall(
+    callerId: string,
+    conversationId: string,
+    type: CallType,
+    calleeIds: string[],
+    livekitProvider: LivekitProvider = LivekitProvider.SELF_HOSTED,
+  ): CallSession {
     const existingCallId = this.conversationCalls.get(conversationId);
     if (existingCallId) {
       const existing = this.activeCalls.get(existingCallId);
@@ -31,6 +37,7 @@ class CallService {
       calleeIds,
       type,
       status: CallStatus.RINGING,
+      livekitProvider,
       conversationId,
       roomName,
       createdAt: Date.now(),

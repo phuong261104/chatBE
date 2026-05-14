@@ -12,10 +12,13 @@ import { ForwardFromCloudCommand } from "../../model/dto/message-dto";
 import { DynamoCloudItemRepository } from "@modules/my-cloud/infras/repository/dynamodb";
 import { SendMessageHandler } from "./send-message";
 
-export class ForwardFromCloudHandler implements ICommandHandler<ForwardFromCloudCommand, any> {
+export class ForwardFromCloudHandler implements ICommandHandler<
+  ForwardFromCloudCommand,
+  any
+> {
   constructor(
     private readonly messageCommandRepo: IMessageCommandRepository,
-    private readonly sendMessageHandler: SendMessageHandler
+    private readonly sendMessageHandler: SendMessageHandler,
   ) {}
 
   async execute(command: ForwardFromCloudCommand): Promise<any> {
@@ -31,13 +34,15 @@ export class ForwardFromCloudHandler implements ICommandHandler<ForwardFromCloud
     }
 
     const mediaType = this.getMediaType(cloudItem.type as any);
-    const media: MessageMedia[] = [{
-      url: cloudItem.fileUrl!,
-      mediaType,
-      name: cloudItem.fileName || cloudItem.title,
-      size: cloudItem.fileSize,
-      thumbnailUrl: cloudItem.thumbnailUrl,
-    }];
+    const media: MessageMedia[] = [
+      {
+        url: cloudItem.fileUrl!,
+        mediaType,
+        name: cloudItem.fileName || cloudItem.title,
+        size: cloudItem.fileSize,
+        thumbnailUrl: cloudItem.thumbnailUrl,
+      },
+    ];
 
     return this.sendMessageHandler.execute({
       conversationId: command.conversationId,
