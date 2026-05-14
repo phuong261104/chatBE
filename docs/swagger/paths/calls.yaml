@@ -1,0 +1,520 @@
+components:
+  schemas:
+    CallType:
+      type: string
+      enum: [audio, video]
+      description: Loai cuoc goi
+      example: "video"
+    CallStatus:
+      type: string
+      enum: [initiated, ringing, answered, rejected, missed, ended, cancelled]
+      description: Trang thai cuoc goi
+    CallResponse:
+      type: object
+      description: Thong tin cuoc goi
+      properties:
+        callId:
+          type: string
+          format: uuid
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+        conversationId:
+          type: string
+          format: uuid
+        initiatorId:
+          type: string
+          format: uuid
+        calleeIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        type:
+          $ref: "#/components/schemas/CallType"
+        status:
+          $ref: "#/components/schemas/CallStatus"
+        apiVersion:
+          type: string
+          enum: [v1, v2]
+          example: "v2"
+        livekitProvider:
+          type: string
+          enum: [cloud]
+          example: "cloud"
+        livekitRoomName:
+          type: string
+          example: "call-room-0192a3bc"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CallTokenResponse:
+      type: object
+      description: Token de tham gia cuoc goi LiveKit
+      properties:
+        token:
+          type: string
+        roomName:
+          type: string
+        callId:
+          type: string
+          format: uuid
+paths:
+  /calls/v2:
+    post:
+      summary: Create a cloud call (LiveKit v2)
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversationId
+                - type
+              properties:
+                conversationId:
+                  type: string
+                  format: uuid
+                  example: "0192a3bc-def0-7abc-8901-23456789abcd"
+                type:
+                  $ref: "#/components/schemas/CallType"
+                  example: "video"
+                calleeIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Danh sach nguoi duoc goi them
+                  example: []
+            example:
+              conversationId: "0192a3bc-def0-7abc-8901-23456789abcd"
+              type: "video"
+              calleeIds: []
+      responses:
+        "201":
+          description: Call created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CallResponse"
+              example:
+                data:
+                  callId: "0192a3bc-def0-7abc-8901-23456789abcd"
+                  conversationId: "0192a3bc-def0-7abc-8901-23456789abce"
+                  initiatorId: "0192a3bc-def0-7abc-8901-23456789abcf"
+                  calleeIds: []
+                  type: "video"
+                  status: "initiated"
+                  apiVersion: "v2"
+                  livekitProvider: "cloud"
+                  livekitRoomName: "call-room-0192a3bc"
+                  createdAt: "2024-01-15T10:00:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this conversation
+        "404":
+          description: Conversation not found
+        "409":
+          description: Call already in progress
+  /calls/v2/{callId}/answer:
+    post:
+      summary: Answer an incoming cloud call
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+      responses:
+        "200":
+          description: Call answered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CallResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a valid callee
+        "404":
+          description: Call not found
+  /calls/v2/{callId}/reject:
+    post:
+      summary: Reject an incoming cloud call
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+      responses:
+        "200":
+          description: Call rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      callId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        example: "rejected"
+                      rejectedBy:
+                        type: string
+                        format: uuid
+              example:
+                data:
+                  callId: "0192a3bc-def0-7abc-8901-23456789abcd"
+                  status: "rejected"
+                  rejectedBy: "0192a3bc-def0-7abc-8901-23456789abce"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+  /calls/v2/{callId}/missed:
+    post:
+      summary: Mark a cloud call as missed
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+      responses:
+        "200":
+          description: Call marked as missed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      callId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        example: "missed"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+  /calls/v2/{callId}/token:
+    get:
+      summary: Get LiveKit token for a cloud call
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+      responses:
+        "200":
+          description: Token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CallTokenResponse"
+              example:
+                data:
+                  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  roomName: "call-room-0192a3bc"
+                  callId: "0192a3bc-def0-7abc-8901-23456789abcd"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a participant
+        "404":
+          description: Call not found
+        "410":
+          description: Call has ended
+  /calls/v2/{callId}:
+    delete:
+      summary: End a cloud call
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+      responses:
+        "200":
+          description: Call ended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      callId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        example: "ended"
+                      duration:
+                        type: integer
+                        description: Thoi luong cuoc goi (giay)
+                        example: 120
+        "400":
+          description: Call already ended
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a participant
+        "404":
+          description: Call not found
+  /calls:
+    post:
+      summary: Create a call (legacy v1)
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversationId
+                - type
+              properties:
+                conversationId:
+                  type: string
+                  format: uuid
+                type:
+                  $ref: "#/components/schemas/CallType"
+                calleeIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+            example:
+              conversationId: "0192a3bc-def0-7abc-8901-23456789abcd"
+              type: "video"
+              calleeIds: []
+      responses:
+        "201":
+          description: Call created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CallResponse"
+        "401":
+          description: Unauthorized
+        "409":
+          description: Call already in progress
+  /calls/{callId}/answer:
+    post:
+      summary: Answer a call (legacy v1)
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        "200":
+          description: Call answered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CallResponse"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+  /calls/{callId}/reject:
+    post:
+      summary: Reject a call (legacy v1)
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        "200":
+          description: Call rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      callId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        example: "rejected"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+  /calls/{callId}/missed:
+    post:
+      summary: Mark a call as missed (legacy v1)
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        "200":
+          description: Call marked as missed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      callId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        example: "missed"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+  /calls/{callId}/token:
+    get:
+      summary: Get token for a call (legacy v1)
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        "200":
+          description: Token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CallTokenResponse"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+  /calls/{callId}:
+    delete:
+      summary: End a call (legacy v1)
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        "200":
+          description: Call ended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      callId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        example: "ended"
+                      duration:
+                        type: integer
+                        example: 120
+        "400":
+          description: Call already ended
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found

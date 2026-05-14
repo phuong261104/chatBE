@@ -149,7 +149,7 @@ paths:
   /messages/{messageId}/pin:
     $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1pin"
   /messages/{messageId}/unpin:
-    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1pin"
+    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1pin/delete"
   /messages/{messageId}/quote:
     $ref: "./paths/chat-messages-interactions.yaml#/paths/~1messages~1{messageId}~1quote"
 
@@ -228,6 +228,10 @@ paths:
     $ref: "./paths/friendships.yaml#/paths/~1users~1{id}~1mutual-friends"
   /users/{id}/suggestions:
     $ref: "./paths/friendships.yaml#/paths/~1users~1{id}~1suggestions"
+  /friendships/count:
+    $ref: "./paths/friendships.yaml#/paths/~1friendships~1count"
+  /friendships/search:
+    $ref: "./paths/friendships.yaml#/paths/~1friendships~1search"
 
   # ==================== FRIEND REQUESTS ====================
   /friend-requests/{receiverId}:
@@ -240,6 +244,8 @@ paths:
     $ref: "./paths/friend-requests.yaml#/paths/~1friend-requests~1sent"
   /friend-requests/check/{targetUserId}:
     $ref: "./paths/friend-requests.yaml#/paths/~1friend-requests~1check~1{targetUserId}"
+  /friend-requests/count:
+    $ref: "./paths/friend-requests.yaml#/paths/~1friend-requests~1count"
 
   # ==================== BLOCKS ====================
   /blocks/{blockedUserId}:
@@ -312,6 +318,32 @@ paths:
     $ref: "./paths/stories.yaml#/paths/~1stories~1{id}~1views"
   /stories/{id}/reply:
     $ref: "./paths/stories.yaml#/paths/~1stories~1{id}~1reply"
+
+  # ==================== CALLS ====================
+  /calls:
+    $ref: "./paths/calls.yaml#/paths/~1calls"
+  /calls/{callId}:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1{callId}"
+  /calls/{callId}/answer:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1{callId}~1answer"
+  /calls/{callId}/reject:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1{callId}~1reject"
+  /calls/{callId}/missed:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1{callId}~1missed"
+  /calls/{callId}/token:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1{callId}~1token"
+  /calls/v2:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1v2"
+  /calls/v2/{callId}:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1v2~1{callId}"
+  /calls/v2/{callId}/answer:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1v2~1{callId}~1answer"
+  /calls/v2/{callId}/reject:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1v2~1{callId}~1reject"
+  /calls/v2/{callId}/missed:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1v2~1{callId}~1missed"
+  /calls/v2/{callId}/token:
+    $ref: "./paths/calls.yaml#/paths/~1calls~1v2~1{callId}~1token"
 
   # ==================== AI ====================
   /ai/summarize:
