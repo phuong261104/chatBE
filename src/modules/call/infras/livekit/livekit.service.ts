@@ -1,6 +1,6 @@
 import { AccessToken } from 'livekit-server-sdk';
 import { config } from '@share/component/config';
-import { LivekitProvider } from '../interfaces/call.interface';
+import { LivekitProvider } from '../../interface';
 
 class LivekitService {
   async generateToken(

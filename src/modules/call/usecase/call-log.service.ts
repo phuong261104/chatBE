@@ -10,7 +10,7 @@ import {
   MessageType,
 } from '@modules/chat';
 import { SocketEvent } from '@modules/chat/constants/socket-events';
-import { CallSession, CallType } from '../interfaces/call.interface';
+import { CallSession, CallType } from '../interface';
 
 export type TerminalCallLogStatus =
   | 'completed'

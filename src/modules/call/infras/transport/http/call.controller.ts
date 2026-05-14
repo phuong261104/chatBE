@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
-import { callService } from '../services/call.service';
-import { livekitService } from '../services/livekit.service';
-import { CallSocketService } from '../infras/transport/call-socket.service';
-import { CreateCallDtoSchema } from '../dto/create-call.dto';
+import { callService, CallLogService, TerminalCallLogStatus } from '../../../usecase';
+import { livekitService } from '../../livekit';
+import { CallSocketService } from '../call-socket.service';
+import { CreateCallDtoSchema } from '../../../model';
 import { DynamoConversationMemberRepository } from '@modules/chat';
-import { CallSession, CallStatus, LivekitProvider } from '../interfaces/call.interface';
-import { CallLogService, TerminalCallLogStatus } from '../services/call-log.service';
+import { CallSession, CallStatus, LivekitProvider } from '../../../interface';
 
 export class CallController {
   private socketService: CallSocketService | null = null;

@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { CallSession, CallStatus, CallType, LivekitProvider } from '../interfaces/call.interface';
+import { CallSession, CallStatus, CallType, LivekitProvider } from '../interface';
 
 class CallService {
   private activeCalls: Map<string, CallSession> = new Map();

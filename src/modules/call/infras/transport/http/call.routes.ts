@@ -1,5 +1,5 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { CallController } from '../controller/call.controller';
+import { Router } from 'express';
+import { CallController } from './call.controller';
 
 let _controller: CallController;
 

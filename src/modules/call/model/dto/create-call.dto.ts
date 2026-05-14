@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CallType } from '../interfaces/call.interface';
+import { CallType } from '../../interface';
 
 export const CreateCallDtoSchema = z.object({
   conversationId: z.string().min(1),
