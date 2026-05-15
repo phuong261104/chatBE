@@ -127,6 +127,7 @@ config();
 
   const {
     router: userRouter,
+    v2Router: userV2Router,
     profileAPI,
     updateProfileAPI,
   } = setupUserHexagon(sctx, io);
@@ -135,6 +136,7 @@ config();
   app.get("/v1/users/profile", sctx.mdlFactory.auth, profileAPI);
   app.patch("/v1/users/profile", sctx.mdlFactory.auth, updateProfileAPI);
   app.use("/v1", userRouter);
+  app.use("/v2", userV2Router);
 
   const mediaRouter = setupMediaHexagon(sctx);
   const {
@@ -153,6 +155,9 @@ config();
   app.use("/v1", blockRouter);
   app.use("/v1", friendRequestRouter);
   app.use("/v1", friendshipRouter);
+  app.use("/v2", blockRouter);
+  app.use("/v2", friendRequestRouter);
+  app.use("/v2", friendshipRouter);
 
   const myCloudRouter = setupMyCloudHexagon(sctx, io);
   const searchRouter = setupSearchHexagon(sctx);

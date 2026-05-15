@@ -53,6 +53,8 @@ export function getMessagePreview(message: Message): string {
       return getCallPreview(message);
     case MessageType.SYSTEM:
       return "System message";
+    case MessageType.PROFILE_CARD:
+      return "Profile card";
     case MessageType.LINK:
       return "Link";
     default:

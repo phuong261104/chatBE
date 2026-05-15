@@ -66,7 +66,7 @@ export class PostHTTPService {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
 
     const postId = String(req.params.id);
-    const result = await this.useCase.getComments(postId, { page, limit });
+    const result = await this.useCase.getComments(userId, postId, { page, limit });
     res.status(200).json({
       data: {
         comments: result.comments,

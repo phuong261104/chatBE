@@ -24,6 +24,7 @@ export const MessageUpdateDTOSchema = z.object({
   media: z.array(MessageMediaSchema).optional(),
   links: z.array(z.string()).optional(),
   call: CallMessageMetadataSchema.optional(),
+  profileCardUserId: z.string().optional(),
   messageStatus: z.nativeEnum(MessageStatus).optional(),
   deletedBy: z.string().optional(),
   revokedAt: z.date().optional(),

@@ -104,6 +104,15 @@ export class UserUseCase implements IUserUseCase {
     if (dto.avatarUrl !== undefined) {
       updateData.avatarUrl = dto.avatarUrl;
     }
+    if (dto.coverUrl !== undefined) {
+      updateData.coverUrl = dto.coverUrl;
+    }
+    if (dto.birthday !== undefined) {
+      updateData.birthday = dto.birthday;
+    }
+    if (dto.gender !== undefined) {
+      updateData.gender = dto.gender;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return true;

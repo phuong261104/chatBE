@@ -6,8 +6,6 @@ interface AuthenticatedSocket extends Socket {
 }
 
 export class UserSocketService {
-  private onlineUsers: Set<string> = new Set();
-
   constructor(
     private readonly io: SocketIOServer,
     private readonly presenceUseCase: IPresenceUseCase,
@@ -23,28 +21,16 @@ export class UserSocketService {
         return;
       }
 
-      this.onlineUsers.add(userId);
-      await this.presenceUseCase.markUserOnline(userId);
-
-      this.io.emit("user:online", { userId });
+      await this.presenceUseCase.touchSocket(userId, `default:${socket.id}`);
 
       socket.on("heartbeat", async () => {
-        if (!this.onlineUsers.has(userId)) {
-          this.onlineUsers.add(userId);
-          this.io.emit("user:online", { userId });
-        }
-        await this.presenceUseCase.markUserOnline(userId);
-      });
-
-      socket.on("disconnect", async () => {
-        this.onlineUsers.delete(userId);
-        await this.presenceUseCase.markUserOffline(userId);
-        this.io.emit("user:offline", { userId });
+        await this.presenceUseCase.touchSocket(userId, `default:${socket.id}`);
       });
     });
   }
 
-  isUserOnline(userId: string): boolean {
-    return this.onlineUsers.has(userId);
+  async isUserOnline(userId: string): Promise<boolean> {
+    const presence = await this.presenceUseCase.getUserPresence(userId);
+    return presence.isOnline;
   }
 }

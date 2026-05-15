@@ -54,3 +54,4 @@ tests/*
 !tests/
 !tests/call-v2.service.test.ts
 !tests/chat-v2-behavior.test.ts
+!tests/user-v2-privacy-presence.test.ts

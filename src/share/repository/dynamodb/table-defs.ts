@@ -58,6 +58,7 @@ export async function deleteTableIfExists(def: TableDefinition): Promise<void> {
 
 export const TABLE_NAMES = {
   USERS: "users",
+  USER_AVATAR_HISTORY: "user_avatar_history",
   CONVERSATIONS: "conversations",
   CONVERSATION_MEMBERS: "conversation_members",
   MESSAGES: "messages",
@@ -131,6 +132,27 @@ export const USERS_TABLE: TableDefinition = {
     {
       IndexName: "username-index",
       KeySchema: [{ AttributeName: "username", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+  BillingMode: "PAY_PER_REQUEST",
+};
+
+export const USER_AVATAR_HISTORY_TABLE: TableDefinition = {
+  TableName: TABLE_NAMES.USER_AVATAR_HISTORY,
+  KeySchema: [
+    { AttributeName: "userId", KeyType: "HASH" },
+    { AttributeName: "createdAt", KeyType: "RANGE" },
+  ],
+  AttributeDefinitions: [
+    { AttributeName: "userId", AttributeType: "S" },
+    { AttributeName: "createdAt", AttributeType: "S" },
+    { AttributeName: "id", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "id-index",
+      KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
       Projection: { ProjectionType: "ALL" },
     },
   ],
@@ -518,6 +540,7 @@ export const COLLECTION_ITEMS_TABLE: TableDefinition = {
 
 export const ALL_TABLES: TableDefinition[] = [
   USERS_TABLE,
+  USER_AVATAR_HISTORY_TABLE,
   CONVERSATIONS_TABLE,
   CONVERSATION_MEMBERS_TABLE,
   MESSAGES_TABLE,

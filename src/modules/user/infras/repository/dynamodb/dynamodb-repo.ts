@@ -18,7 +18,7 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
 
   protected toEntity(doc: Record<string, any>): User {
     const { pk, sk, GSI1PK, GSI1SK, ...rest } = doc;
-    const dates = ["createdAt", "updatedAt", "lastLoginAt", "lastSeen", "emailVerifiedAt"];
+    const dates = ["createdAt", "updatedAt", "lastLoginAt", "lastSeen", "emailVerifiedAt", "birthday"];
     for (const field of dates) {
       if (rest[field] && typeof rest[field] === "string") {
         rest[field] = new Date(rest[field]);
@@ -229,6 +229,9 @@ class DynamoUserCommandRepository extends BaseCommandRepositoryDynamoDB<User, Us
       emailVerifiedAt: d.emailVerifiedAt ? d.emailVerifiedAt.toISOString() : null,
       displayName: d.displayName,
       avatarUrl: d.avatarUrl,
+      coverUrl: d.coverUrl,
+      birthday: d.birthday ? (d.birthday instanceof Date ? d.birthday.toISOString() : d.birthday) : null,
+      gender: d.gender,
       bio: d.bio,
       privacy: d.privacy,
       settings: d.settings,
@@ -251,6 +254,11 @@ class DynamoUserCommandRepository extends BaseCommandRepositoryDynamoDB<User, Us
     if (d.status !== undefined) updateData.status = d.status;
     if (d.displayName !== undefined) updateData.displayName = d.displayName;
     if (d.avatarUrl !== undefined) updateData.avatarUrl = d.avatarUrl;
+    if (d.coverUrl !== undefined) updateData.coverUrl = d.coverUrl;
+    if (d.birthday !== undefined) {
+      updateData.birthday = d.birthday ? (d.birthday instanceof Date ? d.birthday.toISOString() : String(d.birthday)) : null;
+    }
+    if (d.gender !== undefined) updateData.gender = d.gender;
     if (d.bio !== undefined) updateData.bio = d.bio;
     if (d.verified !== undefined) updateData.verified = d.verified;
     if (d.privacy !== undefined) updateData.privacy = d.privacy;

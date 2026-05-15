@@ -218,6 +218,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
       media: data.media,
       links: data.links || [],
       call: data.call ? this.toCallDocument(data.call) : undefined,
+      profileCardUserId: (data as any).profileCardUserId,
       messageStatus: data.messageStatus || MessageStatus.ACTIVE,
       deletedBy: data.deletedBy,
       revokedAt: data.revokedAt ? data.revokedAt.toISOString() : null,
@@ -275,6 +276,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     if (data.media !== undefined) updateData.media = data.media;
     if (data.links !== undefined) updateData.links = data.links;
     if (data.call !== undefined) updateData.call = this.toCallDocument(data.call);
+    if ((data as any).profileCardUserId !== undefined) updateData.profileCardUserId = (data as any).profileCardUserId;
     if (data.messageStatus !== undefined) updateData.messageStatus = data.messageStatus;
     if (data.deletedBy !== undefined) updateData.deletedBy = data.deletedBy;
     if (data.revokedAt !== undefined && data.revokedAt !== null) updateData.revokedAt = (data.revokedAt as Date).toISOString();

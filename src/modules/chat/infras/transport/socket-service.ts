@@ -2,6 +2,7 @@ import { IMessagingUseCase } from "../../interface";
 import { Server as SocketIOServer, Namespace, Socket } from "socket.io";
 import { MediaAttachment, MessageType } from "../../model";
 import { SocketEvent } from "../../constants/socket-events";
+import { IPresenceUseCase } from "@modules/user/interface";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -25,6 +26,7 @@ export class MessagingSocketService {
   constructor(
     io: SocketIOServer,
     private readonly useCase: IMessagingUseCase,
+    private readonly presenceUseCase?: IPresenceUseCase,
   ) {
     this.namespace = io.of("/messages");
     
@@ -93,11 +95,30 @@ export class MessagingSocketService {
   }
 
   private setupEventHandlers() {
-    this.namespace.on("connection", (socket: AuthenticatedSocket) => {
+    this.namespace.on("connection", async (socket: AuthenticatedSocket) => {
       if (socket.userId) {
         socket.join(`user:${socket.userId}`);
         socket.join(`user_room:${socket.userId}`);
+        const state = await this.presenceUseCase?.registerSocket(
+          socket.userId,
+          this.presenceSocketId(socket),
+        );
+        if (state?.becameOnline) {
+          this.namespace.emit("user:online", {
+            userId: socket.userId,
+            socketId: socket.id,
+            timestamp: Date.now(),
+          });
+        }
       }
+
+      socket.on("heartbeat", async () => {
+        await this.touchPresence(socket);
+      });
+
+      socket.on("ping", async () => {
+        await this.touchPresence(socket);
+      });
 
       socket.on(SocketEvent.JOIN_GROUP, async (payload: any, callback) => {
         await this.handleJoinGroup(socket, payload, callback);
@@ -239,8 +260,29 @@ export class MessagingSocketService {
         await this.handleLocationShare(socket, payload, callback);
       });
 
-      socket.on("disconnect", () => {});
+      socket.on("disconnect", async () => {
+        if (!socket.userId) return;
+        const state = await this.presenceUseCase?.unregisterSocket(
+          socket.userId,
+          this.presenceSocketId(socket),
+        );
+        if (state?.becameOffline) {
+          this.namespace.emit("user:offline", {
+            userId: socket.userId,
+            timestamp: Date.now(),
+          });
+        }
+      });
     });
+  }
+
+  private presenceSocketId(socket: AuthenticatedSocket): string {
+    return `messages:${socket.id}`;
+  }
+
+  private async touchPresence(socket: AuthenticatedSocket): Promise<void> {
+    if (!socket.userId) return;
+    await this.presenceUseCase?.touchSocket(socket.userId, this.presenceSocketId(socket));
   }
 
   private async handleJoinGroup(

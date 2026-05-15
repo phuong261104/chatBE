@@ -25,6 +25,7 @@ export class StoryUseCase implements IStoryUseCase {
     private readonly viewRepo: DynamoStoryViewRepository,
     private readonly friendshipRepo: DynamoFriendshipRepository,
     private readonly conversationRepo: DynamoConversationRepository,
+    private readonly blockRepo?: any,
   ) {}
 
   async createStory(userId: string, data: CreateStoryDTO): Promise<Story> {
@@ -50,7 +51,13 @@ export class StoryUseCase implements IStoryUseCase {
 
   async getStories(userId: string): Promise<{ authorId: string; stories: Story[] }[]> {
     const friendIds = await this.friendshipRepo.getFriendIds(userId);
-    const authorIds = [userId, ...friendIds];
+    const visibleFriendIds: string[] = [];
+    for (const friendId of friendIds) {
+      if (!(await this.hasAnyBlock(userId, friendId))) {
+        visibleFriendIds.push(friendId);
+      }
+    }
+    const authorIds = [userId, ...visibleFriendIds];
     const stories = await this.storyRepo.getActiveByAuthorIds(authorIds);
 
     const grouped = new Map<string, Story[]>();
@@ -78,6 +85,7 @@ export class StoryUseCase implements IStoryUseCase {
   async getStoryById(userId: string, storyId: string): Promise<Story> {
     const story = await this.storyRepo.get(storyId);
     if (!story) throw AppError.from(ErrStoryNotFound, 404);
+    await this.assertCanViewStory(userId, story);
 
     if (new Date() > story.expiresAt && story.authorId !== userId) {
       throw AppError.from(ErrStoryNotFound, 404);
@@ -96,6 +104,7 @@ export class StoryUseCase implements IStoryUseCase {
   async viewStory(userId: string, storyId: string): Promise<void> {
     const story = await this.storyRepo.get(storyId);
     if (!story) throw AppError.from(ErrStoryNotFound, 404);
+    await this.assertCanViewStory(userId, story);
 
     const existing = await this.viewRepo.findByStoryAndUser(storyId, userId);
     if (existing) return;
@@ -125,6 +134,7 @@ export class StoryUseCase implements IStoryUseCase {
     replyStoryDTOSchema.parse(data);
     const story = await this.storyRepo.get(storyId);
     if (!story) throw AppError.from(ErrStoryNotFound, 404);
+    await this.assertCanViewStory(userId, story);
 
     const pairKey = [userId, story.authorId].sort().join("_");
     const existing = await this.conversationRepo.findByPairKey(pairKey, ConversationType.PRIVATE);
@@ -134,5 +144,21 @@ export class StoryUseCase implements IStoryUseCase {
     }
 
     return { conversationId: pairKey };
+  }
+
+  private async assertCanViewStory(userId: string, story: Story): Promise<void> {
+    if (story.authorId === userId) return;
+    if (await this.hasAnyBlock(userId, story.authorId)) {
+      throw AppError.from(ErrStoryUnauthorized, 403);
+    }
+  }
+
+  private async hasAnyBlock(userA: string, userB: string): Promise<boolean> {
+    if (!this.blockRepo || userA === userB) return false;
+    const [blockedByA, blockedByB] = await Promise.all([
+      this.blockRepo.findByCond({ blockerId: userA, blockedUserId: userB }),
+      this.blockRepo.findByCond({ blockerId: userB, blockedUserId: userA }),
+    ]);
+    return !!(blockedByA || blockedByB);
   }
 }

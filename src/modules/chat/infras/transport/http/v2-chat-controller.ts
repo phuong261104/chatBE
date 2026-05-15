@@ -10,6 +10,7 @@ import {
   ConversationMemberStatus,
   ConversationType,
   Message,
+  MessageType,
 } from "../../../model";
 import {
   addMembersToGroupDTOSchema,
@@ -20,12 +21,15 @@ import {
 import {
   DynamoConversationMemberRepository,
   DynamoConversationRepository,
+  DynamoMessageRepository,
 } from "../../repository/dynamodb";
 import { MessagingSocketService } from "../socket-service";
 import { SocketEvent } from "../../../constants/socket-events";
 import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
 import { FriendshipStatus } from "@modules/friendships/model/model";
 import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
+import { IPresenceUseCase } from "@modules/user/interface";
+import { RelationshipPrivacyPolicyV2 } from "@modules/user/usecase/relationship-privacy-policy-v2";
 
 const privateMessageSchema = z
   .object({
@@ -52,16 +56,30 @@ const pinSchema = z.object({
   pin: z.string().min(4).max(128),
 });
 
+const profileCardSchema = z.object({
+  userId: z.string().min(1),
+});
+
 export class ChatV2Controller {
+  private readonly privacyPolicy: RelationshipPrivacyPolicyV2;
+
   constructor(
     private readonly useCase: IMessagingUseCase,
     private readonly conversationRepo: DynamoConversationRepository,
     private readonly conversationMemberRepo: DynamoConversationMemberRepository,
+    private readonly messageRepo: DynamoMessageRepository,
     private readonly friendshipRepo: DynamoFriendshipRepository,
     private readonly blockRepo: DynamoBlockRepository,
     private readonly userQueryRepo: IUserQueryRepository,
     private readonly socketService: MessagingSocketService,
-  ) {}
+    private readonly presenceUseCase: IPresenceUseCase,
+  ) {
+    this.privacyPolicy = new RelationshipPrivacyPolicyV2(
+      this.userQueryRepo,
+      this.friendshipRepo,
+      this.blockRepo,
+    );
+  }
 
   getConversationsAPI = async (_req: Request, res: Response) => {
     try {
@@ -103,6 +121,76 @@ export class ChatV2Controller {
     }
   };
 
+  getStrangerConversationsAPI = async (req: Request, res: Response) => {
+    try {
+      const currentUserId = this.getCurrentUserId(res);
+      if (!currentUserId) return res.status(401).json({ error: "Unauthorized" });
+
+      const limit = Math.min(Number(req.query.limit || 50), 100);
+      const members = await this.conversationMemberRepo.list(
+        { userId: currentUserId },
+        { page: 1, limit: 1000 },
+      );
+      const strangers = [];
+
+      for (const member of members) {
+        if (member.leftAt || member.hidden) continue;
+        const conversation = await this.conversationRepo.get(member.conversationId);
+        if (!conversation || conversation.type !== ConversationType.PRIVATE) continue;
+
+        const allMembers = await this.conversationMemberRepo.listByConversationId(conversation.id);
+        const otherMember = allMembers.find((m) => m.userId !== currentUserId && !m.leftAt);
+        if (!otherMember) continue;
+
+        const areFriends = await this.areActiveFriends(currentUserId, otherMember.userId);
+        if (areFriends) continue;
+
+        const otherUser = await this.userQueryRepo.get(otherMember.userId);
+        if (!otherUser) continue;
+
+        strangers.push({
+          conversation,
+          member,
+          otherUser: await this.privacyPolicy.sanitizePublicProfile(currentUserId, otherUser as any),
+          messageRequestStatus:
+            member.status === ConversationMemberStatus.PENDING ||
+            otherMember.status === ConversationMemberStatus.PENDING
+              ? "pending"
+              : member.status === ConversationMemberStatus.REJECTED ||
+                  otherMember.status === ConversationMemberStatus.REJECTED
+                ? "rejected"
+                : "accepted",
+        });
+
+        if (strangers.length >= limit) break;
+      }
+
+      return res.status(200).json({ data: strangers });
+    } catch (err) {
+      return this.sendError(res, err);
+    }
+  };
+
+  getConversationPresenceAPI = async (req: Request, res: Response) => {
+    try {
+      const currentUserId = this.getCurrentUserId(res);
+      if (!currentUserId) return res.status(401).json({ error: "Unauthorized" });
+
+      await this.requireConversationMember(req.params.conversationId, currentUserId);
+      const members = await this.visibleMembers(req.params.conversationId);
+      const data = await Promise.all(
+        members.map(async (member) => {
+          const presence = await this.presenceUseCase.getUserPresence(member.userId);
+          return this.privacyPolicy.applyPresenceVisibility(currentUserId, member.userId, presence);
+        }),
+      );
+
+      return res.status(200).json({ data });
+    } catch (err) {
+      return this.sendError(res, err);
+    }
+  };
+
   sendPrivateMessageAPI = async (req: Request, res: Response) => {
     try {
       const currentUserId = this.getCurrentUserId(res);
@@ -113,6 +201,15 @@ export class ChatV2Controller {
       await this.ensureNotBlocked(currentUserId, data.targetUserId);
 
       const areFriends = await this.areActiveFriends(currentUserId, data.targetUserId);
+      if (!areFriends) {
+        const canSendStrangerMessage = await this.privacyPolicy.canReceiveStrangerMessage(
+          currentUserId,
+          data.targetUserId,
+        );
+        if (!canSendStrangerMessage) {
+          throw this.error("Receiver blocks messages from strangers", 403);
+        }
+      }
       const conversation = areFriends
         ? await this.useCase.getOrCreatePrivateConversation(currentUserId, data.targetUserId)
         : await this.getOrCreateMessageRequestConversation(currentUserId, data.targetUserId);
@@ -390,6 +487,12 @@ export class ChatV2Controller {
         req.params.conversationId,
         currentUserId,
       );
+      if (detail.conversation.type === ConversationType.PRIVATE) {
+        await this.ensureCanSendPrivateConversationMessage(
+          req.params.conversationId,
+          currentUserId,
+        );
+      }
       const messages =
         detail.conversation.type === ConversationType.GROUP
           ? await this.useCase.sendGroupMessage(
@@ -409,6 +512,73 @@ export class ChatV2Controller {
 
       await this.emitMessagesToVisibleMembers(req.params.conversationId, messages);
       return res.status(201).json({ data: messages });
+    } catch (err) {
+      return this.sendError(res, err);
+    }
+  };
+
+  sendProfileCardAPI = async (req: Request, res: Response) => {
+    try {
+      const currentUserId = this.getCurrentUserId(res);
+      if (!currentUserId) return res.status(401).json({ error: "Unauthorized" });
+
+      const data = profileCardSchema.parse(req.body);
+      await this.requireConversationMember(req.params.conversationId, currentUserId);
+      const conversation = await this.conversationRepo.get(req.params.conversationId);
+      if (!conversation) throw this.error("Conversation not found", 404);
+      if (conversation.type === ConversationType.PRIVATE) {
+        await this.ensureCanSendPrivateConversationMessage(
+          req.params.conversationId,
+          currentUserId,
+        );
+      }
+      const profileUser = await this.userQueryRepo.get(data.userId);
+      if (!profileUser) throw this.error("Profile user not found", 404);
+      if (await this.privacyPolicy.hiddenByBlock(currentUserId, data.userId)) {
+        throw this.error("Profile card is hidden by user relationship", 403);
+      }
+
+      const now = new Date();
+      const message: Message = {
+        id: v7(),
+        conversationId: req.params.conversationId,
+        senderId: currentUserId,
+        type: MessageType.PROFILE_CARD,
+        profileCardUserId: data.userId,
+        createdAt: now,
+        pinned: false,
+      } as Message;
+
+      await this.messageRepo.insert(message);
+      await this.conversationRepo.update(req.params.conversationId, {
+        lastMessage: {
+          messageId: message.id,
+          senderId: currentUserId,
+          type: message.type,
+          textPreview: "Profile card",
+          createdAt: now,
+        },
+        lastMessageAt: now,
+      });
+      await this.conversationMemberRepo.incrementUnreadCountForConversation(
+        req.params.conversationId,
+        currentUserId,
+      );
+
+      const members = await this.visibleMembers(req.params.conversationId);
+      await Promise.all(
+        members.map(async (member) => {
+          const enriched = await this.enrichProfileCardForViewer(message, member.userId);
+          this.socketService.emitToUser(member.userId, SocketEvent.RECEIVE_MESSAGE, {
+            message: enriched,
+            conversationId: req.params.conversationId,
+          });
+        }),
+      );
+
+      return res.status(201).json({
+        data: await this.enrichProfileCardForViewer(message, currentUserId),
+      });
     } catch (err) {
       return this.sendError(res, err);
     }
@@ -599,6 +769,41 @@ export class ChatV2Controller {
         !member.leftAt &&
         !member.hidden,
     );
+  }
+
+  private async ensureCanSendPrivateConversationMessage(conversationId: string, senderId: string) {
+    const members = await this.conversationMemberRepo.listByConversationId(conversationId);
+    const targets = members.filter(
+      (member) =>
+        member.userId !== senderId &&
+        member.status === ConversationMemberStatus.ACTIVE &&
+        !member.leftAt,
+    );
+    for (const target of targets) {
+      await this.ensureNotBlocked(senderId, target.userId);
+      const areFriends = await this.areActiveFriends(senderId, target.userId);
+      if (!areFriends) {
+        const allowed = await this.privacyPolicy.canReceiveStrangerMessage(senderId, target.userId);
+        if (!allowed) {
+          throw this.error("Receiver blocks messages from strangers", 403);
+        }
+      }
+    }
+  }
+
+  private async enrichProfileCardForViewer(message: Message, viewerId: string) {
+    const profileCardUserId = (message as any).profileCardUserId;
+    if (message.type !== MessageType.PROFILE_CARD || !profileCardUserId) {
+      return message;
+    }
+
+    const user = await this.userQueryRepo.get(profileCardUserId);
+    return {
+      ...message,
+      profileCard: user
+        ? await this.privacyPolicy.sanitizePublicProfile(viewerId, user as any)
+        : null,
+    };
   }
 
   private async ensureFriendTargets(userId: string, targetUserIds: string[]) {

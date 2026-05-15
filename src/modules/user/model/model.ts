@@ -5,15 +5,33 @@ export enum UserStatus {
   DISABLED = "disabled",
 }
 
+export enum UserInfoVisibility {
+  EVERYONE = "everyone",
+  FRIENDS = "friends",
+  ONLY_ME = "only_me",
+}
+
+export enum UserGender {
+  MALE = "male",
+  FEMALE = "female",
+  OTHER = "other",
+}
+
 export const UserVerifiedSchema = z.object({
   email: z.boolean(),
   phone: z.boolean(),
 });
 
 export const UserPrivacySchema = z.object({
-  searchableByEmail: z.boolean(),
-  searchableByPhone: z.boolean(),
-  searchableByUsername: z.boolean(),
+  searchableByEmail: z.boolean().default(true),
+  searchableByPhone: z.boolean().default(true),
+  searchableByUsername: z.boolean().default(true),
+  birthdayVisibility: z.nativeEnum(UserInfoVisibility).default(UserInfoVisibility.FRIENDS),
+  phoneVisibility: z.nativeEnum(UserInfoVisibility).default(UserInfoVisibility.FRIENDS),
+  avatarVisibility: z.nativeEnum(UserInfoVisibility).default(UserInfoVisibility.EVERYONE),
+  showOnline: z.boolean().default(true),
+  showLastSeen: z.boolean().default(true),
+  blockMessagesFromStrangers: z.boolean().default(false),
 });
 
 export const UserSettingsSchema = z.object({
@@ -42,6 +60,9 @@ export const UserSchema = z.object({
 
   displayName: z.string().optional(),
   avatarUrl: z.string().optional(),
+  coverUrl: z.string().optional(),
+  birthday: z.date().optional(),
+  gender: z.nativeEnum(UserGender).optional(),
   bio: z.string().optional(),
 
   privacy: UserPrivacySchema,

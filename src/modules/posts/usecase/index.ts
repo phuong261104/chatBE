@@ -29,6 +29,7 @@ export class PostUseCase implements IPostUseCase {
     private readonly reactionRepo: DynamoPostReactionRepository,
     private readonly commentRepo: DynamoPostCommentRepository,
     private readonly friendshipRepo: DynamoFriendshipRepository,
+    private readonly blockRepo?: any,
   ) {}
 
   async createPost(userId: string, data: CreatePostDTO): Promise<Post> {
@@ -54,13 +55,20 @@ export class PostUseCase implements IPostUseCase {
 
   async getFeed(userId: string, paging: PagingDTO): Promise<{ posts: Post[]; total: number }> {
     const friendIds = await this.friendshipRepo.getFriendIds(userId);
-    const authorIds = [userId, ...friendIds];
+    const visibleFriendIds: string[] = [];
+    for (const friendId of friendIds) {
+      if (!(await this.hasAnyBlock(userId, friendId))) {
+        visibleFriendIds.push(friendId);
+      }
+    }
+    const authorIds = [userId, ...visibleFriendIds];
     return this.postRepo.getFeedByAuthorIds(authorIds, paging);
   }
 
   async getPostById(userId: string, postId: string): Promise<Post> {
     const post = await this.postRepo.get(postId);
     if (!post) throw AppError.from(ErrPostNotFound, 404);
+    await this.assertCanViewPost(userId, post);
 
     if (post.privacy === PostPrivacy.PRIVATE && post.authorId !== userId) {
       throw AppError.from(ErrPostUnauthorized, 403);
@@ -87,6 +95,7 @@ export class PostUseCase implements IPostUseCase {
     const validated = reactPostDTOSchema.parse(data);
     const post = await this.postRepo.get(postId);
     if (!post) throw AppError.from(ErrPostNotFound, 404);
+    await this.assertCanViewPost(userId, post);
 
     const existing = await this.reactionRepo.findByPostAndUser(postId, userId);
 
@@ -107,9 +116,10 @@ export class PostUseCase implements IPostUseCase {
     return { action: "added" };
   }
 
-  async getComments(postId: string, paging: PagingDTO): Promise<{ comments: PostComment[]; total: number }> {
+  async getComments(userId: string, postId: string, paging: PagingDTO): Promise<{ comments: PostComment[]; total: number }> {
     const post = await this.postRepo.get(postId);
     if (!post) throw AppError.from(ErrPostNotFound, 404);
+    await this.assertCanViewPost(userId, post);
     return this.commentRepo.listByPostId(postId, paging);
   }
 
@@ -117,6 +127,7 @@ export class PostUseCase implements IPostUseCase {
     const validated = createCommentDTOSchema.parse(data);
     const post = await this.postRepo.get(postId);
     if (!post) throw AppError.from(ErrPostNotFound, 404);
+    await this.assertCanViewPost(userId, post);
 
     const now = new Date();
     const comment: PostComment = {
@@ -152,6 +163,7 @@ export class PostUseCase implements IPostUseCase {
     const validated = sharePostDTOSchema.parse(data);
     const originalPost = await this.postRepo.get(postId);
     if (!originalPost) throw AppError.from(ErrPostNotFound, 404);
+    await this.assertCanViewPost(userId, originalPost);
     if (originalPost.sharedPostId) throw AppError.from(ErrCannotShareSharedPost, 400);
 
     const now = new Date();
@@ -172,5 +184,21 @@ export class PostUseCase implements IPostUseCase {
     await this.postRepo.insert(sharedPost);
     await this.postRepo.incrementField(postId, "sharesCount", 1);
     return sharedPost;
+  }
+
+  private async assertCanViewPost(userId: string, post: Post): Promise<void> {
+    if (post.authorId === userId) return;
+    if (await this.hasAnyBlock(userId, post.authorId)) {
+      throw AppError.from(ErrPostUnauthorized, 403);
+    }
+  }
+
+  private async hasAnyBlock(userA: string, userB: string): Promise<boolean> {
+    if (!this.blockRepo || userA === userB) return false;
+    const [blockedByA, blockedByB] = await Promise.all([
+      this.blockRepo.findByCond({ blockerId: userA, blockedUserId: userB }),
+      this.blockRepo.findByCond({ blockerId: userB, blockedUserId: userA }),
+    ]);
+    return !!(blockedByA || blockedByB);
   }
 }

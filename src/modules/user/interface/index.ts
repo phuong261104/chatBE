@@ -18,6 +18,9 @@ export interface IUserUseCase extends IUseCase<
 export interface IPresenceRepository {
   setOnline(userId: string, ttlSeconds: number): Promise<void>;
   setOffline(userId: string): Promise<void>;
+  registerSocket(userId: string, socketId: string, ttlSeconds: number): Promise<number>;
+  touchSocket(userId: string, socketId: string, ttlSeconds: number): Promise<number>;
+  unregisterSocket(userId: string, socketId: string): Promise<number>;
   updateLastSeen(userId: string, timestamp: number): Promise<void>;
   isOnline(userId: string): Promise<boolean>;
   getLastSeen(userId: string): Promise<number | null>;
@@ -31,6 +34,9 @@ export interface UserPresenceState {
 export interface IPresenceUseCase {
   markUserOnline(userId: string): Promise<void>;
   markUserOffline(userId: string): Promise<void>;
+  registerSocket(userId: string, socketId: string): Promise<{ becameOnline: boolean; connectionCount: number }>;
+  touchSocket(userId: string, socketId: string): Promise<{ isOnline: boolean; connectionCount: number }>;
+  unregisterSocket(userId: string, socketId: string): Promise<{ becameOffline: boolean; connectionCount: number }>;
   getUserPresence(userId: string): Promise<UserPresenceState>;
 }
 

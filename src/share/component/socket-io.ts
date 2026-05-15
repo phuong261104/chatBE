@@ -33,6 +33,19 @@ export interface ConnectionRegistry {
   getAllConnections(): Map<string, ConnectionMetadata>;
 }
 
+interface SocketPresencePort {
+  registerSocket(userId: string, socketId: string): Promise<{ becameOnline: boolean; connectionCount: number }>;
+  touchSocket(userId: string, socketId: string): Promise<{ isOnline: boolean; connectionCount: number }>;
+  unregisterSocket(userId: string, socketId: string): Promise<{ becameOffline: boolean; connectionCount: number }>;
+  getUserPresence(userId: string): Promise<{ isOnline: boolean; lastSeen: number | null }>;
+}
+
+let socketPresencePort: SocketPresencePort | null = null;
+
+export function setSocketPresencePort(port: SocketPresencePort): void {
+  socketPresencePort = port;
+}
+
 interface AddSocketMetadata {
   deviceId?: string;
   platform?: string;
@@ -160,6 +173,7 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
   io.on("connection", (socket: any) => {
     const userId = socket.userId;
     const socketId = socket.id;
+    const presenceSocketId = `default:${socketId}`;
 
     connectionRegistry.addSocket(userId, socketId, {
       deviceId: socket.deviceId,
@@ -194,11 +208,17 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
       },
     });
 
-    io.emit("user:online", {
-      userId,
-      socketId,
-      timestamp: Date.now(),
-    });
+    if (socketPresencePort) {
+      void socketPresencePort.registerSocket(userId, presenceSocketId).then((state) => {
+        if (state.becameOnline) {
+          io.emit("user:online", {
+            userId,
+            socketId,
+            timestamp: Date.now(),
+          });
+        }
+      });
+    }
 
     socket.on("ping", () => {
       socket.emit("pong", {
@@ -207,6 +227,7 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
         latency: Date.now() - (socket.pingSentAt || Date.now()),
       });
       connectionRegistry.updateLastActivity(socketId);
+      void socketPresencePort?.touchSocket(userId, presenceSocketId);
     });
 
     socket.on("subscribeConversation", async (payload: { conversationId: string }, callback?: (response: any) => void) => {
@@ -216,6 +237,7 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
         socket.join(`group_room:${payload.conversationId}`);
 
         connectionRegistry.updateLastActivity(socketId);
+        void socketPresencePort?.touchSocket(userId, presenceSocketId);
 
         if (callback) {
           callback({
@@ -239,6 +261,7 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
         socket.leave(`group_room:${payload.conversationId}`);
 
         connectionRegistry.updateLastActivity(socketId);
+        void socketPresencePort?.touchSocket(userId, presenceSocketId);
 
         if (callback) {
           callback({ success: true, room: roomName });
@@ -251,10 +274,14 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
       }
     });
 
-    socket.on("getOnlineStatus", (payload: { userId: string }, callback?: (response: any) => void) => {
+    socket.on("getOnlineStatus", async (payload: { userId: string }, callback?: (response: any) => void) => {
       connectionRegistry.updateLastActivity(socketId);
+      void socketPresencePort?.touchSocket(userId, presenceSocketId);
 
-      const isOnline = connectionRegistry.isUserOnline(payload.userId);
+      const presence = socketPresencePort
+        ? await socketPresencePort.getUserPresence(payload.userId)
+        : null;
+      const isOnline = presence?.isOnline ?? connectionRegistry.isUserOnline(payload.userId);
       const socketIds = connectionRegistry.getSocketsByUserId(payload.userId);
 
       if (callback) {
@@ -267,14 +294,22 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
       }
     });
 
-    socket.on("getBatchOnlineStatus", (payload: { userIds: string[] }, callback?: (response: any) => void) => {
+    socket.on("getBatchOnlineStatus", async (payload: { userIds: string[] }, callback?: (response: any) => void) => {
       connectionRegistry.updateLastActivity(socketId);
+      void socketPresencePort?.touchSocket(userId, presenceSocketId);
 
-      const statuses = payload.userIds.map((userId) => ({
-        userId,
-        online: connectionRegistry.isUserOnline(userId),
-        connectionCount: connectionRegistry.getSocketsByUserId(userId).length,
-      }));
+      const statuses = await Promise.all(
+        payload.userIds.map(async (targetUserId) => {
+          const presence = socketPresencePort
+            ? await socketPresencePort.getUserPresence(targetUserId)
+            : null;
+          return {
+            userId: targetUserId,
+            online: presence?.isOnline ?? connectionRegistry.isUserOnline(targetUserId),
+            connectionCount: connectionRegistry.getSocketsByUserId(targetUserId).length,
+          };
+        }),
+      );
 
       if (callback) {
         callback({ statuses, timestamp: Date.now() });
@@ -283,25 +318,35 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
 
     socket.on("typing:start", (payload: any) => {
       connectionRegistry.updateLastActivity(socketId);
+      void socketPresencePort?.touchSocket(userId, presenceSocketId);
     });
 
     socket.on("typing:stop", (payload: any) => {
       connectionRegistry.updateLastActivity(socketId);
+      void socketPresencePort?.touchSocket(userId, presenceSocketId);
     });
 
     socket.on("messageSeen", (payload: any) => {
       connectionRegistry.updateLastActivity(socketId);
+      void socketPresencePort?.touchSocket(userId, presenceSocketId);
     });
 
     socket.on("messageDelivered", (payload: any) => {
       connectionRegistry.updateLastActivity(socketId);
+      void socketPresencePort?.touchSocket(userId, presenceSocketId);
     });
 
-    socket.on("disconnect", (reason: string) => {
-      const disconnectedUserId = connectionRegistry.removeSocket(socketId);
-      const isUserStillOnline = disconnectedUserId
-        ? connectionRegistry.isUserOnline(disconnectedUserId)
-        : false;
+    socket.on("disconnect", async (reason: string) => {
+      const registryOfflineUserId = connectionRegistry.removeSocket(socketId);
+      const disconnectedUserId = registryOfflineUserId || userId;
+      const presenceState = userId
+        ? await socketPresencePort?.unregisterSocket(userId, presenceSocketId)
+        : null;
+      const isUserStillOnline = presenceState
+        ? !presenceState.becameOffline
+        : userId
+          ? connectionRegistry.isUserOnline(userId)
+          : false;
 
       console.log(
         `[Socket.IO] User ${userId} disconnected (socket: ${socketId}, reason: ${reason})`

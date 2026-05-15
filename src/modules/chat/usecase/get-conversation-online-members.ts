@@ -4,6 +4,7 @@ import {
   IConversationMemberQueryRepository,
 } from "../interface";
 import { ConversationMemberStatus } from "../model/model";
+import { IPresenceUseCase } from "@modules/user/interface";
 
 interface OnlineMemberResult {
   userId: string;
@@ -16,6 +17,7 @@ export class GetConversationOnlineMembersQueryHandler
 {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly presenceUseCase: IPresenceUseCase,
   ) {}
 
   async query(query: { conversationId: string; userId: string }): Promise<OnlineMemberResult[]> {
@@ -35,10 +37,15 @@ export class GetConversationOnlineMembersQueryHandler
       (m) => m.status === ConversationMemberStatus.ACTIVE && !m.leftAt
     );
 
-    return activeMembers.map((m) => ({
-      userId: m.userId,
-      isOnline: false,
-      lastSeen: m.lastReadAt || m.joinedAt,
-    }));
+    return Promise.all(
+      activeMembers.map(async (m) => {
+        const presence = await this.presenceUseCase.getUserPresence(m.userId);
+        return {
+          userId: m.userId,
+          isOnline: presence.isOnline,
+          lastSeen: presence.lastSeen ? new Date(presence.lastSeen) : null,
+        };
+      }),
+    );
   }
 }

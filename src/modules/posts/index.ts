@@ -4,6 +4,7 @@ import { DynamoPostRepository, DynamoPostReactionRepository, DynamoPostCommentRe
 import { PostUseCase } from "./usecase";
 import { PostHTTPService } from "./infras/transport";
 import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
+import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
 
 export * from "./model";
 export * from "./interface";
@@ -13,7 +14,8 @@ export const setupPostHexagon = (sctx: ServiceContext) => {
   const reactionRepo = new DynamoPostReactionRepository();
   const commentRepo = new DynamoPostCommentRepository();
   const friendshipRepo = new DynamoFriendshipRepository();
-  const useCase = new PostUseCase(postRepo, reactionRepo, commentRepo, friendshipRepo);
+  const blockRepo = new DynamoBlockRepository();
+  const useCase = new PostUseCase(postRepo, reactionRepo, commentRepo, friendshipRepo, blockRepo);
   const httpService = new PostHTTPService(useCase);
 
   const router = Router();

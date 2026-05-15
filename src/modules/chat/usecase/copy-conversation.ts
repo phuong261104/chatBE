@@ -110,6 +110,7 @@ export class CopyConversationHandler
         text: msg.text,
         media: msg.media,
         links: msg.links,
+        profileCardUserId: (msg as any).profileCardUserId,
         quotedMessageId: msg.quotedMessageId,
         quotedMessagePreview: msg.quotedMessagePreview,
         createdAt: new Date(),

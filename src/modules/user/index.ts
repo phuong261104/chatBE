@@ -8,6 +8,8 @@ import { UserUseCase } from "./usecase";
 import { PresenceUseCase } from "./usecase/presence-usecase";
 import { RedisPresenceRepository } from "./infras/repository/redis/presence-repo";
 import { DynamoUserRepository } from "./infras/repository/dynamodb/dynamodb-repo";
+import { setSocketPresencePort } from "@share/component/socket-io";
+import { setupUserV2Routes } from "./infras/transport/user-v2.routes";
 
 export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
   const repository = new DynamoUserRepository();
@@ -15,10 +17,12 @@ export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
   const presenceUseCase = new PresenceUseCase(presenceRepo);
   const useCase = new UserUseCase(repository);
   const httpService = new UserHTTPService(useCase, presenceUseCase);
+  const v2Router = setupUserV2Routes(sctx, useCase, presenceUseCase, repository);
 
   let socketService = null;
 
   if (io) {
+    setSocketPresencePort(presenceUseCase);
     socketService = new UserSocketService(io, presenceUseCase);
   }
 
@@ -38,6 +42,7 @@ export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
 
   return {
     router,
+    v2Router,
     profileAPI: httpService.profileAPI.bind(httpService),
     updateProfileAPI: httpService.updateProfileAPI.bind(httpService),
     socketService,

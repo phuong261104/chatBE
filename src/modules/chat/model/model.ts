@@ -27,6 +27,7 @@ export enum MessageType {
   GIF = "gif",
   CALL = "call",
   SYSTEM = "system",
+  PROFILE_CARD = "profile_card",
 }
 
 export enum MessageStatus {
@@ -223,6 +224,7 @@ export const MessageSchema = z.object({
   media: z.array(MessageMediaSchema).optional(),
   links: z.array(z.string()).optional(),
   call: CallMessageMetadataSchema.optional(),
+  profileCardUserId: z.string().optional(),
   messageStatus: z.nativeEnum(MessageStatus).default(MessageStatus.ACTIVE).optional(),
   deletedBy: z.string().optional(),
   revokedAt: z.date().optional(),

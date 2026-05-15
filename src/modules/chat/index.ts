@@ -16,6 +16,8 @@ import { ServiceContext } from "@/share/interface/service-context";
 // ==================== External Dependencies (User Module) ====================
 import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb/dynamodb-repo";
 import { UserUseCase } from "@modules/user/usecase";
+import { PresenceUseCase } from "@modules/user/usecase/presence-usecase";
+import { RedisPresenceRepository } from "@modules/user/infras/repository/redis/presence-repo";
 import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
 import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
 import { ChatV2Controller } from "./infras/transport/http/v2-chat-controller";
@@ -114,6 +116,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const pollRepo = new DynamoPollRepository(pollQueryRepo, pollCmdRepo);
   const blockRepo = new DynamoBlockRepository();
   const friendshipRepo = new DynamoFriendshipRepository();
+  const presenceUseCase = new PresenceUseCase(new RedisPresenceRepository());
 
   const classificationRepo = new DynamoMessageClassificationRepository();
 
@@ -419,6 +422,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const getConversationOnlineMembersQueryHandler = new GetConversationOnlineMembersQueryHandler(
     conversationMemberRepo,
+    presenceUseCase,
   );
 
   const getDraftsQueryHandler = new GetDraftsQueryHandler(conversationMemberRepo);
@@ -496,15 +500,17 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   );
 
   const httpService = new MessagingHttpService(useCase);
-  const socketService = new MessagingSocketService(io, useCase);
+  const socketService = new MessagingSocketService(io, useCase, presenceUseCase);
   const v2Controller = new ChatV2Controller(
     useCase,
     conversationRepo,
     conversationMemberRepo,
+    messageRepo,
     friendshipRepo,
     blockRepo,
     userAdapter,
     socketService,
+    presenceUseCase,
   );
 
   httpService.setSocketService(socketService);

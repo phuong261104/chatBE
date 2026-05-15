@@ -6,7 +6,10 @@ export const setupChatV2Routes = (controller: ChatV2Controller, mdlFactory: any)
 
   router.get("/conversations", mdlFactory.auth, controller.getConversationsAPI);
   router.get("/conversations/cursor", mdlFactory.auth, controller.getConversationsCursorAPI);
+  router.get("/conversations/strangers", mdlFactory.auth, controller.getStrangerConversationsAPI);
+  router.get("/conversations/:conversationId/presence", mdlFactory.auth, controller.getConversationPresenceAPI);
   router.post("/conversations/:conversationId/messages", mdlFactory.auth, controller.sendConversationMessageAPI);
+  router.post("/conversations/:conversationId/profile-cards", mdlFactory.auth, controller.sendProfileCardAPI);
   router.post("/conversations/:conversationId/hide", mdlFactory.auth, controller.hideConversationAPI);
   router.post("/conversations/:conversationId/unlock", mdlFactory.auth, controller.unlockHiddenConversationAPI);
   router.post("/conversations/:conversationId/unhide", mdlFactory.auth, controller.unhideConversationAPI);

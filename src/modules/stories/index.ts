@@ -5,6 +5,7 @@ import { StoryUseCase } from "./usecase";
 import { StoryHTTPService } from "./infras/transport";
 import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
 import { DynamoConversationRepository } from "@modules/chat/infras/repository/dynamodb";
+import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
 
 export * from "./model";
 export * from "./interface";
@@ -14,7 +15,8 @@ export const setupStoryHexagon = (sctx: ServiceContext) => {
   const viewRepo = new DynamoStoryViewRepository();
   const friendshipRepo = new DynamoFriendshipRepository();
   const conversationRepo = new DynamoConversationRepository();
-  const useCase = new StoryUseCase(storyRepo, viewRepo, friendshipRepo, conversationRepo);
+  const blockRepo = new DynamoBlockRepository();
+  const useCase = new StoryUseCase(storyRepo, viewRepo, friendshipRepo, conversationRepo, blockRepo);
   const httpService = new StoryHTTPService(useCase);
 
   const router = Router();
