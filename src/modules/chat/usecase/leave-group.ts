@@ -56,13 +56,40 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
     }
 
     const currentOwnerId = conversation.ownerId || conversation.createdBy;
-    if (member.userId === currentOwnerId) {
-      throw AppError.from(new Error("Owner cannot leave. Transfer ownership first."), 400);
-    }
+    const isOwnerLeaving = member.userId === currentOwnerId;
+    let nextOwnerId: string | undefined;
+    let nextAdmins = (conversation.admins || []).filter(id => id !== member.userId);
+    let nextMembersCount = Math.max(0, (conversation.membersCount || 1) - 1);
 
-    if (member.role === ConversationMemberRole.ADMIN) {
-      const newAdmins = (conversation.admins || []).filter(id => id !== member.userId);
-      await this.conversationCommandRepo.update(validatedInput.conversationId, { admins: newAdmins });
+    if (isOwnerLeaving) {
+      if (!validatedInput.autoTransferOwner) {
+        throw AppError.from(new Error("Owner cannot leave. Transfer ownership first."), 400);
+      }
+
+      const activeMembers = (await this.conversationMemberQueryRepo.listByConversationId(
+        validatedInput.conversationId,
+      ))
+        .filter((m) =>
+          m.userId !== member.userId &&
+          !m.leftAt &&
+          m.status === ConversationMemberStatus.ACTIVE,
+        )
+        .sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime());
+
+      const replacement =
+        activeMembers.find((m) => m.role === ConversationMemberRole.ADMIN) ||
+        activeMembers[0];
+
+      if (replacement) {
+        nextOwnerId = replacement.userId;
+        nextAdmins = Array.from(new Set([...nextAdmins, replacement.userId]));
+        await this.conversationMemberCommandRepo.update(replacement.id, {
+          role: ConversationMemberRole.ADMIN,
+        });
+      } else {
+        nextAdmins = [];
+        nextMembersCount = 0;
+      }
     }
 
     const now = new Date();
@@ -71,7 +98,9 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
     });
 
     await this.conversationCommandRepo.update(validatedInput.conversationId, {
-      membersCount: Math.max(0, (conversation.membersCount || 1) - 1)
+      ...(isOwnerLeaving && nextOwnerId ? { ownerId: nextOwnerId } : {}),
+      admins: nextAdmins,
+      membersCount: nextMembersCount
     });
 
     const messageId = v7();

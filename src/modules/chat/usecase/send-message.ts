@@ -64,7 +64,7 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
   ) {}
 
   async execute(command: SendMessageCommand): Promise<Message[]> {
-    const { conversationId, senderId, text, media } = command;
+    const { conversationId, senderId, text, media, ttlSeconds } = command;
 
     if (!conversationId) throw new Error('conversationId is required');
     if (!senderId) throw new Error('senderId is required');
@@ -122,13 +122,13 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
         else msgType = MessageType.FILE;
 
         const hasTextAndNoLink = hasText && !hasLinks;
-        const msg = this.buildMessage(msgType, hasTextAndNoLink ? text : undefined, mapMediaToDbFormat([m]), conversationId, senderId);
+        const msg = this.buildMessage(msgType, hasTextAndNoLink ? text : undefined, mapMediaToDbFormat([m]), conversationId, senderId, ttlSeconds);
         await this.messageCommandRepo.insert(msg);
         createdMessages.push(msg);
         classifications.push(this.buildClassification(msg, mimetypeToClassificationType(m.mimetype), m));
       }
       if (hasText && hasLinks) {
-        const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId);
+        const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId, ttlSeconds);
         await this.messageCommandRepo.insert(linkMsg);
         createdMessages.push(linkMsg);
         for (const url of extractLinks(text)) {
@@ -144,13 +144,13 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
       else if (hasVideo) msgType = MessageType.VIDEO;
       else if (hasAudio) msgType = MessageType.VOICE;
       else msgType = MessageType.FILE;
-      const mediaMsg = this.buildMessage(msgType, undefined, mapMediaToDbFormat(media), conversationId, senderId);
+      const mediaMsg = this.buildMessage(msgType, undefined, mapMediaToDbFormat(media), conversationId, senderId, ttlSeconds);
       await this.messageCommandRepo.insert(mediaMsg);
       createdMessages.push(mediaMsg);
       for (const m of media) {
         classifications.push(this.buildClassification(mediaMsg, mimetypeToClassificationType(m.mimetype), m));
       }
-      const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId);
+      const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId, ttlSeconds);
       await this.messageCommandRepo.insert(linkMsg);
       createdMessages.push(linkMsg);
       for (const url of extractLinks(text)) {
@@ -165,7 +165,7 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
       else if (hasVideo) msgType = MessageType.VIDEO;
       else if (hasAudio) msgType = MessageType.VOICE;
       else msgType = MessageType.FILE;
-      const msg = this.buildMessage(msgType, text, mapMediaToDbFormat(media), conversationId, senderId);
+      const msg = this.buildMessage(msgType, text, mapMediaToDbFormat(media), conversationId, senderId, ttlSeconds);
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);
       for (const m of media) {
@@ -173,7 +173,7 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
       }
     } else {
       const msgType = hasLinks ? MessageType.LINK : MessageType.TEXT;
-      const msg = this.buildMessage(msgType, text, undefined, conversationId, senderId);
+      const msg = this.buildMessage(msgType, text, undefined, conversationId, senderId, ttlSeconds);
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);
       if (hasLinks) {
@@ -225,9 +225,11 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
     media: any[] | undefined,
     conversationId: string,
     senderId: string,
+    ttlSeconds?: number,
   ): Message {
     const id = v7();
     const now = new Date();
+    const expiresAt = ttlSeconds ? new Date(now.getTime() + ttlSeconds * 1000) : undefined;
     return {
       id,
       conversationId,
@@ -237,6 +239,8 @@ export class SendMessageHandler implements ICommandHandler<SendMessageCommand, M
       media,
       links: text ? extractLinks(text) : undefined,
       createdAt: now,
+      expiresAt,
+      expireAtEpoch: expiresAt ? Math.floor(expiresAt.getTime() / 1000) : undefined,
       pinned: false,
     };
   }

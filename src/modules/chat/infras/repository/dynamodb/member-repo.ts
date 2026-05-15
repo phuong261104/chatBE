@@ -41,6 +41,7 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
       muteUntil,
       updatedAt,
       pinnedAt,
+      hiddenAt,
       ...rest
     } = doc;
     return {
@@ -57,6 +58,9 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
       updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
       pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
       hiddenUserIds: doc.hiddenUserIds || [],
+      hidden: doc.hidden || false,
+      hiddenAt: hiddenAt ? new Date(hiddenAt) : undefined,
+      hiddenPinHash: doc.hiddenPinHash || undefined,
     } as ConversationMember;
   }
 
@@ -513,6 +517,9 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       pinnedAt: data.pinnedAt ? data.pinnedAt.toISOString() : null,
       archived: data.archived || false,
       hiddenUserIds: data.hiddenUserIds || [],
+      hidden: data.hidden || false,
+      hiddenAt: data.hiddenAt ? data.hiddenAt.toISOString() : null,
+      hiddenPinHash: data.hiddenPinHash,
       updatedAt: now,
     };
   }
@@ -541,6 +548,9 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     if (data.pinnedAt !== undefined) updateData.pinnedAt = data.pinnedAt ? (data.pinnedAt as Date).toISOString() : null;
     if (data.archived !== undefined) updateData.archived = data.archived;
     if (data.hiddenUserIds !== undefined) updateData.hiddenUserIds = data.hiddenUserIds;
+    if ((data as any).hidden !== undefined) updateData.hidden = (data as any).hidden;
+    if ((data as any).hiddenAt !== undefined) updateData.hiddenAt = (data as any).hiddenAt ? ((data as any).hiddenAt as Date).toISOString() : null;
+    if ((data as any).hiddenPinHash !== undefined) updateData.hiddenPinHash = (data as any).hiddenPinHash;
     return updateData;
   }
 }

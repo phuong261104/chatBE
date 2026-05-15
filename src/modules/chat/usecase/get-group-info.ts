@@ -55,6 +55,7 @@ export class GetGroupInfoHandler implements IQueryHandler<{ groupId: string; use
       allowSendLink: true,
       requireApproval: false,
       allowMemberInvite: true,
+      whoCanSendMessages: "all",
     };
 
     return {

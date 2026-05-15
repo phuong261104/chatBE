@@ -174,6 +174,7 @@ export interface IMessagingUseCase {
     senderId: string,
     text?: string,
     media?: MediaAttachment[],
+    ttlSeconds?: number,
   ): Promise<Message[]>;
 
   getConversationMembers(
@@ -195,6 +196,7 @@ export interface IMessagingUseCase {
     senderId: string,
     text?: string,
     media?: MediaAttachment[],
+    ttlSeconds?: number,
   ): Promise<Message[]>;
 
   addMembersToGroup(
@@ -257,7 +259,7 @@ export interface IMessagingUseCase {
 
   getTotalUnreadCount(userId: string): Promise<number>;
 
-  leaveGroup(conversationId: string, userId: string): Promise<void>;
+  leaveGroup(conversationId: string, userId: string, autoTransferOwner?: boolean): Promise<void>;
 
   getGroupMembers(
     conversationId: string,
@@ -295,7 +297,7 @@ export interface IMessagingUseCase {
 
   unarchiveConversation(conversationId: string, userId: string): Promise<void>;
 
-  editMessage(messageId: string, userId: string, text: string): Promise<Message>;
+  editMessage(messageId: string, userId: string, text: string, timeLimitMs?: number): Promise<Message>;
 
   pinMessage(messageId: string, userId: string): Promise<Message>;
 
@@ -364,7 +366,12 @@ export interface IMessagingUseCase {
   updateGroupSettings(
     groupId: string,
     requesterId: string,
-    settings: { allowSendLink?: boolean; requireApproval?: boolean; allowMemberInvite?: boolean },
+    settings: {
+      allowSendLink?: boolean;
+      requireApproval?: boolean;
+      allowMemberInvite?: boolean;
+      whoCanSendMessages?: "all" | "admins";
+    },
   ): Promise<Conversation>;
 
   getGroupInfo(groupId: string, userId: string): Promise<{

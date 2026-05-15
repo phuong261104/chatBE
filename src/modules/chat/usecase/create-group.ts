@@ -57,6 +57,7 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
         allowSendLink: true,
         requireApproval: false,
         allowMemberInvite: true,
+        whoCanSendMessages: "all",
       },
       createdAt: now,
       updatedAt: now

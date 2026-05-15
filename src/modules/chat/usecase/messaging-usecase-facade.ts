@@ -144,12 +144,14 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     senderId: string,
     text?: string,
     media?: MediaAttachment[],
+    ttlSeconds?: number,
   ): Promise<Message[]> {
     return this.sendMessageHandler.execute({
       conversationId,
       senderId,
       text,
       media,
+      ttlSeconds,
     });
   }
 
@@ -179,12 +181,14 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     senderId: string,
     text?: string,
     media?: MediaAttachment[],
+    ttlSeconds?: number,
   ): Promise<Message[]> {
     return this.sendGroupMessageHandler.execute({
       conversationId,
       senderId,
       text,
       media,
+      ttlSeconds,
     });
   }
 
@@ -295,8 +299,8 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.getTotalUnreadCountQueryHandler.query({ userId });
   }
 
-  async leaveGroup(conversationId: string, userId: string): Promise<void> {
-    return this.leaveGroupHandler.execute({ conversationId, userId });
+  async leaveGroup(conversationId: string, userId: string, autoTransferOwner?: boolean): Promise<void> {
+    return this.leaveGroupHandler.execute({ conversationId, userId, autoTransferOwner } as any);
   }
 
   async getGroupMembers(
@@ -363,8 +367,8 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.unarchiveConversationHandler.execute({ conversationId, userId });
   }
 
-  async editMessage(messageId: string, userId: string, text: string): Promise<Message> {
-    return this.editMessageHandler.execute({ messageId, userId, text });
+  async editMessage(messageId: string, userId: string, text: string, timeLimitMs?: number): Promise<Message> {
+    return this.editMessageHandler.execute({ messageId, userId, text, timeLimitMs });
   }
 
   async pinMessage(messageId: string, userId: string): Promise<Message> {
@@ -466,7 +470,12 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
   async updateGroupSettings(
     groupId: string,
     requesterId: string,
-    settings: { allowSendLink?: boolean; requireApproval?: boolean; allowMemberInvite?: boolean },
+    settings: {
+      allowSendLink?: boolean;
+      requireApproval?: boolean;
+      allowMemberInvite?: boolean;
+      whoCanSendMessages?: "all" | "admins";
+    },
   ): Promise<Conversation> {
     return this.updateGroupSettingsHandler.execute({
       groupId,

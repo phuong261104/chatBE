@@ -21,7 +21,14 @@ export class UpdateGroupSettingsHandler implements ICommandHandler<UpdateGroupSe
   ) {}
 
   async execute(command: UpdateGroupSettingsCommand): Promise<Conversation> {
-    const { groupId, requesterId, allowSendLink, requireApproval, allowMemberInvite } = command;
+    const {
+      groupId,
+      requesterId,
+      allowSendLink,
+      requireApproval,
+      allowMemberInvite,
+      whoCanSendMessages,
+    } = command;
 
     const conversation = await this.conversationQueryRepo.get(groupId);
     if (!conversation) {
@@ -49,6 +56,7 @@ export class UpdateGroupSettingsHandler implements ICommandHandler<UpdateGroupSe
       allowSendLink: true,
       requireApproval: false,
       allowMemberInvite: true,
+      whoCanSendMessages: "all",
     };
 
     const updateData: any = {
@@ -57,6 +65,7 @@ export class UpdateGroupSettingsHandler implements ICommandHandler<UpdateGroupSe
         ...(allowSendLink !== undefined && { allowSendLink }),
         ...(requireApproval !== undefined && { requireApproval }),
         ...(allowMemberInvite !== undefined && { allowMemberInvite }),
+        ...(whoCanSendMessages !== undefined && { whoCanSendMessages }),
       },
     };
 

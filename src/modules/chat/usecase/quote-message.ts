@@ -67,9 +67,9 @@ export class QuoteMessageHandler {
           mapMediaToDbFormat([m]),
           command.conversationId,
           command.senderId,
-          false,
-          undefined,
-          undefined,
+          true,
+          command.quotedMessageId,
+          quotedPreview,
         );
         await this.messageCmdRepo.insert(msg);
         createdMessages.push(msg);
@@ -81,9 +81,9 @@ export class QuoteMessageHandler {
           undefined,
           command.conversationId,
           command.senderId,
-          false,
-          undefined,
-          undefined,
+          true,
+          command.quotedMessageId,
+          quotedPreview,
         );
         await this.messageCmdRepo.insert(linkMsg);
         createdMessages.push(linkMsg);
@@ -97,9 +97,9 @@ export class QuoteMessageHandler {
         mapMediaToDbFormat(command.media),
         command.conversationId,
         command.senderId,
-        false,
-        undefined,
-        undefined,
+        true,
+        command.quotedMessageId,
+        quotedPreview,
       );
       await this.messageCmdRepo.insert(mediaMsg);
       createdMessages.push(mediaMsg);
@@ -110,9 +110,9 @@ export class QuoteMessageHandler {
         undefined,
         command.conversationId,
         command.senderId,
-        false,
-        undefined,
-        undefined,
+        true,
+        command.quotedMessageId,
+        quotedPreview,
       );
       await this.messageCmdRepo.insert(linkMsg);
       createdMessages.push(linkMsg);
@@ -126,9 +126,9 @@ export class QuoteMessageHandler {
         mapMediaToDbFormat(command.media),
         command.conversationId,
         command.senderId,
-        false,
-        undefined,
-        undefined,
+        true,
+        command.quotedMessageId,
+        quotedPreview,
       );
       await this.messageCmdRepo.insert(msg);
       createdMessages.push(msg);
@@ -140,7 +140,7 @@ export class QuoteMessageHandler {
         undefined,
         command.conversationId,
         command.senderId,
-        type === MessageType.TEXT,
+        true,
         command.quotedMessageId,
         quotedPreview,
       );

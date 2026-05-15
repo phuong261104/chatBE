@@ -63,6 +63,7 @@ export const GroupSettingsSchema = z.object({
   allowSendLink: z.boolean().default(true),
   requireApproval: z.boolean().default(false),
   allowMemberInvite: z.boolean().default(true),
+  whoCanSendMessages: z.enum(["all", "admins"]).default("all"),
 });
 
 export type GroupSettings = z.infer<typeof GroupSettingsSchema>;
@@ -115,6 +116,9 @@ export const ConversationMemberSchema = z.object({
   archived: z.boolean().default(false),
 
   hiddenUserIds: z.array(z.string()).default([]),
+  hidden: z.boolean().optional(),
+  hiddenAt: z.date().optional(),
+  hiddenPinHash: z.string().optional(),
 
   updatedAt: z.date(),
 });
@@ -196,6 +200,16 @@ export const CallMessageMetadataSchema = z.object({
   endedAt: z.date(),
   endedBy: z.string().optional(),
   durationSeconds: z.number().optional(),
+  participantOutcomes: z
+    .record(
+      z.object({
+        status: z.string(),
+        joinedAt: z.date().optional(),
+        leftAt: z.date().optional(),
+        endedAt: z.date().optional(),
+      }),
+    )
+    .optional(),
 });
 
 export type CallMessageMetadata = z.infer<typeof CallMessageMetadataSchema>;
@@ -215,10 +229,14 @@ export const MessageSchema = z.object({
   deletedForUserIds: z.array(z.string()).optional(),
   quotedMessageId: z.string().optional(),
   quotedMessagePreview: z.string().optional(),
+  forwardedFrom: z.string().optional(),
+  forwardedFromMessageId: z.string().optional(),
   mentions: z.array(MessageMentionSchema).optional(),
   createdAt: z.date(),
   editedAt: z.date().optional(),
   deletedAt: z.date().optional(),
+  expiresAt: z.date().optional(),
+  expireAtEpoch: z.number().optional(),
   pinned: z.boolean().default(false),
   pinnedAt: z.date().optional(),
   readBy: z

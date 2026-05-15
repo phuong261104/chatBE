@@ -5,7 +5,9 @@ import {
 } from "./table-defs";
 import {
   DescribeTableCommand,
+  DescribeTimeToLiveCommand,
   UpdateTableCommand,
+  UpdateTimeToLiveCommand,
   ResourceNotFoundException,
   IndexStatus,
 } from "@aws-sdk/client-dynamodb";
@@ -140,6 +142,43 @@ async function addMissingGSIsSequentially(
   }
 }
 
+async function syncTimeToLive(def: TableDefinition): Promise<void> {
+  if (!def.TimeToLiveSpecification) {
+    return;
+  }
+
+  try {
+    const current = await client.send(
+      new DescribeTimeToLiveCommand({ TableName: def.TableName }),
+    );
+    const ttlDescription = current.TimeToLiveDescription;
+    if (
+      ttlDescription?.AttributeName === def.TimeToLiveSpecification.AttributeName &&
+      ttlDescription?.TimeToLiveStatus === "ENABLED"
+    ) {
+      console.log(`TTL already enabled on table ${def.TableName}.`);
+      return;
+    }
+
+    await client.send(
+      new UpdateTimeToLiveCommand({
+        TableName: def.TableName,
+        TimeToLiveSpecification: def.TimeToLiveSpecification,
+      }),
+    );
+    console.log(
+      `TTL sync requested on table ${def.TableName} using ${def.TimeToLiveSpecification.AttributeName}.`,
+    );
+  } catch (err) {
+    if (err instanceof ResourceNotFoundException) {
+      return;
+    }
+    console.error(
+      `Failed to sync TTL for table ${def.TableName}: ${(err as Error).message}`,
+    );
+  }
+}
+
 export async function initDynamoDBTables(): Promise<void> {
   console.log("Initializing DynamoDB tables...");
 
@@ -147,6 +186,7 @@ export async function initDynamoDBTables(): Promise<void> {
     try {
       await createTableIfNotExists(tableDef);
       await addMissingGSIsSequentially(tableDef);
+      await syncTimeToLive(tableDef);
     } catch (error) {
       console.error(`Failed to initialize table ${tableDef.TableName}:`, error);
     }

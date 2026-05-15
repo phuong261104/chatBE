@@ -11,6 +11,7 @@ import {
 } from '../interface';
 import {
   ConversationMemberStatus,
+  ConversationMemberRole,
   Message,
   MessageType,
   MediaAttachment,
@@ -93,7 +94,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
   ) {}
 
   async execute(command: SendGroupMessageCommand): Promise<Message[]> {
-    const { conversationId, senderId, text, media } = command;
+    const { conversationId, senderId, text, media, ttlSeconds } = command;
 
     if (!conversationId) throw new Error('conversationId is required');
     if (!senderId) throw new Error('senderId is required');
@@ -119,7 +120,19 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
     const hasLinks = !!(hasText && extractLinks(text).length > 0);
 
     const conversation = await this.conversationQueryRepo.get(conversationId);
-    const settings = conversation?.settings || { allowSendLink: true };
+    const settings = conversation?.settings || {
+      allowSendLink: true,
+      requireApproval: false,
+      allowMemberInvite: true,
+      whoCanSendMessages: "all" as const,
+    };
+
+    if (
+      settings.whoCanSendMessages === "admins" &&
+      member.role !== ConversationMemberRole.ADMIN
+    ) {
+      throw AppError.from(new Error("Only admins can send messages in this group"), 403);
+    }
 
     if (hasLinks && settings.allowSendLink === false) {
       throw AppError.from(new Error('Sending links is disabled for this group'), 403);
@@ -142,13 +155,13 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
         else if (isAudio) msgType = MessageType.VOICE;
         else msgType = MessageType.FILE;
         const hasTextAndNoLink = hasText && !hasLinks;
-        const msg = this.buildMessage(msgType, hasTextAndNoLink ? text : undefined, mapMediaToDbFormat([m]), conversationId, senderId);
+        const msg = this.buildMessage(msgType, hasTextAndNoLink ? text : undefined, mapMediaToDbFormat([m]), conversationId, senderId, undefined, ttlSeconds);
         await this.messageCommandRepo.insert(msg);
         createdMessages.push(msg);
         classifications.push(this.buildClassification(msg, mimetypeToClassificationType(m.mimetype), m));
       }
       if (hasText && hasLinks) {
-        const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId);
+        const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId, undefined, ttlSeconds);
         await this.messageCommandRepo.insert(linkMsg);
         createdMessages.push(linkMsg);
         for (const url of extractLinks(text)) {
@@ -164,13 +177,13 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
       else if (hasVideo) msgType = MessageType.VIDEO;
       else if (hasAudio) msgType = MessageType.VOICE;
       else msgType = MessageType.FILE;
-      const mediaMsg = this.buildMessage(msgType, undefined, mapMediaToDbFormat(media), conversationId, senderId);
+      const mediaMsg = this.buildMessage(msgType, undefined, mapMediaToDbFormat(media), conversationId, senderId, undefined, ttlSeconds);
       await this.messageCommandRepo.insert(mediaMsg);
       createdMessages.push(mediaMsg);
       for (const m of media) {
         classifications.push(this.buildClassification(mediaMsg, mimetypeToClassificationType(m.mimetype), m));
       }
-      const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId);
+      const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId, undefined, ttlSeconds);
       await this.messageCommandRepo.insert(linkMsg);
       createdMessages.push(linkMsg);
       for (const url of extractLinks(text)) {
@@ -185,7 +198,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
       else if (hasVideo) msgType = MessageType.VIDEO;
       else if (hasAudio) msgType = MessageType.VOICE;
       else msgType = MessageType.FILE;
-      const msg = this.buildMessage(msgType, text, mapMediaToDbFormat(media), conversationId, senderId);
+      const msg = this.buildMessage(msgType, text, mapMediaToDbFormat(media), conversationId, senderId, undefined, ttlSeconds);
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);
       for (const m of media) {
@@ -205,7 +218,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
             allMembers.filter((m) => m.status === ConversationMemberStatus.ACTIVE && !m.leftAt),
           )
         : undefined;
-      const msg = this.buildMessage(msgType, text, undefined, conversationId, senderId, textMentions);
+      const msg = this.buildMessage(msgType, text, undefined, conversationId, senderId, textMentions, ttlSeconds);
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);
       if (hasLinks) {
@@ -258,9 +271,11 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
     conversationId: string,
     senderId: string,
     mentions?: MessageMention[],
+    ttlSeconds?: number,
   ): Message {
     const id = v7();
     const now = new Date();
+    const expiresAt = ttlSeconds ? new Date(now.getTime() + ttlSeconds * 1000) : undefined;
     return {
       id,
       conversationId,
@@ -271,6 +286,8 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
       links: text ? extractLinks(text) : undefined,
       mentions,
       createdAt: now,
+      expiresAt,
+      expireAtEpoch: expiresAt ? Math.floor(expiresAt.getTime() / 1000) : undefined,
       pinned: false,
     };
   }

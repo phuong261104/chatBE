@@ -30,6 +30,12 @@ export const MessageUpdateDTOSchema = z.object({
   editedAt: z.date().optional(),
   deletedAt: z.date().optional(),
   deletedForUserIds: z.array(z.string()).optional(),
+  quotedMessageId: z.string().optional(),
+  quotedMessagePreview: z.string().optional(),
+  forwardedFrom: z.string().optional(),
+  forwardedFromMessageId: z.string().optional(),
+  expiresAt: z.date().optional(),
+  expireAtEpoch: z.number().optional(),
   pinned: z.boolean().optional(),
   pinnedAt: z.date().optional(),
 });
@@ -42,6 +48,7 @@ export const sendMessageDTOSchema = z
     senderId: uuidV7("Invalid sender ID"),
     text: z.string().max(5000, "Message is too long").optional(),
     media: z.array(MediaAttachmentSchema).optional(),
+    ttlSeconds: z.number().int().positive().optional(),
   })
   .refine((data) => data.text || (data.media && data.media.length > 0), {
     message: "Either text or media is required",
@@ -55,6 +62,7 @@ export const sendGroupMessageDTOSchema = z
     senderId: uuidV7("Invalid sender ID"),
     text: z.string().max(5000, "Message is too long").optional(),
     media: z.array(MediaAttachmentSchema).optional(),
+    ttlSeconds: z.number().int().positive().optional(),
   })
   .refine((data) => data.text || (data.media && data.media.length > 0), {
     message: "Either text or media is required",
@@ -108,6 +116,7 @@ export const editMessageDTOSchema = z.object({
   messageId: uuidV7("Invalid message ID"),
   userId: uuidV7("Invalid user ID"),
   text: z.string().min(1, "Text is required").max(5000, "Message is too long"),
+  timeLimitMs: z.number().int().positive().optional(),
 });
 
 export type EditMessageDTO = z.infer<typeof editMessageDTOSchema>;
@@ -130,6 +139,7 @@ export interface SendMessageCommand {
   senderId: string;
   text?: string;
   media?: MediaAttachment[];
+  ttlSeconds?: number;
 }
 
 export interface SendGroupMessageCommand {
@@ -137,6 +147,7 @@ export interface SendGroupMessageCommand {
   senderId: string;
   text?: string;
   media?: MediaAttachment[];
+  ttlSeconds?: number;
 }
 
 export interface RevokeMessageCommand {
@@ -159,6 +170,7 @@ export interface EditMessageCommand {
   messageId: string;
   userId: string;
   text: string;
+  timeLimitMs?: number;
 }
 
 export interface QuoteMessageCommand {

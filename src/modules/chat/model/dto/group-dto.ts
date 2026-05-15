@@ -23,7 +23,7 @@ export const ConversationMemberUpdateDTOSchema = z.object({
   role: z.nativeEnum(ConversationMemberRole).optional(),
   status: z.nativeEnum(ConversationMemberStatus).optional(),
   joinedAt: z.date().optional(),
-  leftAt: z.date().optional(),
+  leftAt: z.date().nullable().optional(),
   unreadCount: z.number().optional(),
   lastReadMessageId: z.string().optional(),
   lastSeenMessageId: z.string().optional(),
@@ -37,6 +37,9 @@ export const ConversationMemberUpdateDTOSchema = z.object({
   pinnedAt: z.date().optional(),
   archived: z.boolean().optional(),
   hiddenUserIds: z.array(z.string()).optional(),
+  hidden: z.boolean().optional(),
+  hiddenAt: z.date().nullable().optional(),
+  hiddenPinHash: z.string().nullable().optional(),
 });
 
 export type ConversationMemberUpdateDTO = z.infer<
@@ -99,6 +102,7 @@ export type GetConversationMembersDTO = z.infer<
 export const leaveGroupDTOSchema = z.object({
   conversationId: z.string(),
   userId: z.string(),
+  autoTransferOwner: z.boolean().optional(),
 });
 
 export type LeaveGroupDTO = z.infer<typeof leaveGroupDTOSchema>;
@@ -192,6 +196,7 @@ export const updateGroupSettingsDTOSchema = z.object({
   allowSendLink: z.boolean().optional(),
   requireApproval: z.boolean().optional(),
   allowMemberInvite: z.boolean().optional(),
+  whoCanSendMessages: z.enum(["all", "admins"]).optional(),
 });
 
 export type UpdateGroupSettingsDTO = z.infer<typeof updateGroupSettingsDTOSchema>;
@@ -235,6 +240,7 @@ export interface MarkAsDeliveredCommand {
 export interface LeaveGroupCommand {
   conversationId: string;
   userId: string;
+  autoTransferOwner?: boolean;
 }
 
 export interface GetGroupMembersQuery {
@@ -313,4 +319,5 @@ export interface UpdateGroupSettingsCommand {
   allowSendLink?: boolean;
   requireApproval?: boolean;
   allowMemberInvite?: boolean;
+  whoCanSendMessages?: "all" | "admins";
 }

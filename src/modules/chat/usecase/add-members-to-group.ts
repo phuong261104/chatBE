@@ -68,6 +68,7 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       allowSendLink: true,
       requireApproval: false,
       allowMemberInvite: true,
+      whoCanSendMessages: "all" as const,
     };
 
     if (settings.allowMemberInvite === false) {

@@ -50,7 +50,7 @@ output
 tasks
 test-*
 docker
-tests
-tests/
 tests/*
-!tests/call-log.service.test.ts
+!tests/
+!tests/call-v2.service.test.ts
+!tests/chat-v2-behavior.test.ts

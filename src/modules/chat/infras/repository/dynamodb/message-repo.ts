@@ -25,7 +25,7 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
   }
 
   protected toEntity(doc: Record<string, any>): Message {
-    const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, revokedAt, pinnedAt, ...rest } = doc;
+    const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, revokedAt, pinnedAt, expiresAt, ...rest } = doc;
     const status = rest.messageStatus || (deletedAt ? MessageStatus.REVOKED : MessageStatus.ACTIVE);
     return {
       ...rest,
@@ -38,13 +38,29 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
       deletedAt: deletedAt ? new Date(deletedAt) : null,
       revokedAt: revokedAt ? new Date(revokedAt) : undefined,
       pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
+      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
     } as Message;
   }
 
   private toCallEntity(call: Record<string, any> | undefined) {
     if (!call) return undefined;
+    const participantOutcomes = call.participantOutcomes
+      ? Object.fromEntries(
+          Object.entries(call.participantOutcomes).map(([userId, outcome]: [string, any]) => [
+            userId,
+            {
+              ...outcome,
+              joinedAt: outcome.joinedAt ? new Date(outcome.joinedAt) : undefined,
+              leftAt: outcome.leftAt ? new Date(outcome.leftAt) : undefined,
+              endedAt: outcome.endedAt ? new Date(outcome.endedAt) : undefined,
+            },
+          ]),
+        )
+      : undefined;
+
     return {
       ...call,
+      participantOutcomes,
       answeredAt: call.answeredAt ? new Date(call.answeredAt) : undefined,
       endedAt: call.endedAt ? new Date(call.endedAt) : new Date(),
     };
@@ -85,12 +101,16 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
     const expressionAttributeValues: Record<string, any> = {
       ":pk": `CONV#${conversationId}`,
       ":skPrefix": "MSG#",
+      ":nowEpoch": Math.floor(Date.now() / 1000),
     };
-    let filterExpression: string | undefined;
+    const filterParts = [
+      "(attribute_not_exists(expireAtEpoch) OR expireAtEpoch > :nowEpoch)",
+    ];
     if (viewerUserId) {
       expressionAttributeValues[":viewerUserId"] = viewerUserId;
-      filterExpression = "attribute_not_exists(deletedForUserIds) OR NOT contains(deletedForUserIds, :viewerUserId)";
+      filterParts.push("(attribute_not_exists(deletedForUserIds) OR NOT contains(deletedForUserIds, :viewerUserId))");
     }
+    const filterExpression = filterParts.join(" AND ");
 
     const result = await docClient.send(
       new QueryCommand({
@@ -204,9 +224,13 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
       deletedForUserIds: data.deletedForUserIds || [],
       quotedMessageId: data.quotedMessageId,
       quotedMessagePreview: data.quotedMessagePreview,
+      forwardedFrom: data.forwardedFrom,
+      forwardedFromMessageId: data.forwardedFromMessageId,
       createdAt: createdAt,
       editedAt: data.editedAt ? data.editedAt.toISOString() : null,
       deletedAt: data.deletedAt ? data.deletedAt.toISOString() : null,
+      expiresAt: data.expiresAt ? data.expiresAt.toISOString() : null,
+      expireAtEpoch: data.expireAtEpoch,
       pinned: data.pinned || false,
       pinnedAt: data.pinnedAt ? data.pinnedAt.toISOString() : null,
       GSI1PK: `SENDER#${data.senderId}`,
@@ -215,11 +239,33 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
   }
 
   private toCallDocument(call: NonNullable<Message["call"]>): Record<string, any> {
+    const participantOutcomes = call.participantOutcomes
+      ? Object.fromEntries(
+          Object.entries(call.participantOutcomes).map(([userId, outcome]) => [
+            userId,
+            {
+              ...outcome,
+              joinedAt: this.toIsoString(outcome.joinedAt),
+              leftAt: this.toIsoString(outcome.leftAt),
+              endedAt: this.toIsoString(outcome.endedAt),
+            },
+          ]),
+        )
+      : undefined;
+
     return {
       ...call,
-      answeredAt: call.answeredAt instanceof Date ? call.answeredAt.toISOString() : call.answeredAt,
-      endedAt: call.endedAt instanceof Date ? call.endedAt.toISOString() : call.endedAt,
+      participantOutcomes,
+      answeredAt: this.toIsoString(call.answeredAt),
+      endedAt: this.toIsoString(call.endedAt),
     };
+  }
+
+  private toIsoString(value?: Date | string | number): string | undefined {
+    if (!value) return undefined;
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === "number") return new Date(value).toISOString();
+    return value;
   }
 
   protected beforeUpdate(id: string, data: MessageUpdateDTO): Record<string, any> {
@@ -235,6 +281,12 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     if (data.editedAt !== undefined && data.editedAt !== null) updateData.editedAt = (data.editedAt as Date).toISOString();
     if (data.deletedAt !== undefined && data.deletedAt !== null) updateData.deletedAt = (data.deletedAt as Date).toISOString();
     if (data.deletedForUserIds !== undefined) updateData.deletedForUserIds = data.deletedForUserIds;
+    if ((data as any).quotedMessageId !== undefined) updateData.quotedMessageId = (data as any).quotedMessageId;
+    if ((data as any).quotedMessagePreview !== undefined) updateData.quotedMessagePreview = (data as any).quotedMessagePreview;
+    if ((data as any).forwardedFrom !== undefined) updateData.forwardedFrom = (data as any).forwardedFrom;
+    if ((data as any).forwardedFromMessageId !== undefined) updateData.forwardedFromMessageId = (data as any).forwardedFromMessageId;
+    if ((data as any).expiresAt !== undefined && (data as any).expiresAt !== null) updateData.expiresAt = ((data as any).expiresAt as Date).toISOString();
+    if ((data as any).expireAtEpoch !== undefined) updateData.expireAtEpoch = (data as any).expireAtEpoch;
     if (data.pinned !== undefined) updateData.pinned = data.pinned;
     if (data.pinnedAt !== undefined && data.pinnedAt !== null) updateData.pinnedAt = (data.pinnedAt as Date).toISOString();
     return updateData;
@@ -356,19 +408,20 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
       new QueryCommand({
         TableName: getTableName(TABLE_NAMES.MESSAGES),
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
-        FilterExpression: "pinned = :pinned AND (attribute_not_exists(messageStatus) OR messageStatus = :active) AND (attribute_not_exists(deletedAt) OR deletedAt = :nullVal)",
+        FilterExpression: "pinned = :pinned AND (attribute_not_exists(messageStatus) OR messageStatus = :active) AND (attribute_not_exists(deletedAt) OR deletedAt = :nullVal) AND (attribute_not_exists(expireAtEpoch) OR expireAtEpoch > :nowEpoch)",
         ExpressionAttributeValues: {
           ":pk": `CONV#${conversationId}`,
           ":skPrefix": "MSG#",
           ":pinned": true,
           ":active": MessageStatus.ACTIVE,
           ":nullVal": null,
+          ":nowEpoch": Math.floor(Date.now() / 1000),
         },
         ScanIndexForward: true,
       }),
     );
     return (result.Items || []).map((item) => {
-      const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, revokedAt, pinnedAt, ...rest } = item;
+      const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, revokedAt, pinnedAt, expiresAt, ...rest } = item;
       return {
         ...rest,
         id: item.id || sk?.split("#")[2],
@@ -379,6 +432,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
         deletedAt: deletedAt ? new Date(deletedAt) : null,
         revokedAt: revokedAt ? new Date(revokedAt) : undefined,
         pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
+        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
       } as Message;
     });
   }
@@ -421,7 +475,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
           TableName: tableName,
           KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
           FilterExpression:
-            "(attribute_not_exists(messageStatus) OR messageStatus = :active) AND (attribute_not_exists(deletedAt) OR deletedAt = :nullVal) AND (attribute_not_exists(deletedForUserIds) OR NOT contains(deletedForUserIds, :userId)) AND contains(#text, :query)",
+            "(attribute_not_exists(messageStatus) OR messageStatus = :active) AND (attribute_not_exists(deletedAt) OR deletedAt = :nullVal) AND (attribute_not_exists(deletedForUserIds) OR NOT contains(deletedForUserIds, :userId)) AND (attribute_not_exists(expireAtEpoch) OR expireAtEpoch > :nowEpoch) AND contains(#text, :query)",
           ExpressionAttributeNames: {
             "#text": "text",
           },
@@ -432,6 +486,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
             ":userId": userId,
             ":active": MessageStatus.ACTIVE,
             ":nullVal": null,
+            ":nowEpoch": Math.floor(Date.now() / 1000),
           },
           Limit: limit,
           ScanIndexForward: false,
@@ -441,7 +496,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
 
       const items: Record<string, unknown>[] = result.Items || [];
       const mapped: Message[] = items.map((item: Record<string, unknown>) => {
-        const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, revokedAt, pinnedAt, ...rest } = item;
+        const { pk, sk, GSI1PK, GSI1SK, createdAt, editedAt, deletedAt, revokedAt, pinnedAt, expiresAt, ...rest } = item;
         return {
           ...rest,
           id: item.id as string || (sk as string)?.split("#")[2],
@@ -452,6 +507,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
           deletedAt: deletedAt ? new Date(deletedAt as string) : null,
           revokedAt: revokedAt ? new Date(revokedAt as string) : undefined,
           pinnedAt: pinnedAt ? new Date(pinnedAt as string) : null,
+          expiresAt: expiresAt ? new Date(expiresAt as string) : undefined,
         } as Message;
       });
       allMessages.push(...mapped);
@@ -488,3 +544,4 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
     return this._cmdRepo.deleteByConversationId(conversationId);
   }
 }
+

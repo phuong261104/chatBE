@@ -58,6 +58,9 @@ export class CallLogService {
       endedAt,
       endedBy: endedBy ?? session.endedBy,
       durationSeconds,
+      participantOutcomes: this.normalizeParticipantOutcomes(
+        session.participantOutcomes,
+      ),
     };
     const textPreview = this.getTextPreview(call);
     const message: Message = {
@@ -126,6 +129,32 @@ export class CallLogService {
       return 'Cuộc gọi bị từ chối';
     }
     return 'Cuộc gọi đã hủy';
+  }
+
+  private normalizeParticipantOutcomes(
+    outcomes?: CallSession['participantOutcomes'],
+  ): CallMessageMetadata['participantOutcomes'] | undefined {
+    if (!outcomes) {
+      return undefined;
+    }
+
+    const normalized: NonNullable<CallMessageMetadata['participantOutcomes']> = {};
+    for (const [userId, outcome] of Object.entries(outcomes)) {
+      normalized[userId] = {
+        status: outcome.status,
+        joinedAt: this.toDate(outcome.joinedAt),
+        leftAt: this.toDate(outcome.leftAt),
+        endedAt: this.toDate(outcome.endedAt),
+      };
+    }
+    return normalized;
+  }
+
+  private toDate(value?: number | Date): Date | undefined {
+    if (!value) {
+      return undefined;
+    }
+    return value instanceof Date ? value : new Date(value);
   }
 
   private formatDuration(totalSeconds: number): string {

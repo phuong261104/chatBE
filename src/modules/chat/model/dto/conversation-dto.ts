@@ -26,6 +26,7 @@ export const ConversationUpdateDTOSchema = z.object({
       allowSendLink: z.boolean().optional(),
       requireApproval: z.boolean().optional(),
       allowMemberInvite: z.boolean().optional(),
+      whoCanSendMessages: z.enum(["all", "admins"]).optional(),
     })
     .optional(),
   lastMessage: LastMessageSchema.optional(),

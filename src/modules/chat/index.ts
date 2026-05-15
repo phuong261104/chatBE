@@ -17,6 +17,9 @@ import { ServiceContext } from "@/share/interface/service-context";
 import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb/dynamodb-repo";
 import { UserUseCase } from "@modules/user/usecase";
 import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
+import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
+import { ChatV2Controller } from "./infras/transport/http/v2-chat-controller";
+import { setupChatV2Routes } from "./infras/transport/http/v2-chat.routes";
 
 // ==================== Chat Module Components (using barrel exports) ====================
 // Infrastructure: Repositories & Transport
@@ -110,6 +113,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const pollCmdRepo = new DynamoPollCommandRepository();
   const pollRepo = new DynamoPollRepository(pollQueryRepo, pollCmdRepo);
   const blockRepo = new DynamoBlockRepository();
+  const friendshipRepo = new DynamoFriendshipRepository();
 
   const classificationRepo = new DynamoMessageClassificationRepository();
 
@@ -492,10 +496,20 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const httpService = new MessagingHttpService(useCase);
   const socketService = new MessagingSocketService(io, useCase);
+  const v2Controller = new ChatV2Controller(
+    useCase,
+    conversationRepo,
+    conversationMemberRepo,
+    friendshipRepo,
+    blockRepo,
+    userAdapter,
+    socketService,
+  );
 
   httpService.setSocketService(socketService);
 
   const router = Router();
+  const v2Router = setupChatV2Routes(v2Controller, mdlFactory);
 
   router.post("/conversations/private", mdlFactory.auth, httpService.getPrivateConversationAPI.bind(httpService));
   router.get("/conversations/unread-count", mdlFactory.auth, httpService.getTotalUnreadCountAPI.bind(httpService));
@@ -647,6 +661,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   return {
     router,
+    v2Router,
     socketService,
   };
 };

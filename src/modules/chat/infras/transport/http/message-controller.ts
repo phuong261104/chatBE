@@ -432,14 +432,9 @@ export class MessageController extends BaseController {
         return;
       }
 
-      const quotedMsg = await (this.useCase as any).messageQueryRepo?.get(messageId);
+      const quotedMsg = await this.useCase.getMessage(messageId);
       if (!quotedMsg) {
         res.status(404).json({ error: "Message not found" });
-        return;
-      }
-
-      if (quotedMsg.type !== "text") {
-        res.status(400).json({ error: "Only TEXT messages can be quoted" });
         return;
       }
 
@@ -462,20 +457,21 @@ export class MessageController extends BaseController {
       const primaryMsg = textMsg || quotedMessages[0];
 
       if (this.socketService) {
-        const isGroup = primaryMsg.conversationId !== undefined;
         const memberUserIds = await this.useCase.getConversationMembers(
           quotedMsg.conversationId,
           validatedData.senderId,
         );
         for (const userId of memberUserIds) {
-          this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
-            message: primaryMsg,
-            conversationId: quotedMsg.conversationId,
-          });
+          for (const message of quotedMessages) {
+            this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
+              message,
+              conversationId: quotedMsg.conversationId,
+            });
+          }
         }
       }
 
-      res.status(201).json({ data: primaryMsg });
+      res.status(201).json({ data: primaryMsg, messages: quotedMessages });
     } catch (error) {
       if (error instanceof z.ZodError) {
         this.sendValidationError(res, error);

@@ -63,8 +63,9 @@ export class EditMessageHandler
       throw AppError.from(ErrMessageCannotEdit, 400);
     }
 
+    const timeLimitMs = data.timeLimitMs ?? EDIT_TIME_LIMIT_MS;
     const elapsed = Date.now() - message.createdAt.getTime();
-    if (elapsed > EDIT_TIME_LIMIT_MS) {
+    if (elapsed > timeLimitMs) {
       throw AppError.from(ErrMessageEditTimeExpired, 400);
     }
 

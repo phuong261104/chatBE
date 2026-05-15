@@ -33,7 +33,8 @@ export async function createTableIfNotExists(def: TableDefinition): Promise<void
     console.log(`Table ${def.TableName} already exists.`);
   } catch (err) {
     if (err instanceof ResourceNotFoundException) {
-      await client.send(new CreateTableCommand(def as any));
+      const { TimeToLiveSpecification, ...createDef } = def;
+      await client.send(new CreateTableCommand(createDef as any));
       console.log(`Table ${def.TableName} created successfully.`);
     } else {
       throw err;
@@ -208,6 +209,7 @@ export const MESSAGES_TABLE: TableDefinition = {
     },
   ],
   BillingMode: "PAY_PER_REQUEST",
+  TimeToLiveSpecification: { AttributeName: "expireAtEpoch", Enabled: true },
 };
 
 export const MESSAGE_REACTIONS_TABLE: TableDefinition = {

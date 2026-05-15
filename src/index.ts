@@ -123,6 +123,7 @@ config();
   // }
 
   app.use("/v1", responseFormatMiddleware);
+  app.use("/v2", responseFormatMiddleware);
 
   const {
     router: userRouter,
@@ -136,7 +137,11 @@ config();
   app.use("/v1", userRouter);
 
   const mediaRouter = setupMediaHexagon(sctx);
-  const { router: messagingRouter, socketService: messagingSocketService } =
+  const {
+    router: messagingRouter,
+    v2Router: messagingV2Router,
+    socketService: messagingSocketService,
+  } =
     setupMessagingHexagon(io, sctx);
   const { router: blockRouter } = setupBlockHexagon(sctx, io);
   const { router: friendRequestRouter, socketService } =
@@ -144,6 +149,7 @@ config();
   const friendshipRouter = setupFriendshipHexagon(sctx, socketService);
   app.use("/v1", mediaRouter);
   app.use("/v1", messagingRouter);
+  app.use("/v2", messagingV2Router);
   app.use("/v1", blockRouter);
   app.use("/v1", friendRequestRouter);
   app.use("/v1", friendshipRouter);
@@ -157,12 +163,13 @@ config();
   app.use("/v1", postRouter);
   app.use("/v1", storyRouter);
 
-  const { router: callRouter } = setupCallHexagon(
+  const { router: callRouter, v2Router: callV2Router } = setupCallHexagon(
     io,
     sctx,
     messagingSocketService,
   );
   app.use("/v1", callRouter);
+  app.use("/v2", callV2Router);
 
   const { router: aiRouter } = setupAiHexagon({
     messageRepo: new DynamoMessageRepository(),

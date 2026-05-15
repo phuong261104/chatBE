@@ -31,4 +31,13 @@ export interface CallSession {
   endedAt?: number;
   endedBy?: string;
   loggedMessageId?: string;
+  participantOutcomes?: Record<
+    string,
+    {
+      status: string;
+      joinedAt?: number | Date;
+      leftAt?: number | Date;
+      endedAt?: number | Date;
+    }
+  >;
 }
