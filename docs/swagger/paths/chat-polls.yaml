@@ -1,5 +1,5 @@
 paths:
-  /groups/{groupId}/polls:
+  /v1/groups/{groupId}/polls:
     get:
       summary: Get all polls in a group
       tags: [Chat - Polls]
@@ -104,7 +104,7 @@ paths:
         "403":
           description: Only group members can create polls
 
-  /groups/{groupId}/polls/{pollId}/vote:
+  /v1/groups/{groupId}/polls/{pollId}/vote:
     post:
       summary: Vote on a poll
       tags: [Chat - Polls]
@@ -155,7 +155,7 @@ paths:
         "422":
           description: Invalid option IDs
 
-  /groups/{groupId}/polls/{pollId}/results:
+  /v1/groups/{groupId}/polls/{pollId}/results:
     get:
       summary: Get poll results
       tags: [Chat - Polls]

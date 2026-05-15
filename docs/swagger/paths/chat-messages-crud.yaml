@@ -1,5 +1,5 @@
 paths:
-  /conversations/{conversationId}/messages:
+  /v1/conversations/{conversationId}/messages:
     get:
       summary: Load messages with cursor-based pagination
       tags: [Chat - Messages]
@@ -188,7 +188,7 @@ paths:
         "422":
           description: Validation error
 
-  /messages/{messageId}:
+  /v1/messages/{messageId}:
     put:
       summary: Edit message
       tags: [Chat - Messages]

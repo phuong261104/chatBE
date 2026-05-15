@@ -1,5 +1,5 @@
 paths:
-  /search:
+  /v1/search:
     get:
       summary: Global search (users, messages, groups, etc)
       tags: [Search]

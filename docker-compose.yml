@@ -1,40 +1,11 @@
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ${BACKEND_IMAGE:-chatbe-backend:local}
-    container_name: ${BACKEND_CONTAINER_NAME:-chatbe-backend}
-    restart: unless-stopped
-    environment:
-      PORT: "3000"
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-    depends_on:
-      redis:
-        condition: service_healthy
-    ports:
-      - "${BACKEND_PORT:-3000}:3000"
-    volumes:
-      - backend_uploads:/app/uploads
-      - backend_logs:/app/logs
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "node -e \"require('http').get('http://127.0.0.1:3000/v1/users/profile', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\"",
-        ]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    networks:
-      - chatbe-network
-
   redis:
     image: ${REDIS_IMAGE:-redis:7-alpine}
     container_name: ${REDIS_CONTAINER_NAME:-chatbe-redis}
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -46,8 +17,6 @@ services:
       - chatbe-network
 
 volumes:
-  backend_uploads:
-  backend_logs:
   redis_data:
 
 networks:

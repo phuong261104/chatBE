@@ -261,7 +261,7 @@ components:
 paths:
   # ==================== MY CLOUD CRUD ====================
 
-  /my-cloud:
+  /v1/my-cloud:
     get:
       summary: "Get all my cloud items"
       tags: [My Cloud]
@@ -409,7 +409,7 @@ paths:
 
   # ==================== MY CLOUD - PAGINATED LIST ====================
 
-  /my-cloud/items:
+  /v1/my-cloud/items:
     get:
       summary: "Get my cloud items (cursor-based pagination)"
       tags: [My Cloud]
@@ -478,7 +478,7 @@ paths:
 
   # ==================== MY CLOUD - GET SINGLE ====================
 
-  /my-cloud/{id}:
+  /v1/my-cloud/{id}:
     get:
       summary: "Get a single my cloud item"
       tags: [My Cloud]
@@ -588,7 +588,7 @@ paths:
 
   # ==================== MY CLOUD - PIN ====================
 
-  /my-cloud/{id}/pin:
+  /v1/my-cloud/{id}/pin:
     patch:
       summary: "Pin or unpin a my cloud item"
       tags: [My Cloud]
@@ -635,7 +635,7 @@ paths:
 
   # ==================== MY CLOUD - TRASH ====================
 
-  /my-cloud/{id}/restore:
+  /v1/my-cloud/{id}/restore:
     post:
       summary: "Restore a my cloud item from trash"
       tags: [My Cloud]
@@ -667,7 +667,7 @@ paths:
         '404':
           description: "Item not found or not in trash"
 
-  /my-cloud/{id}/permanent:
+  /v1/my-cloud/{id}/permanent:
     delete:
       summary: "Permanently delete a my cloud item"
       tags: [My Cloud]
@@ -694,7 +694,7 @@ paths:
         '404':
           description: "Item not found"
 
-  /my-cloud/trash/empty:
+  /v1/my-cloud/trash/empty:
     post:
       summary: "Empty the trash (delete all trashed items permanently)"
       tags: [My Cloud]
@@ -722,7 +722,7 @@ paths:
 
   # ==================== MY CLOUD - SEARCH ====================
 
-  /my-cloud/search:
+  /v1/my-cloud/search:
     get:
       summary: "Search my cloud items"
       tags: [My Cloud]
@@ -765,7 +765,7 @@ paths:
 
   # ==================== MY CLOUD - STATS ====================
 
-  /my-cloud/stats:
+  /v1/my-cloud/stats:
     get:
       summary: "Get my cloud statistics"
       tags: [My Cloud]
@@ -790,7 +790,7 @@ paths:
 
   # ==================== MY CLOUD - BATCH DELETE ====================
 
-  /my-cloud/batch-delete:
+  /v1/my-cloud/batch-delete:
     post:
       summary: "Batch delete my cloud items"
       tags: [My Cloud]
@@ -843,7 +843,7 @@ paths:
 
   # ==================== MY CLOUD - SHARE ====================
 
-  /my-cloud/{id}/share:
+  /v1/my-cloud/{id}/share:
     post:
       summary: "Create a public share link for an item"
       tags: [My Cloud]
@@ -893,7 +893,7 @@ paths:
         '404':
           description: "Item not found"
 
-  /my-cloud/shared/{shareToken}:
+  /v1/my-cloud/shared/{shareToken}:
     get:
       summary: "Get a shared item by share token (public)"
       tags: [My Cloud]
@@ -923,7 +923,7 @@ paths:
 
   # ==================== MY CLOUD - UPLOAD ====================
 
-  /my-cloud/upload:
+  /v1/my-cloud/upload:
     post:
       summary: "Upload a file to My Cloud"
       tags: [My Cloud]
@@ -961,7 +961,7 @@ paths:
         '401':
           description: "Unauthorized"
 
-  /my-cloud/upload/presigned:
+  /v1/my-cloud/upload/presigned:
     post:
       summary: "Get presigned URL for direct S3 upload"
       tags: [My Cloud]
@@ -1011,7 +1011,7 @@ paths:
         '422':
           description: "Validation error"
 
-  /my-cloud/upload/confirm:
+  /v1/my-cloud/upload/confirm:
     post:
       summary: "Confirm uploaded file and create CloudItem"
       tags: [My Cloud]
@@ -1079,7 +1079,7 @@ paths:
 
   # ==================== MY CLOUD - FORWARD TO CHAT ====================
 
-  /my-cloud/{id}/forward:
+  /v1/my-cloud/{id}/forward:
     post:
       summary: "Forward a cloud item to a chat conversation"
       tags: [My Cloud]
@@ -1135,7 +1135,7 @@ paths:
 
   # ==================== MY CLOUD - COLLECTIONS ====================
 
-  /my-cloud/collections:
+  /v1/my-cloud/collections:
     get:
       summary: "List user's collections"
       tags: [My Cloud]
@@ -1224,7 +1224,7 @@ paths:
         '422':
           description: "Validation error"
 
-  /my-cloud/collections/{id}:
+  /v1/my-cloud/collections/{id}:
     get:
       summary: "Get a single collection"
       tags: [My Cloud]
@@ -1343,7 +1343,7 @@ paths:
         '404':
           description: "Collection not found"
 
-  /my-cloud/collections/{id}/items:
+  /v1/my-cloud/collections/{id}/items:
     get:
       summary: "Get items in a collection"
       tags: [My Cloud]
@@ -1423,7 +1423,7 @@ paths:
         '404':
           description: "Collection hoặc item not found"
 
-  /my-cloud/collections/{id}/items/{itemId}:
+  /v1/my-cloud/collections/{id}/items/{itemId}:
     delete:
       summary: "Remove item from collection"
       tags: [My Cloud]

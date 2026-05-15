@@ -1,5 +1,5 @@
 paths:
-  /conversations/{conversationId}/mute:
+  /v1/conversations/{conversationId}/mute:
     post:
       summary: Mute conversation
       tags: [Chat - Conversations]
@@ -64,7 +64,7 @@ paths:
         "403":
           description: Not a member of this conversation
 
-  /conversations/{conversationId}/pin-conversation:
+  /v1/conversations/{conversationId}/pin-conversation:
     post:
       summary: Pin conversation
       tags: [Chat - Conversations]
@@ -113,7 +113,7 @@ paths:
         "403":
           description: Not a member of this conversation
 
-  /conversations/{conversationId}/archive:
+  /v1/conversations/{conversationId}/archive:
     post:
       summary: Archive conversation
       tags: [Chat - Conversations]

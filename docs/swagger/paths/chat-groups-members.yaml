@@ -1,5 +1,5 @@
 paths:
-  /groups/{groupId}/members:
+  /v1/groups/{groupId}/members:
     get:
       summary: Get group members
       tags: [Chat - Groups]
@@ -80,7 +80,7 @@ paths:
         "403":
           description: Only owner or admins can add members
 
-  /groups/{groupId}/members/{userId}:
+  /v1/groups/{groupId}/members/{userId}:
     delete:
       summary: Remove member from group
       tags: [Chat - Groups]
@@ -108,7 +108,7 @@ paths:
         "403":
           description: Only owner or admins can remove members
 
-  /groups/{groupId}/set-admin:
+  /v1/groups/{groupId}/set-admin:
     post:
       summary: Set/remove admin
       tags: [Chat - Groups]
@@ -151,7 +151,7 @@ paths:
         "403":
           description: Only owner can change admin status
 
-  /groups/{groupId}/transfer-owner:
+  /v1/groups/{groupId}/transfer-owner:
     post:
       summary: Transfer group ownership
       tags: [Chat - Groups]

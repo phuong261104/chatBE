@@ -67,7 +67,7 @@ components:
             $ref: '#/components/schemas/Story'
 
 paths:
-  /stories:
+  /v1/stories:
     post:
       summary: Tạo Story (24h)
       description: Tạo story biến mất sau 24h. Cung cấp dạng text, ảnh, video.
@@ -132,7 +132,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/AuthorGroupedStories'
 
-  /stories/{id}:
+  /v1/stories/{id}:
     get:
       summary: Chi tiết story
       description: Lấy nội dung đầy đủ của 1 story nếu nó chưa hết hạn.
@@ -175,7 +175,7 @@ paths:
         '204':
           description: Deleted successfully
 
-  /stories/{id}/view:
+  /v1/stories/{id}/view:
     post:
       summary: Đánh dấu đã xem story
       description: Lưu lại lượt xem (idempotent, gọi nhiều lần với cùng 1 userID chỉ tính 1 view).
@@ -204,7 +204,7 @@ paths:
                         type: string
                         example: "Story viewed"
 
-  /stories/{id}/views:
+  /v1/stories/{id}/views:
     get:
       summary: Danh sách người đã xem story
       description: Tính năng độc quyền cho chủ story, trả về list những userID đã xem qua story này với cơ chế phân trang.
@@ -252,7 +252,7 @@ paths:
                       hasMore:
                         type: boolean
 
-  /stories/{id}/reply:
+  /v1/stories/{id}/reply:
     post:
       summary: Trả lời story (DM)
       description: Viết bình luận vào story trực tiếp gửi về hộp thư DM như Zalo. Trả về `conversationId` để frontend tự mount chat box.

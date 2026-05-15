@@ -79,7 +79,7 @@ components:
           format: date-time
 
 paths:
-  /posts:
+  /v1/posts:
     post:
       summary: Tạo bài viết (text, image, video)
       description: Tạo một bài viết mới (Timeline như Zalo). Bài viết có thể chứa text, danh sách media, và thiết lập quyền riêng tư.
@@ -169,7 +169,7 @@ paths:
                         type: boolean
                         example: true
 
-  /posts/{id}:
+  /v1/posts/{id}:
     get:
       summary: Lấy chi tiết bài viết
       description: Xem chi tiết một bài viết cụ thể. Hệ thống sẽ kiểm tra quyền riêng tư (chỉ bạn bè hoặc public mới được xem).
@@ -219,7 +219,7 @@ paths:
         '404':
           description: Not Found
 
-  /posts/{id}/react:
+  /v1/posts/{id}/react:
     post:
       summary: Reaction bài viết
       description: Tương tác thả cảm xúc vào bài viết. Nếu gửi lại cùng một emoji hoặc thay đổi sẽ trả về kết quả action là added hoặc removed (Kiểu toggle state).
@@ -262,7 +262,7 @@ paths:
                         enum: [added, removed]
                         example: "added"
 
-  /posts/{id}/comments:
+  /v1/posts/{id}/comments:
     get:
       summary: Lấy comments bài viết
       description: Lấy danh sách bình luận của bài viết phân trang.
@@ -350,7 +350,7 @@ paths:
                   data:
                     $ref: '#/components/schemas/PostComment'
 
-  /posts/{id}/comments/{commentId}:
+  /v1/posts/{id}/comments/{commentId}:
     delete:
       summary: Xóa comment
       description: Quản lý bình luận. Người đăng bài hoặc người viết bình luận đều có quyền xóa.
@@ -375,7 +375,7 @@ paths:
         '403':
           description: Forbidden - Không có quyền xóa
 
-  /posts/{id}/share:
+  /v1/posts/{id}/share:
     post:
       summary: Chia sẻ bài viết (Re-share)
       description: Chia sẻ lại bài viết lên Timeline của mình. Không thể tự share bài mình hoặc share bài đã share (Chỉ share được post gốc).

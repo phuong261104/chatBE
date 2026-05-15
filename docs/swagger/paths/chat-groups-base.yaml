@@ -1,5 +1,5 @@
 paths:
-  /groups:
+  /v1/groups:
     post:
       summary: Create a new group
       tags: [Chat - Groups]
@@ -56,7 +56,7 @@ paths:
         "422":
           description: Validation error
 
-  /groups/{groupId}/info:
+  /v1/groups/{groupId}/info:
     get:
       summary: Get group info
       tags: [Chat - Groups]
@@ -92,7 +92,7 @@ paths:
         "404":
           description: Group not found
 
-  /groups/{groupId}:
+  /v1/groups/{groupId}:
     put:
       summary: Update group info
       tags: [Chat - Groups]
@@ -161,7 +161,7 @@ paths:
         "404":
           description: Group not found
 
-  /groups/{groupId}/leave:
+  /v1/groups/{groupId}/leave:
     post:
       summary: Leave group
       tags: [Chat - Groups]
@@ -186,7 +186,7 @@ paths:
         "400":
           description: Owner cannot leave, must transfer ownership first
 
-  /groups/{groupId}/settings:
+  /v1/groups/{groupId}/settings:
     patch:
       summary: Update group settings
       tags: [Chat - Groups]

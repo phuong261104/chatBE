@@ -1,5 +1,5 @@
 paths:
-  /friend-requests/{receiverId}:
+  /v1/friend-requests/{receiverId}:
     post:
       summary: Send a friend request
       tags: [Friend Requests]
@@ -23,7 +23,7 @@ paths:
                   id: "60d0fe4f5311236168a20000"
                   status: "pending"
 
-  /friend-requests/{requestId}:
+  /v1/friend-requests/{requestId}:
     patch:
       summary: Update friend request status (accept/reject/cancel)
       tags: [Friend Requests]
@@ -74,7 +74,7 @@ paths:
         "204":
           description: Request cancelled
 
-  /friend-requests/received:
+  /v1/friend-requests/received:
     get:
       summary: Get received friend requests
       tags: [Friend Requests]
@@ -111,7 +111,7 @@ paths:
                   limit: 20
                   hasMore: false
 
-  /friend-requests/sent:
+  /v1/friend-requests/sent:
     get:
       summary: Get sent friend requests
       tags: [Friend Requests]
@@ -148,7 +148,7 @@ paths:
                   limit: 20
                   hasMore: false
 
-  /friend-requests/check/{targetUserId}:
+  /v1/friend-requests/check/{targetUserId}:
     get:
       summary: Check friend request status with a user
       tags: [Friend Requests]
@@ -173,7 +173,7 @@ paths:
                   requestId: "60d0fe4f5311236168a20000"
                   direction: "OUTGOING"
 
-  /friend-requests/count:
+  /v1/friend-requests/count:
     get:
       summary: Get friend request counts
       tags: [Friend Requests]

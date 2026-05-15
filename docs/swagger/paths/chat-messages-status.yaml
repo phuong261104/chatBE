@@ -1,5 +1,5 @@
 paths:
-  /conversations/{conversationId}/seen:
+  /v1/conversations/{conversationId}/seen:
     post:
       summary: Mark messages as seen
       tags: [Chat - Messages]
@@ -35,7 +35,7 @@ paths:
         "401":
           description: Unauthorized
 
-  /conversations/{conversationId}/delivered:
+  /v1/conversations/{conversationId}/delivered:
     post:
       summary: Mark messages as delivered
       tags: [Chat - Messages]

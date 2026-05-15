@@ -1,5 +1,5 @@
 paths:
-  /groups/{groupId}/members/pending:
+  /v1/groups/{groupId}/members/pending:
     get:
       summary: Get pending member requests
       tags: [Chat - Groups]
@@ -28,7 +28,7 @@ paths:
         "401":
           description: Unauthorized
 
-  /groups/{groupId}/members/{userId}/approve:
+  /v1/groups/{groupId}/members/{userId}/approve:
     patch:
       summary: Approve pending member
       tags: [Chat - Groups]
@@ -65,7 +65,7 @@ paths:
         "403":
           description: Only admins can approve members
 
-  /groups/{groupId}/members/{userId}/reject:
+  /v1/groups/{groupId}/members/{userId}/reject:
     patch:
       summary: Reject pending member
       tags: [Chat - Groups]

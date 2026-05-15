@@ -1,5 +1,5 @@
 paths:
-  /friendships:
+  /v1/friendships:
     get:
       summary: Get list of friends (cursor-based pagination)
       tags: [Friendships]
@@ -42,7 +42,7 @@ paths:
                   nextCursor: "eyJpZCI6IjEwMCIsImNyZWF0ZWRBdCI6IjIwMjYtMDQtMDFUMTA6MDA6MDAuMDAwWiJ9"
                   hasMore: true
 
-  /friendships/{friendId}:
+  /v1/friendships/{friendId}:
     delete:
       summary: Unfriend a user
       tags: [Friendships]
@@ -59,7 +59,7 @@ paths:
         "204":
           description: Unfriended successfully
 
-  /friendships/{friendId}/check:
+  /v1/friendships/{friendId}/check:
     get:
       summary: Check friendship status
       tags: [Friendships]
@@ -81,7 +81,7 @@ paths:
                 data:
                   isFriend: true
 
-  /users/{id}/mutual-friends:
+  /v1/users/{id}/mutual-friends:
     get:
       summary: Get mutual friends
       tags: [Friendships]
@@ -111,7 +111,7 @@ paths:
                       displayName: "Bạn chung 1"
                   total: 1
 
-  /users/{id}/suggestions:
+  /v1/users/{id}/suggestions:
     get:
       summary: Get friend suggestions
       tags: [Friendships]
@@ -145,7 +145,7 @@ paths:
                       mutualFriendsCount: 5
                   total: 1
 
-  /friendships/count:
+  /v1/friendships/count:
     get:
       summary: Get total number of friends
       tags: [Friendships]
@@ -160,7 +160,7 @@ paths:
                 data:
                   count: 42
 
-  /friendships/search:
+  /v1/friendships/search:
     get:
       summary: Search friends by name or username
       tags: [Friendships]

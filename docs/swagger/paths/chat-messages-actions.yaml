@@ -1,5 +1,5 @@
 paths:
-  /messages/{messageId}/revoke:
+  /v1/messages/{messageId}/revoke:
     post:
       summary: Revoke/recall a message
       tags: [Chat - Messages]
@@ -27,7 +27,7 @@ paths:
         "403":
           description: Can only revoke your own messages within time limit
 
-  /messages/{messageId}/delete:
+  /v1/messages/{messageId}/delete:
     post:
       summary: Delete message for me only
       tags: [Chat - Messages]
@@ -50,7 +50,7 @@ paths:
         "401":
           description: Unauthorized
 
-  /messages/{messageId}/delete-for-everyone:
+  /v1/messages/{messageId}/delete-for-everyone:
     post:
       summary: Delete message for everyone (revoke)
       tags: [Chat - Messages]

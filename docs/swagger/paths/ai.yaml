@@ -1,5 +1,5 @@
 paths:
-  /ai/summarize:
+  /v1/ai/summarize:
     post:
       tags:
         - AI
@@ -100,7 +100,7 @@ paths:
                         type: string
                         example: "Internal server error"
 
-  /ai/smart-reply:
+  /v1/ai/smart-reply:
     post:
       tags:
         - AI
@@ -200,7 +200,7 @@ paths:
                         type: string
                         example: "Internal server error"
 
-  /ai/tone-adjust:
+  /v1/ai/tone-adjust:
     post:
       tags:
         - AI
@@ -306,7 +306,7 @@ paths:
                         type: string
                         example: "Internal server error"
 
-  /ai/translate:
+  /v1/ai/translate:
     post:
       tags:
         - AI
@@ -413,7 +413,7 @@ paths:
                         type: string
                         example: "Internal server error"
 
-  /ai/detect-language:
+  /v1/ai/detect-language:
     post:
       tags:
         - AI

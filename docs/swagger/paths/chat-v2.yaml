@@ -1,0 +1,1103 @@
+openapi: 3.0.0
+info:
+  title: Chat V2 API - Conversations, Messages, Groups
+  version: 2.0.0
+  description: Chat V2 endpoints - newer version with hidden conversations, message requests, ttl, stricter group rules.
+
+components:
+  schemas:
+    ConversationSummary:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+        name:
+          type: string
+          example: "Nhóm Dev Team"
+        type:
+          type: string
+          enum: [private, group]
+          example: "group"
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "https://cdn.example.com/avatar.png"
+        lastMessage:
+          type: object
+          properties:
+            messageId:
+              type: string
+            senderId:
+              type: string
+            type:
+              type: string
+            textPreview:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+        lastMessageAt:
+          type: string
+          format: date-time
+          nullable: true
+        unreadCount:
+          type: integer
+        pinned:
+          type: boolean
+        muted:
+          type: boolean
+        archived:
+          type: boolean
+        membersCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    StrangerConversation:
+      type: object
+      properties:
+        conversation:
+          $ref: "#/components/schemas/ConversationSummary"
+        member:
+          type: object
+        otherUser:
+          type: object
+          properties:
+            id:
+              type: string
+            displayName:
+              type: string
+            avatarUrl:
+              type: string
+              nullable: true
+        messageRequestStatus:
+          type: string
+          enum: [pending, rejected, accepted]
+
+    MessageRequest:
+      type: object
+      properties:
+        conversation:
+          $ref: "#/components/schemas/ConversationSummary"
+        member:
+          type: object
+        requesterUserId:
+          type: string
+
+    MessageV2:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+        conversationId:
+          type: string
+        senderId:
+          type: string
+        type:
+          type: string
+          enum: [text, image, file, link, video, voice, sticker, gif, system, profile_card]
+        text:
+          type: string
+          nullable: true
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaAttachment"
+        forwardedFrom:
+          type: string
+          nullable: true
+        forwardedFromMessageId:
+          type: string
+          nullable: true
+        quotedMessageId:
+          type: string
+          nullable: true
+        quotedMessagePreview:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          nullable: true
+        expireAtEpoch:
+          type: integer
+          nullable: true
+        reactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reaction"
+        pinned:
+          type: boolean
+        pinnedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        editedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        messageStatus:
+          type: string
+          enum: [active, revoked]
+          nullable: true
+        call:
+          type: object
+          nullable: true
+          properties:
+            callId:
+              type: string
+            roomName:
+              type: string
+            callType:
+              type: string
+              enum: [audio, video]
+            status:
+              type: string
+              enum: [completed, missed, rejected, cancelled]
+            participantOutcomes:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  joinedAt:
+                    type: string
+                  leftAt:
+                    type: string
+                  endedAt:
+                    type: string
+
+    MediaAttachment:
+      type: object
+      properties:
+        url:
+          type: string
+        filename:
+          type: string
+        mimetype:
+          type: string
+        size:
+          type: integer
+        width:
+          type: integer
+          nullable: true
+        height:
+          type: integer
+          nullable: true
+        duration:
+          type: number
+          nullable: true
+        thumbnailUrl:
+          type: string
+          nullable: true
+
+    Reaction:
+      type: object
+      properties:
+        _id:
+          type: string
+        messageId:
+          type: string
+        userId:
+          type: string
+        emoji:
+          type: string
+          example: "👍"
+        createdAt:
+          type: string
+          format: date-time
+
+    GroupSettingsV2:
+      type: object
+      properties:
+        allowSendLink:
+          type: boolean
+          example: true
+        requireApproval:
+          type: boolean
+          example: false
+        allowMemberInvite:
+          type: boolean
+          example: true
+        whoCanSendMessages:
+          type: string
+          enum: [all, admins]
+          example: "all"
+
+paths:
+  # ==================== CONVERSATIONS V2 ====================
+  /conversations:
+    get:
+      summary: List conversations (v2 - hides hidden conversations)
+      tags: [Chat V2 - Conversations]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns all conversations where the current user is an active member.
+        **Unlike v1**, hidden conversations are automatically excluded.
+        Use `hidden` conversations are NOT returned.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ConversationSummary"
+        "401":
+          description: Unauthorized
+
+  /conversations/cursor:
+    get:
+      summary: List conversations with cursor pagination (v2 - hides hidden)
+      tags: [Chat V2 - Conversations]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns conversations in cursor-based pagination.
+        Hidden conversations are excluded.
+      parameters:
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: Pagination cursor (last message ID)
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Conversations with pagination
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pinned:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ConversationSummary"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ConversationSummary"
+                  nextCursor:
+                    type: string
+                    nullable: true
+                  hasMore:
+                    type: boolean
+        "401":
+          description: Unauthorized
+
+  /conversations/strangers:
+    get:
+      summary: List stranger conversations (pending/rejected message requests)
+      tags: [Chat V2 - Conversations]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns private conversations with non-friends.
+        Includes `messageRequestStatus` field: `pending`, `rejected`, or `accepted`.
+        Use for the "Strangers" / "Message Requests" screen.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        "200":
+          description: Stranger conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/StrangerConversation"
+        "401":
+          description: Unauthorized
+
+  /conversations/{conversationId}/presence:
+    get:
+      summary: Get presence of all visible members in a conversation
+      tags: [Chat V2 - Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          required: true
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+      responses:
+        "200":
+          description: Member presence list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        isOnline:
+                          type: boolean
+                        lastSeen:
+                          type: string
+                          format: date-time
+                          nullable: true
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a conversation member
+        "404":
+          description: Conversation not found
+
+  # ==================== MESSAGES V2 ====================
+  /conversations/{conversationId}/messages:
+    post:
+      summary: Send message in a conversation (v2 - supports ttlSeconds)
+      tags: [Chat V2 - Messages]
+      security:
+        - BearerAuth: []
+      description: |
+        Sends a message. Supports self-destruct via `ttlSeconds`.
+        Private conversation messages check stranger policy and block rules.
+        Group messages respect `whoCanSendMessages` setting.
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          required: true
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  maxLength: 5000
+                  description: Message text content
+                media:
+                  type: array
+                  description: Media attachments (URL must be pre-uploaded)
+                  items:
+                    $ref: "#/components/schemas/MediaAttachment"
+                ttlSeconds:
+                  type: integer
+                  description: Self-destruct timer in seconds (optional)
+                  example: 3600
+            example:
+              text: "Hello everyone!"
+              media: []
+              ttlSeconds: 3600
+      responses:
+        "201":
+          description: Message(s) created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MessageV2"
+              example:
+                data:
+                  - id: "0192a3bc-def0-7abc-8901-23456789abcd"
+                    conversationId: "0192a3bc-def0-7abc-8901-23456789abce"
+                    senderId: "0192a3bc-def0-7abc-8901-23456789abcf"
+                    type: "text"
+                    text: "Hello everyone!"
+                    pinned: false
+                    createdAt: "2026-05-15T10:00:00.000Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not authorized to send message (blocked / not member)
+        "404":
+          description: Conversation not found
+        "422":
+          description: Either text or media is required
+
+  /conversations/{conversationId}/profile-cards:
+    post:
+      summary: Send a profile card message
+      tags: [Chat V2 - Messages]
+      security:
+        - BearerAuth: []
+      description: |
+        Sends a profile card of a user as a special message type.
+        Target user must not have blocked the sender.
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: string
+                  description: ID of user whose profile card to send
+            example:
+              userId: "0192a3bc-def0-7abc-8901-23456789abcd"
+      responses:
+        "201":
+          description: Profile card message created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/MessageV2"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Profile card is hidden by user relationship
+        "404":
+          description: User or conversation not found
+
+  /messages/private:
+    post:
+      summary: Send private message to a user (v2 - creates message request if not friends)
+      tags: [Chat V2 - Messages]
+      security:
+        - BearerAuth: []
+      description: |
+        Sends a message to a target user.
+        - If **active friends**: creates/gets private conversation and sends normally.
+        - If **not friends** and receiver allows stranger messages: creates a message request conversation.
+        - If **blocked** (either direction): returns `403`.
+        - Supports `ttlSeconds` for self-destruct messages.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetUserId]
+              properties:
+                targetUserId:
+                  type: string
+                  format: uuid
+                  description: Recipient user ID
+                text:
+                  type: string
+                  maxLength: 5000
+                  description: Message text (required if no media)
+                media:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/MediaAttachment"
+                  description: Media attachments (required if no text)
+                ttlSeconds:
+                  type: integer
+                  description: Self-destruct timer in seconds
+            example:
+              targetUserId: "0192a3bc-def0-7abc-8901-23456789abcd"
+              text: "Hello!"
+              media: []
+              ttlSeconds: 3600
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversation:
+                        $ref: "#/components/schemas/ConversationSummary"
+                      messages:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/MessageV2"
+                      messageRequestStatus:
+                        type: string
+                        enum: [pending, accepted]
+              example:
+                data:
+                  conversation:
+                    _id: "0192a3bc-def0-7abc-8901-23456789abcd"
+                    type: "private"
+                  messages:
+                    - id: "0192a3bc-def0-7abc-8901-23456789abc0"
+                      type: "text"
+                      text: "Hello!"
+                      createdAt: "2026-05-15T10:00:00.000Z"
+                  messageRequestStatus: "accepted"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Receiver blocks messages from strangers OR message request was rejected
+        "404":
+          description: Target user not found
+
+  /messages/{messageId}:
+    put:
+      summary: Edit message (v2 - 30-second window only)
+      tags: [Chat V2 - Messages]
+      security:
+        - BearerAuth: []
+      description: |
+        Edits a text message. **Strictly limited to 30 seconds after creation.**
+        Only the original sender can edit. After 30s, returns `403`.
+        Only text messages can be edited.
+      parameters:
+        - in: path
+          name: messageId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  maxLength: 5000
+            example:
+              text: "Updated message content"
+      responses:
+        "200":
+          description: Message edited
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/MessageV2"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Edit window expired (>30s) or not the sender
+        "404":
+          description: Message not found
+
+  # ==================== MESSAGE REQUESTS V2 ====================
+  /message-requests:
+    get:
+      summary: List pending message requests (incoming stranger messages)
+      tags: [Chat V2 - Message Requests]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns all pending private message requests.
+        These are conversations where the current user received a message
+        from a non-friend and hasn't accepted/rejected yet.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        "200":
+          description: Pending message requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MessageRequest"
+        "401":
+          description: Unauthorized
+
+  /message-requests/{conversationId}/accept:
+    post:
+      summary: Accept a message request
+      tags: [Chat V2 - Message Requests]
+      security:
+        - BearerAuth: []
+      description: |
+        Accepts a pending message request. Converts the requester
+        from `PENDING` status to `ACTIVE`. Both users become active members.
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          required: true
+      responses:
+        "200":
+          description: Request accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversationId:
+                        type: string
+              example:
+                data:
+                  conversationId: "0192a3bc-def0-7abc-8901-23456789abcd"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Message request not found
+
+  /message-requests/{conversationId}/reject:
+    post:
+      summary: Reject a message request
+      tags: [Chat V2 - Message Requests]
+      security:
+        - BearerAuth: []
+      description: |
+        Rejects a pending message request. Sets the requester's
+        member status to `REJECTED` and `leftAt` to now.
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          required: true
+      responses:
+        "200":
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversationId:
+                        type: string
+        "401":
+          description: Unauthorized
+        "404":
+          description: Message request not found
+
+  # ==================== HIDDEN CONVERSATIONS V2 ====================
+  /conversations/{conversationId}/hide:
+    post:
+      summary: Hide a conversation (requires PIN)
+      tags: [Chat V2 - Hidden Conversations]
+      security:
+        - BearerAuth: []
+      description: |
+        Hides a conversation from the list. Requires a 4-digit PIN.
+        Backend stores a bcrypt hash of the PIN.
+        Hidden conversations do NOT appear in `GET /conversations`.
+        They can be unlocked with the PIN via `unlock`.
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              properties:
+                pin:
+                  type: string
+                  minLength: 4
+                  maxLength: 128
+                  description: 4+ character PIN to protect the hidden conversation
+            example:
+              pin: "1234"
+      responses:
+        "200":
+          description: Conversation hidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversationId:
+                        type: string
+                      hiddenAt:
+                        type: string
+                        format: date-time
+        "401":
+          description: Unauthorized
+        "404":
+          description: Conversation not found
+
+  /conversations/{conversationId}/unlock:
+    post:
+      summary: Unlock a hidden conversation (verify PIN, get detail)
+      tags: [Chat V2 - Hidden Conversations]
+      security:
+        - BearerAuth: []
+      description: |
+        Verifies the PIN and returns the conversation detail.
+        Does NOT unhide the conversation - only reveals it temporarily.
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              properties:
+                pin:
+                  type: string
+            example:
+              pin: "1234"
+      responses:
+        "200":
+          description: PIN verified, conversation detail returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversation:
+                        $ref: "#/components/schemas/ConversationSummary"
+                      members:
+                        type: array
+        "401":
+          description: Unauthorized
+        "403":
+          description: Invalid hidden PIN
+        "404":
+          description: Conversation not found
+
+  /conversations/{conversationId}/unhide:
+    post:
+      summary: Unhide a conversation (verify PIN first)
+      tags: [Chat V2 - Hidden Conversations]
+      security:
+        - BearerAuth: []
+      description: |
+        Unhides a conversation. Requires PIN verification.
+        The conversation reappears in `GET /conversations`.
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              properties:
+                pin:
+                  type: string
+            example:
+              pin: "1234"
+      responses:
+        "200":
+          description: Conversation unhidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversationId:
+                        type: string
+        "401":
+          description: Unauthorized
+        "403":
+          description: Invalid hidden PIN
+        "404":
+          description: Conversation not found
+
+  # ==================== GROUPS V2 ====================
+  /groups:
+    post:
+      summary: Create group (v2 - members must be active friends and unblocked)
+      tags: [Chat V2 - Groups]
+      security:
+        - BearerAuth: []
+      description: |
+        Creates a new group.
+        **Validation:** All `memberIds` must be **active friends** of the creator
+        AND must not be blocked by / block the creator in either direction.
+        Fails with `details.code` such as: `duplicate`, `self`, `disabled`,
+        `blocked`, `not_friend`, `too_many_members`.
+        Default settings: `allowSendLink=true`, `requireApproval=false`,
+        `allowMemberInvite=true`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, memberIds]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                memberIds:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                  maxItems: 49
+                  description: Member IDs (excluding creator). Must be active friends.
+                avatarUrl:
+                  type: string
+            example:
+              name: "Dev Team"
+              memberIds: ["0192a3bc-def0-7abc-8901-23456789abcd"]
+              avatarUrl: "https://cdn.example.com/group.png"
+      responses:
+        "201":
+          description: Group created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversation:
+                        $ref: "#/components/schemas/ConversationSummary"
+                      members:
+                        type: array
+                      systemMessage:
+                        $ref: "#/components/schemas/MessageV2"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Some members are not active friends or are blocked
+        "422":
+          description: Validation error (e.g. too many members, duplicate, self)
+
+  /groups/{groupId}/members:
+    post:
+      summary: Add members to group (v2 - members must be active friends and unblocked)
+      tags: [Chat V2 - Groups]
+      security:
+        - BearerAuth: []
+      description: |
+        Adds members to an existing group.
+        **Validation:** Same as `POST /groups` - all target users must be
+        active friends and unblocked by/from the sender.
+        Only admins and owner can add members.
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [memberIds]
+              properties:
+                memberIds:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                  description: User IDs to add (must be active friends)
+            example:
+              memberIds: ["0192a3bc-def0-7abc-8901-23456789abcd"]
+      responses:
+        "200":
+          description: Members added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        userId:
+                          type: string
+                        role:
+                          type: string
+                          enum: [member, admin, owner]
+                        joinedAt:
+                          type: string
+                          format: date-time
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not authorized or some users not eligible
+        "404":
+          description: Group not found
+
+  /groups/{groupId}/leave:
+    post:
+      summary: Leave group (v2 - owner auto-transfers ownership)
+      tags: [Chat V2 - Groups]
+      security:
+        - BearerAuth: []
+      description: |
+        Owner leave: transfers ownership to the oldest active admin,
+        or oldest active member, or group is marked inactive.
+        Admin/Member leave: normal leave behavior.
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+      responses:
+        "200":
+          description: Left group successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this group
+        "404":
+          description: Group not found
+
+  /groups/{groupId}/settings:
+    patch:
+      summary: Update group settings (v2 - includes whoCanSendMessages)
+      tags: [Chat V2 - Groups]
+      security:
+        - BearerAuth: []
+      description: |
+        Updates group settings. Only owner and admins can update.
+        Includes `whoCanSendMessages`: `"all"` (everyone) or `"admins"` (admins only).
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                allowSendLink:
+                  type: boolean
+                requireApproval:
+                  type: boolean
+                allowMemberInvite:
+                  type: boolean
+                whoCanSendMessages:
+                  type: string
+                  enum: [all, admins]
+                  description: Who can send messages to the group
+            example:
+              allowSendLink: true
+              requireApproval: false
+              allowMemberInvite: true
+              whoCanSendMessages: "admins"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      settings:
+                        $ref: "#/components/schemas/GroupSettingsV2"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner or admins can update settings
+        "404":
+          description: Group not found

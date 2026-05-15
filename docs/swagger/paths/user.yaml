@@ -1,5 +1,5 @@
 paths:
-  /auth/register:
+  /v1/profile:
     post:
       summary: Register a new user
       tags: [Auth]
@@ -166,7 +166,7 @@ paths:
                     type: boolean
                     example: true
 
-  /users:
+  /v1/users:
     get:
       summary: Get list of users (Admin)
       tags: [Users]
@@ -200,7 +200,7 @@ paths:
         '201':
           description: Created user
 
-  /users/search:
+  /v1/users/search:
     get:
       summary: Tim kiem nguoi dung theo tu khoa
       tags: [Users]
@@ -250,7 +250,7 @@ paths:
         '422':
           description: Tu khoa trong
 
-  /users/search-by-phone:
+  /v1/users/search-by-phone:
     get:
       summary: Tim nguoi dung bang so dien thoai
       tags: [Users]
@@ -325,7 +325,7 @@ paths:
         '422':
           description: So dien thoai khong hop le
 
-  /users/{id}/public:
+  /v1/users/{id}/public:
     get:
       summary: Lay ho so cong khai cua nguoi dung
       tags: [Users]
@@ -370,7 +370,7 @@ paths:
         '400':
           description: Khong lay duoc ho so
 
-  /users/{id}:
+  /v1/users/{id}:
     get:
       summary: Get user details
       tags: [Users]
@@ -422,7 +422,7 @@ paths:
         '200':
           description: User deleted
 
-  /users/{id}/presence:
+  /v1/users/{id}/presence:
     get:
       summary: Lay trang thai online cua nguoi dung
       tags: [Users]

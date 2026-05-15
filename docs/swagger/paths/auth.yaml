@@ -18,7 +18,7 @@ x-test-credentials:
     4. **Test Protected Endpoints**: Try `/auth/sessions`, `/auth/change-password`, etc.
 
 paths:
-  /auth/register:
+  /v1/auth/register:
     post:
       summary: "Register new account"
       tags: [Auth]
@@ -280,7 +280,7 @@ paths:
               example:
                 message: "Phone already existed"
 
-  /auth/login:
+  /v1/auth/login:
     post:
       summary: "Login to account"
       tags: [Auth]
@@ -463,7 +463,7 @@ paths:
               example:
                 message: "Invalid credentials"
 
-  /auth/refresh:
+  /v1/auth/refresh:
     post:
       summary: "Refresh access token"
       tags: [Auth]
@@ -555,7 +555,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/logout:
+  /v1/auth/logout:
     post:
       summary: "Logout from current device"
       tags: [Auth]
@@ -621,7 +621,7 @@ paths:
                     type: boolean
                     example: true
 
-  /auth/logout-all:
+  /v1/auth/logout-all:
     post:
       summary: "Logout from all devices"
       tags: [Auth]
@@ -673,7 +673,7 @@ paths:
                     type: boolean
                     example: true
 
-  /auth/introspect:
+  /v1/auth/introspect:
     post:
       summary: "Verify access token validity"
       tags: [Auth]
@@ -771,7 +771,7 @@ paths:
                             description: "Token version for revocation tracking"
                             example: 1
 
-  /auth/send-verification:
+  /v1/auth/send-verification:
     post:
       summary: "Send email verification code"
       tags: [Auth]
@@ -859,7 +859,7 @@ paths:
               example:
                 message: "Too many requests. Please try again later."
 
-  /auth/verify-email:
+  /v1/auth/verify-email:
     post:
       summary: "Verify email with code"
       tags: [Auth]
@@ -964,7 +964,7 @@ paths:
               example:
                 message: "Too many attempts"
 
-  /auth/resend-verification:
+  /v1/auth/resend-verification:
     post:
       summary: "Resend email verification code"
       tags: [Auth]
@@ -1040,7 +1040,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/forgot-password:
+  /v1/auth/forgot-password:
     post:
       summary: "Send password reset OTP"
       tags: [Auth]
@@ -1136,7 +1136,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/verify-reset-otp:
+  /v1/auth/verify-reset-otp:
     post:
       summary: "Verify password reset OTP"
       tags: [Auth]
@@ -1237,7 +1237,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/resend-reset-otp:
+  /v1/auth/resend-reset-otp:
     post:
       summary: "Resend password reset OTP"
       tags: [Auth]
@@ -1304,7 +1304,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/reset-password:
+  /v1/auth/reset-password:
     post:
       summary: "Reset password with tempToken"
       tags: [Auth]
@@ -1411,7 +1411,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/change-password:
+  /v1/auth/change-password:
     post:
       summary: "Change password (authenticated user)"
       tags: [Auth]
@@ -1503,7 +1503,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/sessions:
+  /v1/auth/sessions:
     get:
       summary: "Get all login sessions"
       tags: [Auth]
@@ -1665,7 +1665,7 @@ paths:
                     type: boolean
                     example: true
 
-  /auth/sessions/{deviceId}:
+  /v1/auth/sessions/{deviceId}:
     delete:
       summary: "Logout from specific device"
       tags: [Auth]
@@ -1746,7 +1746,7 @@ paths:
         '404':
           description: "Session not found or does not belong to user"
 
-  /auth/avatar:
+  /v1/auth/avatar:
     patch:
       summary: "Update user avatar"
       tags: [Auth]

@@ -1,5 +1,5 @@
 paths:
-  /media/upload:
+  /v1/media/upload:
     post:
       summary: Upload a single file
       tags: [Media]
@@ -76,7 +76,7 @@ paths:
                   code: "VALIDATION_ERROR"
                   message: "No file was uploaded"
 
-  /media/upload-multiple:
+  /v1/media/upload-multiple:
     post:
       summary: Upload multiple files
       tags: [Media]
@@ -166,7 +166,7 @@ paths:
                   code: "VALIDATION_ERROR"
                   message: "No file was uploaded"
 
-  /media/{filename}:
+  /v1/media/{filename}:
     delete:
       summary: Delete a file
       tags: [Media]
@@ -200,7 +200,7 @@ paths:
                   code: "NOT_FOUND"
                   message: "File not found"
 
-  /media/request-upload-url:
+  /v1/media/request-upload-url:
     post:
       summary: Request a pre-signed URL for direct file upload to S3
       tags: [Media]
@@ -411,7 +411,7 @@ paths:
                         type: string
                         example: "User authentication required"
 
-  /media/confirm-upload:
+  /v1/media/confirm-upload:
     post:
       summary: Confirm successful upload and get final file URL
       tags: [Media]
@@ -602,7 +602,7 @@ paths:
                   code: "GONE"
                   message: "Upload presigned URL has expired"
 
-  /media/upload-methods:
+  /v1/media/upload-methods:
     get:
       summary: Get supported upload methods and file constraints
       tags: [Media]

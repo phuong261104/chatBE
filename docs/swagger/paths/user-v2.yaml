@@ -1,0 +1,505 @@
+openapi: 3.0.0
+info:
+  title: User V2 API - Profile, Privacy, Presence
+  version: 2.0.0
+  description: User V2 endpoints - privacy-aware profile, presence, friend suggestions with relationship context.
+
+components:
+  schemas:
+    UserProfileV2:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, disabled, deleted]
+        privacy:
+          $ref: "#/components/schemas/UserPrivacy"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserPublicProfileV2:
+      type: object
+      description: Public profile, sanitized based on viewer relationship
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        privacy:
+          $ref: "#/components/schemas/UserPrivacy"
+
+    UserPrivacy:
+      type: object
+      description: User's privacy settings (normalized from DB)
+      properties:
+        lastSeen:
+          type: string
+          enum: [everyone, friends, nobody]
+          example: "friends"
+        profilePhoto:
+          type: string
+          enum: [everyone, friends, nobody]
+          example: "friends"
+        info:
+          type: string
+          enum: [everyone, friends, nobody]
+          example: "everyone"
+        searchableByPhone:
+          type: boolean
+          example: true
+        allowStrangerMessage:
+          type: string
+          enum: [everyone, friends, nobody]
+          example: "friends"
+
+    Presence:
+      type: object
+      properties:
+        userId:
+          type: string
+        isOnline:
+          type: boolean
+        lastSeen:
+          type: string
+          format: date-time
+          nullable: true
+        connectionCount:
+          type: integer
+          nullable: true
+
+    AvatarHistoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        avatarUrl:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    FriendSuggestion:
+      type: object
+      description: Friend suggestion with ranking and reasons
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        mutualFriendsCount:
+          type: integer
+          description: Number of mutual friends
+        mutualFriendIds:
+          type: array
+          items:
+            type: string
+        sharedGroupsCount:
+          type: integer
+          description: Number of shared groups
+        sharedGroupIds:
+          type: array
+          items:
+            type: string
+        score:
+          type: integer
+          description: Ranking score (mutualFriendsCount * 10 + sharedGroupsCount * 3)
+        reasons:
+          type: array
+          items:
+            type: string
+          description: '"mutual_friends" and/or "shared_groups"'
+
+    UpdatePrivacy:
+      type: object
+      description: Privacy update payload (partial)
+      properties:
+        lastSeen:
+          type: string
+          enum: [everyone, friends, nobody]
+        profilePhoto:
+          type: string
+          enum: [everyone, friends, nobody]
+        info:
+          type: string
+          enum: [everyone, friends, nobody]
+        searchableByPhone:
+          type: boolean
+        allowStrangerMessage:
+          type: string
+          enum: [everyone, friends, nobody]
+
+paths:
+  # ==================== PROFILE V2 ====================
+  /users/me/profile:
+    get:
+      summary: Get current user's profile with privacy settings
+      tags: [User V2]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns the current user's full profile including privacy settings.
+        Password and salt fields are excluded.
+        Includes normalized `privacy` object from the user's privacy config.
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/UserProfileV2"
+        "401":
+          description: Unauthorized
+
+    patch:
+      summary: Update current user's profile
+      tags: [User V2]
+      security:
+        - BearerAuth: []
+      description: |
+        Updates the current user's profile fields.
+        If avatar is changed, the previous avatar URL is saved to avatar history.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                  maxLength: 100
+                avatarUrl:
+                  type: string
+                bio:
+                  type: string
+                  maxLength: 500
+                email:
+                  type: string
+                  format: email
+            example:
+              displayName: "Nguyen Van A"
+              avatarUrl: "https://cdn.example.com/avatar.png"
+              bio: "Hello world!"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/UserProfileV2"
+        "401":
+          description: Unauthorized
+        "422":
+          description: Validation error
+
+  # ==================== PRIVACY V2 ====================
+  /users/me/privacy:
+    patch:
+      summary: Update privacy settings
+      tags: [User V2]
+      security:
+        - BearerAuth: []
+      description: |
+        Updates the current user's privacy settings.
+        All fields are optional - only provided fields are updated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePrivacy"
+            example:
+              lastSeen: "friends"
+              profilePhoto: "friends"
+              info: "everyone"
+              searchableByPhone: true
+              allowStrangerMessage: "friends"
+      responses:
+        "200":
+          description: Privacy updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/UserPrivacy"
+        "401":
+          description: Unauthorized
+        "422":
+          description: Validation error
+
+  # ==================== AVATAR HISTORY ====================
+  /users/me/avatar-history:
+    get:
+      summary: Get avatar change history
+      tags: [User V2]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns the list of previous avatars for the current user.
+        Maximum 100 items returned.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        "200":
+          description: Avatar history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvatarHistoryItem"
+        "401":
+          description: Unauthorized
+
+  # ==================== USER SEARCH V2 ====================
+  /users/search:
+    get:
+      summary: Search users by name or username
+      tags: [User V2]
+      security:
+        - BearerAuth: []
+      description: |
+        Searches for users by name/display name.
+        Results are filtered based on:
+        - Privacy settings (blocked users excluded)
+        - Active status only
+        - Block relationships (mutual exclusion)
+        Maximum 50 results.
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          required: true
+          description: Search query (1-200 chars)
+          example: "Nguyen"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserPublicProfileV2"
+        "401":
+          description: Unauthorized
+
+  /users/search-by-phone:
+    get:
+      summary: Search user by phone number
+      tags: [User V2]
+      security:
+        - BearerAuth: []
+      description: |
+        Finds a user by their phone number.
+        The target user's privacy must allow phone search (`searchableByPhone: true`).
+        Blocked users return `404`.
+      parameters:
+        - in: query
+          name: phone
+          schema:
+            type: string
+          required: true
+          description: Phone number to search
+          example: "+84901234567"
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/UserPublicProfileV2"
+        "401":
+          description: Unauthorized
+        "404":
+          description: User not found (not found, blocked, or privacy denied)
+
+  # ==================== PRESENCE V2 ====================
+  /users/{id}/presence:
+    get:
+      summary: Get user presence with privacy awareness
+      tags: [User V2]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns the presence of a target user.
+        The presence is filtered based on privacy settings:
+        - `lastSeen: "everyone"` - always visible
+        - `lastSeen: "friends"` - visible only to friends
+        - `lastSeen: "nobody"` - always returns null
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Target user ID
+      responses:
+        "200":
+          description: User presence
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Presence"
+              example:
+                data:
+                  userId: "0192a3bc-def0-7abc-8901-23456789abcd"
+                  isOnline: true
+                  lastSeen: null
+                  connectionCount: 2
+        "401":
+          description: Unauthorized
+        "404":
+          description: User not found
+
+  # ==================== PUBLIC PROFILE V2 ====================
+  /users/{id}/public:
+    get:
+      summary: Get public profile with relationship-aware sanitization
+      tags: [User V2]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns a sanitized public profile of the target user.
+        The returned fields depend on the viewer's relationship:
+        - If blocked by viewer: returns `403`
+        - Fields are filtered based on target's privacy settings
+        - Includes relationship context (mutual friends count if applicable)
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Target user ID
+      responses:
+        "200":
+          description: Public profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/UserPublicProfileV2"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Profile hidden by block
+        "404":
+          description: User not found
+
+  # ==================== FRIEND SUGGESTIONS V2 ====================
+  /friends/suggestions:
+    get:
+      summary: Get ranked friend suggestions
+      tags: [User V2]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns ranked friend suggestions for the current user.
+        Candidates are ranked by:
+        - Mutual friends (score = mutualFriendsCount * 10)
+        - Shared groups (score = sharedGroupsCount * 3)
+        Excludes: self, existing friends, pending requests, blocked users.
+        Uses `RelationshipPrivacyPolicyV2` to sanitize candidate profiles.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+      responses:
+        "200":
+          description: Friend suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FriendSuggestion"
+              example:
+                data:
+                  - id: "0192a3bc-def0-7abc-8901-23456789abcd"
+                    displayName: "Tran Thi B"
+                    avatarUrl: "https://cdn.example.com/b.png"
+                    bio: null
+                    mutualFriendsCount: 5
+                    mutualFriendIds: ["user_a", "user_b"]
+                    sharedGroupsCount: 2
+                    sharedGroupIds: ["group_x"]
+                    score: 56
+                    reasons: ["mutual_friends", "shared_groups"]
+        "401":
+          description: Unauthorized

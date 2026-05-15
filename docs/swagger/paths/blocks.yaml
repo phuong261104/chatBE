@@ -1,5 +1,5 @@
 paths:
-  /blocks/{blockedUserId}:
+  /v1/blocks/{blockedUserId}:
     post:
       summary: Block a user
       tags: [Blocks]
@@ -43,7 +43,7 @@ paths:
               example:
                 data: true
 
-  /blocks:
+  /v1/blocks:
     get:
       summary: Get list of blocked users
       tags: [Blocks]
@@ -60,7 +60,7 @@ paths:
                     blockedId: "60d0fe4f5311236168a2"
                     createdAt: "2026-04-01T10:00:00Z"
 
-  /blocks/{blockedUserId}/check:
+  /v1/blocks/{blockedUserId}/check:
     get:
       summary: Check if a user is blocked
       tags: [Blocks]

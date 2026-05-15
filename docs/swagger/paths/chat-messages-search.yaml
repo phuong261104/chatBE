@@ -1,5 +1,5 @@
 paths:
-  /conversations/{conversationId}/pinned-messages:
+  /v1/conversations/{conversationId}/pinned-messages:
     get:
       summary: Get all pinned messages in a conversation (sorted by pinnedAt ascending - oldest first)
       tags: [Chat - Messages]
@@ -51,7 +51,7 @@ paths:
         "403":
           description: Not a member of this conversation
 
-  /conversations/{conversationId}/search:
+  /v1/conversations/{conversationId}/search:
     get:
       summary: Search messages within a conversation
       tags: [Chat - Messages]
@@ -96,7 +96,7 @@ paths:
         "403":
           description: Not a member of this conversation
 
-  /conversations/{conversationId}/media:
+  /v1/conversations/{conversationId}/media:
     get:
       summary: Get media/files/links in a conversation (cursor-based pagination)
       tags: [Chat - Messages]

@@ -1,5 +1,5 @@
 paths:
-  /messages/{messageId}/pin:
+  /v1/messages/{messageId}/pin:
     post:
       summary: Pin a message
       tags: [Chat - Messages]
@@ -49,7 +49,7 @@ paths:
         "401":
           description: Unauthorized
 
-  /messages/forward:
+  /v1/messages/forward:
     post:
       summary: Forward messages to conversations
       description: |
@@ -123,7 +123,7 @@ paths:
         "401":
           description: Unauthorized
 
-  /messages/{messageId}/quote:
+  /v1/messages/{messageId}/quote:
     post:
       summary: Quote and reply to a message (returns Message)
       description: |
@@ -184,7 +184,7 @@ paths:
         "404":
           description: Original message not found
 
-  /conversations/{conversationId}/messages/bulk-delete:
+  /v1/conversations/{conversationId}/messages/bulk-delete:
     delete:
       summary: Delete multiple messages at once (for me only)
       tags: [Chat - Messages]
@@ -245,7 +245,7 @@ paths:
         "403":
           description: Not a member of this conversation
 
-  /messages/{messageId}/translate:
+  /v1/messages/{messageId}/translate:
     post:
       summary: Translate a message using AI
       tags: [Chat - Messages]

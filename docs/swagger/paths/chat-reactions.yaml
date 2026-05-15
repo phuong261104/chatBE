@@ -1,5 +1,5 @@
 paths:
-  /messages/{messageId}/reactions:
+  /v1/messages/{messageId}/reactions:
     get:
       summary: Get all reactions on a message
       tags: [Chat - Reactions]
@@ -90,7 +90,7 @@ paths:
         "403":
           description: Only conversation admins can clear all reactions
 
-  /messages/{messageId}/react:
+  /v1/messages/{messageId}/react:
     post:
       summary: Add a reaction to a message
       tags: [Chat - Reactions]
