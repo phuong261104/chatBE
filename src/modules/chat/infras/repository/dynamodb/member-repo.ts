@@ -268,7 +268,7 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
           new UpdateCommand({
             TableName: this.getTableName(),
             Key: { pk: member.pk, sk: member.sk },
-            UpdateExpression: `REMOVE leftAt SET ${updateExprParts.join(", ")}`,
+            UpdateExpression: `SET ${updateExprParts.join(", ")} REMOVE leftAt`,
             ExpressionAttributeNames: exprAttrNames,
             ExpressionAttributeValues: exprAttrValues,
           }),

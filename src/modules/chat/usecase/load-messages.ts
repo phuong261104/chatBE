@@ -49,9 +49,17 @@ export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery
       validatedInput.userId,
     );
 
-    const hasMore = messages.length > validatedInput.limit;
-    const returnMessages = (hasMore ? messages.slice(0, validatedInput.limit) : messages)
-      .filter((msg) => !msg.deletedForUserIds?.includes(validatedInput.userId));
+    const hiddenAt = member.hiddenAt;
+    const visibleMessages = messages.filter((msg) => {
+      if (msg.deletedForUserIds?.includes(validatedInput.userId)) return false;
+      if (hiddenAt && msg.createdAt <= hiddenAt) return false;
+      return true;
+    });
+
+    const hasMore = visibleMessages.length > validatedInput.limit;
+    const returnMessages = hasMore
+      ? visibleMessages.slice(0, validatedInput.limit)
+      : visibleMessages;
 
     // Lấy reactions cho các tin nhắn được trả về
     await Promise.all(

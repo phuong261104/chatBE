@@ -160,7 +160,15 @@ export class MediaHttpService {
   async getUploadMethodsAPI(req: Request, res: Response) {
     const fileTypeConfigs = {
       IMAGE: {
-        allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+        allowedMimeTypes: [
+          "image/jpeg",
+          "image/jpg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+          "image/heic",
+          "image/heif",
+        ],
         maxSizeBytes: 100 * 1024 * 1024,
         description: "Hình ảnh (jpg, png, gif, webp)",
       },

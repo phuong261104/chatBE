@@ -34,7 +34,7 @@ export class ReactionController extends BaseController {
       );
 
       if (this.socketService) {
-        const message = await (this.useCase as any).messageQueryRepo?.get(validatedData.messageId);
+        const message = await this.useCase.getMessage(validatedData.messageId);
         if (message) {
           const memberUserIds = await this.useCase.getConversationMembers(
             message.conversationId,
@@ -81,7 +81,7 @@ export class ReactionController extends BaseController {
       );
 
       if (this.socketService) {
-        const message = await (this.useCase as any).messageQueryRepo?.get(validatedData.messageId);
+        const message = await this.useCase.getMessage(validatedData.messageId);
         if (message) {
           const memberUserIds = await this.useCase.getConversationMembers(
             message.conversationId,
@@ -127,7 +127,7 @@ export class ReactionController extends BaseController {
       );
 
       if (this.socketService) {
-        const message = await (this.useCase as any).messageQueryRepo?.get(validatedData.messageId);
+        const message = await this.useCase.getMessage(validatedData.messageId);
         if (message) {
           const memberUserIds = await this.useCase.getConversationMembers(
             message.conversationId,

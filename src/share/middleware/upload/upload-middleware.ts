@@ -177,9 +177,12 @@ export function createUploadMiddleware(config?: Partial<IUploadConfig>, storage?
     maxFileSize: 10 * 1024 * 1024,
     allowedMimeTypes: [
       "image/jpeg",
+      "image/jpg",
       "image/png",
       "image/gif",
       "image/webp",
+      "image/heic",
+      "image/heif",
       "video/mp4",
       "video/mpeg",
       "video/quicktime",

@@ -132,6 +132,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationRepo,
     conversationMemberRepo,
     accessPolicy,
+    conversationMemberRepo,
   );
 
   const sendMessageHandler = new SendMessageHandler(

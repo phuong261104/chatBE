@@ -3,6 +3,7 @@ import { v7 } from 'uuid';
 import {
   IConversationQueryRepository,
   IConversationCommandRepository,
+  IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
 } from '../interface';
 import { Conversation, ConversationType, ConversationMemberRole, ConversationMemberStatus } from '../model/model';
@@ -18,6 +19,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly accessPolicy: ChatAccessPolicy,
+    private readonly conversationMemberQueryRepo?: IConversationMemberQueryRepository,
   ) {}
 
   async execute(command: GetOrCreatePrivateConversationCommand): Promise<Conversation> {
@@ -92,8 +94,64 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
         };
         await this.conversationMemberCommandRepo.insert(member2);
       }
+    } else {
+      await this.ensureCurrentMemberVisible(conversation.id, validatedInput.currentUserId);
     }
 
     return conversation;
+  }
+
+  private async ensureCurrentMemberVisible(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    const memberQueryRepo =
+      this.conversationMemberQueryRepo ||
+      (typeof (this.conversationMemberCommandRepo as any).findByCond === "function"
+        ? (this.conversationMemberCommandRepo as unknown as IConversationMemberQueryRepository)
+        : null);
+
+    if (!memberQueryRepo) {
+      return;
+    }
+
+    const now = new Date();
+    const existing = await memberQueryRepo.findByCond({ conversationId, userId });
+    if (!existing) {
+      await this.conversationMemberCommandRepo.insert({
+        id: v7(),
+        conversationId,
+        userId,
+        role: ConversationMemberRole.MEMBER,
+        status: ConversationMemberStatus.ACTIVE,
+        joinedAt: now,
+        unreadCount: 0,
+        pinned: false,
+        archived: false,
+        hiddenUserIds: [],
+        lastActivityAt: now,
+        updatedAt: now,
+      });
+      return;
+    }
+
+    const update: Record<string, unknown> = {};
+    if (existing.status !== ConversationMemberStatus.ACTIVE) {
+      update.status = ConversationMemberStatus.ACTIVE;
+    }
+    if (existing.leftAt) {
+      update.leftAt = null;
+    }
+    if (existing.archived) {
+      update.archived = false;
+    }
+    if (existing.hidden) {
+      update.hidden = false;
+    }
+
+    if (Object.keys(update).length > 0) {
+      update.lastActivityAt = now;
+      await this.conversationMemberCommandRepo.update(existing.id, update as any);
+    }
   }
 }

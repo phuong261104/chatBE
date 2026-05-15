@@ -117,9 +117,15 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       } else if (existingMember.leftAt !== undefined) {
         const reJoinedMember: ConversationMember = {
           ...existingMember,
+          role: ConversationMemberRole.MEMBER,
           status: defaultStatus,
           joinedAt: now,
           leftAt: undefined,
+          unreadCount: 0,
+          archived: false,
+          hidden: false,
+          hiddenAt: undefined,
+          hiddenPinHash: undefined,
           lastActivityAt: now,
           updatedAt: now,
         };
@@ -145,9 +151,15 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       }
       for (const item of membersToUpdate) {
         await this.conversationMemberCommandRepo.update(item.existing.id, {
+          role: ConversationMemberRole.MEMBER,
           status: defaultStatus,
           joinedAt: now,
           leftAt: null,
+          unreadCount: 0,
+          archived: false,
+          hidden: false,
+          hiddenAt: null,
+          hiddenPinHash: null,
           lastActivityAt: now,
         } as any);
         newMembers.push(item.updated);

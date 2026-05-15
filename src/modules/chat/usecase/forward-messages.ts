@@ -11,27 +11,25 @@ import {
   IMessageClassificationRepository,
 } from "../interface";
 import {
+  ClassificationType,
   ConversationMemberStatus,
   Message,
-  MessageStatus,
   MessageType,
   MessageClassification,
-  ClassificationType,
 } from "../model/model";
 import { forwardMessagesDTOSchema, ForwardMessagesCommand } from "../model/dto";
 import {
   ErrConversationNotFound,
-  ErrInvalidMessageType,
   ErrMessageNotFound,
-  ErrMessageUnauthorized,
   ErrNotMember,
 } from "../model/errors";
-
-function extractLinks(text: string): string[] {
-  if (!text) return [];
-  const matches = text.match(/(https?:\/\/[^\s]+)/g);
-  return matches || [];
-}
+import {
+  assertMessageActiveForAction,
+  classificationTypeForMediaType,
+  extractLinks,
+  getForwardedMessageType,
+  getMessagePreview,
+} from "./message-action-rules";
 
 export class ForwardMessagesHandler implements ICommandHandler<
   ForwardMessagesCommand,
@@ -71,9 +69,7 @@ export class ForwardMessagesHandler implements ICommandHandler<
       await this.ensureConversationMember(conversationId, data.userId);
 
       const messagesToInsert: Message[] = sourceMessages.map((sourceMessage) => {
-        const type = sourceMessage.type === MessageType.TEXT && extractLinks(sourceMessage.text || "").length > 0
-          ? MessageType.LINK
-          : sourceMessage.type;
+        const type = getForwardedMessageType(sourceMessage);
         return {
           id: v7(),
           conversationId,
@@ -81,6 +77,7 @@ export class ForwardMessagesHandler implements ICommandHandler<
           type,
           text: sourceMessage.text,
           media: sourceMessage.media,
+          call: sourceMessage.call,
           links: type === MessageType.LINK ? extractLinks(sourceMessage.text || "") : undefined,
           forwardedFrom: sourceMessage.conversationId,
           forwardedFromMessageId: sourceMessage.id,
@@ -95,11 +92,10 @@ export class ForwardMessagesHandler implements ICommandHandler<
       for (const msg of messagesToInsert) {
         if (msg.media && msg.media.length > 0) {
           for (const media of msg.media) {
-            const type = media.mediaType === "image" ? ClassificationType.IMAGE : ClassificationType.FILE;
             classifications.push({
               id: v7(),
               conversationId,
-              type,
+              type: classificationTypeForMediaType(media.mediaType),
               senderId: data.userId,
               url: media.url,
               name: media.name,
@@ -162,21 +158,7 @@ export class ForwardMessagesHandler implements ICommandHandler<
 
       await this.ensureConversationMember(message.conversationId, userId);
 
-      if (
-        message.deletedAt ||
-        message.messageStatus === MessageStatus.REVOKED ||
-        message.deletedForUserIds?.includes(userId)
-      ) {
-        throw AppError.from(ErrMessageUnauthorized, 400);
-      }
-
-      if (
-        ![MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.LINK].includes(
-          message.type,
-        )
-      ) {
-        throw AppError.from(ErrInvalidMessageType, 400);
-      }
+      assertMessageActiveForAction(message, userId, "forward");
 
       messages.push(message);
     }
@@ -204,19 +186,7 @@ export class ForwardMessagesHandler implements ICommandHandler<
   }
 
   private getTextPreview(message: Message): string {
-    if (message.text) {
-      return message.text.substring(0, 100);
-    }
-
-    if (message.type === MessageType.IMAGE) {
-      return "📷 Image";
-    }
-
-    if (message.type === MessageType.FILE) {
-      return "📎 File";
-    }
-
-    return "Forwarded message";
+    return getMessagePreview(message);
   }
 
 }

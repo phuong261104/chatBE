@@ -56,6 +56,7 @@ export type RequestPresignedUrlDTO = z.infer<
 export interface RequestPresignedUrlResponseDTO {
   fileId: string;
   filename: string;
+  url: string;
   presignedUrl: string;
   uploadMethod: UploadMethod;
   expiresAt: Date;
@@ -64,7 +65,7 @@ export interface RequestPresignedUrlResponseDTO {
 
 export const ConfirmUploadDTOSchema = z.object({
   fileId: uuidV7("Invalid file ID"),
-  uploadedUrl: z.string().url("Invalid uploaded URL"),
+  uploadedUrl: z.string().url("Invalid uploaded URL").optional(),
 });
 
 export type ConfirmUploadDTO = z.infer<typeof ConfirmUploadDTOSchema>;
@@ -95,6 +96,7 @@ interface PendingUpload {
   fileSize: number;
   fileType: MediaFileType;
   originalName?: string;
+  url: string;
   expiresAt: Date;
   status: UploadStatus;
   userId: string;

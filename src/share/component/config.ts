@@ -58,7 +58,7 @@ export const config = {
     baseUrl: process.env.UPLOAD_BASE_URL || "http://localhost:3000/uploads",
     allowedMimeTypes: (
       process.env.UPLOAD_ALLOWED_MIME_TYPES ||
-      "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/mpeg,video/quicktime,audio/mpeg,audio/wav,application/pdf"
+      "image/jpeg,image/jpg,image/png,image/gif,image/webp,image/heic,image/heif,video/mp4,video/mpeg,video/quicktime,audio/mpeg,audio/wav,application/pdf"
     ).split(","),
     cloud: {
       enabled: process.env.CLOUD_STORAGE_ENABLED === "true",

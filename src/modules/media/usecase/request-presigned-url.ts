@@ -22,7 +22,15 @@ const MAX_FILE_SIZES: Record<MediaFileType, number> = {
 };
 
 const MIME_TYPE_MAP: Record<MediaFileType, string[]> = {
-  [MediaFileType.IMAGE]: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+  [MediaFileType.IMAGE]: [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+  ],
   [MediaFileType.VIDEO]: ["video/mp4", "video/mpeg", "video/quicktime", "video/webm"],
   [MediaFileType.AUDIO]: ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp3", "audio/mp4", "audio/x-m4a"],
 
@@ -64,7 +72,11 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
       );
     }
 
-    const cloudStorage = this.storage as CloudStorage;
+    if (!isCloudStorage(this.storage)) {
+      throw AppError.from(new Error("Presigned upload URL is only supported for cloud storage"), 400);
+    }
+
+    const cloudStorage = this.storage;
     if (cloudStorage && !cloudStorage.isMimeTypeAllowed(validatedInput.mimeType)) {
       throw AppError.from(new Error(`MIME type not allowed by server configuration`), 400);
     }
@@ -78,10 +90,12 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
     const presignedUrl = await cloudStorage.getPresignedUploadUrl(filename, validatedInput.mimeType, expiresIn);
+    const url = cloudStorage.getFileUrl(filename);
 
     uploadRegistry.set(fileId, {
       fileId,
       filename,
+      url,
       mimeType: validatedInput.mimeType,
       fileSize: validatedInput.fileSize,
       fileType: validatedInput.fileType,
@@ -99,6 +113,7 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
     return {
       fileId,
       filename,
+      url,
       presignedUrl,
       uploadMethod: UploadMethod.PUT,
       expiresAt,
@@ -109,9 +124,12 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
   private getExtension(mimeType: string): string {
     const map: Record<string, string> = {
       "image/jpeg": ".jpg",
+      "image/jpg": ".jpg",
       "image/png": ".png",
       "image/gif": ".gif",
       "image/webp": ".webp",
+      "image/heic": ".heic",
+      "image/heif": ".heif",
       "video/mp4": ".mp4",
       "video/mpeg": ".mpeg",
       "video/quicktime": ".mov",
@@ -123,6 +141,10 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
     };
     return map[mimeType] || "";
   }
+}
+
+function isCloudStorage(storage: IStorageStrategy): storage is CloudStorage {
+  return typeof (storage as CloudStorage).getPresignedUploadUrl === "function";
 }
 
 export { RequestPresignedUrlCmdHandler };

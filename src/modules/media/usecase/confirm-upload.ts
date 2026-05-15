@@ -47,7 +47,7 @@ class ConfirmUploadCmdHandler implements ICommandHandler<
 
     return {
       fileId: upload.fileId,
-      url: validatedInput.uploadedUrl,
+      url: validatedInput.uploadedUrl || upload.url,
       filename: upload.filename,
       mimetype: upload.mimeType,
       size: upload.fileSize,

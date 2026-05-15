@@ -8,7 +8,8 @@ import {
   IUserQueryRepository,
 } from "@modules/chat/interface";
 import { AddReactionCommand, ReactionResult } from "@modules/chat/model/dto";
-import { ConversationMemberStatus, MessageReaction, MessageStatus } from "@modules/chat/model/model";
+import { ConversationMemberStatus, MessageReaction } from "@modules/chat/model/model";
+import { assertMessageActiveForAction } from "./message-action-rules";
 
 export class AddReactionHandler {
   constructor(
@@ -24,13 +25,7 @@ export class AddReactionHandler {
     if (!message) {
       throw AppError.from(new Error("Message not found"), 404);
     }
-    if (
-      message.messageStatus === MessageStatus.REVOKED ||
-      message.deletedAt ||
-      message.deletedForUserIds?.includes(command.userId)
-    ) {
-      throw AppError.from(new Error("Message cannot be reacted to"), 400);
-    }
+    assertMessageActiveForAction(message, command.userId, "react");
 
     const member = await this.memberQueryRepo.findByCond({
       conversationId: message.conversationId,
@@ -75,13 +70,7 @@ export class RemoveReactionHandler {
     if (!message) {
       throw AppError.from(new Error("Message not found"), 404);
     }
-    if (
-      message.messageStatus === MessageStatus.REVOKED ||
-      message.deletedAt ||
-      message.deletedForUserIds?.includes(userId)
-    ) {
-      throw AppError.from(new Error("Message cannot be reacted to"), 400);
-    }
+    assertMessageActiveForAction(message, userId, "react");
 
     const member = await this.memberQueryRepo.findByCond({
       conversationId: message.conversationId,
@@ -112,13 +101,7 @@ export class RemoveAllReactionsHandler {
     if (!message) {
       throw AppError.from(new Error("Message not found"), 404);
     }
-    if (
-      message.messageStatus === MessageStatus.REVOKED ||
-      message.deletedAt ||
-      message.deletedForUserIds?.includes(userId)
-    ) {
-      throw AppError.from(new Error("Message cannot be reacted to"), 400);
-    }
+    assertMessageActiveForAction(message, userId, "react");
 
     const member = await this.memberQueryRepo.findByCond({
       conversationId: message.conversationId,
@@ -145,9 +128,7 @@ export class GetReactionsHandler {
     if (!message) {
       throw AppError.from(new Error("Message not found"), 404);
     }
-    if (message.deletedForUserIds?.includes(userId)) {
-      throw AppError.from(new Error("Message not found"), 404);
-    }
+    assertMessageActiveForAction(message, userId, "react");
 
     const member = await this.memberQueryRepo.findByCond({
       conversationId: message.conversationId,

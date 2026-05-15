@@ -1,6 +1,6 @@
 import { IQueryHandler } from "@share/interface";
 import { IConversationQueryRepository, IConversationMemberQueryRepository, IUserQueryRepository, IMessageQueryRepository } from "../interface";
-import { Conversation, ConversationMemberRole, ConversationMemberStatus, ConversationType, MessageStatus } from "../model/model";
+import { Conversation, ConversationMemberRole, ConversationMemberStatus, ConversationType, Message, MessageStatus } from "../model/model";
 import { GetConversationsQuery, ConversationWithMetadata } from "../model/dto";
 
 export class GetConversationsQueryHandler implements IQueryHandler<GetConversationsQuery, ConversationWithMetadata[]> {
@@ -96,7 +96,7 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
           }
         }
 
-        const visibleLast = await this.resolveVisibleLastMessage(conv, query.userId);
+        const visibleLast = await this.resolveVisibleLastMessage(conv, query.userId, member?.hiddenAt);
         const activityAt =
           member?.lastActivityAt ||
           visibleLast.lastMessageAt ||
@@ -131,6 +131,7 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
   private async resolveVisibleLastMessage(
     conv: Conversation,
     userId: string,
+    hiddenAt?: Date,
   ): Promise<{ lastMessage: Conversation["lastMessage"]; lastMessageAt: Date | undefined }> {
     if (!conv.lastMessage) {
       return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
@@ -141,9 +142,11 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
       return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
     }
 
-    if (message.deletedForUserIds?.includes(userId)) {
-      const visible = await this.messageQueryRepo.listWithCursor(conv.id, undefined, 1, userId);
-      const latest = visible[0];
+    if (
+      (hiddenAt && message.createdAt <= hiddenAt) ||
+      message.deletedForUserIds?.includes(userId)
+    ) {
+      const latest = await this.findLatestVisibleMessage(conv.id, userId, hiddenAt);
       if (!latest) return { lastMessage: undefined, lastMessageAt: undefined };
       return {
         lastMessage: {
@@ -170,5 +173,32 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
     }
 
     return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
+  }
+
+  private async findLatestVisibleMessage(
+    conversationId: string,
+    userId: string,
+    hiddenAt?: Date,
+  ): Promise<Message | undefined> {
+    let cursor: string | undefined;
+
+    while (true) {
+      const messages = await this.messageQueryRepo.listWithCursor(
+        conversationId,
+        cursor,
+        20,
+        userId,
+      );
+      if (messages.length === 0) return undefined;
+
+      const latest = messages.find((msg) => !hiddenAt || msg.createdAt > hiddenAt);
+      if (latest) return latest;
+
+      if (hiddenAt && messages.some((msg) => msg.createdAt <= hiddenAt)) {
+        return undefined;
+      }
+
+      cursor = messages[messages.length - 1].id;
+    }
   }
 }

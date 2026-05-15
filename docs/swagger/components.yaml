@@ -91,6 +91,10 @@ components:
         filename:
           type: string
           description: "Tên file trên S3"
+        url:
+          type: string
+          format: uri
+          description: "URL cuối của file sau khi PUT thành công"
         presignedUrl:
           type: string
           format: uri

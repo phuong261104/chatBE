@@ -328,6 +328,11 @@ paths:
                         type: string
                         description: "Tên file trên S3"
                         example: "image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                      url:
+                        type: string
+                        format: uri
+                        description: "URL cuối của file sau khi PUT thành công, có thể dùng để confirm hoặc gửi tin nhắn"
+                        example: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
                       presignedUrl:
                         type: string
                         format: uri
@@ -354,6 +359,7 @@ paths:
                 data:
                   fileId: "7a3f8b2d-4e9c-11ef-a716-446655440000"
                   filename: "image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                  url: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
                   presignedUrl: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=300"
                   uploadMethod: "PUT"
                   expiresAt: "2026-04-07T12:10:00.000Z"
@@ -462,7 +468,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [fileId, uploadedUrl]
+              required: [fileId]
               properties:
                 fileId:
                   type: string
@@ -472,7 +478,7 @@ paths:
                 uploadedUrl:
                   type: string
                   format: uri
-                  description: "URL đầy đủ của file đã upload lên S3 (URL nhận được sau khi upload thành công)"
+                  description: "URL đầy đủ của file đã upload lên S3. Nếu bỏ trống, backend dùng `url` đã trả từ `/media/request-upload-url`"
                   example: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
             examples:
               confirm_image:

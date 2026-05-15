@@ -1,4 +1,5 @@
 import { v7 } from "uuid";
+import { AppError } from "@share/app-error";
 import {
   IMessageQueryRepository,
   IMessageCommandRepository,
@@ -9,13 +10,13 @@ import {
 import {
   QuoteMessageCommand,
 } from "@modules/chat/model/dto";
-import { Message, MessageMedia, MessageType, MessageClassification, ClassificationType, MediaType } from "@modules/chat/model/model";
-
-function extractLinks(text: string): string[] {
-  if (!text) return [];
-  const matches = text.match(/(https?:\/\/[^\s]+)/g);
-  return matches || [];
-}
+import { ConversationMemberStatus, Message, MessageType, MessageClassification, ClassificationType, MediaType } from "@modules/chat/model/model";
+import {
+  assertMessageActiveForAction,
+  classificationTypeForMediaType,
+  extractLinks,
+  getMessagePreview,
+} from "./message-action-rules";
 
 export class QuoteMessageHandler {
   constructor(
@@ -40,13 +41,13 @@ export class QuoteMessageHandler {
       conversationId: command.conversationId,
       userId: command.senderId,
     });
-    if (!member) {
-      throw new Error("User is not a member of this conversation");
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
+      throw AppError.from(new Error("User is not an active member of this conversation"), 403);
     }
 
-    const quotedPreview = quotedMessage.text
-      ? quotedMessage.text.substring(0, 100)
-      : "[Media]";
+    assertMessageActiveForAction(quotedMessage, command.senderId, "quote");
+
+    const quotedPreview = getMessagePreview(quotedMessage);
 
     const hasMedia = !!(command.media && command.media.length > 0);
     const hasText = !!command.text;
@@ -59,7 +60,13 @@ export class QuoteMessageHandler {
     if (shouldSplitByMedia(command.media)) {
       for (const m of command.media || []) {
         const isImg = m.mimetype.startsWith("image/");
-        const msgType = isImg ? MessageType.IMAGE : MessageType.FILE;
+        const isVideo = m.mimetype.startsWith("video/");
+        const isAudio = m.mimetype.startsWith("audio/");
+        let msgType: MessageType;
+        if (isImg) msgType = MessageType.IMAGE;
+        else if (isVideo) msgType = MessageType.VIDEO;
+        else if (isAudio) msgType = MessageType.VOICE;
+        else msgType = MessageType.FILE;
         const hasTextAndNoLink = hasText && !hasLinks;
         const msg = this.buildMessage(
           msgType,
@@ -90,7 +97,13 @@ export class QuoteMessageHandler {
       }
     } else if (hasText && hasMedia && hasLinks) {
       const hasImage = command.media!.some((m: any) => m.mimetype.startsWith("image/"));
-      const msgType = hasImage ? MessageType.IMAGE : MessageType.FILE;
+      const hasVideo = command.media!.some((m: any) => m.mimetype.startsWith("video/"));
+      const hasAudio = command.media!.some((m: any) => m.mimetype.startsWith("audio/"));
+      let msgType: MessageType;
+      if (hasImage) msgType = MessageType.IMAGE;
+      else if (hasVideo) msgType = MessageType.VIDEO;
+      else if (hasAudio) msgType = MessageType.VOICE;
+      else msgType = MessageType.FILE;
       const mediaMsg = this.buildMessage(
         msgType,
         undefined,
@@ -117,9 +130,14 @@ export class QuoteMessageHandler {
       await this.messageCmdRepo.insert(linkMsg);
       createdMessages.push(linkMsg);
     } else if (hasMedia) {
-      const type = command.media!.some((m: any) => m.mimetype.startsWith("image/"))
-        ? MessageType.IMAGE
-        : MessageType.FILE;
+      const hasImage = command.media!.some((m: any) => m.mimetype.startsWith("image/"));
+      const hasVideo = command.media!.some((m: any) => m.mimetype.startsWith("video/"));
+      const hasAudio = command.media!.some((m: any) => m.mimetype.startsWith("audio/"));
+      let type: MessageType;
+      if (hasImage) type = MessageType.IMAGE;
+      else if (hasVideo) type = MessageType.VIDEO;
+      else if (hasAudio) type = MessageType.VOICE;
+      else type = MessageType.FILE;
       const msg = this.buildMessage(
         type,
         command.text,
@@ -152,11 +170,10 @@ export class QuoteMessageHandler {
     for (const msg of createdMessages) {
       if (msg.media && msg.media.length > 0) {
         for (const media of msg.media) {
-          const type = media.mediaType === "image" ? ClassificationType.IMAGE : ClassificationType.FILE;
           classifications.push({
             id: v7(),
             conversationId: command.conversationId,
-            type,
+            type: classificationTypeForMediaType(media.mediaType),
             senderId: command.senderId,
             url: media.url,
             name: media.name,
@@ -240,8 +257,15 @@ function mapMediaToDbFormat(media: any[] | undefined) {
   if (!media) return undefined;
   return media.map((m) => ({
     url: m.url,
-    mediaType: m.mimetype.startsWith("image/") ? MediaType.IMAGE : MediaType.FILE,
+    mediaType: getMediaType(m.mimetype),
     name: m.filename,
     size: m.size,
   }));
+}
+
+function getMediaType(mimetype: string): MediaType {
+  if (mimetype.startsWith("image/")) return MediaType.IMAGE;
+  if (mimetype.startsWith("video/")) return MediaType.VIDEO;
+  if (mimetype.startsWith("audio/")) return MediaType.AUDIO;
+  return MediaType.FILE;
 }
