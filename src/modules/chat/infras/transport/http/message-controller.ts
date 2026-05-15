@@ -73,7 +73,6 @@ export class MessageController extends BaseController {
         }
         const memberUserIds = await this.useCase.getConversationMembers(
           validatedData.conversationId,
-          validatedData.senderId,
         );
 
         for (const userId of memberUserIds) {
@@ -117,6 +116,7 @@ export class MessageController extends BaseController {
       if (this.socketService) {
         const memberUserIds = await this.useCase.getConversationMembers(
           message.conversationId,
+          validatedData.userId,
         );
 
         for (const memberId of memberUserIds) {
@@ -237,7 +237,6 @@ export class MessageController extends BaseController {
         for (const message of forwardedMessages) {
           const memberUserIds = await this.useCase.getConversationMembers(
             message.conversationId,
-            validatedData.userId,
           );
 
           for (const userId of memberUserIds) {
@@ -459,7 +458,6 @@ export class MessageController extends BaseController {
       if (this.socketService) {
         const memberUserIds = await this.useCase.getConversationMembers(
           quotedMsg.conversationId,
-          validatedData.senderId,
         );
         for (const userId of memberUserIds) {
           for (const message of quotedMessages) {

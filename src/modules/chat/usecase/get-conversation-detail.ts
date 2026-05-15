@@ -49,10 +49,25 @@ export class GetConversationDetailQueryHandler implements IQueryHandler<
       (member) => member.status === ConversationMemberStatus.ACTIVE && !member.leftAt
     );
 
+    const conversationWithMembership = {
+      ...conversation,
+      unreadCount: currentUserMember.unreadCount || 0,
+      role: currentUserMember.role,
+      pinned: !!currentUserMember.pinned,
+      isPinned: !!currentUserMember.pinned,
+      pinnedAt: currentUserMember.pinnedAt,
+      muted: !!currentUserMember.muteUntil,
+      isMuted: !!currentUserMember.muteUntil,
+      muteUntil: currentUserMember.muteUntil,
+      archived: !!currentUserMember.archived,
+      isArchived: !!currentUserMember.archived,
+    };
+
     return {
-      conversation,
+      conversation: conversationWithMembership as ConversationDetail["conversation"],
       members: activeMembers,
       currentUserRole: currentUserMember.role,
     };
   }
 }
+

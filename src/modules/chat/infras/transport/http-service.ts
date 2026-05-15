@@ -754,7 +754,6 @@ export class MessagingHttpService {
       if (this.socketService) {
         const memberUserIds = await this.useCase.getConversationMembers(
           validatedData.conversationId,
-          validatedData.senderId,
         );
         for (const msg of messages) {
           for (const userId of memberUserIds) {
@@ -965,7 +964,6 @@ export class MessagingHttpService {
         for (const message of forwardedMessages) {
           const memberUserIds = await this.useCase.getConversationMembers(
             message.conversationId,
-            validatedData.userId,
           );
 
           for (const userId of memberUserIds) {
@@ -1824,7 +1822,6 @@ export class MessagingHttpService {
       if (this.socketService) {
         const memberUserIds = await this.useCase.getConversationMembers(
           conversationId,
-          validatedData.senderId,
         );
         for (const userId of memberUserIds) {
           this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {

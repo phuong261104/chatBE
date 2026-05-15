@@ -498,7 +498,7 @@ export class MessagingSocketService {
         ? await this.useCase.sendGroupMessage(conversationId, userId, text, media)
         : await this.useCase.sendMessage(conversationId, userId, text, media);
 
-      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+      const memberUserIds = await this.getMemberUserIds(conversationId);
 
       for (const msg of messages) {
         for (const memberId of memberUserIds) {
@@ -1093,7 +1093,7 @@ export class MessagingSocketService {
       );
 
       for (const msg of forwardedMessages) {
-        const memberUserIds = await this.getMemberUserIds(msg.conversationId, userId);
+        const memberUserIds = await this.getMemberUserIds(msg.conversationId);
         for (const memberId of memberUserIds) {
           this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
             message: msg,
@@ -1161,7 +1161,7 @@ export class MessagingSocketService {
         quotedMessageId,
       );
 
-      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+      const memberUserIds = await this.getMemberUserIds(conversationId);
 
       // Emit RECEIVE_MESSAGE cho tất cả messages
       for (const msg of messages) {
@@ -1949,7 +1949,7 @@ export class MessagingSocketService {
         : await this.useCase.sendMessage(conversationId, userId, undefined, media as any);
 
       await this.useCase.getConversationDetail(conversationId, userId);
-      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+      const memberUserIds = await this.getMemberUserIds(conversationId);
       for (const msg of messages) {
         for (const memberId of memberUserIds) {
           this.emitToUser(memberId, SocketEvent.VOICE_MESSAGE, {
