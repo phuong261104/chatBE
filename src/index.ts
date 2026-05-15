@@ -21,8 +21,6 @@ import { setupFriendRequestHexagon } from "@modules/friend-requests";
 import { setupFriendshipHexagon } from "@modules/friendships";
 import { setupMyCloudHexagon } from "@modules/my-cloud";
 import { setupSearchHexagon } from "@modules/search";
-import { setupPostHexagon } from "@modules/posts";
-import { setupStoryHexagon } from "@modules/stories";
 import { setupAiHexagon } from "@modules/ai";
 import { setupCallHexagon } from "@modules/call";
 // import { seedAiTestData } from "@modules/ai/infras/ai-seed";
@@ -143,8 +141,7 @@ config();
     router: messagingRouter,
     v2Router: messagingV2Router,
     socketService: messagingSocketService,
-  } =
-    setupMessagingHexagon(io, sctx);
+  } = setupMessagingHexagon(io, sctx);
   const { router: blockRouter } = setupBlockHexagon(sctx, io);
   const { router: friendRequestRouter, socketService } =
     setupFriendRequestHexagon(sctx, io);
@@ -161,12 +158,8 @@ config();
 
   const myCloudRouter = setupMyCloudHexagon(sctx, io);
   const searchRouter = setupSearchHexagon(sctx);
-  const postRouter = setupPostHexagon(sctx);
-  const storyRouter = setupStoryHexagon(sctx);
   app.use("/v1", myCloudRouter);
   app.use("/v1", searchRouter);
-  app.use("/v1", postRouter);
-  app.use("/v1", storyRouter);
 
   const { router: callRouter, v2Router: callV2Router } = setupCallHexagon(
     io,
