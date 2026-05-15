@@ -755,17 +755,18 @@ this.emitToGroupRoom(message.conversationId, SocketEvent.MESSAGE_DELETED, { ... 
 
 Frontend nên lưu ý: event `message:deleted` hiện tại **chỉ nhận được khi chính mình xóa**. Các user khác trong cuộc trò chuyện không nhận được thông báo này.
 
-### 5.2 Events 35–39: Chưa có backend handler
+### 5.2 Events 35–39: Đã có handler trên root namespace
 
-Frontend cần biết 5 events sau **chưa được backend xử lý**:
+Các event dưới đây **không nằm trong `/messages` namespace**, nhưng đã được xử lý ở root namespace `/` trong `src/share/component/socket-io.ts`.
+Frontend cần dùng root socket cho các event này; không emit vào `/messages`.
 
-| Event | Giải pháp tạm thời |
-|-------|---------------------|
-| `subscribeConversation` | Dùng `joinGroup` thay thế (đã tự join room) |
-| `unsubscribeConversation` | Dùng `leaveGroup` thay thế |
-| `getOnlineStatus` | Chưa có — dùng REST `GET /conversations/:id/members/online` |
-| `getBatchOnlineStatus` | Chưa có — vòng lặp qua REST trên |
-| `ping` | Chưa có — dùng heartbeat mặc định của Socket.IO |
+| Event | Namespace đúng | Ghi chú |
+|-------|----------------|--------|
+| `subscribeConversation` | `/` | Join `group:{conversationId}` và `group_room:{conversationId}` |
+| `unsubscribeConversation` | `/` | Leave conversation rooms |
+| `getOnlineStatus` | `/` | Callback trả `{ success, data: { userId, isOnline } }` |
+| `getBatchOnlineStatus` | `/` | Callback trả batch status theo `userIds` |
+| `ping` | `/` | Server emit `pong` với timestamp/serverTime/latency |
 
 ### 5.3 Các Public Method trên SocketService (dùng từ gateway/entry)
 
@@ -813,13 +814,13 @@ Frontend nên xử lý response `{ success: false, error: "Rate limit exceeded..
 ## 6. Tóm Tắt
 
 ### Client Emit (Frontend → Backend)
-- **Đã đủ:** 34/39 events ✅
-- **Thiếu:** 5/39 events ❌ (35–39: subscribe/unsubscribe, getOnlineStatus, getBatchOnlineStatus, ping)
+- **`/messages` namespace:** đủ cho chat actions chính.
+- **Root namespace `/`:** xử lý thêm subscribe/unsubscribe, online status batch và heartbeat.
 
 ### Server Emit (Backend → Frontend)
 - **Đã đủ:** 37/37 events ✅ (tất cả đều có emit)
 
 ### Cần lưu ý
 - ⚠️ `message:deleted` chỉ emit cho người thực hiện (bug tiềm ẩn)
-- ⚠️ 5 events subscription/status chưa có backend handler
+- ⚠️ 5 events subscription/status phải dùng root namespace `/`, không dùng `/messages`
 - ⚠️ 6 events bổ sung có public method nhưng chưa có trigger tự động (poll:closed, message:recall, message:edit_start/end, message:reaction_summary)

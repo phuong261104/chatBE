@@ -7,8 +7,8 @@ components:
       example: "video"
     CallStatus:
       type: string
-      enum: [initiated, ringing, answered, rejected, missed, ended, cancelled]
-      description: Trang thai cuoc goi
+      enum: [initiated, ringing, answered, in-call, rejected, missed, ended, cancelled]
+      description: Trang thai cuoc goi. V2 tra `ringing`/`in-call`; V1 legacy co the dung `initiated`/`answered`.
     ParticipantStatus:
       type: string
       enum: [invited, ringing, joined, declined, missed, left, busy]
@@ -50,9 +50,6 @@ components:
           type: string
           enum: [cloud]
           example: "cloud"
-        livekitRoomName:
-          type: string
-          example: "call-v2-conversation-id-xxxxxxxx"
         roomName:
           type: string
           example: "call-room-0192a3bc"
@@ -179,10 +176,10 @@ paths:
                     callerId: "0192a3bc-def0-7abc-8901-23456789abcf"
                     type: "audio"
                     isGroup: true
-                    status: "initiated"
+                    status: "ringing"
                     apiVersion: "v2"
                     livekitProvider: "cloud"
-                    livekitRoomName: "call-v2-conversation-id-xxxxxxxx"
+                    roomName: "call-v2-conversation-id-xxxxxxxx"
                     participants:
                       "0192a3bc-def0-7abc-8901-23456789abcf":
                         userId: "0192a3bc-def0-7abc-8901-23456789abcf"
@@ -304,7 +301,7 @@ paths:
                 data:
                   call:
                     callId: "0192a3bc-def0-7abc-8901-23456789abcd"
-                    status: "answered"
+                    status: "in-call"
                   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   wsUrl: "wss://livekit.example.com"
                   roomName: "call-v2-xxxxxxxx"

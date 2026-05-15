@@ -65,9 +65,6 @@ export const TABLE_NAMES = {
   MESSAGE_REACTIONS: "message_reactions",
   MESSAGE_CLASSIFICATIONS: "message_classifications",
   POLLS: "polls",
-  POSTS: "posts",
-  POST_REACTIONS: "post_reactions",
-  POST_COMMENTS: "post_comments",
   FRIENDSHIPS: "friendships",
   FRIEND_REQUESTS: "friend_requests",
   BLOCKS: "blocks",
@@ -360,63 +357,6 @@ export const BLOCKS_TABLE: TableDefinition = {
   BillingMode: "PAY_PER_REQUEST",
 };
 
-export const POSTS_TABLE: TableDefinition = {
-  TableName: TABLE_NAMES.POSTS,
-  KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
-  AttributeDefinitions: [
-    { AttributeName: "id", AttributeType: "S" },
-  ],
-  BillingMode: "PAY_PER_REQUEST",
-};
-
-export const POST_REACTIONS_TABLE: TableDefinition = {
-  TableName: TABLE_NAMES.POST_REACTIONS,
-  KeySchema: [
-    { AttributeName: "pk", KeyType: "HASH" },
-    { AttributeName: "sk", KeyType: "RANGE" },
-  ],
-  AttributeDefinitions: [
-    { AttributeName: "pk", AttributeType: "S" },
-    { AttributeName: "sk", AttributeType: "S" },
-  ],
-  BillingMode: "PAY_PER_REQUEST",
-};
-
-export const POST_COMMENTS_TABLE: TableDefinition = {
-  TableName: TABLE_NAMES.POST_COMMENTS,
-  KeySchema: [
-    { AttributeName: "pk", KeyType: "HASH" },
-    { AttributeName: "sk", KeyType: "RANGE" },
-  ],
-  AttributeDefinitions: [
-    { AttributeName: "pk", AttributeType: "S" },
-    { AttributeName: "sk", AttributeType: "S" },
-  ],
-  BillingMode: "PAY_PER_REQUEST",
-};
-
-export const STORIES_TABLE: TableDefinition = {
-  TableName: TABLE_NAMES.STORIES,
-  KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
-  AttributeDefinitions: [
-    { AttributeName: "id", AttributeType: "S" },
-  ],
-  BillingMode: "PAY_PER_REQUEST",
-};
-
-export const STORY_VIEWS_TABLE: TableDefinition = {
-  TableName: TABLE_NAMES.STORY_VIEWS,
-  KeySchema: [
-    { AttributeName: "pk", KeyType: "HASH" },
-    { AttributeName: "sk", KeyType: "RANGE" },
-  ],
-  AttributeDefinitions: [
-    { AttributeName: "pk", AttributeType: "S" },
-    { AttributeName: "sk", AttributeType: "S" },
-  ],
-  BillingMode: "PAY_PER_REQUEST",
-};
-
 export const CLOUD_ITEMS_TABLE: TableDefinition = {
   TableName: TABLE_NAMES.CLOUD_ITEMS,
   KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
@@ -550,11 +490,6 @@ export const ALL_TABLES: TableDefinition[] = [
   FRIENDSHIPS_TABLE,
   FRIEND_REQUESTS_TABLE,
   BLOCKS_TABLE,
-  POSTS_TABLE,
-  POST_REACTIONS_TABLE,
-  POST_COMMENTS_TABLE,
-  STORIES_TABLE,
-  STORY_VIEWS_TABLE,
   CLOUD_ITEMS_TABLE,
   COLLECTIONS_TABLE,
   COLLECTION_ITEMS_TABLE,

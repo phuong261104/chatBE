@@ -14,7 +14,7 @@ The server uses Socket.IO with multiple namespaces. All connections require JWT 
 
 | Namespace | Purpose | Mount Point |
 |---|---|---|
-| `/socket.io` (root) | Connection lifecycle, presence, core events | `/socket.io` |
+| `/socket.io` (root) | Connection lifecycle, presence, core events, My Cloud realtime actions | `/socket.io` |
 | `/messages` | Chat messaging, reactions, groups, typing | `/socket.io/messages` |
 | `/user` | User presence, heartbeat | `/socket.io/user` |
 | `/socket/calls` | V1 Call events (legacy) | `/socket.io/socket/calls` |
@@ -69,6 +69,53 @@ On connection, the socket automatically joins:
 ### Rate Limits
 
 Heartbeat/activity events (`typing:start`, `messageSeen`, etc.) should be debounced client-side. No strict server-side rate limit on root namespace events.
+
+### My Cloud Events On Root Namespace
+
+My Cloud socket events are registered on the root namespace by `src/modules/my-cloud/infras/transport/socket-service.ts`.
+REST remains the primary integration surface for My Cloud; these events are optional realtime equivalents.
+
+Client -> Server:
+
+| Event | Description |
+|---|---|
+| `my_cloud:load` | Load items |
+| `my_cloud:create` | Create item |
+| `my_cloud:update` | Update item |
+| `my_cloud:delete` | Soft delete item |
+| `my_cloud:restore` | Restore item |
+| `my_cloud:pin` | Pin/unpin item |
+| `my_cloud:stats` | Load stats |
+| `my_cloud:search` | Search items |
+| `my_cloud:share` | Share item |
+| `my_cloud:empty_trash` | Empty trash |
+| `my_cloud:collection_create` | Create collection |
+| `my_cloud:collection_update` | Update collection |
+| `my_cloud:collection_delete` | Delete collection |
+| `my_cloud:collections_list` | List collections |
+| `my_cloud:collection_add_item` | Add item to collection |
+| `my_cloud:collection_remove_item` | Remove item from collection |
+
+Server -> Client:
+
+| Event | Description |
+|---|---|
+| `my_cloud:items_loaded` | Items loaded |
+| `my_cloud:item_created` | Item created |
+| `my_cloud:item_updated` | Item updated |
+| `my_cloud:item_deleted` | Item deleted |
+| `my_cloud:item_restored` | Item restored |
+| `my_cloud:item_pinned` | Item pinned/unpinned |
+| `my_cloud:stats_loaded` | Stats loaded |
+| `my_cloud:search_result` | Search result |
+| `my_cloud:item_shared` | Item shared |
+| `my_cloud:trash_emptied` | Trash emptied |
+| `my_cloud:collection_created` | Collection created |
+| `my_cloud:collection_updated` | Collection updated |
+| `my_cloud:collection_deleted` | Collection deleted |
+| `my_cloud:collections_listed` | Collections listed |
+| `my_cloud:collection_item_added` | Item added to collection |
+| `my_cloud:collection_item_removed` | Item removed from collection |
 
 ---
 
@@ -252,7 +299,7 @@ V2 Call namespace using LiveKit cloud infrastructure.
 |---|---|---|
 | `call:incoming` | `callData` | Incoming call notification |
 | `call:ongoing` | `callData` | Call is already in progress (for re-connect) |
-| `call:joined` | `{ callId, socketOnly: true }` | Successfully joined call room |
+| `call:joined` | `{ callId, socketOnly?: true, conversationId?, userId?, status?, participant? }` | Socket room join acknowledgement or participant joined |
 | `call:left` | `payload` | Left the call room |
 | `call:declined` | `payload` | Call was declined |
 | `call:missed` | `payload` | Call was missed |
@@ -427,4 +474,6 @@ On authentication failure, the socket connection is rejected with the error mess
 | `src/modules/call/infras/transport/call-v2-socket.service.ts` | `/v2/calls` | V2 Call service |
 | `src/modules/friend-requests/infras/transport/socket-service.ts` | `/friends` | Friend request notifications |
 | `src/modules/blocks/infras/transport/socket-service.ts` | `/blocks` | Block notifications |
+| `src/modules/my-cloud/infras/transport/socket-service.ts` | `/` (root) | My Cloud realtime actions |
 | `src/modules/chat/constants/socket-events.ts` | — | Socket event name constants |
+| `src/modules/my-cloud/constants/socket-events.ts` | — | My Cloud socket event constants |

@@ -4,6 +4,38 @@ Updated: 2026-05-15
 
 ---
 
+## 0. Source Verification & Handoff Packet
+
+This document was checked against the current backend source on 2026-05-15:
+
+- Route registration: `src/index.ts`
+- V2 chat routes: `src/modules/chat/infras/transport/http/v2-chat.routes.ts`
+- V2 call routes/socket: `src/modules/call/infras/transport/http/call-v2.routes.ts`, `src/modules/call/infras/transport/call-v2-socket.service.ts`
+- V2 user routes: `src/modules/user/infras/transport/user-v2.routes.ts`
+- V1/V2 friendship/block routes: `src/modules/friend-requests/index.ts`, `src/modules/friendships/index.ts`, `src/modules/blocks/index.ts`
+- V1 media, my-cloud, AI routes: `src/modules/media/index.ts`, `src/modules/my-cloud/index.ts`, `src/modules/ai/infras/transport/http-service.ts`
+
+Frontend handoff reading order:
+
+| Priority | File / URL | Purpose | Status |
+|---|---|---|---|
+| 1 | `docs/FE_INTEGRATION_GUIDE_V2.md` | Main integration guide and source-verified endpoint inventory | Required |
+| 2 | `docs/SOCKET_EVENTS_V2_REFERENCE.md` | Socket.IO namespaces/events including chat, calls, friends, blocks, My Cloud | Required |
+| 3 | `docs/handoff/FRONTEND_API_SOCKET_V2_CHANGES.md` | Concise V1 -> V2 migration notes | Required |
+| 4 | `docs/handoff/FRONTEND_CALL_INTEGRATION_GUIDE.md` | Call V2 LiveKit integration flow | Required for calls |
+| 5 | `http://localhost:3000/api-docs` | Swagger UI for exact request/response schemas | Required |
+| 6 | `docs/SOCKET_FRIENDS_BLOCKS_REFERENCE.md` | Detailed friendship/block socket payloads | Reference |
+| 7 | `docs/CHAT_WEBSOCKET_EVENTS_CHECKLIST.md` | Chat websocket implementation checklist and caveats | Reference |
+| 8 | `docs/handoff/FRONTEND_HANDOFF_FILES_V2.md` | Handoff file checklist for frontend devs | Reference |
+
+Notes:
+
+- REST V2 uses `/v2`; legacy modules that do not have dedicated V2 business rules remain mounted under `/v1`.
+- Friend requests, friendships, and blocks are mounted under both `/v1` and `/v2`; behavior is the same unless stated otherwise.
+- Swagger is the schema source of truth for request/response field details. This guide focuses on frontend flows and route/event inventory.
+
+---
+
 ## 1. Overview
 
 This guide covers the V2 API and Socket.IO integration for frontend clients. **Always prefer V2 endpoints** over V1 when both exist — V2 includes critical features like hidden conversations (PIN protection), message requests (stranger messages), TTL messages, stricter group membership rules, and privacy-aware presence.
@@ -38,6 +70,12 @@ Chat V2:    /v2/conversations/*
 Calls V1:   /v1/calls/*
 Calls V2:   /v2/calls/*
 Media:      /v1/media/*
+Friend requests: /v1/friend-requests/* and /v2/friend-requests/*
+Friendships:     /v1/friendships/* and /v2/friendships/*
+Blocks:          /v1/blocks/* and /v2/blocks/*
+My Cloud:        /v1/my-cloud/*
+Search:          /v1/search
+AI:              /v1/ai/*
 Swagger:    /api-docs
 ```
 
@@ -180,6 +218,29 @@ socket.emit("unsubscribeConversation", { conversationId });
 ---
 
 ## 5. Chat V2 Endpoints
+
+Source-verified V2 route inventory:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/v2/conversations` | List conversations, hidden conversations excluded |
+| `GET` | `/v2/conversations/cursor` | Cursor pagination list |
+| `GET` | `/v2/conversations/strangers` | List pending stranger/message request conversations |
+| `GET` | `/v2/conversations/{conversationId}/presence` | Conversation presence summary |
+| `POST` | `/v2/conversations/{conversationId}/messages` | Send message in conversation |
+| `POST` | `/v2/conversations/{conversationId}/profile-cards` | Send a profile card message |
+| `POST` | `/v2/conversations/{conversationId}/hide` | Hide conversation with PIN |
+| `POST` | `/v2/conversations/{conversationId}/unlock` | Unlock hidden conversation with PIN |
+| `POST` | `/v2/conversations/{conversationId}/unhide` | Unhide conversation with PIN |
+| `POST` | `/v2/messages/private` | Send private message; may create message request |
+| `PUT` | `/v2/messages/{messageId}` | Edit message within 30 seconds |
+| `GET` | `/v2/message-requests` | List pending message requests |
+| `POST` | `/v2/message-requests/{conversationId}/accept` | Accept message request |
+| `POST` | `/v2/message-requests/{conversationId}/reject` | Reject message request |
+| `POST` | `/v2/groups` | Create group |
+| `POST` | `/v2/groups/{groupId}/members` | Add group members |
+| `POST` | `/v2/groups/{groupId}/leave` | Leave group; owner auto-transfer is handled |
+| `PATCH` | `/v2/groups/{groupId}/settings` | Update group settings |
 
 ### 5.1 List Conversations (V2)
 
@@ -564,8 +625,8 @@ Response (success):
   "data": {
     "call": {
       "callId": "...",
-      "status": "initiated",
-      "participants": { "callerId": { "status": "joined", "joinedAt": "..." } }
+      "status": "ringing",
+      "participants": { "callerId": { "status": "joined", "joinedAt": 1710000000000 } }
     },
     "invitedUserIds": ["..."],
     "busyUserIds": []
@@ -576,7 +637,7 @@ Response (success):
 If user is busy:
 ```json
 // HTTP 409
-{ "error": "User is busy", "data": { "busyUserIds": ["..."] } }
+{ "error": "Callee is busy", "data": { "busyUserIds": ["..."] } }
 ```
 
 ### 8.2 Get Active Call
@@ -888,7 +949,167 @@ socket.on("poll:closed", ({ pollId }) => {
 
 ---
 
-## 12. Migration Checklist
+## 12. Source-Verified Supporting API Inventory
+
+The following modules are fully covered by backend and Swagger, but they are not all V2-only. Frontend should still implement the UI flows if the product needs the feature.
+
+### 12.1 Auth V1
+
+| Method | Path | UI / client use |
+|---|---|---|
+| `POST` | `/v1/auth/register` | Register |
+| `POST` | `/v1/auth/login` | Login |
+| `POST` | `/v1/auth/refresh` | Refresh access token |
+| `POST` | `/v1/auth/introspect` | Validate token/session |
+| `POST` | `/v1/auth/send-verification` | Send email verification |
+| `POST` | `/v1/auth/resend-verification` | Resend verification |
+| `POST` | `/v1/auth/verify-email` | Verify email OTP/code |
+| `POST` | `/v1/auth/forgot-password` | Start password reset |
+| `POST` | `/v1/auth/verify-reset-otp` | Verify password reset OTP |
+| `POST` | `/v1/auth/resend-reset-otp` | Resend reset OTP |
+| `POST` | `/v1/auth/reset-password` | Reset password |
+| `POST` | `/v1/auth/change-password` | Change password while logged in |
+| `POST` | `/v1/auth/logout` | Logout current session |
+| `POST` | `/v1/auth/logout-all` | Logout all sessions |
+| `GET` | `/v1/auth/sessions` | Session/device management |
+| `DELETE` | `/v1/auth/sessions/{deviceId}` | Revoke one session |
+| `DELETE` | `/v1/auth/sessions` | Revoke all sessions |
+| `PATCH` | `/v1/auth/avatar` | Update avatar |
+
+### 12.2 User V2
+
+| Method | Path | UI / client use |
+|---|---|---|
+| `GET` | `/v2/users/me/profile` | My profile |
+| `PATCH` | `/v2/users/me/profile` | Edit my profile |
+| `PATCH` | `/v2/users/me/privacy` | Privacy settings |
+| `GET` | `/v2/users/me/avatar-history` | Avatar history |
+| `GET` | `/v2/users/search` | Search users |
+| `GET` | `/v2/users/search-by-phone` | Search by phone |
+| `GET` | `/v2/users/{id}/presence` | Privacy-aware presence |
+| `GET` | `/v2/users/{id}/public` | Public profile |
+| `GET` | `/v2/friends/suggestions` | Friend suggestions |
+
+### 12.3 Media V1
+
+| Method | Path | UI / client use |
+|---|---|---|
+| `POST` | `/v1/media/upload` | Single multipart upload, field `file` |
+| `POST` | `/v1/media/upload-multiple` | Multiple multipart upload, field `files`, max 10 |
+| `DELETE` | `/v1/media/{filename}` | Delete uploaded media |
+| `POST` | `/v1/media/request-upload-url` | Request presigned upload URL |
+| `POST` | `/v1/media/confirm-upload` | Confirm presigned upload |
+| `GET` | `/v1/media/upload-methods` | Discover supported upload methods |
+
+### 12.4 Friend Requests / Friendships
+
+These routes are mounted under both `/v1` and `/v2`.
+
+Exact V2 aliases:
+
+| Method | Path |
+|---|---|
+| `POST` | `/v2/friend-requests/{receiverId}` |
+| `PATCH` | `/v2/friend-requests/{requestId}` |
+| `DELETE` | `/v2/friend-requests/{requestId}` |
+| `GET` | `/v2/friend-requests/received` |
+| `GET` | `/v2/friend-requests/sent` |
+| `GET` | `/v2/friend-requests/check/{targetUserId}` |
+| `GET` | `/v2/friend-requests/count` |
+| `GET` | `/v2/friendships` |
+| `GET` | `/v2/friendships/count` |
+| `GET` | `/v2/friendships/search` |
+| `DELETE` | `/v2/friendships/{friendId}` |
+| `GET` | `/v2/friendships/{friendId}/check` |
+| `GET` | `/v2/users/{id}/mutual-friends` |
+| `GET` | `/v2/users/{id}/suggestions` |
+
+| Method | Path | UI / client use |
+|---|---|---|
+| `POST` | `/{version}/friend-requests/{receiverId}` | Send friend request |
+| `PATCH` | `/{version}/friend-requests/{requestId}` | Accept/reject request by status |
+| `DELETE` | `/{version}/friend-requests/{requestId}` | Cancel sent request |
+| `GET` | `/{version}/friend-requests/received` | Received requests |
+| `GET` | `/{version}/friend-requests/sent` | Sent requests |
+| `GET` | `/{version}/friend-requests/check/{targetUserId}` | Request status with target |
+| `GET` | `/{version}/friend-requests/count` | Pending count |
+| `GET` | `/{version}/friendships` | Friends list |
+| `GET` | `/{version}/friendships/count` | Friend count |
+| `GET` | `/{version}/friendships/search` | Search friends |
+| `DELETE` | `/{version}/friendships/{friendId}` | Unfriend |
+| `GET` | `/{version}/friendships/{friendId}/check` | Friendship status |
+| `GET` | `/{version}/users/{id}/mutual-friends` | Mutual friends |
+| `GET` | `/{version}/users/{id}/suggestions` | Suggestions for a user |
+
+### 12.5 Blocks
+
+These routes are mounted under both `/v1` and `/v2`.
+
+Exact V2 aliases:
+
+| Method | Path |
+|---|---|
+| `POST` | `/v2/blocks/{blockedUserId}` |
+| `DELETE` | `/v2/blocks/{blockedUserId}` |
+| `GET` | `/v2/blocks` |
+| `GET` | `/v2/blocks/{blockedUserId}/check` |
+
+| Method | Path | UI / client use |
+|---|---|---|
+| `POST` | `/{version}/blocks/{blockedUserId}` | Block user |
+| `DELETE` | `/{version}/blocks/{blockedUserId}` | Unblock user |
+| `GET` | `/{version}/blocks` | Blocked users list |
+| `GET` | `/{version}/blocks/{blockedUserId}/check` | Block status |
+
+### 12.6 My Cloud V1
+
+| Method | Path | UI / client use |
+|---|---|---|
+| `GET` | `/v1/my-cloud`, `/v1/my-cloud/items` | List cloud items |
+| `POST` | `/v1/my-cloud` | Create cloud item |
+| `PATCH` | `/v1/my-cloud/{id}` | Update item |
+| `DELETE` | `/v1/my-cloud/{id}` | Soft delete item |
+| `POST` | `/v1/my-cloud/{id}/restore` | Restore from trash |
+| `DELETE` | `/v1/my-cloud/{id}/permanent` | Permanent delete |
+| `POST` | `/v1/my-cloud/trash/empty` | Empty trash |
+| `PATCH` | `/v1/my-cloud/{id}/pin` | Pin/unpin item |
+| `GET` | `/v1/my-cloud/stats` | Storage/statistics |
+| `GET` | `/v1/my-cloud/search` | Search cloud items |
+| `POST` | `/v1/my-cloud/batch-delete` | Batch delete |
+| `POST` | `/v1/my-cloud/{id}/share` | Create share link |
+| `GET` | `/v1/my-cloud/shared/{shareToken}` | Public/shared item |
+| `POST` | `/v1/my-cloud/upload` | Multipart upload |
+| `POST` | `/v1/my-cloud/upload/presigned` | Presigned upload URL |
+| `POST` | `/v1/my-cloud/upload/confirm` | Confirm presigned upload |
+| `POST` | `/v1/my-cloud/{id}/forward` | Forward cloud item to chat |
+| `POST` | `/v1/my-cloud/collections` | Create collection |
+| `GET` | `/v1/my-cloud/collections` | List collections |
+| `GET` | `/v1/my-cloud/collections/{id}` | Collection detail |
+| `PATCH` | `/v1/my-cloud/collections/{id}` | Update collection |
+| `DELETE` | `/v1/my-cloud/collections/{id}` | Delete collection |
+| `POST` | `/v1/my-cloud/collections/{id}/items` | Add item to collection |
+| `DELETE` | `/v1/my-cloud/collections/{id}/items/{itemId}` | Remove item from collection |
+| `GET` | `/v1/my-cloud/collections/{id}/items` | Collection items |
+
+### 12.7 AI V1
+
+| Method | Path | UI / client use |
+|---|---|---|
+| `POST` | `/v1/ai/summarize` | Summarize text/conversation content |
+| `POST` | `/v1/ai/smart-reply` | Generate suggested replies |
+| `POST` | `/v1/ai/tone-adjust` | Rewrite text tone |
+| `POST` | `/v1/ai/translate` | Translate text |
+| `POST` | `/v1/ai/detect-language` | Detect language |
+
+### 12.8 Global Search V1
+
+| Method | Path | UI / client use |
+|---|---|---|
+| `GET` | `/v1/search` | Global search |
+
+---
+
+## 13. Migration Checklist
 
 If migrating from V1 to V2:
 
@@ -908,7 +1129,7 @@ If migrating from V1 to V2:
 
 ---
 
-## 13. File Structure Reference
+## 14. File Structure Reference
 
 ```
 src/
@@ -936,6 +1157,7 @@ docs/
   swagger/paths/chat-v2.yaml      # Chat V2 paths
   swagger/paths/user-v2.yaml      # User V2 paths
   swagger/paths/calls.yaml        # Call V1/V2 paths
+  handoff/FRONTEND_HANDOFF_FILES_V2.md # Handoff reading checklist
   SOCKET_EVENTS_V2_REFERENCE.md   # Socket.IO events reference
   FE_INTEGRATION_GUIDE_V2.md     # This file
 ```
