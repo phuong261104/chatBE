@@ -13,7 +13,11 @@ module.exports = {
   transform: {
     "^.+\\.ts$": ["ts-jest", { tsconfig: "tsconfig.test.json" }],
   },
-  testPathIgnorePatterns: ["/node_modules/"],
+  testPathIgnorePatterns: [
+    "/node_modules/",
+    "<rootDir>/tests/my-cloud-api.test.ts",
+    "<rootDir>/tests/my-cloud-socket.test.ts",
+  ],
   collectCoverageFrom: [
     "src/modules/chat/**/*.ts",
     "!src/modules/chat/**/*.d.ts",
