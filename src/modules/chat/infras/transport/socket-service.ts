@@ -505,7 +505,7 @@ export class MessagingSocketService {
 
   private async handleSendMessage(
     socket: AuthenticatedSocket,
-    payload: { conversationId: string; text?: string; media?: MediaAttachment[] },
+    payload: { conversationId: string; text?: string; media?: MediaAttachment[]; ttlSeconds?: number },
     callback?: (response: any) => void,
   ) {
     try {
@@ -521,7 +521,7 @@ export class MessagingSocketService {
         return;
       }
 
-      const { conversationId, text, media } = payload;
+      const { conversationId, text, media, ttlSeconds } = payload;
 
       if (!conversationId) {
         if (callback) callback({ success: false, error: "conversationId is required" });
@@ -537,8 +537,8 @@ export class MessagingSocketService {
       const isGroup = conversationDetail.conversation.type === "group";
 
       const messages = isGroup
-        ? await this.useCase.sendGroupMessage(conversationId, userId, text, media)
-        : await this.useCase.sendMessage(conversationId, userId, text, media);
+        ? await this.useCase.sendGroupMessage(conversationId, userId, text, media, ttlSeconds)
+        : await this.useCase.sendMessage(conversationId, userId, text, media, ttlSeconds);
 
       const memberUserIds = await this.getMemberUserIds(conversationId);
 
@@ -582,7 +582,7 @@ export class MessagingSocketService {
         return;
       }
 
-      const message = await this.useCase.editMessage(messageId, userId, text);
+      const message = await this.useCase.editMessage(messageId, userId, text, 30_000);
 
       const memberUserIds = await this.getMemberUserIds(message.conversationId);
 
