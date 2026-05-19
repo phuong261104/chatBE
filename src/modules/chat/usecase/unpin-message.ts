@@ -1,7 +1,14 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { v7 } from "uuid";
-import { ConversationMemberStatus, Message, MessageStatus, MessageType } from "../model/model";
+import {
+  ConversationMemberRole,
+  ConversationMemberStatus,
+  ConversationType,
+  Message,
+  MessageStatus,
+  MessageType,
+} from "../model/model";
 import {
   IMessageQueryRepository,
   IMessageCommandRepository,
@@ -15,7 +22,7 @@ import {
   unpinMessageDTOSchema,
   UnpinMessageCommand,
 } from "../model/dto";
-import { ErrMessageNotFound, ErrNotMember, ErrMessageNotPinned } from "../model/errors";
+import { ErrMessageNotFound, ErrNotMember, ErrMessageNotPinned, ErrNotAdmin } from "../model/errors";
 import { SystemMessageTemplate } from "../constants/system-messages";
 
 export class UnpinMessageHandler
@@ -59,6 +66,15 @@ export class UnpinMessageHandler
       throw AppError.from(ErrMessageNotFound, 404);
     }
 
+    const conversation = await this.conversationQueryRepo.get(message.conversationId);
+    if (
+      conversation?.type === ConversationType.GROUP &&
+      member.role !== ConversationMemberRole.ADMIN &&
+      conversation.ownerId !== data.userId
+    ) {
+      throw AppError.from(ErrNotAdmin, 403);
+    }
+
     if (!message.pinned) {
       throw AppError.from(ErrMessageNotPinned, 400);
     }
@@ -72,10 +88,7 @@ export class UnpinMessageHandler
       pinned: false,
     };
 
-    const [actor, conversation] = await Promise.all([
-      this.userQueryRepo.get(data.userId),
-      this.conversationQueryRepo.get(message.conversationId),
-    ]);
+    const actor = await this.userQueryRepo.get(data.userId);
     const actorDisplayName = actor?.displayName || "Unknown User";
 
     const now = new Date();
