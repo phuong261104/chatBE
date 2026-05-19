@@ -1,7 +1,14 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { v7 } from "uuid";
-import { ConversationMemberStatus, Message, MessageStatus, MessageType } from "../model/model";
+import {
+  ConversationMemberRole,
+  ConversationMemberStatus,
+  ConversationType,
+  Message,
+  MessageStatus,
+  MessageType,
+} from "../model/model";
 import {
   IMessageQueryRepository,
   IMessageCommandRepository,
@@ -15,7 +22,7 @@ import {
   pinMessageDTOSchema,
   PinMessageCommand,
 } from "../model/dto";
-import { ErrMessageNotFound, ErrNotMember, ErrMessageAlreadyPinned } from "../model/errors";
+import { ErrMessageNotFound, ErrNotMember, ErrMessageAlreadyPinned, ErrNotAdmin } from "../model/errors";
 import { SystemMessageTemplate } from "../constants/system-messages";
 
 const MAX_PINNED_MESSAGES_PER_CONVERSATION = 20;
@@ -61,6 +68,15 @@ export class PinMessageHandler
       throw AppError.from(ErrNotMember, 403);
     }
 
+    const conversation = await this.conversationQueryRepo.get(message.conversationId);
+    if (
+      conversation?.type === ConversationType.GROUP &&
+      member.role !== ConversationMemberRole.ADMIN &&
+      conversation.ownerId !== data.userId
+    ) {
+      throw AppError.from(ErrNotAdmin, 403);
+    }
+
     if (message.pinned) {
       throw AppError.from(ErrMessageAlreadyPinned, 400);
     }
@@ -90,10 +106,7 @@ export class PinMessageHandler
       pinnedAt,
     };
 
-    const [actor, conversation] = await Promise.all([
-      this.userQueryRepo.get(data.userId),
-      this.conversationQueryRepo.get(message.conversationId),
-    ]);
+    const actor = await this.userQueryRepo.get(data.userId);
     const actorDisplayName = actor?.displayName || "Unknown User";
 
     const systemMsg: Message = {
