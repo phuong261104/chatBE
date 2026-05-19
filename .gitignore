@@ -49,9 +49,16 @@ output
 
 tasks
 test-*
+!docs/test-flows/
+!docs/test-flows/*.md
 docker
 tests/*
 !tests/
 !tests/call-v2.service.test.ts
 !tests/chat-v2-behavior.test.ts
+!tests/chat-advanced-messages.e2e.test.ts
+!tests/chat-advanced-messages.live.e2e.test.ts
 !tests/user-v2-privacy-presence.test.ts
+!tests/helpers/
+!tests/helpers/chat-e2e-harness.ts
+!tests/helpers/chat-live-e2e-harness.ts
