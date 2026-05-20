@@ -7,6 +7,8 @@ export {
   ClassificationType,
   MediaType,
   UserStatus,
+  PollStatus,
+  GroupReminderStatus,
   LastMessageSchema,
   ConversationSchema,
   ConversationMemberSchema,
@@ -33,6 +35,10 @@ export {
   PollOption,
   PollSchema,
   Poll,
+  GroupReminderSchema,
+  GroupReminder,
+  GroupNoteSchema,
+  GroupNote,
 } from "./model";
 
 export * from "./dto";

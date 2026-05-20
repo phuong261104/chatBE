@@ -1,7 +1,7 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { IConversationMemberQueryRepository, IPollQueryRepository, IPollCommandRepository } from "../interface";
-import { ConversationMemberStatus, Poll } from "../model/model";
+import { ConversationMemberStatus, Poll, PollStatus } from "../model/model";
 
 export class VotePollHandler implements ICommandHandler<{ pollId: string; userId: string; optionIds: string[] }, Poll> {
   constructor(
@@ -20,6 +20,10 @@ export class VotePollHandler implements ICommandHandler<{ pollId: string; userId
 
     if (poll.expiresAt && new Date() > poll.expiresAt) {
       throw AppError.from(new Error("Poll has expired"), 400);
+    }
+
+    if (poll.status === PollStatus.CLOSED) {
+      throw AppError.from(new Error("Poll is closed"), 400);
     }
 
     const member = await this.conversationMemberQueryRepo.findByCond({

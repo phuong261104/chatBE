@@ -19,6 +19,7 @@ import {
 } from "../model/model";
 import { TransferOwnerCommand } from "../model/dto";
 import { SystemMessageTemplate } from "../constants/system-messages";
+import { isActiveMember, isOwnerMember } from "./group-permissions";
 
 export class TransferOwnerHandler implements ICommandHandler<TransferOwnerCommand, Conversation> {
   constructor(
@@ -42,20 +43,12 @@ export class TransferOwnerHandler implements ICommandHandler<TransferOwnerComman
       throw AppError.from(new Error("Only group conversations can transfer ownership"), 400);
     }
 
-    const currentOwnerId = conversation.ownerId || conversation.createdBy;
-    if (!currentOwnerId) {
-      throw AppError.from(new Error("No owner found for this group"), 400);
-    }
-    if (requesterId !== currentOwnerId) {
-      throw AppError.from(new Error("Only group owner can transfer ownership"), 403);
-    }
-
     const requesterMember = await this.conversationMemberQueryRepo.findByCond({
       conversationId: groupId,
       userId: requesterId,
     });
-    if (!requesterMember || requesterMember.leftAt || requesterMember.status !== ConversationMemberStatus.ACTIVE) {
-      throw AppError.from(new Error("You are not a member of this group"), 403);
+    if (!isActiveMember(requesterMember) || !isOwnerMember(requesterMember, conversation)) {
+      throw AppError.from(new Error("Only group owner can transfer ownership"), 403);
     }
 
     const newOwnerMember = await this.conversationMemberQueryRepo.findByCond({
@@ -73,13 +66,17 @@ export class TransferOwnerHandler implements ICommandHandler<TransferOwnerComman
 
     const updateData: any = {
       ownerId: newOwnerId,
-      admins: [...new Set([...(conversation.admins || []), currentOwnerId, newOwnerId])],
+      admins: [...new Set([...(conversation.admins || []).filter((id) => id !== newOwnerId), requesterId])],
     };
 
     await this.conversationCommandRepo.update(groupId, updateData);
 
-    await this.conversationMemberCommandRepo.update(newOwnerMember.id, {
+    await this.conversationMemberCommandRepo.update(requesterMember.id, {
       role: ConversationMemberRole.ADMIN,
+    });
+
+    await this.conversationMemberCommandRepo.update(newOwnerMember.id, {
+      role: ConversationMemberRole.OWNER,
     });
 
     const now = new Date();

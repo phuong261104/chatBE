@@ -27,6 +27,12 @@ export const ConversationUpdateDTOSchema = z.object({
       requireApproval: z.boolean().optional(),
       allowMemberInvite: z.boolean().optional(),
       whoCanSendMessages: z.enum(["all", "admins"]).optional(),
+      whoCanAddMembers: z.enum(["all", "admins"]).optional(),
+      utilityPermissions: z.object({
+        poll: z.enum(["all", "admins"]).optional(),
+        reminder: z.enum(["all", "admins"]).optional(),
+        note: z.enum(["all", "admins"]).optional(),
+      }).optional(),
     })
     .optional(),
   lastMessage: LastMessageSchema.optional(),

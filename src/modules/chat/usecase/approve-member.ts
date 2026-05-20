@@ -11,13 +11,13 @@ import {
 } from "../interface";
 import {
   ConversationMember,
-  ConversationMemberRole,
   ConversationType,
   ConversationMemberStatus,
   Message,
   MessageType,
 } from "../model/model";
 import { SystemMessageTemplate } from "../constants/system-messages";
+import { isActiveMember, isGroupManager } from "./group-permissions";
 
 export class ApproveMemberHandler implements ICommandHandler<{ groupId: string; userId: string; requesterId: string }, ConversationMember> {
   constructor(
@@ -46,13 +46,8 @@ export class ApproveMemberHandler implements ICommandHandler<{ groupId: string; 
       userId: requesterId,
     });
 
-    if (
-      !requesterMember ||
-      requesterMember.leftAt ||
-      requesterMember.status !== ConversationMemberStatus.ACTIVE ||
-      requesterMember.role !== ConversationMemberRole.ADMIN
-    ) {
-      throw AppError.from(new Error("Only admins can approve members"), 403);
+    if (!isActiveMember(requesterMember) || !isGroupManager(requesterMember, conversation)) {
+      throw AppError.from(new Error("Only owner or admins can approve members"), 403);
     }
 
     const member = await this.conversationMemberQueryRepo.findByCond({

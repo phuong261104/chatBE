@@ -11,14 +11,13 @@ import {
 } from '../interface';
 import {
   Conversation,
-  ConversationMemberRole,
-  ConversationMemberStatus,
   ConversationType,
   Message,
   MessageType,
 } from '../model/model';
 import { updateGroupInfoDTOSchema, ConversationUpdateDTO, UpdateGroupInfoCommand } from '../model/dto';
 import { SystemMessageTemplate } from '../constants/system-messages';
+import { isActiveMember, isGroupManager } from "./group-permissions";
 
 export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCommand, Conversation> {
   constructor(
@@ -38,20 +37,6 @@ export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCo
       throw new Error('Invalid data');
     }
 
-    const requesterMember = await this.conversationMemberQueryRepo.findByCond({
-      conversationId: validatedInput.conversationId,
-      userId: validatedInput.requesterId
-    });
-
-    if (
-      !requesterMember ||
-      requesterMember.leftAt ||
-      requesterMember.status !== ConversationMemberStatus.ACTIVE ||
-      requesterMember.role !== ConversationMemberRole.ADMIN
-    ) {
-      throw AppError.from(new Error('Unauthorized: Only admins can update group info'), 403);
-    }
-
     const conversation = await this.conversationQueryRepo.get(validatedInput.conversationId);
     if (!conversation) {
       throw AppError.from(new Error('Conversation not found'), 404);
@@ -59,6 +44,15 @@ export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCo
 
     if (conversation.type !== ConversationType.GROUP) {
       throw AppError.from(new Error('Only group conversations can be updated'), 400);
+    }
+
+    const requesterMember = await this.conversationMemberQueryRepo.findByCond({
+      conversationId: validatedInput.conversationId,
+      userId: validatedInput.requesterId
+    });
+
+    if (!isActiveMember(requesterMember) || !isGroupManager(requesterMember, conversation)) {
+      throw AppError.from(new Error('Unauthorized: Only owner or admins can update group info'), 403);
     }
 
     const updateData: ConversationUpdateDTO = {};

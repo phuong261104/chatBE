@@ -6,6 +6,7 @@ export enum ConversationType {
 }
 
 export enum ConversationMemberRole {
+  OWNER = "owner",
   MEMBER = "member",
   ADMIN = "admin",
 }
@@ -65,6 +66,16 @@ export const GroupSettingsSchema = z.object({
   requireApproval: z.boolean().default(false),
   allowMemberInvite: z.boolean().default(true),
   whoCanSendMessages: z.enum(["all", "admins"]).default("all"),
+  whoCanAddMembers: z.enum(["all", "admins"]).default("all"),
+  utilityPermissions: z.object({
+    poll: z.enum(["all", "admins"]).default("all"),
+    reminder: z.enum(["all", "admins"]).default("all"),
+    note: z.enum(["all", "admins"]).default("all"),
+  }).default({
+    poll: "all",
+    reminder: "all",
+    note: "all",
+  }),
 });
 
 export type GroupSettings = z.infer<typeof GroupSettingsSchema>;
@@ -259,6 +270,17 @@ export enum UserStatus {
   DISABLED = "disabled",
 }
 
+export enum PollStatus {
+  ACTIVE = "active",
+  CLOSED = "closed",
+}
+
+export enum GroupReminderStatus {
+  ACTIVE = "active",
+  CANCELLED = "cancelled",
+  DONE = "done",
+}
+
 export const UserInfoSchema = z.object({
   id: z.string(),
   displayName: z.string().optional(),
@@ -285,10 +307,44 @@ export const PollSchema = z.object({
   createdBy: z.string(),
   isMultipleChoice: z.boolean().default(false),
   allowAddOption: z.boolean().default(false),
+  showResultsBeforeClose: z.boolean().default(true),
+  status: z.nativeEnum(PollStatus).default(PollStatus.ACTIVE),
   expiresAt: z.date().optional(),
+  closedAt: z.date().optional(),
+  closedBy: z.string().optional(),
+  pinned: z.boolean().default(false),
+  pinnedAt: z.date().optional(),
+  pinnedBy: z.string().optional(),
   totalVotes: z.number().default(0),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
 
 export type Poll = z.infer<typeof PollSchema>;
+
+export const GroupReminderSchema = z.object({
+  id: z.string(),
+  conversationId: z.string(),
+  title: z.string(),
+  description: z.string().optional(),
+  remindAt: z.date(),
+  status: z.nativeEnum(GroupReminderStatus).default(GroupReminderStatus.ACTIVE),
+  createdBy: z.string(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type GroupReminder = z.infer<typeof GroupReminderSchema>;
+
+export const GroupNoteSchema = z.object({
+  id: z.string(),
+  conversationId: z.string(),
+  title: z.string(),
+  content: z.string(),
+  createdBy: z.string(),
+  updatedBy: z.string().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type GroupNote = z.infer<typeof GroupNoteSchema>;

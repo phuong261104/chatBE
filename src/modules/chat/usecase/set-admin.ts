@@ -19,6 +19,7 @@ import {
 } from "../model/model";
 import { SetAdminCommand } from "../model/dto";
 import { SystemMessageTemplate } from "../constants/system-messages";
+import { isActiveMember, isOwnerMember } from "./group-permissions";
 
 export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Conversation> {
   constructor(
@@ -42,17 +43,12 @@ export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Convers
       throw AppError.from(new Error("Only group conversations can set admin"), 400);
     }
 
-    const currentOwnerId = conversation.ownerId || conversation.createdBy;
-    if (requesterId !== currentOwnerId) {
-      throw AppError.from(new Error("Only group owner can set admin"), 403);
-    }
-
     const requesterMember = await this.conversationMemberQueryRepo.findByCond({
       conversationId: groupId,
       userId: requesterId,
     });
-    if (!requesterMember || requesterMember.leftAt || requesterMember.status !== ConversationMemberStatus.ACTIVE) {
-      throw AppError.from(new Error("You are not a member of this group"), 403);
+    if (!isActiveMember(requesterMember) || !isOwnerMember(requesterMember, conversation)) {
+      throw AppError.from(new Error("Only group owner can set admin"), 403);
     }
 
     const targetMember = await this.conversationMemberQueryRepo.findByCond({
@@ -66,6 +62,10 @@ export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Convers
 
     if (targetMember.leftAt || targetMember.status !== ConversationMemberStatus.ACTIVE) {
       throw AppError.from(new Error("Target user has left the group"), 400);
+    }
+
+    if (isOwnerMember(targetMember, conversation)) {
+      throw AppError.from(new Error("Cannot change the group owner's admin role"), 400);
     }
 
     await this.conversationMemberCommandRepo.update(targetMember.id, {

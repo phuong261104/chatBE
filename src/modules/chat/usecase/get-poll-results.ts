@@ -1,12 +1,14 @@
 import { IQueryHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
-import { IConversationMemberQueryRepository, IPollQueryRepository } from "../interface";
+import { IConversationMemberQueryRepository, IConversationQueryRepository, IPollQueryRepository } from "../interface";
 import { ConversationMemberStatus, Poll } from "../model/model";
+import { sanitizePollForViewer } from "./group-permissions";
 
 export class GetPollResultsHandler implements IQueryHandler<{ pollId: string; userId: string }, Poll> {
   constructor(
     private readonly pollQueryRepo: IPollQueryRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly conversationQueryRepo: IConversationQueryRepository,
   ) {}
 
   async query(query: { pollId: string; userId: string }): Promise<Poll> {
@@ -25,6 +27,7 @@ export class GetPollResultsHandler implements IQueryHandler<{ pollId: string; us
       throw AppError.from(new Error("You are not a member of this group"), 403);
     }
 
-    return poll;
+    const conversation = await this.conversationQueryRepo.get(poll.conversationId);
+    return sanitizePollForViewer(poll, member, conversation);
   }
 }

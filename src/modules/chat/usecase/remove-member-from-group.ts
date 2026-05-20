@@ -10,13 +10,13 @@ import {
   IUserQueryRepository
 } from '../interface';
 import {
-  ConversationMember,
   ConversationMemberRole,
   ConversationMemberStatus,
   Message,
   MessageType,
 } from '../model/model';
 import { removeMemberFromGroupDTOSchema, RemoveMemberFromGroupCommand } from '../model/dto';
+import { isGroupManager, isOwnerMember } from "./group-permissions";
 
 export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMemberFromGroupCommand, void> {
   constructor(
@@ -49,16 +49,15 @@ export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMembe
       throw AppError.from(new Error('Unauthorized: You are not a member of this group'), 403);
     }
 
-    const isAdmin = requesterMember.role === ConversationMemberRole.ADMIN;
     const isSelf = validatedInput.requesterId === validatedInput.targetUserId;
-
-    if (!isAdmin && !isSelf) {
-      throw AppError.from(new Error('Unauthorized: Only admins can remove other members'), 403);
-    }
 
     const conversation = await this.conversationQueryRepo.get(validatedInput.conversationId);
     if (!conversation) {
       throw AppError.from(new Error('Conversation not found'), 404);
+    }
+
+    if (!isGroupManager(requesterMember, conversation) && !isSelf) {
+      throw AppError.from(new Error('Unauthorized: Only owner or admins can remove other members'), 403);
     }
 
     const targetMember = await this.conversationMemberQueryRepo.findByCond({
@@ -70,28 +69,12 @@ export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMembe
       throw AppError.from(new Error('Target user is not a member'), 404);
     }
 
-    const currentOwnerId = conversation.ownerId || conversation.createdBy;
-    if (validatedInput.targetUserId === currentOwnerId) {
+    if (isOwnerMember(targetMember, conversation)) {
       throw AppError.from(new Error("Cannot remove the group owner"), 400);
     }
 
     if (targetMember.role === ConversationMemberRole.ADMIN) {
       const newAdmins = (conversation.admins || []).filter(id => id !== validatedInput.targetUserId);
-      if (newAdmins.length === 0 && (conversation.admins || []).includes(validatedInput.targetUserId)) {
-        const allMembers = await this.conversationMemberQueryRepo.list(
-          { conversationId: validatedInput.conversationId },
-          { page: 1, limit: 100 }
-        );
-        const activeAdmins = allMembers.filter((m: ConversationMember) =>
-          m.role === ConversationMemberRole.ADMIN &&
-          m.status === ConversationMemberStatus.ACTIVE &&
-          !m.leftAt &&
-          m.userId !== validatedInput.targetUserId
-        );
-        if (activeAdmins.length === 0) {
-          throw AppError.from(new Error("Cannot remove the last admin"), 400);
-        }
-      }
       await this.conversationCommandRepo.update(validatedInput.conversationId, {
         admins: newAdmins
       });

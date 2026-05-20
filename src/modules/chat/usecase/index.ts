@@ -37,6 +37,7 @@ export { CreatePollHandler } from "./create-poll";
 export { GetPollsHandler } from "./get-polls";
 export { VotePollHandler } from "./vote-poll";
 export { GetPollResultsHandler } from "./get-poll-results";
+export { ClosePollHandler, PinPollHandler, UnpinPollHandler } from "./manage-poll";
 export { GetPendingMembersHandler } from "./get-pending-members";
 export { ApproveMemberHandler } from "./approve-member";
 export { RejectMemberHandler } from "./reject-member";
@@ -56,5 +57,15 @@ export { GetConversationOnlineMembersQueryHandler } from "./get-conversation-onl
 export { GetDraftsQueryHandler } from "./get-drafts";
 export { TranslateMessageHandler } from "./translate-message";
 export { CopyConversationHandler } from "./copy-conversation";
+export {
+  CreateGroupReminderHandler,
+  ListGroupRemindersHandler,
+  UpdateGroupReminderHandler,
+  DeleteGroupReminderHandler,
+  CreateGroupNoteHandler,
+  ListGroupNotesHandler,
+  UpdateGroupNoteHandler,
+  DeleteGroupNoteHandler,
+} from "./group-utilities";
 
 export { MessagingUseCaseFacade } from "./messaging-usecase-facade";

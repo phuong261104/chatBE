@@ -3,6 +3,7 @@ import { AppError } from "@share/app-error";
 import { IPollQueryRepository } from "../interface";
 import { Poll, ConversationMemberStatus, ConversationType } from "../model/model";
 import { IConversationQueryRepository, IConversationMemberQueryRepository } from "../interface";
+import { sanitizePollForViewer } from "./group-permissions";
 
 export class GetPollsHandler implements IQueryHandler<{ conversationId: string; userId: string }, Poll[]> {
   constructor(
@@ -32,6 +33,6 @@ export class GetPollsHandler implements IQueryHandler<{ conversationId: string; 
     }
 
     const polls = await this.pollQueryRepo.findByConversationId(conversationId);
-    return polls;
+    return polls.map((poll) => sanitizePollForViewer(poll, member, conversation));
   }
 }

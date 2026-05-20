@@ -8,6 +8,7 @@ import {
   ConversationMemberStatus,
   GroupSettings,
 } from "../model/model";
+import { normalizeGroupSettings } from "./group-permissions";
 
 export class GetGroupInfoHandler implements IQueryHandler<{ groupId: string; userId: string }, {
   conversation: Conversation;
@@ -51,12 +52,7 @@ export class GetGroupInfoHandler implements IQueryHandler<{ groupId: string; use
       (m) => m.status === ConversationMemberStatus.ACTIVE && !m.leftAt,
     );
 
-    const settings: GroupSettings = conversation.settings || {
-      allowSendLink: true,
-      requireApproval: false,
-      allowMemberInvite: true,
-      whoCanSendMessages: "all",
-    };
+    const settings: GroupSettings = normalizeGroupSettings(conversation.settings);
 
     return {
       conversation,

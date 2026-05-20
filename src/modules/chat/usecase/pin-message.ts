@@ -2,7 +2,6 @@ import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { v7 } from "uuid";
 import {
-  ConversationMemberRole,
   ConversationMemberStatus,
   ConversationType,
   Message,
@@ -24,6 +23,7 @@ import {
 } from "../model/dto";
 import { ErrMessageNotFound, ErrNotMember, ErrMessageAlreadyPinned, ErrNotAdmin } from "../model/errors";
 import { SystemMessageTemplate } from "../constants/system-messages";
+import { isGroupManager } from "./group-permissions";
 
 const MAX_PINNED_MESSAGES_PER_CONVERSATION = 20;
 
@@ -71,8 +71,7 @@ export class PinMessageHandler
     const conversation = await this.conversationQueryRepo.get(message.conversationId);
     if (
       conversation?.type === ConversationType.GROUP &&
-      member.role !== ConversationMemberRole.ADMIN &&
-      conversation.ownerId !== data.userId
+      !isGroupManager(member, conversation)
     ) {
       throw AppError.from(ErrNotAdmin, 403);
     }

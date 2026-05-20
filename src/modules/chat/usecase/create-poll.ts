@@ -10,9 +10,11 @@ import {
   ConversationType,
   PollOption,
   Poll,
+  PollStatus,
 } from "../model/model";
 import { CreatePollCommand } from "../model/dto";
 import { IPollCommandRepository } from "../interface";
+import { canUseGroupUtility, normalizeGroupSettings } from "./group-permissions";
 
 export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Poll> {
   constructor(
@@ -22,7 +24,7 @@ export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Pol
   ) {}
 
   async execute(command: CreatePollCommand): Promise<Poll> {
-    const { conversationId, creatorId, question, options, isMultipleChoice, allowAddOption, expiresAt } = command;
+    const { conversationId, creatorId, question, options, isMultipleChoice, allowAddOption, showResultsBeforeClose, expiresAt } = command;
 
     const conversation = await this.conversationQueryRepo.get(conversationId);
     if (!conversation) {
@@ -42,6 +44,11 @@ export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Pol
       throw AppError.from(new Error("You are not a member of this group"), 403);
     }
 
+    const settings = normalizeGroupSettings(conversation.settings);
+    if (!canUseGroupUtility(settings, "poll", member, conversation)) {
+      throw AppError.from(new Error("Only owner or admins can create polls in this group"), 403);
+    }
+
     const now = new Date();
     const pollOptions: PollOption[] = options.map((text) => ({
       id: v7(),
@@ -58,7 +65,10 @@ export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Pol
       createdBy: creatorId,
       isMultipleChoice: isMultipleChoice || false,
       allowAddOption: allowAddOption || false,
+      showResultsBeforeClose: showResultsBeforeClose ?? true,
+      status: PollStatus.ACTIVE,
       expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+      pinned: false,
       totalVotes: 0,
       createdAt: now,
       updatedAt: now,

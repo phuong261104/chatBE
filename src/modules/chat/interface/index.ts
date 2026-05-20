@@ -9,6 +9,8 @@ import {
   MessageReaction,
   Poll,
   GroupSettings,
+  GroupReminder,
+  GroupNote,
   ClassificationType,
 } from "../model/model";
 import {
@@ -136,6 +138,30 @@ export interface IPollQueryRepository {
 export interface IPollCommandRepository {
   insert(poll: Poll): Promise<boolean>;
   update(id: string, data: Partial<Poll>): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
+  deleteByConversationId(conversationId: string): Promise<void>;
+}
+
+export interface IGroupReminderQueryRepository {
+  get(id: string): Promise<GroupReminder | null>;
+  findByConversationId(conversationId: string): Promise<GroupReminder[]>;
+}
+
+export interface IGroupReminderCommandRepository {
+  insert(reminder: GroupReminder): Promise<boolean>;
+  update(id: string, data: Partial<GroupReminder>): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
+  deleteByConversationId(conversationId: string): Promise<void>;
+}
+
+export interface IGroupNoteQueryRepository {
+  get(id: string): Promise<GroupNote | null>;
+  findByConversationId(conversationId: string): Promise<GroupNote[]>;
+}
+
+export interface IGroupNoteCommandRepository {
+  insert(note: GroupNote): Promise<boolean>;
+  update(id: string, data: Partial<GroupNote>): Promise<boolean>;
   delete(id: string): Promise<boolean>;
   deleteByConversationId(conversationId: string): Promise<void>;
 }
@@ -348,6 +374,7 @@ export interface IMessagingUseCase {
     options: string[],
     isMultipleChoice?: boolean,
     allowAddOption?: boolean,
+    showResultsBeforeClose?: boolean,
     expiresAt?: string,
   ): Promise<Poll>;
 
@@ -357,7 +384,13 @@ export interface IMessagingUseCase {
 
   getPollResults(pollId: string, userId: string): Promise<Poll>;
 
-  getPendingMembers(groupId: string): Promise<ConversationMember[]>;
+  closePoll(pollId: string, userId: string): Promise<Poll>;
+
+  pinPoll(pollId: string, userId: string): Promise<Poll>;
+
+  unpinPoll(pollId: string, userId: string): Promise<Poll>;
+
+  getPendingMembers(groupId: string, requesterId: string): Promise<ConversationMember[]>;
 
   approveMember(groupId: string, userId: string, requesterId: string): Promise<ConversationMember>;
 
@@ -371,6 +404,12 @@ export interface IMessagingUseCase {
       requireApproval?: boolean;
       allowMemberInvite?: boolean;
       whoCanSendMessages?: "all" | "admins";
+      whoCanAddMembers?: "all" | "admins";
+      utilityPermissions?: {
+        poll?: "all" | "admins";
+        reminder?: "all" | "admins";
+        note?: "all" | "admins";
+      };
     },
   ): Promise<Conversation>;
 
@@ -466,4 +505,30 @@ export interface IMessagingUseCase {
     conversation: Conversation;
     messages: Message[];
   }>;
+
+  createGroupReminder(
+    conversationId: string,
+    userId: string,
+    title: string,
+    description: string | undefined,
+    remindAt: string,
+  ): Promise<GroupReminder>;
+
+  listGroupReminders(conversationId: string, userId: string): Promise<GroupReminder[]>;
+
+  updateGroupReminder(
+    reminderId: string,
+    userId: string,
+    data: { title?: string; description?: string | null; remindAt?: string; status?: GroupReminder["status"] },
+  ): Promise<GroupReminder>;
+
+  deleteGroupReminder(reminderId: string, userId: string): Promise<void>;
+
+  createGroupNote(conversationId: string, userId: string, title: string, content: string): Promise<GroupNote>;
+
+  listGroupNotes(conversationId: string, userId: string): Promise<GroupNote[]>;
+
+  updateGroupNote(noteId: string, userId: string, data: { title?: string; content?: string }): Promise<GroupNote>;
+
+  deleteGroupNote(noteId: string, userId: string): Promise<void>;
 }

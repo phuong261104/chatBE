@@ -11,7 +11,6 @@ import {
 } from '../interface';
 import {
   ConversationMemberStatus,
-  ConversationMemberRole,
   Message,
   MessageType,
   MediaAttachment,
@@ -21,6 +20,7 @@ import {
   MessageMention,
 } from '../model/model';
 import { SendGroupMessageCommand } from '../model/dto';
+import { isGroupManager, normalizeGroupSettings } from "./group-permissions";
 
 function mapMediaToDbFormat(media: MediaAttachment[]) {
   return media.map((m) => {
@@ -120,16 +120,11 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
     const hasLinks = !!(hasText && extractLinks(text).length > 0);
 
     const conversation = await this.conversationQueryRepo.get(conversationId);
-    const settings = conversation?.settings || {
-      allowSendLink: true,
-      requireApproval: false,
-      allowMemberInvite: true,
-      whoCanSendMessages: "all" as const,
-    };
+    const settings = normalizeGroupSettings(conversation?.settings);
 
     if (
       settings.whoCanSendMessages === "admins" &&
-      member.role !== ConversationMemberRole.ADMIN
+      !isGroupManager(member, conversation)
     ) {
       throw AppError.from(new Error("Only admins can send messages in this group"), 403);
     }

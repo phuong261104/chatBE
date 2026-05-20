@@ -19,6 +19,7 @@ import {
 } from '../model/model';
 import { addMembersToGroupDTOSchema, AddMembersToGroupCommand } from '../model/dto';
 import { ChatAccessPolicy } from './chat-access-policy';
+import { isActiveMember, isGroupManager, normalizeGroupSettings } from "./group-permissions";
 
 export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGroupCommand, ConversationMember[]> {
   constructor(
@@ -44,15 +45,6 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       userId: validatedInput.requesterId
     });
 
-    if (
-      !requesterMember ||
-      requesterMember.leftAt ||
-      requesterMember.status !== ConversationMemberStatus.ACTIVE ||
-      requesterMember.role !== ConversationMemberRole.ADMIN
-    ) {
-      throw AppError.from(new Error('Unauthorized: Only admins can add members'), 403);
-    }
-
     const conversation = await this.conversationQueryRepo.get(validatedInput.conversationId);
     if (!conversation) {
       throw AppError.from(new Error('Conversation not found'), 404);
@@ -62,17 +54,20 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       throw AppError.from(new Error('Only group conversations can add members'), 400);
     }
 
+    if (!isActiveMember(requesterMember)) {
+      throw AppError.from(new Error('Unauthorized: You are not a member of this group'), 403);
+    }
+
     const newMembers: ConversationMember[] = [];
     const now = new Date();
-    const settings = conversation.settings || {
-      allowSendLink: true,
-      requireApproval: false,
-      allowMemberInvite: true,
-      whoCanSendMessages: "all" as const,
-    };
+    const settings = normalizeGroupSettings(conversation.settings);
 
     if (settings.allowMemberInvite === false) {
       throw AppError.from(new Error("Member invites are disabled for this group"), 403);
+    }
+
+    if (settings.whoCanAddMembers === "admins" && !isGroupManager(requesterMember, conversation)) {
+      throw AppError.from(new Error("Only owner or admins can add members"), 403);
     }
 
     const uniqueMemberIds = await this.accessPolicy.validateAddGroupMembers(

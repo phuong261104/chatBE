@@ -8,6 +8,8 @@ import {
   MessageReaction,
   Poll,
   GroupSettings,
+  GroupReminder,
+  GroupNote,
 } from "../model/model";
 import {
   ConversationWithMetadata,
@@ -52,6 +54,7 @@ import { CreatePollHandler } from "./create-poll";
 import { GetPollsHandler } from "./get-polls";
 import { VotePollHandler } from "./vote-poll";
 import { GetPollResultsHandler } from "./get-poll-results";
+import { ClosePollHandler, PinPollHandler, UnpinPollHandler } from "./manage-poll";
 import { GetPendingMembersHandler } from "./get-pending-members";
 import { ApproveMemberHandler } from "./approve-member";
 import { RejectMemberHandler } from "./reject-member";
@@ -67,6 +70,16 @@ import { GetConversationOnlineMembersQueryHandler } from "./get-conversation-onl
 import { GetDraftsQueryHandler } from "./get-drafts";
 import { TranslateMessageHandler } from "./translate-message";
 import { CopyConversationHandler } from "./copy-conversation";
+import {
+  CreateGroupReminderHandler,
+  ListGroupRemindersHandler,
+  UpdateGroupReminderHandler,
+  DeleteGroupReminderHandler,
+  CreateGroupNoteHandler,
+  ListGroupNotesHandler,
+  UpdateGroupNoteHandler,
+  DeleteGroupNoteHandler,
+} from "./group-utilities";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -111,6 +124,9 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly getPollsHandler: GetPollsHandler,
     private readonly votePollHandler: VotePollHandler,
     private readonly getPollResultsHandler: GetPollResultsHandler,
+    private readonly closePollHandler: ClosePollHandler,
+    private readonly pinPollHandler: PinPollHandler,
+    private readonly unpinPollHandler: UnpinPollHandler,
     private readonly getPendingMembersHandler: GetPendingMembersHandler,
     private readonly approveMemberHandler: ApproveMemberHandler,
     private readonly rejectMemberHandler: RejectMemberHandler,
@@ -127,6 +143,14 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly getDraftsQueryHandler: GetDraftsQueryHandler,
     private readonly translateMessageHandler: TranslateMessageHandler,
     private readonly copyConversationHandler: CopyConversationHandler,
+    private readonly createGroupReminderHandler: CreateGroupReminderHandler,
+    private readonly listGroupRemindersHandler: ListGroupRemindersHandler,
+    private readonly updateGroupReminderHandler: UpdateGroupReminderHandler,
+    private readonly deleteGroupReminderHandler: DeleteGroupReminderHandler,
+    private readonly createGroupNoteHandler: CreateGroupNoteHandler,
+    private readonly listGroupNotesHandler: ListGroupNotesHandler,
+    private readonly updateGroupNoteHandler: UpdateGroupNoteHandler,
+    private readonly deleteGroupNoteHandler: DeleteGroupNoteHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -430,6 +454,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     options: string[],
     isMultipleChoice?: boolean,
     allowAddOption?: boolean,
+    showResultsBeforeClose?: boolean,
     expiresAt?: string,
   ): Promise<Poll> {
     return this.createPollHandler.execute({
@@ -439,6 +464,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       options,
       isMultipleChoice,
       allowAddOption,
+      showResultsBeforeClose,
       expiresAt,
     });
   }
@@ -455,8 +481,20 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.getPollResultsHandler.query({ pollId, userId });
   }
 
-  async getPendingMembers(groupId: string): Promise<ConversationMember[]> {
-    return this.getPendingMembersHandler.query({ groupId });
+  async closePoll(pollId: string, userId: string): Promise<Poll> {
+    return this.closePollHandler.execute({ pollId, userId });
+  }
+
+  async pinPoll(pollId: string, userId: string): Promise<Poll> {
+    return this.pinPollHandler.execute({ pollId, userId });
+  }
+
+  async unpinPoll(pollId: string, userId: string): Promise<Poll> {
+    return this.unpinPollHandler.execute({ pollId, userId });
+  }
+
+  async getPendingMembers(groupId: string, requesterId: string): Promise<ConversationMember[]> {
+    return this.getPendingMembersHandler.query({ groupId, requesterId });
   }
 
   async approveMember(groupId: string, userId: string, requesterId: string): Promise<ConversationMember> {
@@ -475,6 +513,12 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       requireApproval?: boolean;
       allowMemberInvite?: boolean;
       whoCanSendMessages?: "all" | "admins";
+      whoCanAddMembers?: "all" | "admins";
+      utilityPermissions?: {
+        poll?: "all" | "admins";
+        reminder?: "all" | "admins";
+        note?: "all" | "admins";
+      };
     },
   ): Promise<Conversation> {
     return this.updateGroupSettingsHandler.execute({
@@ -622,5 +666,52 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       before,
       after,
     });
+  }
+
+  async createGroupReminder(
+    conversationId: string,
+    userId: string,
+    title: string,
+    description: string | undefined,
+    remindAt: string,
+  ): Promise<GroupReminder> {
+    return this.createGroupReminderHandler.execute({ conversationId, userId, title, description, remindAt });
+  }
+
+  async listGroupReminders(conversationId: string, userId: string): Promise<GroupReminder[]> {
+    return this.listGroupRemindersHandler.query({ conversationId, userId });
+  }
+
+  async updateGroupReminder(
+    reminderId: string,
+    userId: string,
+    data: { title?: string; description?: string | null; remindAt?: string; status?: GroupReminder["status"] },
+  ): Promise<GroupReminder> {
+    return this.updateGroupReminderHandler.execute({ reminderId, userId, ...data });
+  }
+
+  async deleteGroupReminder(reminderId: string, userId: string): Promise<void> {
+    return this.deleteGroupReminderHandler.execute({ reminderId, userId });
+  }
+
+  async createGroupNote(
+    conversationId: string,
+    userId: string,
+    title: string,
+    content: string,
+  ): Promise<GroupNote> {
+    return this.createGroupNoteHandler.execute({ conversationId, userId, title, content });
+  }
+
+  async listGroupNotes(conversationId: string, userId: string): Promise<GroupNote[]> {
+    return this.listGroupNotesHandler.query({ conversationId, userId });
+  }
+
+  async updateGroupNote(noteId: string, userId: string, data: { title?: string; content?: string }): Promise<GroupNote> {
+    return this.updateGroupNoteHandler.execute({ noteId, userId, ...data });
+  }
+
+  async deleteGroupNote(noteId: string, userId: string): Promise<void> {
+    return this.deleteGroupNoteHandler.execute({ noteId, userId });
   }
 }

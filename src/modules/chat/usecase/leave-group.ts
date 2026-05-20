@@ -18,6 +18,7 @@ import {
   MessageType,
 } from '../model/model';
 import { leaveGroupDTOSchema, LeaveGroupCommand } from '../model/dto';
+import { isOwnerMember } from "./group-permissions";
 
 export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, void> {
   constructor(
@@ -55,8 +56,7 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
       throw AppError.from(new Error('You are not a member of this group'), 404);
     }
 
-    const currentOwnerId = conversation.ownerId || conversation.createdBy;
-    const isOwnerLeaving = member.userId === currentOwnerId;
+    const isOwnerLeaving = isOwnerMember(member, conversation);
     let nextOwnerId: string | undefined;
     let nextAdmins = (conversation.admins || []).filter(id => id !== member.userId);
     let nextMembersCount = Math.max(0, (conversation.membersCount || 1) - 1);
@@ -82,9 +82,9 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
 
       if (replacement) {
         nextOwnerId = replacement.userId;
-        nextAdmins = Array.from(new Set([...nextAdmins, replacement.userId]));
+        nextAdmins = nextAdmins.filter((id) => id !== replacement.userId);
         await this.conversationMemberCommandRepo.update(replacement.id, {
-          role: ConversationMemberRole.ADMIN,
+          role: ConversationMemberRole.OWNER,
         });
       } else {
         nextAdmins = [];
@@ -94,7 +94,8 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
 
     const now = new Date();
     await this.conversationMemberCommandRepo.update(member.id, {
-      leftAt: now
+      leftAt: now,
+      ...(isOwnerLeaving ? { role: ConversationMemberRole.ADMIN } : {}),
     });
 
     await this.conversationCommandRepo.update(validatedInput.conversationId, {

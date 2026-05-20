@@ -7,11 +7,11 @@ import {
 } from "../interface";
 import {
   Conversation,
-  ConversationMemberRole,
   ConversationMemberStatus,
   ConversationType,
 } from "../model/model";
 import { UpdateGroupSettingsCommand } from "../model/dto";
+import { isGroupManager, normalizeGroupSettings } from "./group-permissions";
 
 export class UpdateGroupSettingsHandler implements ICommandHandler<UpdateGroupSettingsCommand, Conversation> {
   constructor(
@@ -28,6 +28,8 @@ export class UpdateGroupSettingsHandler implements ICommandHandler<UpdateGroupSe
       requireApproval,
       allowMemberInvite,
       whoCanSendMessages,
+      whoCanAddMembers,
+      utilityPermissions,
     } = command;
 
     const conversation = await this.conversationQueryRepo.get(groupId);
@@ -48,16 +50,11 @@ export class UpdateGroupSettingsHandler implements ICommandHandler<UpdateGroupSe
       throw AppError.from(new Error("You are not a member of this group"), 403);
     }
 
-    if (member.role !== ConversationMemberRole.ADMIN) {
-      throw AppError.from(new Error("Only admins can update group settings"), 403);
+    if (!isGroupManager(member, conversation)) {
+      throw AppError.from(new Error("Only owner or admins can update group settings"), 403);
     }
 
-    const currentSettings = conversation.settings || {
-      allowSendLink: true,
-      requireApproval: false,
-      allowMemberInvite: true,
-      whoCanSendMessages: "all",
-    };
+    const currentSettings = normalizeGroupSettings(conversation.settings);
 
     const updateData: any = {
       settings: {
@@ -66,6 +63,13 @@ export class UpdateGroupSettingsHandler implements ICommandHandler<UpdateGroupSe
         ...(requireApproval !== undefined && { requireApproval }),
         ...(allowMemberInvite !== undefined && { allowMemberInvite }),
         ...(whoCanSendMessages !== undefined && { whoCanSendMessages }),
+        ...(whoCanAddMembers !== undefined && { whoCanAddMembers }),
+        ...(utilityPermissions !== undefined && {
+          utilityPermissions: {
+            ...currentSettings.utilityPermissions,
+            ...utilityPermissions,
+          },
+        }),
       },
     };
 

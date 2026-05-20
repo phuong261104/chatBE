@@ -18,6 +18,7 @@ import {
 } from '../model/model';
 import { createGroupDTOSchema, CreateGroupCommand, CreateGroupResult } from '../model/dto';
 import { ChatAccessPolicy } from './chat-access-policy';
+import { DEFAULT_GROUP_SETTINGS } from "./group-permissions";
 
 export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, CreateGroupResult> {
   constructor(
@@ -51,14 +52,9 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
       avatarUrl: avatarUrl,
       createdBy: command.creatorId,
       ownerId: command.creatorId,
-      admins: [command.creatorId],
+      admins: [],
       membersCount: validatedMemberIds.length + 1,
-      settings: {
-        allowSendLink: true,
-        requireApproval: false,
-        allowMemberInvite: true,
-        whoCanSendMessages: "all",
-      },
+      settings: DEFAULT_GROUP_SETTINGS,
       createdAt: now,
       updatedAt: now
     };
@@ -68,7 +64,7 @@ export class CreateGroupHandler implements ICommandHandler<CreateGroupCommand, C
       id: v7(),
       conversationId: conversationId,
       userId: command.creatorId,
-      role: ConversationMemberRole.ADMIN,
+      role: ConversationMemberRole.OWNER,
       status: ConversationMemberStatus.ACTIVE,
       joinedAt: now,
       unreadCount: 0,

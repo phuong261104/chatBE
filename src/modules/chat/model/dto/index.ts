@@ -16,3 +16,4 @@ export * from "./delete-messages-bulk-dto";
 export * from "./translate-message-dto";
 export * from "./copy-conversation-dto";
 export * from "./draft-dto";
+export * from "./group-utility-dto";

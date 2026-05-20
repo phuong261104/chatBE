@@ -6,6 +6,8 @@ export {
   DynamoMessageReactionCommandRepository,
   DynamoPollQueryRepository,
   DynamoPollCommandRepository,
+  DynamoGroupReminderRepository,
+  DynamoGroupNoteRepository,
 } from './repository/dynamodb';
 
 export { UserRepositoryAdapter } from './repository/local/user-adapter';

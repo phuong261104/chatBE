@@ -1,5 +1,6 @@
 import {
   Poll,
+  PollStatus,
 } from "../../../model";
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import {
@@ -14,7 +15,17 @@ import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
 export class DynamoPollQueryRepository {
   protected toEntity(doc: Record<string, any>): Poll {
-    return { ...doc } as Poll;
+    return {
+      ...doc,
+      expiresAt: doc.expiresAt ? new Date(doc.expiresAt) : undefined,
+      closedAt: doc.closedAt ? new Date(doc.closedAt) : undefined,
+      pinnedAt: doc.pinnedAt ? new Date(doc.pinnedAt) : undefined,
+      createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(),
+      updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : new Date(),
+      showResultsBeforeClose: doc.showResultsBeforeClose ?? true,
+      status: doc.status || PollStatus.ACTIVE,
+      pinned: doc.pinned || false,
+    } as Poll;
   }
 
   async get(id: string): Promise<Poll | null> {
@@ -54,7 +65,8 @@ export class DynamoPollQueryRepository {
         TableName: getTableName(TABLE_NAMES.POLLS),
         IndexName: "conversation-index",
         KeyConditionExpression: "conversationId = :conversationId",
-        FilterExpression: "(attribute_not_exists(#expiresAt) OR #expiresAt > :now) AND #status = :status",
+        FilterExpression:
+          "(attribute_not_exists(#expiresAt) OR #expiresAt > :now) AND (attribute_not_exists(#status) OR #status = :status)",
         ExpressionAttributeNames: {
           "#expiresAt": "expiresAt",
           "#status": "status",
@@ -85,7 +97,14 @@ export class DynamoPollCommandRepository {
           createdBy: poll.createdBy,
           isMultipleChoice: poll.isMultipleChoice || false,
           allowAddOption: poll.allowAddOption || false,
+          showResultsBeforeClose: poll.showResultsBeforeClose ?? true,
+          status: poll.status || PollStatus.ACTIVE,
           expiresAt: poll.expiresAt ? poll.expiresAt.toISOString() : null,
+          closedAt: poll.closedAt ? poll.closedAt.toISOString() : null,
+          closedBy: poll.closedBy,
+          pinned: poll.pinned || false,
+          pinnedAt: poll.pinnedAt ? poll.pinnedAt.toISOString() : null,
+          pinnedBy: poll.pinnedBy,
           totalVotes: poll.totalVotes || 0,
           createdAt: poll.createdAt ? poll.createdAt.toISOString() : now,
           updatedAt: now,
@@ -103,16 +122,24 @@ export class DynamoPollCommandRepository {
     if (data.options !== undefined) updateData.options = data.options;
     if (data.isMultipleChoice !== undefined) updateData.isMultipleChoice = data.isMultipleChoice;
     if (data.allowAddOption !== undefined) updateData.allowAddOption = data.allowAddOption;
-    if (data.expiresAt !== undefined && data.expiresAt !== null) {
-      updateData.expiresAt = data.expiresAt.toISOString();
-    }
+    if (data.showResultsBeforeClose !== undefined) updateData.showResultsBeforeClose = data.showResultsBeforeClose;
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.expiresAt !== undefined) updateData.expiresAt = data.expiresAt ? data.expiresAt.toISOString() : null;
+    if (data.closedAt !== undefined) updateData.closedAt = data.closedAt ? data.closedAt.toISOString() : null;
+    if (data.closedBy !== undefined) updateData.closedBy = data.closedBy || null;
+    if (data.pinned !== undefined) updateData.pinned = data.pinned;
+    if (data.pinnedAt !== undefined) updateData.pinnedAt = data.pinnedAt ? data.pinnedAt.toISOString() : null;
+    if (data.pinnedBy !== undefined) updateData.pinnedBy = data.pinnedBy || null;
     if (data.totalVotes !== undefined) updateData.totalVotes = data.totalVotes;
 
     await docClient.send(
       new UpdateCommand({
         TableName: getTableName(TABLE_NAMES.POLLS),
         Key: { id },
-        UpdateExpression: `SET ${Object.keys(updateData).map((k) => `${k} = :${k}`).join(", ")}`,
+        UpdateExpression: `SET ${Object.keys(updateData).map((k) => `#${k} = :${k}`).join(", ")}`,
+        ExpressionAttributeNames: Object.fromEntries(
+          Object.keys(updateData).map((k) => [`#${k}`, k]),
+        ),
         ExpressionAttributeValues: Object.fromEntries(
           Object.entries(updateData).map(([k, v]) => [`:${k}`, v]),
         ),
