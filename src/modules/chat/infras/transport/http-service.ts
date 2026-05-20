@@ -51,6 +51,12 @@ import {
   copyConversationSchema,
 } from "../../model/dto/copy-conversation-dto";
 import {
+  createGroupNoteDTOSchema,
+  createGroupReminderDTOSchema,
+  updateGroupNoteDTOSchema,
+  updateGroupReminderDTOSchema,
+} from "../../model/dto/group-utility-dto";
+import {
   getDraftsSchema,
 } from "../../model/dto/draft-dto";
 
@@ -1919,7 +1925,7 @@ export class MessagingHttpService {
       const groupId = Array.isArray(req.params.groupId)
         ? req.params.groupId[0]
         : req.params.groupId;
-      const { question, options, isMultipleChoice, allowAddOption, expiresAt } = req.body;
+      const { question, options, isMultipleChoice, allowAddOption, showResultsBeforeClose, expiresAt } = req.body;
 
       const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
@@ -1936,6 +1942,7 @@ export class MessagingHttpService {
         options,
         isMultipleChoice,
         allowAddOption,
+        showResultsBeforeClose,
         expiresAt,
       );
 
@@ -2035,6 +2042,271 @@ export class MessagingHttpService {
     }
   }
 
+  async closePollAPI(req: Request, res: Response) {
+    try {
+      const pollId = Array.isArray(req.params.pollId) ? req.params.pollId[0] : req.params.pollId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const poll = await this.useCase.closePoll(pollId, currentUserId);
+      this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_CLOSED, {
+        conversationId: poll.conversationId,
+        pollId,
+        poll,
+        closedBy: currentUserId,
+      });
+      res.status(200).json({ data: poll });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async pinPollAPI(req: Request, res: Response) {
+    try {
+      const pollId = Array.isArray(req.params.pollId) ? req.params.pollId[0] : req.params.pollId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const poll = await this.useCase.pinPoll(pollId, currentUserId);
+      this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_PINNED, {
+        conversationId: poll.conversationId,
+        pollId,
+        poll,
+        pinnedBy: currentUserId,
+      });
+      res.status(200).json({ data: poll });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async unpinPollAPI(req: Request, res: Response) {
+    try {
+      const pollId = Array.isArray(req.params.pollId) ? req.params.pollId[0] : req.params.pollId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const poll = await this.useCase.unpinPoll(pollId, currentUserId);
+      this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_UNPINNED, {
+        conversationId: poll.conversationId,
+        pollId,
+        poll,
+        unpinnedBy: currentUserId,
+      });
+      res.status(200).json({ data: poll });
+    } catch (error) {
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({ error: err.message });
+    }
+  }
+
+  async createGroupReminderAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const data = createGroupReminderDTOSchema.parse({ conversationId: groupId, ...req.body });
+      const reminder = await this.useCase.createGroupReminder(
+        data.conversationId,
+        currentUserId,
+        data.title,
+        data.description,
+        data.remindAt,
+      );
+      this.socketService?.emitToGroupRoom(groupId, SocketEvent.GROUP_REMINDER_CREATED, {
+        conversationId: groupId,
+        reminder,
+        createdBy: currentUserId,
+      });
+      res.status(201).json({ data: reminder });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(422).json({ error: "Validation error", details: error.errors });
+      const err = error as any;
+      res.status(err.statusCode || 400).json({ error: err.message });
+    }
+  }
+
+  async listGroupRemindersAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const reminders = await this.useCase.listGroupReminders(groupId, currentUserId);
+      res.status(200).json({ data: reminders });
+    } catch (error) {
+      const err = error as any;
+      res.status(err.statusCode || 400).json({ error: err.message });
+    }
+  }
+
+  async updateGroupReminderAPI(req: Request, res: Response) {
+    try {
+      const reminderId = Array.isArray(req.params.reminderId) ? req.params.reminderId[0] : req.params.reminderId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const data = updateGroupReminderDTOSchema.parse({ reminderId, userId: currentUserId, ...req.body });
+      const reminder = await this.useCase.updateGroupReminder(reminderId, currentUserId, {
+        title: data.title,
+        description: data.description,
+        remindAt: data.remindAt,
+        status: data.status,
+      });
+      this.socketService?.emitToGroupRoom(reminder.conversationId, SocketEvent.GROUP_REMINDER_UPDATED, {
+        conversationId: reminder.conversationId,
+        reminder,
+        updatedBy: currentUserId,
+      });
+      res.status(200).json({ data: reminder });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(422).json({ error: "Validation error", details: error.errors });
+      const err = error as any;
+      res.status(err.statusCode || 400).json({ error: err.message });
+    }
+  }
+
+  async deleteGroupReminderAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const reminderId = Array.isArray(req.params.reminderId) ? req.params.reminderId[0] : req.params.reminderId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      await this.useCase.deleteGroupReminder(reminderId, currentUserId);
+      this.socketService?.emitToGroupRoom(groupId, SocketEvent.GROUP_REMINDER_DELETED, {
+        conversationId: groupId,
+        reminderId,
+        deletedBy: currentUserId,
+      });
+      res.status(200).json({ success: true });
+    } catch (error) {
+      const err = error as any;
+      res.status(err.statusCode || 400).json({ error: err.message });
+    }
+  }
+
+  async createGroupNoteAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const data = createGroupNoteDTOSchema.parse({ conversationId: groupId, ...req.body });
+      const note = await this.useCase.createGroupNote(data.conversationId, currentUserId, data.title, data.content);
+      this.socketService?.emitToGroupRoom(groupId, SocketEvent.GROUP_NOTE_CREATED, {
+        conversationId: groupId,
+        note,
+        createdBy: currentUserId,
+      });
+      res.status(201).json({ data: note });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(422).json({ error: "Validation error", details: error.errors });
+      const err = error as any;
+      res.status(err.statusCode || 400).json({ error: err.message });
+    }
+  }
+
+  async listGroupNotesAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const notes = await this.useCase.listGroupNotes(groupId, currentUserId);
+      res.status(200).json({ data: notes });
+    } catch (error) {
+      const err = error as any;
+      res.status(err.statusCode || 400).json({ error: err.message });
+    }
+  }
+
+  async updateGroupNoteAPI(req: Request, res: Response) {
+    try {
+      const noteId = Array.isArray(req.params.noteId) ? req.params.noteId[0] : req.params.noteId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const data = updateGroupNoteDTOSchema.parse({ noteId, userId: currentUserId, ...req.body });
+      const note = await this.useCase.updateGroupNote(noteId, currentUserId, {
+        title: data.title,
+        content: data.content,
+      });
+      this.socketService?.emitToGroupRoom(note.conversationId, SocketEvent.GROUP_NOTE_UPDATED, {
+        conversationId: note.conversationId,
+        note,
+        updatedBy: currentUserId,
+      });
+      res.status(200).json({ data: note });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(422).json({ error: "Validation error", details: error.errors });
+      const err = error as any;
+      res.status(err.statusCode || 400).json({ error: err.message });
+    }
+  }
+
+  async deleteGroupNoteAPI(req: Request, res: Response) {
+    try {
+      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
+      const noteId = Array.isArray(req.params.noteId) ? req.params.noteId[0] : req.params.noteId;
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      await this.useCase.deleteGroupNote(noteId, currentUserId);
+      this.socketService?.emitToGroupRoom(groupId, SocketEvent.GROUP_NOTE_DELETED, {
+        conversationId: groupId,
+        noteId,
+        deletedBy: currentUserId,
+      });
+      res.status(200).json({ success: true });
+    } catch (error) {
+      const err = error as any;
+      res.status(err.statusCode || 400).json({ error: err.message });
+    }
+  }
+
   async getPendingMembersAPI(req: Request, res: Response) {
     try {
       const groupId = Array.isArray(req.params.groupId)
@@ -2049,7 +2321,7 @@ export class MessagingHttpService {
         return;
       }
 
-      const pendingMembers = await this.useCase.getPendingMembers(groupId);
+      const pendingMembers = await this.useCase.getPendingMembers(groupId, currentUserId);
 
       res.status(200).json({ data: pendingMembers });
     } catch (error) {
@@ -2138,7 +2410,7 @@ export class MessagingHttpService {
       const groupId = Array.isArray(req.params.groupId)
         ? req.params.groupId[0]
         : req.params.groupId;
-      const { allowSendLink, requireApproval, allowMemberInvite } = req.body;
+      const { allowSendLink, requireApproval, allowMemberInvite, whoCanSendMessages, whoCanAddMembers, utilityPermissions } = req.body;
 
       const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
@@ -2151,7 +2423,7 @@ export class MessagingHttpService {
       const updatedConversation = await this.useCase.updateGroupSettings(
         groupId,
         currentUserId,
-        { allowSendLink, requireApproval, allowMemberInvite },
+        { allowSendLink, requireApproval, allowMemberInvite, whoCanSendMessages, whoCanAddMembers, utilityPermissions },
       );
 
       if (this.socketService) {

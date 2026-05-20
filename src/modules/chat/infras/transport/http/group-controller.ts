@@ -144,7 +144,7 @@ export class GroupController extends BaseController {
   async updateGroupSettingsAPI(req: Request, res: Response) {
     try {
       const groupId = this.parseIdParam(req, "groupId");
-      const { allowSendLink, requireApproval, allowMemberInvite } = req.body;
+      const { allowSendLink, requireApproval, allowMemberInvite, whoCanSendMessages, whoCanAddMembers, utilityPermissions } = req.body;
       const currentUserId = this.getCurrentUserId(req, res);
 
       if (!currentUserId) {
@@ -155,7 +155,7 @@ export class GroupController extends BaseController {
       const updatedConversation = await this.useCase.updateGroupSettings(
         groupId,
         currentUserId,
-        { allowSendLink, requireApproval, allowMemberInvite },
+        { allowSendLink, requireApproval, allowMemberInvite, whoCanSendMessages, whoCanAddMembers, utilityPermissions },
       );
 
       if (this.socketService) {
@@ -236,7 +236,7 @@ export class GroupController extends BaseController {
         return;
       }
 
-      const pendingMembers = await this.useCase.getPendingMembers(groupId);
+      const pendingMembers = await this.useCase.getPendingMembers(groupId, currentUserId);
       res.status(200).json({ data: pendingMembers });
     } catch (error) {
       this.sendError(res, error);

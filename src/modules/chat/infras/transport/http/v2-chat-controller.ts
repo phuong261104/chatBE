@@ -459,6 +459,8 @@ export class ChatV2Controller {
         requireApproval: req.body.requireApproval,
         allowMemberInvite: req.body.allowMemberInvite,
         whoCanSendMessages: req.body.whoCanSendMessages,
+        whoCanAddMembers: req.body.whoCanAddMembers,
+        utilityPermissions: req.body.utilityPermissions,
       });
       const conversation = await this.useCase.updateGroupSettings(
         data.groupId,
@@ -468,6 +470,8 @@ export class ChatV2Controller {
           requireApproval: data.requireApproval,
           allowMemberInvite: data.allowMemberInvite,
           whoCanSendMessages: data.whoCanSendMessages,
+          whoCanAddMembers: data.whoCanAddMembers,
+          utilityPermissions: data.utilityPermissions,
         },
       );
       this.socketService.notifyGroupSettingsUpdated(data.groupId, conversation.settings);
