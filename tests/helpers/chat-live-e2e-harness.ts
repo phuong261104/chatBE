@@ -22,9 +22,13 @@ import {
   DynamoConversationRepository,
   DynamoMessageReactionCommandRepository,
   DynamoMessageRepository,
+  DynamoPollCommandRepository,
   setupMessagingHexagon,
 } from "@modules/chat";
+import { DynamoGroupNoteRepository, DynamoGroupReminderRepository } from "@modules/chat/infras";
 import { DynamoMessageClassificationRepository } from "@modules/chat/infras/repository/dynamodb/message-classification-repo";
+import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
+import { FriendshipStatus } from "@modules/friendships/model/model";
 import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb/dynamodb-repo";
 import { UserStatus as UserAccountStatus } from "@modules/user/model/model";
 
@@ -43,12 +47,17 @@ export type LiveChatE2EHarness = {
     message: DynamoMessageRepository;
     reactionCommand: DynamoMessageReactionCommandRepository;
     classification: DynamoMessageClassificationRepository;
+    pollCommand: DynamoPollCommandRepository;
+    reminder: DynamoGroupReminderRepository;
+    note: DynamoGroupNoteRepository;
+    friendship: DynamoFriendshipRepository;
     user: DynamoUserRepository;
   };
   api: {
     get: (path: string, userId: string) => Promise<ApiResponse>;
     post: (path: string, body: any, userId: string) => Promise<ApiResponse>;
     put: (path: string, body: any, userId: string) => Promise<ApiResponse>;
+    patch: (path: string, body: any, userId: string) => Promise<ApiResponse>;
     delete: (path: string, userId: string, body?: any) => Promise<ApiResponse>;
   };
   authHeader: (userId: string) => Record<string, string>;
@@ -56,6 +65,7 @@ export type LiveChatE2EHarness = {
   connectMessagesSocket: (userId: string) => Promise<ClientSocket>;
   trackConversation: (id: string) => void;
   trackUser: (id: string) => void;
+  trackFriendship: (userA: string, userB: string) => void;
   close: () => Promise<void>;
 };
 
@@ -139,10 +149,15 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
   const messageRepo = new DynamoMessageRepository();
   const reactionCommandRepo = new DynamoMessageReactionCommandRepository();
   const classificationRepo = new DynamoMessageClassificationRepository();
+  const pollCommandRepo = new DynamoPollCommandRepository();
+  const reminderRepo = new DynamoGroupReminderRepository();
+  const noteRepo = new DynamoGroupNoteRepository();
+  const friendshipRepo = new DynamoFriendshipRepository();
 
   const clients: ClientSocket[] = [];
   const trackedConversationIds = new Set<string>();
   const trackedUserIds = new Set<string>();
+  const trackedFriendshipKeys = new Set<string>();
   const tokenCache = new Map<string, string>();
 
   const tokenFor = (userId: string) => {
@@ -220,11 +235,19 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
 
   const cleanup = async () => {
     for (const conversationId of Array.from(trackedConversationIds).reverse()) {
+      await noteRepo.deleteByConversationId(conversationId).catch(() => undefined);
+      await reminderRepo.deleteByConversationId(conversationId).catch(() => undefined);
+      await pollCommandRepo.deleteByConversationId(conversationId).catch(() => undefined);
       await reactionCommandRepo.deleteByConversationId(conversationId).catch(() => undefined);
       await classificationRepo.deleteByConversationId(conversationId).catch(() => undefined);
       await messageRepo.deleteByConversationId(conversationId).catch(() => undefined);
       await memberRepo.deleteByConversationId(conversationId).catch(() => undefined);
       await conversationRepo.delete(conversationId, true).catch(() => undefined);
+    }
+
+    for (const key of Array.from(trackedFriendshipKeys).reverse()) {
+      const [userA, userB] = key.split("#");
+      await friendshipRepo.softDeleteFriendship(userA, userB).catch(() => undefined);
     }
 
     for (const userId of Array.from(trackedUserIds).reverse()) {
@@ -240,12 +263,17 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
       message: messageRepo,
       reactionCommand: reactionCommandRepo,
       classification: classificationRepo,
+      pollCommand: pollCommandRepo,
+      reminder: reminderRepo,
+      note: noteRepo,
+      friendship: friendshipRepo,
       user: userRepo,
     },
     api: {
       get: (path, userId) => request("GET", path, undefined, userId),
       post: (path, body, userId) => request("POST", path, body, userId),
       put: (path, body, userId) => request("PUT", path, body, userId),
+      patch: (path, body, userId) => request("PATCH", path, body, userId),
       delete: (path, userId, body) => request("DELETE", path, body, userId),
     },
     authHeader: (userId) => ({ Authorization: `Bearer ${tokenFor(userId)}` }),
@@ -276,6 +304,7 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
     },
     trackConversation: (id) => trackedConversationIds.add(id),
     trackUser: (id) => trackedUserIds.add(id),
+    trackFriendship: (userA, userB) => trackedFriendshipKeys.add([userA, userB].sort().join("#")),
     close: async () => {
       for (const client of clients) {
         client.disconnect();
@@ -322,6 +351,29 @@ export async function seedUser(
   await harness.repos.user.insert(user);
   harness.trackUser(user.id);
   return { id: user.id, displayName };
+}
+
+export async function seedFriendship(
+  harness: LiveChatE2EHarness,
+  userA: string,
+  userB: string,
+) {
+  const [a, b] = [userA, userB].sort();
+  const friendship = {
+    id: v7(),
+    userA: a,
+    userB: b,
+    status: FriendshipStatus.ACTIVE,
+    createdAt: new Date(),
+  };
+
+  await harness.repos.friendship.insert(friendship as any);
+  harness.trackFriendship(a, b);
+  await eventually(async () => {
+    const saved = await harness.repos.friendship.findByCond({ userA: a, userB: b });
+    expect(saved?.status).toBe(FriendshipStatus.ACTIVE);
+  });
+  return friendship;
 }
 
 export async function seedConversation(
@@ -427,7 +479,7 @@ export async function seedGroupConversation(
     name: "Live Team",
     createdBy: users[0].id,
     ownerId: users[0].id,
-    admins: [users[0].id, users[1]?.id].filter(Boolean),
+    admins: [users[1]?.id].filter(Boolean),
     membersCount: users.length,
   });
 
@@ -436,7 +488,12 @@ export async function seedGroupConversation(
       seedMember(harness, {
         conversationId: conversation.id,
         userId: user.id,
-        role: index <= 1 ? ConversationMemberRole.ADMIN : ConversationMemberRole.MEMBER,
+        role:
+          index === 0
+            ? ConversationMemberRole.OWNER
+            : index === 1
+              ? ConversationMemberRole.ADMIN
+              : ConversationMemberRole.MEMBER,
         joinedAt: new Date(Date.UTC(2026, 0, index + 1)),
       }),
     ),

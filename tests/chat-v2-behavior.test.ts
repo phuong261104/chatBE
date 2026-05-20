@@ -122,13 +122,13 @@ describe("chat v2 business behavior", () => {
     await handler.execute({ conversationId, userId: ownerId, autoTransferOwner: true });
 
     expect(memberRepo.update).toHaveBeenCalledWith(adminMember.id, {
-      role: ConversationMemberRole.ADMIN,
+      role: ConversationMemberRole.OWNER,
     });
     expect(conversationRepo.update).toHaveBeenCalledWith(
       conversationId,
       expect.objectContaining({
         ownerId: adminId,
-        admins: [adminId],
+        admins: [],
         membersCount: 2,
       }),
     );
