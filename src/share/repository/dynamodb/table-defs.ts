@@ -65,6 +65,8 @@ export const TABLE_NAMES = {
   MESSAGE_REACTIONS: "message_reactions",
   MESSAGE_CLASSIFICATIONS: "message_classifications",
   POLLS: "polls",
+  GROUP_REMINDERS: "group_reminders",
+  GROUP_NOTES: "group_notes",
   FRIENDSHIPS: "friendships",
   FRIEND_REQUESTS: "friend_requests",
   BLOCKS: "blocks",
@@ -246,6 +248,40 @@ export const MESSAGE_REACTIONS_TABLE: TableDefinition = {
 
 export const POLLS_TABLE: TableDefinition = {
   TableName: TABLE_NAMES.POLLS,
+  KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+  AttributeDefinitions: [
+    { AttributeName: "id", AttributeType: "S" },
+    { AttributeName: "conversationId", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "conversation-index",
+      KeySchema: [{ AttributeName: "conversationId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+  BillingMode: "PAY_PER_REQUEST",
+};
+
+export const GROUP_REMINDERS_TABLE: TableDefinition = {
+  TableName: TABLE_NAMES.GROUP_REMINDERS,
+  KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+  AttributeDefinitions: [
+    { AttributeName: "id", AttributeType: "S" },
+    { AttributeName: "conversationId", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "conversation-index",
+      KeySchema: [{ AttributeName: "conversationId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+  BillingMode: "PAY_PER_REQUEST",
+};
+
+export const GROUP_NOTES_TABLE: TableDefinition = {
+  TableName: TABLE_NAMES.GROUP_NOTES,
   KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
@@ -487,6 +523,8 @@ export const ALL_TABLES: TableDefinition[] = [
   MESSAGE_REACTIONS_TABLE,
   MESSAGE_CLASSIFICATIONS_TABLE,
   POLLS_TABLE,
+  GROUP_REMINDERS_TABLE,
+  GROUP_NOTES_TABLE,
   FRIENDSHIPS_TABLE,
   FRIEND_REQUESTS_TABLE,
   BLOCKS_TABLE,
