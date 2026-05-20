@@ -60,8 +60,19 @@ export function registerMessagingSocketHandlers(service: SocketServiceWithHandle
     socket.on(SocketEvent.TRANSFER_OWNER, async (payload: any, callback) => service.handleTransferOwner(socket, payload, callback));
     socket.on(SocketEvent.APPROVE_MEMBER, async (payload: any, callback) => service.handleApproveMember(socket, payload, callback));
     socket.on(SocketEvent.REJECT_MEMBER, async (payload: any, callback) => service.handleRejectMember(socket, payload, callback));
+    socket.on(SocketEvent.UPDATE_GROUP_SETTINGS, async (payload: any, callback) => service.handleUpdateGroupSettings(socket, payload, callback));
+    socket.on(SocketEvent.UPDATE_GROUP_INFO, async (payload: any, callback) => service.handleUpdateGroupInfo(socket, payload, callback));
     socket.on(SocketEvent.CREATE_POLL, async (payload: any, callback) => service.handleCreatePoll(socket, payload, callback));
     socket.on(SocketEvent.VOTE_POLL, async (payload: any, callback) => service.handleVotePoll(socket, payload, callback));
+    socket.on(SocketEvent.CLOSE_POLL, async (payload: any, callback) => service.handleClosePoll(socket, payload, callback));
+    socket.on(SocketEvent.PIN_POLL, async (payload: any, callback) => service.handlePinPoll(socket, payload, callback));
+    socket.on(SocketEvent.UNPIN_POLL, async (payload: any, callback) => service.handleUnpinPoll(socket, payload, callback));
+    socket.on(SocketEvent.CREATE_REMINDER, async (payload: any, callback) => service.handleCreateReminder(socket, payload, callback));
+    socket.on(SocketEvent.UPDATE_REMINDER, async (payload: any, callback) => service.handleUpdateReminder(socket, payload, callback));
+    socket.on(SocketEvent.DELETE_REMINDER, async (payload: any, callback) => service.handleDeleteReminder(socket, payload, callback));
+    socket.on(SocketEvent.CREATE_NOTE, async (payload: any, callback) => service.handleCreateNote(socket, payload, callback));
+    socket.on(SocketEvent.UPDATE_NOTE, async (payload: any, callback) => service.handleUpdateNote(socket, payload, callback));
+    socket.on(SocketEvent.DELETE_NOTE, async (payload: any, callback) => service.handleDeleteNote(socket, payload, callback));
     socket.on(SocketEvent.VOICE_MESSAGE, async (payload: any, callback) => service.handleVoiceMessage(socket, payload, callback));
     socket.on(SocketEvent.LOCATION_SHARE, async (payload: any, callback) => service.handleLocationShare(socket, payload, callback));
 

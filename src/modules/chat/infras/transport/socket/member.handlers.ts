@@ -259,6 +259,7 @@ export const memberSocketHandlers = {
       options: string[];
       isMultipleChoice?: boolean;
       allowAddOption?: boolean;
+      showResultsBeforeClose?: boolean;
       expiresAt?: string;
     },
     callback?: (response: any) => void,
@@ -271,7 +272,7 @@ export const memberSocketHandlers = {
         return;
       }
 
-      const { conversationId, question, options, isMultipleChoice, allowAddOption, expiresAt } = payload;
+      const { conversationId, question, options, isMultipleChoice, allowAddOption, showResultsBeforeClose, expiresAt } = payload;
 
       if (!conversationId || !question || !options || options.length < 2) {
         if (callback) callback({ success: false, error: "conversationId, question, and at least 2 options are required" });
@@ -285,6 +286,7 @@ export const memberSocketHandlers = {
         options,
         isMultipleChoice,
         allowAddOption,
+        showResultsBeforeClose,
         expiresAt,
       );
 
@@ -346,6 +348,237 @@ export const memberSocketHandlers = {
       if (callback) {
         callback({ success: false, error: (error as Error).message });
       }
+    }
+  },
+
+  async handleClosePoll(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { pollId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const poll = await this.useCase.closePoll(payload.pollId, userId);
+      this.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_CLOSED, {
+        conversationId: poll.conversationId,
+        pollId: poll.id,
+        poll,
+        closedBy: userId,
+      });
+      if (callback) callback({ success: true, poll });
+    } catch (error) {
+      console.error("Error handling closePoll:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handlePinPoll(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { pollId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const poll = await this.useCase.pinPoll(payload.pollId, userId);
+      this.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_PINNED, {
+        conversationId: poll.conversationId,
+        pollId: poll.id,
+        poll,
+        pinnedBy: userId,
+      });
+      if (callback) callback({ success: true, poll });
+    } catch (error) {
+      console.error("Error handling pinPoll:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handleUnpinPoll(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { pollId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const poll = await this.useCase.unpinPoll(payload.pollId, userId);
+      this.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_UNPINNED, {
+        conversationId: poll.conversationId,
+        pollId: poll.id,
+        poll,
+        unpinnedBy: userId,
+      });
+      if (callback) callback({ success: true, poll });
+    } catch (error) {
+      console.error("Error handling unpinPoll:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handleCreateReminder(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string; title: string; description?: string; remindAt: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const reminder = await this.useCase.createGroupReminder(
+        payload.conversationId,
+        userId,
+        payload.title,
+        payload.description,
+        payload.remindAt,
+      );
+      this.emitToGroupRoom(payload.conversationId, SocketEvent.GROUP_REMINDER_CREATED, {
+        conversationId: payload.conversationId,
+        reminder,
+        createdBy: userId,
+      });
+      if (callback) callback({ success: true, reminder });
+    } catch (error) {
+      console.error("Error handling createReminder:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handleUpdateReminder(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { reminderId: string; title?: string; description?: string | null; remindAt?: string; status?: any },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const { reminderId, ...data } = payload;
+      const reminder = await this.useCase.updateGroupReminder(reminderId, userId, data);
+      this.emitToGroupRoom(reminder.conversationId, SocketEvent.GROUP_REMINDER_UPDATED, {
+        conversationId: reminder.conversationId,
+        reminder,
+        updatedBy: userId,
+      });
+      if (callback) callback({ success: true, reminder });
+    } catch (error) {
+      console.error("Error handling updateReminder:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handleDeleteReminder(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { reminderId: string; conversationId?: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      await this.useCase.deleteGroupReminder(payload.reminderId, userId);
+      if (payload.conversationId) {
+        this.emitToGroupRoom(payload.conversationId, SocketEvent.GROUP_REMINDER_DELETED, {
+          conversationId: payload.conversationId,
+          reminderId: payload.reminderId,
+          deletedBy: userId,
+        });
+      }
+      if (callback) callback({ success: true });
+    } catch (error) {
+      console.error("Error handling deleteReminder:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handleCreateNote(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { conversationId: string; title: string; content: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const note = await this.useCase.createGroupNote(payload.conversationId, userId, payload.title, payload.content);
+      this.emitToGroupRoom(payload.conversationId, SocketEvent.GROUP_NOTE_CREATED, {
+        conversationId: payload.conversationId,
+        note,
+        createdBy: userId,
+      });
+      if (callback) callback({ success: true, note });
+    } catch (error) {
+      console.error("Error handling createNote:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handleUpdateNote(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { noteId: string; title?: string; content?: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const { noteId, ...data } = payload;
+      const note = await this.useCase.updateGroupNote(noteId, userId, data);
+      this.emitToGroupRoom(note.conversationId, SocketEvent.GROUP_NOTE_UPDATED, {
+        conversationId: note.conversationId,
+        note,
+        updatedBy: userId,
+      });
+      if (callback) callback({ success: true, note });
+    } catch (error) {
+      console.error("Error handling updateNote:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handleDeleteNote(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { noteId: string; conversationId?: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      await this.useCase.deleteGroupNote(payload.noteId, userId);
+      if (payload.conversationId) {
+        this.emitToGroupRoom(payload.conversationId, SocketEvent.GROUP_NOTE_DELETED, {
+          conversationId: payload.conversationId,
+          noteId: payload.noteId,
+          deletedBy: userId,
+        });
+      }
+      if (callback) callback({ success: true });
+    } catch (error) {
+      console.error("Error handling deleteNote:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
     }
   },
 };

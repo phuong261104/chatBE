@@ -2,6 +2,88 @@ import { SocketEvent } from "../../../constants/socket-events";
 import { AuthenticatedSocket, SocketHandlerContext } from "./types";
 
 export const conversationSocketHandlers = {
+  async handleUpdateGroupSettings(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: {
+      groupId: string;
+      allowSendLink?: boolean;
+      requireApproval?: boolean;
+      allowMemberInvite?: boolean;
+      whoCanSendMessages?: "all" | "admins";
+      whoCanAddMembers?: "all" | "admins";
+      utilityPermissions?: {
+        poll?: "all" | "admins";
+        reminder?: "all" | "admins";
+        note?: "all" | "admins";
+      };
+    },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { groupId, ...settings } = payload;
+      if (!groupId) {
+        if (callback) callback({ success: false, error: "groupId is required" });
+        return;
+      }
+
+      const conversation = await this.useCase.updateGroupSettings(groupId, userId, settings);
+      this.emitToGroupRoom(groupId, SocketEvent.GROUP_SETTINGS_UPDATED, {
+        conversationId: groupId,
+        settings: conversation.settings,
+      });
+      if (callback) callback({ success: true, conversation });
+    } catch (error) {
+      console.error("Error handling updateGroupSettings:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handleUpdateGroupInfo(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { groupId: string; name?: string; avatarUrl?: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const { groupId, name, avatarUrl } = payload;
+      if (!groupId || (!name && !avatarUrl)) {
+        if (callback) callback({ success: false, error: "groupId and name or avatarUrl are required" });
+        return;
+      }
+
+      const conversation = await this.useCase.updateGroupInfo(groupId, userId, { name, avatarUrl });
+      if (name) {
+        this.emitToGroupRoom(groupId, SocketEvent.GROUP_RENAMED, {
+          conversationId: groupId,
+          newName: name,
+          renamedBy: userId,
+        });
+      }
+      if (avatarUrl) {
+        this.emitToGroupRoom(groupId, SocketEvent.GROUP_AVATAR_CHANGED, {
+          conversationId: groupId,
+          avatarUrl,
+          changedBy: userId,
+        });
+      }
+      if (callback) callback({ success: true, conversation });
+    } catch (error) {
+      console.error("Error handling updateGroupInfo:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
   async handleDissolveGroup(this: SocketHandlerContext, 
     socket: AuthenticatedSocket,
     payload: { groupId: string },
