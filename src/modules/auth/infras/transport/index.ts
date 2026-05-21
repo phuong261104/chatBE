@@ -65,11 +65,12 @@ export class AuthHTTPService {
     return `${base}-${platform}` as DeviceType;
   }
 
-  private extractDeviceInfo(req: Request): { deviceId: string; deviceType: DeviceType; userAgent: string; ip: string; details?: DeviceDetails } | undefined {
+  private extractDeviceInfo(req: Request): { deviceId: string; deviceType: DeviceType; userAgent: string; ip: string; location?: string; details?: DeviceDetails } | undefined {
     const deviceId = req.headers["x-device-id"] as string;
     const headerDeviceType = req.headers["x-device-type"] as string | undefined;
     const userAgent = req.headers["user-agent"] || "Unknown";
     const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const location = req.headers["x-device-location"] as string | undefined;
     const deviceType = this.resolveDeviceType(headerDeviceType, userAgent);
 
     const headerDisplayLabel = req.headers["x-display-label"] as string | undefined;
@@ -83,7 +84,7 @@ export class AuthHTTPService {
     }
 
     if (deviceId) {
-      return { deviceId, deviceType, userAgent, ip, details };
+      return { deviceId, deviceType, userAgent, ip, location, details };
     }
     return undefined;
   }
@@ -93,7 +94,7 @@ export class AuthHTTPService {
       const dto = RegistrationDTOSchema.parse(req.body);
       const requireVerification = dto.sendVerificationEmail;
 
-      let deviceInfo: { deviceId: string; deviceType: DeviceType; userAgent: string; ip: string; details?: DeviceDetails } | undefined;
+      let deviceInfo: { deviceId: string; deviceType: DeviceType; userAgent: string; ip: string; location?: string; details?: DeviceDetails } | undefined;
 
       if (!requireVerification) {
         deviceInfo = this.extractDeviceInfo(req);
@@ -329,12 +330,10 @@ export class AuthHTTPService {
   async listSessionsAPI(req: Request, res: Response) {
     try {
       const requester = res.locals["requester"] as Requester;
-      console.log(`[listSessionsAPI] requester=`, JSON.stringify(requester));
       const currentDeviceId = (req.headers["x-device-id"] as string) || "";
       const sessions = await this.usecase.getSessions(requester.sub, currentDeviceId);
       res.status(200).json({ data: sessions });
     } catch (error) {
-      console.log(`[listSessionsAPI] ERROR:`, error);
       res.status(400).json({ message: (error as Error).message });
     }
   }
@@ -343,6 +342,11 @@ export class AuthHTTPService {
     try {
       const requester = res.locals["requester"] as Requester;
       const deviceId = req.params.deviceId as string;
+      const currentDeviceId = req.headers["x-device-id"] as string | undefined;
+      if (currentDeviceId && currentDeviceId === deviceId) {
+        res.status(400).json({ message: "Use /auth/logout to revoke the current session" });
+        return;
+      }
       const result = await this.usecase.revokeSession(requester.sub, deviceId);
       if (!result) {
         res.status(404).json({ message: "Session not found" });
@@ -357,9 +361,18 @@ export class AuthHTTPService {
   async revokeAllSessionsAPI(req: Request, res: Response) {
     try {
       const requester = res.locals["requester"] as Requester;
-      await this.usecase.revokeAllSessions(requester.sub);
-      res.status(200).json({ data: true });
+      const currentDeviceId = req.headers["x-device-id"] as string | undefined;
+      if (!currentDeviceId) {
+        res.status(400).json({ message: "X-Device-Id is required to revoke other sessions" });
+        return;
+      }
+      const revoked = await this.usecase.revokeOtherSessions(requester.sub, currentDeviceId);
+      res.status(200).json({ data: { revoked } });
     } catch (error) {
+      if (error instanceof AppError) {
+        res.status(error.getStatusCode()).json({ message: error.message });
+        return;
+      }
       res.status(400).json({ message: (error as Error).message });
     }
   }

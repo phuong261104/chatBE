@@ -1,10 +1,13 @@
-import { Requester, TokenIntrospectResult, TokenPair, DeviceInfo } from "@share/interface";
+import { Requester, TokenIntrospectResult, TokenPair, DeviceInfo, DeviceType, Platform } from "@share/interface";
 import { LoginDTO, RegistrationDTO, SendVerificationDTO, VerifyEmailDTO, ForgotPasswordDTO, VerifyResetOTPDTO, ResetPasswordDTO, ChangePasswordDTO } from "../model/dto";
 
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  deviceType: DeviceType;
+  displayLabel?: string;
+  platform?: Platform;
   user: {
     id: string;
     email?: string;
@@ -49,5 +52,6 @@ export interface IAuthUseCase {
   getSessions(userId: string, currentDeviceId: string): Promise<any[]>;
   revokeSession(userId: string, deviceId: string): Promise<boolean>;
   revokeAllSessions(userId: string): Promise<boolean>;
+  revokeOtherSessions(userId: string, currentDeviceId: string): Promise<number>;
   updateAvatar(userId: string, avatarUrl: string): Promise<boolean>;
 }

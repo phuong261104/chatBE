@@ -32,7 +32,8 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
 
   async findByCond(cond: UserCondDTO): Promise<User | null> {
     if (cond.phone) {
-      const user = await this.findByPhone(cond.phone);
+      const foundByPhone = await this.findByPhone(cond.phone);
+      const user = foundByPhone?.id ? await this.get(foundByPhone.id) : foundByPhone;
       if (!user) return null;
       if (cond.status && user.status !== cond.status) return null;
       if ((cond as any)["verified.email"] !== undefined && user.verified?.email !== (cond as any)["verified.email"])

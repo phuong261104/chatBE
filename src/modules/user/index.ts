@@ -8,13 +8,21 @@ import { UserUseCase } from "./usecase";
 import { PresenceUseCase } from "./usecase/presence-usecase";
 import { RedisPresenceRepository } from "./infras/repository/redis/presence-repo";
 import { DynamoUserRepository } from "./infras/repository/dynamodb/dynamodb-repo";
-import { setSocketPresencePort } from "@share/component/socket-io";
+import { setSocketPresencePort, setSocketPresenceVisibilityPort } from "@share/component/socket-io";
 import { setupUserV2Routes } from "./infras/transport/user-v2.routes";
+import { RelationshipPrivacyPolicyV2 } from "./usecase/relationship-privacy-policy-v2";
+import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
+import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
 
 export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
   const repository = new DynamoUserRepository();
   const presenceRepo = new RedisPresenceRepository();
   const presenceUseCase = new PresenceUseCase(presenceRepo);
+  const privacyPolicy = new RelationshipPrivacyPolicyV2(
+    repository,
+    new DynamoFriendshipRepository(),
+    new DynamoBlockRepository(),
+  );
   const useCase = new UserUseCase(repository);
   const httpService = new UserHTTPService(useCase, presenceUseCase);
   const v2Router = setupUserV2Routes(sctx, useCase, presenceUseCase, repository);
@@ -23,6 +31,7 @@ export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
 
   if (io) {
     setSocketPresencePort(presenceUseCase);
+    setSocketPresenceVisibilityPort(privacyPolicy);
     socketService = new UserSocketService(io, presenceUseCase);
   }
 

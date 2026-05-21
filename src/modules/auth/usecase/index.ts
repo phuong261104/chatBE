@@ -8,6 +8,8 @@ import {
   DeviceInfo,
   DeviceType,
   DeviceDetails,
+  Platform,
+  Session,
   ISessionStore,
   ITokenBlacklist,
   PasswordResetPayload,
@@ -49,6 +51,7 @@ import {
 import { EmailTemplateService } from "../infras/email/templates";
 import { getEmailProvider } from "../infras/email/nodemailer";
 import { parseUserAgent } from "../infras/device/device-parser";
+import { revokeUserDeviceSockets } from "@share/component/socket-io";
 
 const VERIFY_PREFIX = "verify:email:";
 const VERIFY_RATE_PREFIX = "verify:rate:";
@@ -111,6 +114,7 @@ export interface IAuthUseCase {
   getSessions(userId: string, currentDeviceId: string): Promise<any[]>;
   revokeSession(userId: string, deviceId: string): Promise<boolean>;
   revokeAllSessions(userId: string): Promise<boolean>;
+  revokeOtherSessions(userId: string, currentDeviceId: string): Promise<number>;
   updateAvatar(userId: string, avatarUrl: string): Promise<boolean>;
 }
 
@@ -144,7 +148,7 @@ export class AuthUseCase implements IAuthUseCase {
     }
   }
 
-  private generateAccessToken(userId: string, role: UserRole, tokenVersion: number): string {
+  private generateAccessToken(userId: string, role: UserRole, tokenVersion: number): { token: string; jti: string; expiresAt?: number } {
     const jti = uuidv7();
     const payload: AccessTokenPayload = {
       sub: userId,
@@ -153,18 +157,20 @@ export class AuthUseCase implements IAuthUseCase {
       jti,
       tokenVersion,
     };
-    return jwt.sign(payload, config.accessToken.secretKey, {
+    const token = jwt.sign(payload, config.accessToken.secretKey, {
       expiresIn: config.accessToken.expiresIn as any,
     } as SignOptions);
+    const decoded = jwt.decode(token) as (AccessTokenPayload & { exp?: number }) | null;
+    return { token, jti, expiresAt: decoded?.exp };
   }
 
-  private generateRefreshTokenPair(userId: string, deviceId: string): { token: string; jti: string } {
+  private async generateRefreshTokenPair(userId: string, deviceId: string): Promise<{ token: string; jti: string }> {
     const jti = uuidv7();
     const payload = { sub: userId, type: "refresh", jti, deviceId };
     const token = jwt.sign(payload, config.refreshToken.secretKey, {
       expiresIn: config.refreshToken.expiresIn as any,
     } as SignOptions);
-    this.storeRefreshToken(jti, userId, deviceId);
+    await this.storeRefreshToken(jti, userId, deviceId);
     return { token, jti };
   }
 
@@ -198,6 +204,59 @@ export class AuthUseCase implements IAuthUseCase {
       return parseUserAgent(deviceInfo.userAgent);
     }
     return undefined;
+  }
+
+  private resolvePlatform(deviceType: DeviceType, details?: DeviceDetails): Platform {
+    if (details?.platform) return details.platform;
+    return deviceType.endsWith("-app") ? "app" : "web";
+  }
+
+  private buildDeviceInfo(deviceInfo: DeviceInfo | undefined, deviceId: string, deviceType: DeviceType): DeviceInfo {
+    const details = this.resolveDeviceDetails(deviceInfo);
+    const platform = this.resolvePlatform(deviceType, details);
+    return {
+      deviceId,
+      deviceType,
+      userAgent: deviceInfo?.userAgent || "Unknown",
+      ip: deviceInfo?.ip || "unknown",
+      location: deviceInfo?.location,
+      details: details || { displayLabel: "Unknown", platform },
+    };
+  }
+
+  private getSessionPlatform(session: Session): Platform {
+    return this.resolvePlatform(session.deviceType, session.deviceInfo.details);
+  }
+
+  private async revokeSessionObject(session: Session, reason = "session_revoked"): Promise<void> {
+    await this.revokeRefreshToken(session.refreshTokenJti);
+    if (session.accessTokenJti && session.accessTokenExpiresAt) {
+      const ttl = Math.max(0, session.accessTokenExpiresAt - Math.floor(Date.now() / 1000));
+      if (ttl > 0) {
+        await this.blacklist.add(session.accessTokenJti, ttl);
+      }
+    }
+    await this.sessionStore.delete(session.deviceId);
+    revokeUserDeviceSockets(session.userId, session.deviceId, reason);
+  }
+
+  private async revokeSessionByDevice(userId: string, deviceId: string, reason = "session_revoked"): Promise<boolean> {
+    const session = await this.sessionStore.get(deviceId);
+    if (!session || session.userId !== userId) return false;
+    await this.revokeSessionObject(session, reason);
+    return true;
+  }
+
+  private async revokeSessionsByPlatform(userId: string, platform: Platform, excludeDeviceId: string): Promise<number> {
+    const sessions = await this.sessionStore.listByUser(userId);
+    let revoked = 0;
+    for (const session of sessions) {
+      if (session.deviceId === excludeDeviceId) continue;
+      if (this.getSessionPlatform(session) !== platform) continue;
+      await this.revokeSessionObject(session, "platform_session_replaced");
+      revoked += 1;
+    }
+    return revoked;
   }
 
   private detectDeviceTypeFallback(userAgent: string): DeviceType {
@@ -273,31 +332,32 @@ export class AuthUseCase implements IAuthUseCase {
 
     await this.userRepository.update(user.id, { lastLoginAt: new Date() });
 
-    const tokenVersion = user.tokenVersion || 1;
-    const accessToken = this.generateAccessToken(user.id, UserRole.USER, tokenVersion);
-
     const effectiveDeviceId = deviceInfo?.deviceId || uuidv7();
     const effectiveDeviceType = deviceInfo?.deviceType || this.detectDeviceTypeFallback(deviceInfo?.userAgent || "");
-    const deviceDetails = this.resolveDeviceDetails(deviceInfo);
-    const { token: refreshToken, jti: refreshTokenJti } = this.generateRefreshTokenPair(user.id, effectiveDeviceId);
+    const normalizedDeviceInfo = this.buildDeviceInfo(deviceInfo, effectiveDeviceId, effectiveDeviceType);
+    const platform = this.resolvePlatform(effectiveDeviceType, normalizedDeviceInfo.details);
+    await this.revokeSessionByDevice(user.id, effectiveDeviceId, "session_replaced");
+    await this.revokeSessionsByPlatform(user.id, platform, effectiveDeviceId);
 
-    await this.sessionStore.create(user.id, {
-      deviceId: effectiveDeviceId,
-      deviceType: effectiveDeviceType,
-      userAgent: deviceInfo?.userAgent || "Unknown",
-      ip: deviceInfo?.ip || "unknown",
-      details: deviceDetails,
-    }, refreshTokenJti);
+    const tokenVersion = user.tokenVersion || 1;
+    const accessToken = this.generateAccessToken(user.id, UserRole.USER, tokenVersion);
+    const { token: refreshToken, jti: refreshTokenJti } = await this.generateRefreshTokenPair(user.id, effectiveDeviceId);
 
-    // await this.sessionStore.deleteByDeviceType(user.id, effectiveDeviceType, effectiveDeviceId);
+    await this.sessionStore.create(
+      user.id,
+      normalizedDeviceInfo,
+      refreshTokenJti,
+      accessToken.jti,
+      accessToken.expiresAt,
+    );
 
     return {
-      accessToken,
+      accessToken: accessToken.token,
       refreshToken,
       expiresIn: this.parseExpiresIn(config.accessToken.expiresIn),
       deviceType: effectiveDeviceType,
-      displayLabel: deviceDetails?.displayLabel,
-      platform: deviceDetails?.platform,
+      displayLabel: normalizedDeviceInfo.details?.displayLabel,
+      platform,
       user: this.extractUserPublic(user),
     };
   }
@@ -393,30 +453,28 @@ export class AuthUseCase implements IAuthUseCase {
       );
     }
 
-    const accessToken = this.generateAccessToken(newId, UserRole.USER, 1);
-
     const effectiveDeviceId = deviceInfo?.deviceId || uuidv7();
     const effectiveDeviceType = deviceInfo?.deviceType || this.detectDeviceTypeFallback(deviceInfo?.userAgent || "");
-    const deviceDetails = this.resolveDeviceDetails(deviceInfo);
-    const { token: refreshToken, jti: refreshTokenJti } = this.generateRefreshTokenPair(newId, effectiveDeviceId);
+    const normalizedDeviceInfo = this.buildDeviceInfo(deviceInfo, effectiveDeviceId, effectiveDeviceType);
+    const platform = this.resolvePlatform(effectiveDeviceType, normalizedDeviceInfo.details);
+    const accessToken = this.generateAccessToken(newId, UserRole.USER, 1);
+    const { token: refreshToken, jti: refreshTokenJti } = await this.generateRefreshTokenPair(newId, effectiveDeviceId);
 
-    await this.sessionStore.create(newId, {
-      deviceId: effectiveDeviceId,
-      deviceType: effectiveDeviceType,
-      userAgent: deviceInfo?.userAgent || "Unknown",
-      ip: deviceInfo?.ip || "unknown",
-      details: deviceDetails,
-    }, refreshTokenJti);
-
-    // await this.sessionStore.deleteByDeviceType(newId, effectiveDeviceType, effectiveDeviceId);
+    await this.sessionStore.create(
+      newId,
+      normalizedDeviceInfo,
+      refreshTokenJti,
+      accessToken.jti,
+      accessToken.expiresAt,
+    );
 
     return {
-      accessToken,
+      accessToken: accessToken.token,
       refreshToken,
       expiresIn: this.parseExpiresIn(config.accessToken.expiresIn),
       deviceType: effectiveDeviceType,
-      displayLabel: deviceDetails?.displayLabel,
-      platform: deviceDetails?.platform,
+      displayLabel: normalizedDeviceInfo.details?.displayLabel,
+      platform,
       user: this.extractUserPublic(newUser),
     };
   }
@@ -448,6 +506,9 @@ export class AuthUseCase implements IAuthUseCase {
       if (!stored) {
         throw AppError.from(ErrInvalidToken, 401);
       }
+      if (stored.userId !== payload.sub || stored.deviceId !== payload.deviceId) {
+        throw AppError.from(ErrInvalidToken, 401);
+      }
 
       const user = await this.userRepository.get(payload.sub);
       if (!user) throw ErrDataNotFound;
@@ -455,19 +516,26 @@ export class AuthUseCase implements IAuthUseCase {
         throw AppError.from(ErrUserInactivated, 400);
       }
 
+      const existingSession = await this.sessionStore.get(payload.deviceId);
+      if (!existingSession || existingSession.userId !== user.id) {
+        throw AppError.from(ErrInvalidToken, 401);
+      }
+
       await this.revokeRefreshToken(payload.jti);
 
       const tokenVersion = user.tokenVersion || 1;
       const newAccessToken = this.generateAccessToken(user.id, UserRole.USER, tokenVersion);
-      const { token: newRefreshToken, jti: newRefreshTokenJti } = this.generateRefreshTokenPair(user.id, payload.deviceId);
+      const { token: newRefreshToken, jti: newRefreshTokenJti } = await this.generateRefreshTokenPair(user.id, payload.deviceId);
 
-      const existingSession = await this.sessionStore.get(payload.deviceId);
-      if (existingSession) {
-        await this.sessionStore.update(payload.deviceId, { refreshTokenJti: newRefreshTokenJti, lastActive: new Date() });
-      }
+      await this.sessionStore.update(payload.deviceId, {
+        refreshTokenJti: newRefreshTokenJti,
+        accessTokenJti: newAccessToken.jti,
+        accessTokenExpiresAt: newAccessToken.expiresAt,
+        lastActive: new Date(),
+      });
 
       return {
-        accessToken: newAccessToken,
+        accessToken: newAccessToken.token,
         refreshToken: newRefreshToken,
         expiresIn: this.parseExpiresIn(config.accessToken.expiresIn),
       };
@@ -478,15 +546,12 @@ export class AuthUseCase implements IAuthUseCase {
 
   async logout(requester: Requester, deviceId?: string): Promise<void> {
     if (deviceId) {
-      const session = await this.sessionStore.get(deviceId);
-      if (session && session.userId === requester.sub) {
-        await this.sessionStore.delete(deviceId);
-      }
+      await this.revokeSessionByDevice(requester.sub, deviceId, "logout");
     }
   }
 
   async logoutAll(requester: Requester): Promise<void> {
-    await this.sessionStore.deleteAllForUser(requester.sub);
+    await this.revokeAllSessions(requester.sub);
   }
 
   async blacklistToken(jti: string, expiresAt: number): Promise<void> {
@@ -698,7 +763,7 @@ export class AuthUseCase implements IAuthUseCase {
 
     await this.userRepository.update(userId, { password: hashPassword, salt, tokenVersion: newTokenVersion } as any);
     await this.redisClient.del(`${RESET_PREFIX}${jti}`);
-    await this.sessionStore.deleteAllForUser(userId);
+    await this.revokeAllSessions(userId);
 
     return true;
   }
@@ -716,7 +781,7 @@ export class AuthUseCase implements IAuthUseCase {
     const newTokenVersion = (user.tokenVersion || 1) + 1;
 
     await this.userRepository.update(user.id, { password: hashPassword, salt, tokenVersion: newTokenVersion } as any);
-    await this.sessionStore.deleteAllForUser(user.id);
+    await this.revokeAllSessions(user.id);
     return true;
   }
 
@@ -726,8 +791,9 @@ export class AuthUseCase implements IAuthUseCase {
       deviceId: s.deviceId,
       deviceType: s.deviceType,
       displayLabel: s.deviceInfo.details?.displayLabel || "Unknown",
-      platform: s.deviceInfo.details?.platform || "web",
+      platform: this.getSessionPlatform(s),
       ip: s.deviceInfo.ip || "unknown",
+      location: s.deviceInfo.location || "unknown",
       createdAt: s.createdAt,
       lastActive: s.lastActive,
       isCurrent: s.deviceId === currentDeviceId,
@@ -735,15 +801,31 @@ export class AuthUseCase implements IAuthUseCase {
   }
 
   async revokeSession(userId: string, deviceId: string): Promise<boolean> {
-    const session = await this.sessionStore.get(deviceId);
-    if (!session || session.userId !== userId) return false;
-    await this.sessionStore.delete(deviceId);
-    return true;
+    return this.revokeSessionByDevice(userId, deviceId, "remote_logout");
   }
 
   async revokeAllSessions(userId: string): Promise<boolean> {
-    await this.sessionStore.deleteAllForUser(userId);
+    const sessions = await this.sessionStore.listByUser(userId);
+    for (const session of sessions) {
+      await this.revokeSessionObject(session, "logout_all");
+    }
     return true;
+  }
+
+  async revokeOtherSessions(userId: string, currentDeviceId: string): Promise<number> {
+    const currentSession = await this.sessionStore.get(currentDeviceId);
+    if (!currentSession || currentSession.userId !== userId) {
+      throw AppError.from(ErrInvalidToken, 401).withLog("Current session not found");
+    }
+
+    const sessions = await this.sessionStore.listByUser(userId);
+    let revoked = 0;
+    for (const session of sessions) {
+      if (session.deviceId === currentDeviceId) continue;
+      await this.revokeSessionObject(session, "logout_other_devices");
+      revoked += 1;
+    }
+    return revoked;
   }
 
   async updateAvatar(userId: string, avatarUrl: string): Promise<boolean> {

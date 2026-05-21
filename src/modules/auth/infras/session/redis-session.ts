@@ -11,13 +11,21 @@ export class RedisSessionStore implements ISessionStore {
     this.redisClient = redisClient;
   }
 
-  async create(userId: string, deviceInfo: DeviceInfo, refreshTokenJti: string): Promise<Session> {
+  async create(
+    userId: string,
+    deviceInfo: DeviceInfo,
+    refreshTokenJti: string,
+    accessTokenJti?: string,
+    accessTokenExpiresAt?: number,
+  ): Promise<Session> {
     const session: Session = {
       userId,
       deviceId: deviceInfo.deviceId,
       deviceType: deviceInfo.deviceType,
       deviceInfo,
       refreshTokenJti,
+      accessTokenJti,
+      accessTokenExpiresAt,
       createdAt: new Date(),
       lastActive: new Date(),
     };
