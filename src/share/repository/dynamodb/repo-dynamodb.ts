@@ -36,6 +36,7 @@ export abstract class BaseQueryRepositoryDynamoDB<
       new GetCommand({
         TableName: this.getTableName(),
         Key: { id },
+        ConsistentRead: true,
       }),
     );
     return result.Item ? this.toEntity(result.Item) : null;

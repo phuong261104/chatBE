@@ -61,6 +61,11 @@ tests/*
 !tests/chat-group-utilities.e2e.test.ts
 !tests/chat-group-utilities.live.e2e.test.ts
 !tests/user-v2-privacy-presence.test.ts
+!tests/auth-session-device.e2e.test.ts
+!tests/social-privacy-profile.e2e.test.ts
+!tests/auth-session-device.live.e2e.test.ts
+!tests/social-privacy-profile.live.e2e.test.ts
+!tests/live-server-session-social.test.ts
 !tests/helpers/
 !tests/helpers/chat-e2e-harness.ts
 !tests/helpers/chat-live-e2e-harness.ts

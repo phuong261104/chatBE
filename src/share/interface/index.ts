@@ -112,6 +112,7 @@ export interface DeviceInfo {
   deviceType: DeviceType;
   userAgent: string;
   ip: string;
+  location?: string;
   details?: DeviceDetails;
 }
 
@@ -121,12 +122,20 @@ export interface Session {
   deviceType: DeviceType;
   deviceInfo: DeviceInfo;
   refreshTokenJti: string;
+  accessTokenJti?: string;
+  accessTokenExpiresAt?: number;
   createdAt: Date;
   lastActive: Date;
 }
 
 export interface ISessionStore {
-  create(userId: string, deviceInfo: DeviceInfo, refreshTokenJti: string): Promise<Session>;
+  create(
+    userId: string,
+    deviceInfo: DeviceInfo,
+    refreshTokenJti: string,
+    accessTokenJti?: string,
+    accessTokenExpiresAt?: number,
+  ): Promise<Session>;
   get(deviceId: string): Promise<Session | null>;
   update(deviceId: string, data: Partial<Session>): Promise<void>;
   delete(deviceId: string): Promise<void>;

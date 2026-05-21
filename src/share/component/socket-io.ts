@@ -40,11 +40,95 @@ interface SocketPresencePort {
   getUserPresence(userId: string): Promise<{ isOnline: boolean; lastSeen: number | null }>;
 }
 
+type RawPresence = { isOnline: boolean; lastSeen: number | null };
+
+export type VisibleSocketPresence = {
+  userId: string;
+  visibility: "visible" | "hidden";
+  isOnline: boolean;
+  lastSeen: number | null;
+};
+
+interface SocketPresenceVisibilityPort {
+  applyPresenceVisibility(viewerId: string, targetUserId: string, presence: RawPresence): Promise<VisibleSocketPresence>;
+}
+
 let socketPresencePort: SocketPresencePort | null = null;
+let socketPresenceVisibilityPort: SocketPresenceVisibilityPort | null = null;
+let activeSocketServer: SocketIOServer | null = null;
 
 export function setSocketPresencePort(port: SocketPresencePort): void {
   socketPresencePort = port;
 }
+
+export function setSocketPresenceVisibilityPort(port: SocketPresenceVisibilityPort): void {
+  socketPresenceVisibilityPort = port;
+}
+
+export async function resolveSocketPresenceForViewer(
+  viewerId: string,
+  targetUserId: string,
+  presence: RawPresence,
+): Promise<VisibleSocketPresence> {
+  if (socketPresenceVisibilityPort) {
+    return socketPresenceVisibilityPort.applyPresenceVisibility(viewerId, targetUserId, presence);
+  }
+  return {
+    userId: targetUserId,
+    visibility: "visible",
+    isOnline: presence.isOnline,
+    lastSeen: presence.lastSeen,
+  };
+}
+
+export async function emitPresenceToVisibleSockets(
+  namespace: NamespaceLike,
+  event: string,
+  targetUserId: string,
+  payload: Record<string, any>,
+  presence: RawPresence,
+): Promise<void> {
+  const sockets = Array.from(namespace.sockets?.values?.() || []) as any[];
+  await Promise.all(
+    sockets.map(async (socket) => {
+      if (!socket.userId) return;
+      const visible = await resolveSocketPresenceForViewer(socket.userId, targetUserId, presence);
+      if (visible.visibility !== "visible") return;
+      socket.emit(event, {
+        ...payload,
+        visibility: visible.visibility,
+        isOnline: visible.isOnline,
+        online: visible.isOnline,
+        lastSeen: visible.lastSeen,
+      });
+    }),
+  );
+}
+
+export function revokeUserDeviceSockets(userId: string, deviceId: string, reason = "session_revoked"): void {
+  if (!activeSocketServer) return;
+
+  const payload = {
+    userId,
+    deviceId,
+    reason,
+    timestamp: Date.now(),
+  };
+  const namespaces = Array.from(((activeSocketServer as any)._nsps as Map<string, NamespaceLike>)?.values?.() || []);
+
+  for (const namespace of namespaces) {
+    const sockets = Array.from(namespace.sockets?.values?.() || []) as any[];
+    for (const socket of sockets) {
+      if (socket.userId !== userId || socket.deviceId !== deviceId) continue;
+      socket.emit("session:revoked", payload);
+      socket.disconnect(true);
+    }
+  }
+}
+
+export type NamespaceLike = {
+  sockets: Map<string, any>;
+};
 
 interface AddSocketMetadata {
   deviceId?: string;
@@ -141,6 +225,7 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
     perMessageDeflate: false,
     cookie: false,
   });
+  activeSocketServer = io;
 
   io.use(async (socket: any, next) => {
     try {
@@ -211,11 +296,17 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
     if (socketPresencePort) {
       void socketPresencePort.registerSocket(userId, presenceSocketId).then((state) => {
         if (state.becameOnline) {
-          io.emit("user:online", {
+          void emitPresenceToVisibleSockets(
+            io.of("/") as any,
+            "user:online",
             userId,
-            socketId,
-            timestamp: Date.now(),
-          });
+            {
+              userId,
+              socketId,
+              timestamp: Date.now(),
+            },
+            { isOnline: true, lastSeen: Date.now() },
+          );
         }
       });
     }
@@ -278,17 +369,28 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
       connectionRegistry.updateLastActivity(socketId);
       void socketPresencePort?.touchSocket(userId, presenceSocketId);
 
-      const presence = socketPresencePort
+      const rawPresence = socketPresencePort
         ? await socketPresencePort.getUserPresence(payload.userId)
         : null;
-      const isOnline = presence?.isOnline ?? connectionRegistry.isUserOnline(payload.userId);
+      const fallbackPresence = {
+        isOnline: connectionRegistry.isUserOnline(payload.userId),
+        lastSeen: null,
+      };
+      const visible = await resolveSocketPresenceForViewer(
+        userId,
+        payload.userId,
+        rawPresence || fallbackPresence,
+      );
       const socketIds = connectionRegistry.getSocketsByUserId(payload.userId);
 
       if (callback) {
         callback({
           userId: payload.userId,
-          online: isOnline,
-          connectionCount: socketIds.length,
+          online: visible.isOnline,
+          isOnline: visible.isOnline,
+          visibility: visible.visibility,
+          lastSeen: visible.lastSeen,
+          connectionCount: visible.visibility === "visible" ? socketIds.length : 0,
           timestamp: Date.now(),
         });
       }
@@ -300,13 +402,26 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
 
       const statuses = await Promise.all(
         payload.userIds.map(async (targetUserId) => {
-          const presence = socketPresencePort
+          const rawPresence = socketPresencePort
             ? await socketPresencePort.getUserPresence(targetUserId)
             : null;
+          const visible = await resolveSocketPresenceForViewer(
+            userId,
+            targetUserId,
+            rawPresence || {
+              isOnline: connectionRegistry.isUserOnline(targetUserId),
+              lastSeen: null,
+            },
+          );
           return {
             userId: targetUserId,
-            online: presence?.isOnline ?? connectionRegistry.isUserOnline(targetUserId),
-            connectionCount: connectionRegistry.getSocketsByUserId(targetUserId).length,
+            online: visible.isOnline,
+            isOnline: visible.isOnline,
+            visibility: visible.visibility,
+            lastSeen: visible.lastSeen,
+            connectionCount: visible.visibility === "visible"
+              ? connectionRegistry.getSocketsByUserId(targetUserId).length
+              : 0,
           };
         }),
       );
@@ -354,11 +469,17 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
 
       if (disconnectedUserId) {
         if (!isUserStillOnline) {
-          io.emit("user:offline", {
-            userId: disconnectedUserId,
-            timestamp: Date.now(),
-            reason,
-          });
+          await emitPresenceToVisibleSockets(
+            io.of("/") as any,
+            "user:offline",
+            disconnectedUserId,
+            {
+              userId: disconnectedUserId,
+              timestamp: Date.now(),
+              reason,
+            },
+            { isOnline: false, lastSeen: Date.now() },
+          );
         }
       }
     });

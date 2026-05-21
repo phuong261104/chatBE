@@ -17,6 +17,7 @@ module.exports = {
     "/node_modules/",
     "<rootDir>/tests/my-cloud-api.test.ts",
     "<rootDir>/tests/my-cloud-socket.test.ts",
+    "<rootDir>/tests/live-server-session-social.test.ts",
   ],
   collectCoverageFrom: [
     "src/modules/chat/**/*.ts",
