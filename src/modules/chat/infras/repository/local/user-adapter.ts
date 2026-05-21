@@ -70,8 +70,16 @@ export class UserRepositoryAdapter implements IUserQueryRepository {
     return {
       id: user.id,
       displayName: displayName,
+      username: user.username,
       avatarUrl: user.avatarUrl,
-      status: user.status as UserStatus
-    };
+      coverUrl: user.coverUrl,
+      birthday: user.birthday,
+      gender: user.gender,
+      bio: user.bio,
+      phone: user.phone,
+      verified: user.verified,
+      privacy: user.privacy,
+      status: user.status as UserStatus,
+    } as UserInfo;
   }
 }

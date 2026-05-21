@@ -135,7 +135,11 @@ export function cloneGroupNote(note: GroupNote): GroupNote {
 }
 
 export function matchesCond<T extends Record<string, any>>(item: T, cond: Record<string, any>): boolean {
-  return Object.entries(cond).every(([key, value]) => value === undefined || item[key] === value);
+  return Object.entries(cond).every(([key, value]) => {
+    if (value === undefined) return true;
+    const actual = key.split(".").reduce((current, part) => current?.[part], item);
+    return actual === value;
+  });
 }
 
 export class ChatE2EStore {
@@ -150,9 +154,11 @@ export class ChatE2EStore {
   readonly classifications: MessageClassification[] = [];
   readonly friendships = new Set<string>();
   readonly blocks = new Set<string>();
+  readonly avatarHistory: Array<{ id: string; userId: string; avatarUrl: string; createdAt: Date }> = [];
 
-  addUser(data: Partial<UserInfo> & { id?: string } = {}): UserInfo {
-    const user: UserInfo = {
+  addUser(data: Partial<UserInfo> & Record<string, any> & { id?: string } = {}): UserInfo {
+    const user: UserInfo & Record<string, any> = {
+      ...data,
       id: data.id || v7(),
       displayName: data.displayName || `User ${this.users.size + 1}`,
       avatarUrl: data.avatarUrl,

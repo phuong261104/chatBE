@@ -2,6 +2,7 @@ import express, { NextFunction, Request, Response } from "express";
 import { createServer, Server as HttpServer } from "http";
 import { AddressInfo } from "net";
 import jwt from "jsonwebtoken";
+import { DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import { Server as SocketIOServer } from "socket.io";
 import { io as createSocketClient, Socket as ClientSocket } from "socket.io-client";
 import { v7 } from "uuid";
@@ -30,13 +31,23 @@ import { DynamoMessageClassificationRepository } from "@modules/chat/infras/repo
 import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
 import { FriendshipStatus } from "@modules/friendships/model/model";
 import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb/dynamodb-repo";
+import { DynamoUserAvatarHistoryRepository } from "@modules/user/infras/repository/dynamodb/avatar-history-repo";
 import { UserStatus as UserAccountStatus } from "@modules/user/model/model";
+import { DynamoFriendRequestRepository } from "@modules/friend-requests/infras/repository/dynamodb";
+import { setupFriendRequestHexagon } from "@modules/friend-requests";
+import { setupFriendshipHexagon } from "@modules/friendships";
+import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
+import { setupBlockHexagon } from "@modules/blocks";
+import { setupUserHexagon } from "@modules/user";
+import { getDocClient, getTableName } from "@share/repository/dynamodb/client";
+import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
 type ApiResponse<T = any> = { status: number; data: T };
 
 export type LiveUser = {
   id: string;
   displayName: string;
+  phone?: string;
 };
 
 export type LiveChatE2EHarness = {
@@ -51,7 +62,10 @@ export type LiveChatE2EHarness = {
     reminder: DynamoGroupReminderRepository;
     note: DynamoGroupNoteRepository;
     friendship: DynamoFriendshipRepository;
+    friendRequest: DynamoFriendRequestRepository;
+    block: DynamoBlockRepository;
     user: DynamoUserRepository;
+    avatarHistory: DynamoUserAvatarHistoryRepository;
   };
   api: {
     get: (path: string, userId: string) => Promise<ApiResponse>;
@@ -63,9 +77,12 @@ export type LiveChatE2EHarness = {
   authHeader: (userId: string) => Record<string, string>;
   tokenFor: (userId: string) => string;
   connectMessagesSocket: (userId: string) => Promise<ClientSocket>;
+  connectFriendsSocket: (userId: string) => Promise<ClientSocket>;
   trackConversation: (id: string) => void;
   trackUser: (id: string) => void;
   trackFriendship: (userA: string, userB: string) => void;
+  trackFriendRequest: (id: string) => void;
+  trackBlock: (blockerId: string, blockedUserId: string) => void;
   close: () => Promise<void>;
 };
 
@@ -153,11 +170,16 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
   const reminderRepo = new DynamoGroupReminderRepository();
   const noteRepo = new DynamoGroupNoteRepository();
   const friendshipRepo = new DynamoFriendshipRepository();
+  const friendRequestRepo = new DynamoFriendRequestRepository();
+  const blockRepo = new DynamoBlockRepository();
+  const avatarHistoryRepo = new DynamoUserAvatarHistoryRepository();
 
   const clients: ClientSocket[] = [];
   const trackedConversationIds = new Set<string>();
   const trackedUserIds = new Set<string>();
   const trackedFriendshipKeys = new Set<string>();
+  const trackedFriendRequestIds = new Set<string>();
+  const trackedBlockKeys = new Set<string>();
   const tokenCache = new Map<string, string>();
 
   const tokenFor = (userId: string) => {
@@ -199,12 +221,21 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
   const io = createSocketIOServer(httpServer);
   const sctx = { mdlFactory: setupMiddlewares(authIntrospector) };
   const { router, v2Router } = setupMessagingHexagon(io, sctx);
+  const friendRequestHexagon = setupFriendRequestHexagon(sctx, io);
+  const friendshipRouter = setupFriendshipHexagon(sctx, friendRequestHexagon.socketService);
+  const blockHexagon = setupBlockHexagon(sctx, io);
+  const userHexagon = setupUserHexagon(sctx, io);
 
   app.use(express.json());
   app.use("/v1", responseFormatMiddleware);
   app.use("/v2", responseFormatMiddleware);
   app.use("/v1", router);
+  app.use("/v1", friendRequestHexagon.router);
+  app.use("/v1", friendshipRouter);
+  app.use("/v1", blockHexagon.router);
+  app.use("/v1", userHexagon.router);
   app.use("/v2", v2Router);
+  app.use("/v2", userHexagon.v2Router);
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => responseErr(err, res));
 
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
@@ -234,6 +265,15 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
   };
 
   const cleanup = async () => {
+    for (const key of Array.from(trackedBlockKeys).reverse()) {
+      const [blockerId, blockedUserId] = key.split("#");
+      await blockRepo.deleteByCondition({ blockerId, blockedUserId }).catch(() => undefined);
+    }
+
+    for (const requestId of Array.from(trackedFriendRequestIds).reverse()) {
+      await friendRequestRepo.delete(requestId, true).catch(() => undefined);
+    }
+
     for (const conversationId of Array.from(trackedConversationIds).reverse()) {
       await noteRepo.deleteByConversationId(conversationId).catch(() => undefined);
       await reminderRepo.deleteByConversationId(conversationId).catch(() => undefined);
@@ -250,7 +290,20 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
       await friendshipRepo.softDeleteFriendship(userA, userB).catch(() => undefined);
     }
 
+    const docClient = getDocClient();
     for (const userId of Array.from(trackedUserIds).reverse()) {
+      const avatarHistory = await avatarHistoryRepo.listByUserId(userId, 100).catch(() => []);
+      for (const item of avatarHistory) {
+        await docClient.send(
+          new DeleteCommand({
+            TableName: getTableName(TABLE_NAMES.USER_AVATAR_HISTORY),
+            Key: {
+              userId: item.userId,
+              createdAt: item.createdAt.toISOString(),
+            },
+          }),
+        ).catch(() => undefined);
+      }
       await userRepo.delete(userId, true).catch(() => undefined);
     }
   };
@@ -267,7 +320,10 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
       reminder: reminderRepo,
       note: noteRepo,
       friendship: friendshipRepo,
+      friendRequest: friendRequestRepo,
+      block: blockRepo,
       user: userRepo,
+      avatarHistory: avatarHistoryRepo,
     },
     api: {
       get: (path, userId) => request("GET", path, undefined, userId),
@@ -302,9 +358,35 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
 
       return socket;
     },
+    connectFriendsSocket: async (userId: string) => {
+      const socket = createSocketClient(`${baseURL}/friends`, {
+        auth: { token: tokenFor(userId), deviceId: `live-e2e-${userId}` },
+        transports: ["websocket"],
+        forceNew: true,
+        reconnection: false,
+      });
+      clients.push(socket);
+
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("Timed out connecting friends socket")), 8_000);
+        socket.once("connect", () => {
+          clearTimeout(timer);
+          resolve();
+        });
+        socket.once("connect_error", (error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+      });
+      await delay(250);
+
+      return socket;
+    },
     trackConversation: (id) => trackedConversationIds.add(id),
     trackUser: (id) => trackedUserIds.add(id),
     trackFriendship: (userA, userB) => trackedFriendshipKeys.add([userA, userB].sort().join("#")),
+    trackFriendRequest: (id) => trackedFriendRequestIds.add(id),
+    trackBlock: (blockerId, blockedUserId) => trackedBlockKeys.add(`${blockerId}#${blockedUserId}`),
     close: async () => {
       for (const client of clients) {
         client.disconnect();
@@ -319,6 +401,7 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
 export async function seedUser(
   harness: LiveChatE2EHarness,
   displayName: string,
+  overrides: Record<string, any> = {},
 ): Promise<LiveUser> {
   const suffix = v7().replace(/-/g, "").slice(-16);
   const user: any = {
@@ -346,11 +429,12 @@ export async function seedUser(
     settings: { notifications: { push: false, inApp: false } },
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...overrides,
   };
 
   await harness.repos.user.insert(user);
   harness.trackUser(user.id);
-  return { id: user.id, displayName };
+  return { id: user.id, displayName: user.displayName, phone: user.phone };
 }
 
 export async function seedFriendship(

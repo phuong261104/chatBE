@@ -1,5 +1,6 @@
 import { SocketEvent } from "../../../constants/socket-events";
 import { AuthenticatedSocket, SocketHandlerContext } from "./types";
+import { emitPresenceToVisibleSockets } from "@share/component/socket-io";
 
 type SocketServiceWithHandlers = SocketHandlerContext & Record<string, (...args: any[]) => any>;
 
@@ -13,11 +14,17 @@ export function registerMessagingSocketHandlers(service: SocketServiceWithHandle
         service.presenceSocketId(socket),
       );
       if (state?.becameOnline) {
-        service.namespace.emit("user:online", {
-          userId: socket.userId,
-          socketId: socket.id,
-          timestamp: Date.now(),
-        });
+        await emitPresenceToVisibleSockets(
+          service.namespace as any,
+          "user:online",
+          socket.userId,
+          {
+            userId: socket.userId,
+            socketId: socket.id,
+            timestamp: Date.now(),
+          },
+          { isOnline: true, lastSeen: Date.now() },
+        );
       }
     }
 
@@ -83,10 +90,16 @@ export function registerMessagingSocketHandlers(service: SocketServiceWithHandle
         service.presenceSocketId(socket),
       );
       if (state?.becameOffline) {
-        service.namespace.emit("user:offline", {
-          userId: socket.userId,
-          timestamp: Date.now(),
-        });
+        await emitPresenceToVisibleSockets(
+          service.namespace as any,
+          "user:offline",
+          socket.userId,
+          {
+            userId: socket.userId,
+            timestamp: Date.now(),
+          },
+          { isOnline: false, lastSeen: Date.now() },
+        );
       }
     });
   });
