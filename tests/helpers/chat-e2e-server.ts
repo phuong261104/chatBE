@@ -99,6 +99,8 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
   app.use("/v2", responseFormatMiddleware);
 
   const v1Router = express.Router();
+  v1Router.get("/conversations", auth, httpService.getConversationsAPI.bind(httpService));
+  v1Router.get("/conversations/cursor", auth, httpService.getConversationsCursorAPI.bind(httpService));
   v1Router.get("/conversations/:conversationId/messages", auth, httpService.loadMessagesAPI.bind(httpService));
   v1Router.post("/conversations/:conversationId/delivered", auth, httpService.markAsDeliveredAPI.bind(httpService));
   v1Router.post("/conversations/:conversationId/seen", auth, httpService.markAsSeenAPI.bind(httpService));
@@ -110,8 +112,19 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
     httpService.deleteMessageForEveryoneAPI.bind(httpService),
   );
   v1Router.post("/messages/forward", auth, httpService.forwardMessagesAPI.bind(httpService));
+  v1Router.post("/messages/save-to-my-document", auth, httpService.saveMessagesToMyDocumentAPI.bind(httpService));
   v1Router.post("/messages/:messageId/pin", auth, httpService.pinMessageAPI.bind(httpService));
   v1Router.delete("/messages/:messageId/pin", auth, httpService.unpinMessageAPI.bind(httpService));
+  v1Router.post(
+    "/conversations/:conversationId/pin-conversation",
+    auth,
+    httpService.pinConversationAPI.bind(httpService),
+  );
+  v1Router.delete(
+    "/conversations/:conversationId/pin-conversation",
+    auth,
+    httpService.unpinConversationAPI.bind(httpService),
+  );
   v1Router.get(
     "/conversations/:conversationId/pinned-messages",
     auth,

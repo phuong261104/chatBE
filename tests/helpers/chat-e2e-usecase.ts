@@ -13,6 +13,8 @@ import {
   DeleteMessageForMeHandler,
   EditMessageHandler,
   ForwardMessagesHandler,
+  GetConversationsCursorQueryHandler,
+  GetConversationsQueryHandler,
   GetConversationDetailQueryHandler,
   GetConversationMediaQueryHandler,
   GetConversationMembersQueryHandler,
@@ -28,6 +30,7 @@ import {
   MarkAsDeliveredHandler,
   MarkAsSeenHandler,
   PinMessageHandler,
+  PinConversationHandler,
   PinPollHandler,
   QuoteMessageHandler,
   RejectMemberHandler,
@@ -38,8 +41,10 @@ import {
   SendMessageHandler,
   SetAdminHandler,
   SearchMessagesHandler,
+  SaveMessagesToMyDocumentHandler,
   TransferOwnerHandler,
   UnpinMessageHandler,
+  UnpinConversationHandler,
   UnpinPollHandler,
   UpdateGroupInfoHandler,
   UpdateGroupNoteHandler,
@@ -94,6 +99,22 @@ export function buildUseCase(store: ChatE2EStore) {
   const accessPolicy = new ChatAccessPolicy(userRepo as any, blockRepo as any, conversationRepo as any, memberRepo as any);
 
   const getConversationDetail = new GetConversationDetailQueryHandler(conversationRepo as any, memberRepo as any);
+  const getConversations = new GetConversationsQueryHandler(
+    conversationRepo as any,
+    memberRepo as any,
+    userRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+  );
+  const getConversationsCursor = new GetConversationsCursorQueryHandler(
+    conversationRepo as any,
+    memberRepo as any,
+    userRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+  );
   const getConversationMembers = new GetConversationMembersQueryHandler(memberRepo as any);
   const createGroup = new CreateGroupHandler(
     conversationRepo as any,
@@ -217,6 +238,15 @@ export function buildUseCase(store: ChatE2EStore) {
     messageRepo as any,
     classificationRepo as any,
   );
+  const saveMessagesToMyDocument = new SaveMessagesToMyDocumentHandler(
+    conversationRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+    memberRepo as any,
+    forwardMessages,
+  );
+  const pinConversation = new PinConversationHandler(memberRepo as any, memberRepo as any);
+  const unpinConversation = new UnpinConversationHandler(memberRepo as any, memberRepo as any);
   const pinMessage = new PinMessageHandler(
     messageRepo as any,
     messageRepo as any,
@@ -315,6 +345,10 @@ export function buildUseCase(store: ChatE2EStore) {
       blockRepo,
     },
     useCase: {
+      getConversations: (userId: string, page?: number, limit?: number) =>
+        getConversations.query({ userId, page, limit }),
+      getConversationsCursor: (userId: string, cursor?: string, limit?: number) =>
+        getConversationsCursor.query({ userId, cursor, limit }),
       getConversationDetail: (conversationId: string, userId: string) =>
         getConversationDetail.query({ conversationId, userId }),
       getConversationMembers: (conversationId: string, excludeUserId?: string) =>
@@ -381,6 +415,12 @@ export function buildUseCase(store: ChatE2EStore) {
         editMessage.execute({ messageId, userId, text, timeLimitMs }),
       forwardMessages: (userId: string, messageIds: string[], targetConversationIds: string[]) =>
         forwardMessages.execute({ userId, messageIds, targetConversationIds }),
+      saveMessagesToMyDocument: (userId: string, messageIds: string[]) =>
+        saveMessagesToMyDocument.execute({ userId, messageIds }),
+      pinConversation: (conversationId: string, userId: string) =>
+        pinConversation.execute({ conversationId, userId }),
+      unpinConversation: (conversationId: string, userId: string) =>
+        unpinConversation.execute({ conversationId, userId }),
       pinMessage: (messageId: string, userId: string) => pinMessage.execute({ messageId, userId }),
       unpinMessage: (messageId: string, userId: string) => unpinMessage.execute({ messageId, userId }),
       getPinnedMessages: (conversationId: string, userId: string) =>

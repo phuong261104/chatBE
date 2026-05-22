@@ -207,8 +207,9 @@ export class InMemoryConversationMemberRepository {
     for (const member of this.store.activeMembers(conversationId)) {
       if (member.userId !== excludeUserId) {
         member.unreadCount = (member.unreadCount || 0) + 1;
-        member.lastActivityAt = new Date();
       }
+      member.lastActivityAt = new Date();
+      member.updatedAt = member.lastActivityAt;
     }
   }
 

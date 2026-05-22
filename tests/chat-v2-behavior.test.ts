@@ -3,10 +3,16 @@ import { EditMessageHandler } from "@modules/chat/usecase/edit-message";
 import { AddReactionHandler } from "@modules/chat/usecase/add-reaction";
 import { AddMembersToGroupHandler } from "@modules/chat/usecase/add-members-to-group";
 import { ForwardMessagesHandler } from "@modules/chat/usecase/forward-messages";
+import { GetConversationsCursorQueryHandler } from "@modules/chat/usecase/get-conversations-cursor";
+import { GetConversationsQueryHandler } from "@modules/chat/usecase/get-conversations";
+import { GetConversationMediaQueryHandler } from "@modules/chat/usecase/get-conversation-media";
 import { LeaveGroupHandler } from "@modules/chat/usecase/leave-group";
 import { LoadMessagesQueryHandler } from "@modules/chat/usecase/load-messages";
 import { QuoteMessageHandler } from "@modules/chat/usecase/quote-message";
+import { SaveMessagesToMyDocumentHandler } from "@modules/chat/usecase/save-to-my-document";
+import { SearchMessagesHandler } from "@modules/chat/usecase/search-messages";
 import {
+  ClassificationType,
   ConversationMemberRole,
   ConversationMemberStatus,
   ConversationType,
@@ -14,8 +20,321 @@ import {
   MessageStatus,
   MessageType,
 } from "@modules/chat/model";
+import { ChatE2EStore } from "./helpers/chat-e2e-store";
+import {
+  InMemoryClassificationRepository,
+  InMemoryConversationMemberRepository,
+  InMemoryConversationRepository,
+  InMemoryMessageRepository,
+  InMemoryUserRepository,
+} from "./helpers/chat-e2e-repositories";
 
 describe("chat v2 business behavior", () => {
+  function createConversationListRepos(store: ChatE2EStore) {
+    return {
+      conversationRepo: new InMemoryConversationRepository(store),
+      memberRepo: new InMemoryConversationMemberRepository(store),
+      messageRepo: new InMemoryMessageRepository(store),
+      userRepo: new InMemoryUserRepository(store),
+      classificationRepo: new InMemoryClassificationRepository(store),
+    };
+  }
+
+  function seedListConversation(
+    store: ChatE2EStore,
+    userId: string,
+    data: {
+      name: string;
+      activityAt: Date;
+      pinned?: boolean;
+      pinnedAt?: Date;
+    },
+  ) {
+    const conversation = store.addConversation({
+      type: ConversationType.GROUP,
+      name: data.name,
+      updatedAt: data.activityAt,
+      createdAt: data.activityAt,
+    });
+    store.addMember({
+      conversationId: conversation.id,
+      userId,
+      pinned: data.pinned,
+      pinnedAt: data.pinnedAt,
+      lastActivityAt: data.activityAt,
+      updatedAt: data.activityAt,
+    });
+    return conversation;
+  }
+
+  it("orders pinned conversations first and keeps unpinned My Document above normal chats", async () => {
+    const store = new ChatE2EStore();
+    const user = store.addUser({ displayName: "Owner" });
+    const repos = createConversationListRepos(store);
+
+    const normalNew = seedListConversation(store, user.id, {
+      name: "Normal new",
+      activityAt: new Date("2026-01-04T00:00:00Z"),
+    });
+    const pinnedOld = seedListConversation(store, user.id, {
+      name: "Pinned old",
+      activityAt: new Date("2026-01-05T00:00:00Z"),
+      pinned: true,
+      pinnedAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    const normalOld = seedListConversation(store, user.id, {
+      name: "Normal old",
+      activityAt: new Date("2026-01-03T00:00:00Z"),
+    });
+    const pinnedNew = seedListConversation(store, user.id, {
+      name: "Pinned new",
+      activityAt: new Date("2026-01-02T00:00:00Z"),
+      pinned: true,
+      pinnedAt: new Date("2026-01-06T00:00:00Z"),
+    });
+
+    const handler = new GetConversationsQueryHandler(
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.userRepo as any,
+      repos.messageRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+    );
+
+    const result = await handler.query({ userId: user.id, page: 1, limit: 10 });
+    const selfConversation = result.find((conversation: any) => conversation.isSelfChat);
+
+    expect(result.map((conversation) => conversation.id)).toEqual([
+      pinnedNew.id,
+      pinnedOld.id,
+      selfConversation!.id,
+      normalNew.id,
+      normalOld.id,
+    ]);
+    expect(selfConversation).toEqual(
+      expect.objectContaining({
+        name: "My Document",
+        pairKey: `self_${user.id}`,
+        membersCount: 1,
+        isSelfChat: true,
+      }),
+    );
+  });
+
+  it("sorts pinned My Document by pinnedAt with other pinned conversations", async () => {
+    const store = new ChatE2EStore();
+    const user = store.addUser({ displayName: "Owner" });
+    const repos = createConversationListRepos(store);
+
+    const pinnedNewest = seedListConversation(store, user.id, {
+      name: "Pinned newest",
+      activityAt: new Date("2026-01-02T00:00:00Z"),
+      pinned: true,
+      pinnedAt: new Date("2026-01-06T00:00:00Z"),
+    });
+    const selfConversation = store.addConversation({
+      type: ConversationType.PRIVATE,
+      pairKey: `self_${user.id}`,
+      name: "Old self name",
+      membersCount: 2,
+      updatedAt: new Date("2026-01-01T00:00:00Z"),
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    store.addMember({
+      conversationId: selfConversation.id,
+      userId: user.id,
+      pinned: true,
+      pinnedAt: new Date("2026-01-04T00:00:00Z"),
+      lastActivityAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    const pinnedOldest = seedListConversation(store, user.id, {
+      name: "Pinned oldest",
+      activityAt: new Date("2026-01-05T00:00:00Z"),
+      pinned: true,
+      pinnedAt: new Date("2026-01-02T00:00:00Z"),
+    });
+    const normal = seedListConversation(store, user.id, {
+      name: "Normal",
+      activityAt: new Date("2026-01-07T00:00:00Z"),
+    });
+
+    const handler = new GetConversationsQueryHandler(
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.userRepo as any,
+      repos.messageRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+    );
+
+    const result = await handler.query({ userId: user.id, page: 1, limit: 10 });
+
+    expect(result.map((conversation) => conversation.id)).toEqual([
+      pinnedNewest.id,
+      selfConversation.id,
+      pinnedOldest.id,
+      normal.id,
+    ]);
+    expect(result.find((conversation) => conversation.id === selfConversation.id)).toEqual(
+      expect.objectContaining({
+        name: "My Document",
+        membersCount: 1,
+        isSelfChat: true,
+        pinned: true,
+      }),
+    );
+  });
+
+  it("paginates cursor conversations after sorting pinned and My Document", async () => {
+    const store = new ChatE2EStore();
+    const user = store.addUser({ displayName: "Owner" });
+    const repos = createConversationListRepos(store);
+
+    const normalNew = seedListConversation(store, user.id, {
+      name: "Normal new",
+      activityAt: new Date("2026-01-04T00:00:00Z"),
+    });
+    const normalOld = seedListConversation(store, user.id, {
+      name: "Normal old",
+      activityAt: new Date("2026-01-03T00:00:00Z"),
+    });
+    const pinnedOld = seedListConversation(store, user.id, {
+      name: "Pinned old",
+      activityAt: new Date("2026-01-05T00:00:00Z"),
+      pinned: true,
+      pinnedAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    const pinnedNew = seedListConversation(store, user.id, {
+      name: "Pinned new",
+      activityAt: new Date("2026-01-02T00:00:00Z"),
+      pinned: true,
+      pinnedAt: new Date("2026-01-06T00:00:00Z"),
+    });
+
+    const handler = new GetConversationsCursorQueryHandler(
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.userRepo as any,
+      repos.messageRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+    );
+
+    const first = await handler.query({ userId: user.id, limit: 2 });
+    const selfConversation = first.data.find((conversation: any) => conversation.isSelfChat);
+
+    expect(first.pinned?.map((conversation) => conversation.id)).toEqual([pinnedNew.id, pinnedOld.id]);
+    expect(first.data.map((conversation) => conversation.id)).toEqual([selfConversation!.id, normalNew.id]);
+    expect(first.nextCursor).toBe(normalNew.id);
+    expect(first.hasMore).toBe(true);
+
+    const second = await handler.query({ userId: user.id, cursor: first.nextCursor, limit: 2 });
+    expect(second.pinned).toBeNull();
+    expect(second.data.map((conversation) => conversation.id)).toEqual([normalOld.id]);
+    expect(second.hasMore).toBe(false);
+  });
+
+  it("saves selected messages to My Document with searchable text and media classification", async () => {
+    const store = new ChatE2EStore();
+    const user = store.addUser({ displayName: "Owner" });
+    const repos = createConversationListRepos(store);
+    const sourceConversation = store.addConversation({
+      type: ConversationType.GROUP,
+      name: "Source",
+    });
+    store.addMember({ conversationId: sourceConversation.id, userId: user.id });
+    const sourceMessage = store.addMessage({
+      conversationId: sourceConversation.id,
+      senderId: user.id,
+      type: MessageType.FILE,
+      text: "annual document needle",
+      media: [{
+        url: "https://example.com/annual.pdf",
+        mediaType: MediaType.FILE,
+        name: "annual.pdf",
+        size: 123,
+      }],
+    });
+
+    const forwardHandler = new ForwardMessagesHandler(
+      repos.conversationRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.memberRepo as any,
+      repos.messageRepo as any,
+      repos.messageRepo as any,
+      repos.classificationRepo as any,
+    );
+    const saveHandler = new SaveMessagesToMyDocumentHandler(
+      repos.conversationRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.memberRepo as any,
+      forwardHandler,
+    );
+
+    const result = await saveHandler.execute({
+      userId: user.id,
+      messageIds: [sourceMessage.id],
+    });
+
+    expect(result.conversation).toEqual(
+      expect.objectContaining({
+        pairKey: `self_${user.id}`,
+        name: "My Document",
+        isSelfChat: true,
+      }),
+    );
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toEqual(
+      expect.objectContaining({
+        conversationId: result.conversation.id,
+        text: "annual document needle",
+        forwardedFrom: sourceConversation.id,
+        forwardedFromMessageId: sourceMessage.id,
+      }),
+    );
+    expect(store.classifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          conversationId: result.conversation.id,
+          type: ClassificationType.FILE,
+          messageId: result.messages[0].id,
+        }),
+      ]),
+    );
+
+    const searchHandler = new SearchMessagesHandler(repos.memberRepo as any, repos.messageRepo as any);
+    const searchResult = await searchHandler.query({
+      conversationId: result.conversation.id,
+      userId: user.id,
+      query: "needle",
+      limit: 20,
+    });
+    expect(searchResult.messages.map((message) => message.id)).toContain(result.messages[0].id);
+
+    const mediaHandler = new GetConversationMediaQueryHandler(
+      repos.memberRepo as any,
+      repos.classificationRepo as any,
+      repos.messageRepo as any,
+    );
+    const mediaResult = await mediaHandler.query({
+      conversationId: result.conversation.id,
+      userId: user.id,
+      limit: 20,
+      type: "file",
+    });
+    expect(mediaResult.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          messageId: result.messages[0].id,
+          url: "https://example.com/annual.pdf",
+        }),
+      ]),
+    );
+  });
+
   it("enforces a v2 30 second edit window when provided", async () => {
     const conversationId = v7();
     const userId = v7();
