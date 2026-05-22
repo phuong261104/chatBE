@@ -17,6 +17,7 @@ import {
   deleteMessageForMeDTOSchema,
   deleteMessageForEveryoneDTOSchema,
   forwardMessagesDTOSchema,
+  saveMessagesToMyDocumentDTOSchema,
   muteConversationDTOSchema,
   pinConversationDTOSchema,
   archiveConversationDTOSchema,
@@ -983,6 +984,55 @@ export class MessagingHttpService {
       }
 
       res.status(201).json({ data: forwardedMessages });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(422).json({
+          error: "Validation error",
+          details: error.errors,
+        });
+        return;
+      }
+
+      const err = error as any;
+      const statusCode = err.statusCode || 400;
+      res.status(statusCode).json({
+        error: err.message,
+      });
+    }
+  }
+
+  async saveMessagesToMyDocumentAPI(req: Request, res: Response) {
+    try {
+      const { messageIds } = req.body;
+
+      const requester = res.locals["requester"];
+      const currentUserId = requester?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const validatedData = saveMessagesToMyDocumentDTOSchema.parse({
+        userId: currentUserId,
+        messageIds,
+      });
+
+      const result = await this.useCase.saveMessagesToMyDocument(
+        validatedData.userId,
+        validatedData.messageIds,
+      );
+
+      if (this.socketService) {
+        for (const message of result.messages) {
+          this.socketService.emitToUser(currentUserId, SocketEvent.RECEIVE_MESSAGE, {
+            message,
+            conversationId: message.conversationId,
+          });
+        }
+      }
+
+      res.status(201).json({ data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(422).json({

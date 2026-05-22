@@ -78,6 +78,11 @@ export type ConversationWithMetadata = Conversation & {
   avatarUrl: string;
   unreadCount: number;
   role: any;
+  pinned?: boolean;
+  isPinned?: boolean;
+  pinnedAt?: Date;
+  isSelfChat?: boolean;
+  activityAt?: Date;
   lastMessageStatus?: "sent" | "delivered" | "read";
   lastMessageTimeFormatted?: string;
 };
@@ -87,7 +92,11 @@ export type ConversationCursorResult = {
     Conversation & {
       unreadCount: number;
       role: any;
+      pinned?: boolean;
+      isPinned?: boolean;
       pinnedAt?: Date;
+      isSelfChat?: boolean;
+      activityAt?: Date;
       name: string;
       avatarUrl: string;
       lastMessageStatus?: string;
@@ -98,6 +107,11 @@ export type ConversationCursorResult = {
     Conversation & {
       unreadCount: number;
       role: any;
+      pinned?: boolean;
+      isPinned?: boolean;
+      pinnedAt?: Date;
+      isSelfChat?: boolean;
+      activityAt?: Date;
       name: string;
       avatarUrl: string;
       lastMessageStatus?: string;

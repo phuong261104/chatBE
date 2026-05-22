@@ -305,6 +305,20 @@ export interface IMessagingUseCase {
     targetConversationIds: string[],
   ): Promise<Message[]>;
 
+  saveMessagesToMyDocument(
+    userId: string,
+    messageIds: string[],
+  ): Promise<{
+    conversation: Conversation & {
+      name: string;
+      isSelfChat: true;
+      pinned?: boolean;
+      isPinned?: boolean;
+      pinnedAt?: Date;
+    };
+    messages: Message[];
+  }>;
+
   getMessage(messageId: string): Promise<Message | null>;
 
   muteConversation(

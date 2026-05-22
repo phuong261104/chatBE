@@ -113,6 +113,15 @@ export const forwardMessagesDTOSchema = z.object({
 
 export type ForwardMessagesDTO = z.infer<typeof forwardMessagesDTOSchema>;
 
+export const saveMessagesToMyDocumentDTOSchema = z.object({
+  userId: uuidV7("Invalid user ID"),
+  messageIds: z
+    .array(uuidV7("Invalid message ID"))
+    .min(1, "At least one message is required"),
+});
+
+export type SaveMessagesToMyDocumentDTO = z.infer<typeof saveMessagesToMyDocumentDTOSchema>;
+
 export const editMessageDTOSchema = z.object({
   messageId: uuidV7("Invalid message ID"),
   userId: uuidV7("Invalid user ID"),
@@ -165,6 +174,11 @@ export interface ForwardMessagesCommand {
   userId: string;
   messageIds: string[];
   targetConversationIds: string[];
+}
+
+export interface SaveMessagesToMyDocumentCommand {
+  userId: string;
+  messageIds: string[];
 }
 
 export interface EditMessageCommand {

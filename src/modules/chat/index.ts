@@ -65,6 +65,7 @@ import {
   DeleteMessageForMeHandler,
   DeleteMessageForEveryoneHandler,
   ForwardMessagesHandler,
+  SaveMessagesToMyDocumentHandler,
   MuteConversationHandler,
   UnmuteConversationHandler,
   PinConversationHandler,
@@ -230,6 +231,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationMemberRepo,
     userAdapter,
     messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
   );
 
   const getConversationDetailQueryHandler = new GetConversationDetailQueryHandler(
@@ -278,6 +281,14 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     messageRepo,
     messageRepo,
     classificationRepo,
+  );
+
+  const saveMessagesToMyDocumentHandler = new SaveMessagesToMyDocumentHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+    forwardMessagesHandler,
   );
 
   const muteConversationHandler = new MuteConversationHandler(conversationMemberRepo, conversationMemberRepo);
@@ -409,6 +420,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationMemberRepo as any,
     userAdapter,
     messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
   );
 
   const dissolveGroupHandler = new DissolveGroupHandler(
@@ -490,6 +503,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     deleteMessageForMeHandler,
     deleteMessageForEveryoneHandler,
     forwardMessagesHandler,
+    saveMessagesToMyDocumentHandler,
     muteConversationHandler,
     unmuteConversationHandler,
     pinConversationHandler,
@@ -579,6 +593,11 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   );
 
   router.post("/messages/forward", mdlFactory.auth, httpService.forwardMessagesAPI.bind(httpService));
+  router.post(
+    "/messages/save-to-my-document",
+    mdlFactory.auth,
+    httpService.saveMessagesToMyDocumentAPI.bind(httpService),
+  );
 
   router.post("/conversations/:conversationId/seen", mdlFactory.auth, httpService.markAsSeenAPI.bind(httpService));
   router.post(

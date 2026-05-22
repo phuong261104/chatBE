@@ -16,6 +16,7 @@ import {
   addMembersToGroupDTOSchema,
   createGroupDTOSchema,
   editMessageDTOSchema,
+  saveMessagesToMyDocumentDTOSchema,
   updateGroupSettingsDTOSchema,
 } from "../../../model/dto";
 import {
@@ -30,6 +31,7 @@ import { FriendshipStatus } from "@modules/friendships/model/model";
 import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
 import { IPresenceUseCase } from "@modules/user/interface";
 import { RelationshipPrivacyPolicyV2 } from "@modules/user/usecase/relationship-privacy-policy-v2";
+import { SELF_CONVERSATION_NAME, selfConversationPairKey } from "../../../usecase/conversation-listing";
 
 const privateMessageSchema = z
   .object({
@@ -613,12 +615,38 @@ export class ChatV2Controller {
     }
   };
 
+  saveMessagesToMyDocumentAPI = async (req: Request, res: Response) => {
+    try {
+      const currentUserId = this.getCurrentUserId(res);
+      if (!currentUserId) return res.status(401).json({ error: "Unauthorized" });
+
+      const data = saveMessagesToMyDocumentDTOSchema.parse({
+        userId: currentUserId,
+        messageIds: req.body.messageIds,
+      });
+      const result = await this.useCase.saveMessagesToMyDocument(data.userId, data.messageIds);
+
+      for (const message of result.messages) {
+        this.socketService.emitToUser(currentUserId, SocketEvent.RECEIVE_MESSAGE, {
+          message,
+          conversationId: message.conversationId,
+        });
+      }
+
+      return res.status(201).json({ data: result });
+    } catch (err) {
+      return this.sendError(res, err);
+    }
+  };
+
   private async getOrCreateMessageRequestConversation(
     senderId: string,
     targetUserId: string,
   ): Promise<Conversation> {
-    const pairKey =
-      senderId === targetUserId ? `self_${senderId}` : [senderId, targetUserId].sort().join("_");
+    const isSelfConversation = senderId === targetUserId;
+    const pairKey = isSelfConversation
+      ? selfConversationPairKey(senderId)
+      : [senderId, targetUserId].sort().join("_");
     let conversation =
       (await this.conversationRepo.findByPairKey(pairKey, ConversationType.PRIVATE)) ||
       (await this.conversationRepo.findByCond({
@@ -632,11 +660,23 @@ export class ChatV2Controller {
         id: v7(),
         type: ConversationType.PRIVATE,
         pairKey,
-        membersCount: senderId === targetUserId ? 1 : 2,
+        name: isSelfConversation ? SELF_CONVERSATION_NAME : undefined,
+        membersCount: isSelfConversation ? 1 : 2,
         createdAt: now,
         updatedAt: now,
       };
       await this.conversationRepo.insert(conversation);
+    } else if (isSelfConversation && (conversation.name !== SELF_CONVERSATION_NAME || conversation.membersCount !== 1)) {
+      await this.conversationRepo.update(conversation.id, {
+        name: SELF_CONVERSATION_NAME,
+        membersCount: 1,
+      });
+      conversation = {
+        ...conversation,
+        name: SELF_CONVERSATION_NAME,
+        membersCount: 1,
+        updatedAt: now,
+      };
     }
 
     await this.ensureMember(conversation.id, senderId, ConversationMemberStatus.ACTIVE, now);

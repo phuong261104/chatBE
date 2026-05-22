@@ -159,23 +159,30 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
   }> {
     const docClient = getDocClient();
 
-    // DynamoDB in-memory cursor pagination: fetch 1000 items, sort/filter in JS
-    const result = await docClient.send(
-      new QueryCommand({
-        TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
-        IndexName: "userId-index",
-        KeyConditionExpression: "userId = :userId",
-        FilterExpression: "attribute_not_exists(#leftAt) OR #leftAt = :nullVal",
-        ExpressionAttributeNames: { "#leftAt": "leftAt" },
-        ExpressionAttributeValues: {
-          ":userId": userId,
-          ":nullVal": null,
-        },
-        Limit: 30,
-      }),
-    );
+    const items: Record<string, any>[] = [];
+    let lastEvaluatedKey: Record<string, any> | undefined;
 
-    const allMembers = (result.Items || []).map((item) => this.toEntity(item));
+    do {
+      const result = await docClient.send(
+        new QueryCommand({
+          TableName: getTableName(TABLE_NAMES.CONVERSATION_MEMBERS),
+          IndexName: "userId-index",
+          KeyConditionExpression: "userId = :userId",
+          FilterExpression: "attribute_not_exists(#leftAt) OR #leftAt = :nullVal",
+          ExpressionAttributeNames: { "#leftAt": "leftAt" },
+          ExpressionAttributeValues: {
+            ":userId": userId,
+            ":nullVal": null,
+          },
+          ExclusiveStartKey: lastEvaluatedKey,
+        }),
+      );
+
+      items.push(...(result.Items || []));
+      lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+
+    const allMembers = items.map((item) => this.toEntity(item));
 
     const pinnedMembers = allMembers
       .filter((m) => m.pinned)
@@ -201,13 +208,14 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
     let hasMore: boolean;
 
     if (cursor) {
-      // cursor = conversationId (UUID v7) of the last item from previous page
-      const filtered = normalMembersRaw.filter((m) => m.conversationId > cursor!);
+      const cursorIndex = normalMembersRaw.findIndex((m) => m.conversationId === cursor);
+      if (cursorIndex < 0) {
+        throw new Error("Invalid cursor");
+      }
+      const filtered = normalMembersRaw.slice(cursorIndex + 1);
       normalMembers = filtered.slice(0, limit + 1);
       hasMore = filtered.length > limit;
-      if (hasMore) {
-        normalMembers = normalMembers.slice(0, limit);
-      }
+      if (hasMore) normalMembers = normalMembers.slice(0, limit);
     } else {
       normalMembers = normalMembersRaw.slice(0, limit + 1);
       hasMore = normalMembersRaw.length > limit;
@@ -571,7 +579,8 @@ export class DynamoConversationMemberRepository extends BaseRepositoryDynamoDB<
   }
 
   async findActiveByUserId(userId: string): Promise<ConversationMember[]> {
-    const result = await (this.queryRepo as DynamoConversationMemberQueryRepository).listByUserIdCursor(userId, undefined, 1000);
+    const result = await (this.queryRepo as DynamoConversationMemberQueryRepository)
+      .listByUserIdCursor(userId, undefined, Number.MAX_SAFE_INTEGER);
     return [...result.pinnedMembers, ...result.normalMembers].filter(
       (member) => member.status === ConversationMemberStatus.ACTIVE && !member.leftAt,
     );
