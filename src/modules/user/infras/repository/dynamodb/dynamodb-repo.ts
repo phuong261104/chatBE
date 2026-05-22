@@ -156,15 +156,12 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
     const result = await docClient.send(
       new ScanCommand({
         TableName: getTableName(TABLE_NAMES.USERS),
-        FilterExpression: "(contains(#displayName, :q) OR contains(#username, :q)) AND #status = :active AND #id <> :currentUser",
+        FilterExpression: "#status = :active AND #id <> :currentUser",
         ExpressionAttributeNames: {
-          "#displayName": "displayName",
-          "#username": "username",
           "#status": "status",
           "#id": "id",
         },
         ExpressionAttributeValues: {
-          ":q": searchLower,
           ":active": "active",
           ":currentUser": currentUserId,
         },
@@ -178,7 +175,8 @@ class DynamoUserQueryRepository extends BaseQueryRepositoryDynamoDB<User, UserCo
 
     const matched = users.filter((u) =>
       (u.displayName && u.displayName.toLowerCase().includes(searchLower)) ||
-      (u.username && u.username.toLowerCase().includes(searchLower))
+      ((u.privacy?.searchableByUsername ?? true) && u.username && u.username.toLowerCase().includes(searchLower)) ||
+      ((u.privacy?.searchableByPhone ?? true) && u.phone && u.phone.includes(query.trim()))
     );
 
     return matched.slice(0, limit);

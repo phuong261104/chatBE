@@ -16,19 +16,19 @@ export class SearchHTTPService {
         return;
       }
 
-      const q = req.query.q as string;
-      const limitRaw = parseInt(req.query.limit as string) || 10;
-
       const validatedData = globalSearchDTOSchema.parse({
-        q,
-        limit: limitRaw,
+        query: String(req.query.query ?? req.query.q ?? ""),
+        type: req.query.type,
+        conversationId: req.query.conversationId,
+        mediaType: req.query.mediaType,
+        from: req.query.from,
+        to: req.query.to,
+        cursor: req.query.cursor,
+        limit: req.query.limit,
+        contextLimit: req.query.contextLimit,
       });
 
-      const result = await this.useCase.globalSearch(
-        userId,
-        validatedData.q,
-        validatedData.limit,
-      );
+      const result = await this.useCase.globalSearch(userId, validatedData);
 
       res.status(200).json({ data: result });
     } catch (error) {
@@ -41,7 +41,9 @@ export class SearchHTTPService {
       }
 
       const err = error as any;
-      const statusCode = err.statusCode || 400;
+      const statusCode = typeof err.getStatusCode === "function"
+        ? err.getStatusCode()
+        : err.statusCode || 400;
       res.status(statusCode).json({ error: err.message });
     }
   }
