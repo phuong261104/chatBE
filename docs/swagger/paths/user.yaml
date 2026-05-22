@@ -1,73 +1,5 @@
 paths:
-  /v1/profile:
-    post:
-      summary: Register a new user
-      tags: [Auth]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                phone: 
-                  type: string
-                  example: "0912345678"
-                  description: "Số điện thoại đăng ký (10 chữ số)"
-                password: 
-                  type: string
-                  example: "Password123!"
-                  description: "Mật khẩu bảo mật"
-                email: 
-                  type: string
-                  example: "phuong.boss@example.com"
-                username: 
-                  type: string
-                  example: "phuongboss2026"
-                displayName: 
-                  type: string
-                  example: "Boss Phương"
-      responses:
-        '201':
-          description: User registered successfully
-        '422':
-          description: Validation error
-
-  /auth/login:
-    post:
-      summary: Login user
-      tags: [Auth]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                phone: 
-                  type: string
-                  example: "0912345678"
-                password: 
-                  type: string
-                  example: "Password123!"
-      responses:
-        '200':
-          description: Login successful
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      token: 
-                        type: string
-                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI..."
-        '401':
-          description: Unauthorized
-
-  /profile:
+  /v1/users/profile:
     get:
       summary: Xem profile tài khoản
       tags: [Profile]
@@ -168,10 +100,9 @@ paths:
 
   /v1/users:
     get:
-      summary: Get list of users (Admin)
+      summary: Get list of users
       tags: [Users]
-      security:
-        - BearerAuth: []
+      security: []
       responses:
         '200':
           description: A list of users
@@ -374,6 +305,7 @@ paths:
     get:
       summary: Get user details
       tags: [Users]
+      security: []
       parameters:
         - in: path
           name: id

@@ -155,6 +155,105 @@ paths:
         "422":
           description: Invalid option IDs
 
+  /v1/groups/{groupId}/polls/{pollId}/lock:
+    post:
+      summary: Close or lock a poll
+      tags: [Chat - Polls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+        - in: path
+          name: pollId
+          schema:
+            type: string
+            example: "poll_001"
+          required: true
+      responses:
+        "200":
+          description: Poll closed
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "poll_001"
+                  isClosed: true
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only permitted group members can close the poll
+        "404":
+          description: Poll not found
+
+  /v1/groups/{groupId}/polls/{pollId}/pin:
+    post:
+      summary: Pin a poll
+      tags: [Chat - Polls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+        - in: path
+          name: pollId
+          schema:
+            type: string
+            example: "poll_001"
+          required: true
+      responses:
+        "200":
+          description: Poll pinned
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "poll_001"
+                  pinned: true
+        "401":
+          description: Unauthorized
+        "404":
+          description: Poll not found
+    delete:
+      summary: Unpin a poll
+      tags: [Chat - Polls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+        - in: path
+          name: pollId
+          schema:
+            type: string
+            example: "poll_001"
+          required: true
+      responses:
+        "200":
+          description: Poll unpinned
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "poll_001"
+                  pinned: false
+        "401":
+          description: Unauthorized
+        "404":
+          description: Poll not found
+
   /v1/groups/{groupId}/polls/{pollId}/results:
     get:
       summary: Get poll results

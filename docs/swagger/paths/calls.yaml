@@ -549,6 +549,189 @@ paths:
   # Socket namespace: /socket/calls
   # ============================================================
 
+  /v1/calls/v2:
+    post:
+      summary: "[V1 legacy cloud] Tao cuoc goi LiveKit cloud"
+      tags: [Calls V1]
+      security:
+        - BearerAuth: []
+      description: Legacy cloud-call route mounted under `/v1/calls/v2`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [conversationId, type]
+              properties:
+                conversationId:
+                  type: string
+                  format: uuid
+                type:
+                  $ref: "#/components/schemas/CallType"
+                calleeIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "201":
+          description: Cloud call created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CallResponse"
+        "401":
+          description: Unauthorized
+        "409":
+          description: Call already in progress
+
+  /v1/calls/v2/{callId}/answer:
+    post:
+      summary: "[V1 legacy cloud] Tra loi cuoc goi"
+      tags: [Calls V1]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        "200":
+          description: Cloud call answered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CallResponse"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+
+  /v1/calls/v2/{callId}/reject:
+    post:
+      summary: "[V1 legacy cloud] Tu choi cuoc goi"
+      tags: [Calls V1]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        "200":
+          description: Call rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+
+  /v1/calls/v2/{callId}/missed:
+    post:
+      summary: "[V1 legacy cloud] Danh dau missed"
+      tags: [Calls V1]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        "200":
+          description: Call marked missed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+
+  /v1/calls/v2/{callId}/token:
+    get:
+      summary: "[V1 legacy cloud] Lay LiveKit token"
+      tags: [Calls V1]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        "200":
+          description: Token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CallTokenResponse"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+
+  /v1/calls/v2/{callId}:
+    delete:
+      summary: "[V1 legacy cloud] Ket thuc cuoc goi"
+      tags: [Calls V1]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: callId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        "200":
+          description: Call ended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        "401":
+          description: Unauthorized
+        "404":
+          description: Call not found
+
   /v1/calls:
     post:
       summary: "[V1] Tao cuoc goi (legacy)"

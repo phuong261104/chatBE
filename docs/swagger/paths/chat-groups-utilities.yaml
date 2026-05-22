@@ -1,0 +1,329 @@
+paths:
+  /v1/groups/{groupId}/reminders:
+    get:
+      summary: List group reminders
+      tags: [Chat - Group Utilities]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      responses:
+        "200":
+          description: Reminder list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderListResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this group
+    post:
+      summary: Create group reminder
+      tags: [Chat - Group Utilities]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReminderRequest"
+      responses:
+        "201":
+          description: Reminder created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not allowed to create reminders
+        "422":
+          description: Validation error
+
+  /v1/groups/{groupId}/reminders/{reminderId}:
+    put:
+      summary: Update group reminder
+      tags: [Chat - Group Utilities]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+        - $ref: "#/components/parameters/ReminderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReminderRequest"
+      responses:
+        "200":
+          description: Reminder updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not allowed to update this reminder
+        "404":
+          description: Reminder not found
+    delete:
+      summary: Delete group reminder
+      tags: [Chat - Group Utilities]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+        - $ref: "#/components/parameters/ReminderId"
+      responses:
+        "200":
+          description: Reminder deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not allowed to delete this reminder
+        "404":
+          description: Reminder not found
+
+  /v1/groups/{groupId}/notes:
+    get:
+      summary: List group notes
+      tags: [Chat - Group Utilities]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      responses:
+        "200":
+          description: Note list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteListResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member of this group
+    post:
+      summary: Create group note
+      tags: [Chat - Group Utilities]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNoteRequest"
+      responses:
+        "201":
+          description: Note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not allowed to create notes
+        "422":
+          description: Validation error
+
+  /v1/groups/{groupId}/notes/{noteId}:
+    put:
+      summary: Update group note
+      tags: [Chat - Group Utilities]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+        - $ref: "#/components/parameters/NoteId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNoteRequest"
+      responses:
+        "200":
+          description: Note updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not allowed to update this note
+        "404":
+          description: Note not found
+    delete:
+      summary: Delete group note
+      tags: [Chat - Group Utilities]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+        - $ref: "#/components/parameters/NoteId"
+      responses:
+        "200":
+          description: Note deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not allowed to delete this note
+        "404":
+          description: Note not found
+
+components:
+  parameters:
+    GroupId:
+      in: path
+      name: groupId
+      required: true
+      schema:
+        type: string
+      example: "0192a3bc-def0-7abc-8901-23456789abcd"
+    ReminderId:
+      in: path
+      name: reminderId
+      required: true
+      schema:
+        type: string
+      example: "reminder_001"
+    NoteId:
+      in: path
+      name: noteId
+      required: true
+      schema:
+        type: string
+      example: "note_001"
+
+  schemas:
+    CreateReminderRequest:
+      type: object
+      required: [title, remindAt]
+      properties:
+        title:
+          type: string
+          example: "Sprint planning"
+        description:
+          type: string
+          nullable: true
+          example: "Prepare the release backlog"
+        remindAt:
+          type: string
+          format: date-time
+          example: "2026-05-25T09:00:00.000Z"
+    UpdateReminderRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        remindAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          example: "done"
+    Reminder:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        conversationId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        remindAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+    ReminderResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Reminder"
+    ReminderListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reminder"
+    CreateNoteRequest:
+      type: object
+      required: [title, content]
+      properties:
+        title:
+          type: string
+          example: "Meeting note"
+        content:
+          type: string
+          example: "Decisions and action items"
+    UpdateNoteRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+    Note:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        conversationId:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        createdBy:
+          type: string
+    NoteResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Note"
+    NoteListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Note"
+    DeletedResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
