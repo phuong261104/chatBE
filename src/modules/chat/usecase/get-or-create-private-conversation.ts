@@ -9,6 +9,7 @@ import {
 import { Conversation, ConversationType, ConversationMemberRole, ConversationMemberStatus } from '../model/model';
 import { getOrCreatePrivateConversationDTOSchema, GetOrCreatePrivateConversationCommand } from '../model/dto';
 import { ChatAccessPolicy } from './chat-access-policy';
+import { SELF_CONVERSATION_NAME, selfConversationPairKey } from './conversation-listing';
 
 export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
   GetOrCreatePrivateConversationCommand,
@@ -37,7 +38,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
     );
 
     const pairKey = isSelfConversation
-      ? `self_${validatedInput.currentUserId}`
+      ? selfConversationPairKey(validatedInput.currentUserId)
       : [validatedInput.currentUserId, validatedInput.targetUserId].sort().join('_');
 
     let conversation =
@@ -55,6 +56,7 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
         id: conversationId,
         type: ConversationType.PRIVATE,
         pairKey: pairKey,
+        name: isSelfConversation ? SELF_CONVERSATION_NAME : undefined,
         membersCount: isSelfConversation ? 1 : 2,
         createdAt: now,
         updatedAt: now
@@ -95,6 +97,18 @@ export class GetOrCreatePrivateConversationHandler implements ICommandHandler<
         await this.conversationMemberCommandRepo.insert(member2);
       }
     } else {
+      if (isSelfConversation && (conversation.name !== SELF_CONVERSATION_NAME || conversation.membersCount !== 1)) {
+        await this.conversationCommandRepo.update(conversation.id, {
+          name: SELF_CONVERSATION_NAME,
+          membersCount: 1,
+        });
+        conversation = {
+          ...conversation,
+          name: SELF_CONVERSATION_NAME,
+          membersCount: 1,
+          updatedAt: new Date(),
+        };
+      }
       await this.ensureCurrentMemberVisible(conversation.id, validatedInput.currentUserId);
     }
 

@@ -21,6 +21,7 @@ export { RevokeMessageHandler } from "./revoke-message";
 export { DeleteMessageForMeHandler } from "./delete-message-for-me";
 export { DeleteMessageForEveryoneHandler } from "./delete-message-for-everyone";
 export { ForwardMessagesHandler } from "./forward-messages";
+export { SaveMessagesToMyDocumentHandler } from "./save-to-my-document";
 export { MuteConversationHandler, UnmuteConversationHandler } from "./mute-conversation";
 export { PinConversationHandler, UnpinConversationHandler } from "./pin-conversation";
 export { ArchiveConversationHandler, UnarchiveConversationHandler } from "./archive-conversation";

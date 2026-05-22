@@ -39,6 +39,7 @@ import { RevokeMessageHandler } from "./revoke-message";
 import { DeleteMessageForMeHandler } from "./delete-message-for-me";
 import { DeleteMessageForEveryoneHandler } from "./delete-message-for-everyone";
 import { ForwardMessagesHandler } from "./forward-messages";
+import { SaveMessagesToMyDocumentHandler, SaveMessagesToMyDocumentResult } from "./save-to-my-document";
 import { MuteConversationHandler, UnmuteConversationHandler } from "./mute-conversation";
 import { PinConversationHandler, UnpinConversationHandler } from "./pin-conversation";
 import { ArchiveConversationHandler, UnarchiveConversationHandler } from "./archive-conversation";
@@ -103,6 +104,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly deleteMessageForMeHandler: DeleteMessageForMeHandler,
     private readonly deleteMessageForEveryoneHandler: DeleteMessageForEveryoneHandler,
     private readonly forwardMessagesHandler: ForwardMessagesHandler,
+    private readonly saveMessagesToMyDocumentHandler: SaveMessagesToMyDocumentHandler,
     private readonly muteConversationHandler: MuteConversationHandler,
     private readonly unmuteConversationHandler: UnmuteConversationHandler,
     private readonly pinConversationHandler: PinConversationHandler,
@@ -359,6 +361,16 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       userId,
       messageIds,
       targetConversationIds,
+    });
+  }
+
+  async saveMessagesToMyDocument(
+    userId: string,
+    messageIds: string[],
+  ): Promise<SaveMessagesToMyDocumentResult> {
+    return this.saveMessagesToMyDocumentHandler.execute({
+      userId,
+      messageIds,
     });
   }
 

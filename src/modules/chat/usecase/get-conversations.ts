@@ -1,7 +1,28 @@
 import { IQueryHandler } from "@share/interface";
-import { IConversationQueryRepository, IConversationMemberQueryRepository, IUserQueryRepository, IMessageQueryRepository } from "../interface";
-import { Conversation, ConversationMemberRole, ConversationMemberStatus, ConversationType, Message, MessageStatus } from "../model/model";
+import {
+  IConversationCommandRepository,
+  IConversationMemberCommandRepository,
+  IConversationMemberQueryRepository,
+  IConversationQueryRepository,
+  IMessageQueryRepository,
+  IUserQueryRepository,
+} from "../interface";
+import {
+  Conversation,
+  ConversationMember,
+  ConversationMemberRole,
+  ConversationMemberStatus,
+  ConversationType,
+  Message,
+  MessageStatus,
+} from "../model/model";
 import { GetConversationsQuery, ConversationWithMetadata } from "../model/dto";
+import {
+  compareConversationListItems,
+  ensureSelfConversation,
+  isSelfConversation,
+  normalizeConversationListItem,
+} from "./conversation-listing";
 
 export class GetConversationsQueryHandler implements IQueryHandler<GetConversationsQuery, ConversationWithMetadata[]> {
   constructor(
@@ -9,17 +30,23 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly userQueryRepo: IUserQueryRepository,
     private readonly messageQueryRepo: IMessageQueryRepository,
+    private readonly conversationCommandRepo: IConversationCommandRepository,
+    private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
   ) {}
 
   async query(query: GetConversationsQuery): Promise<ConversationWithMetadata[]> {
     const page = query.page || 1;
     const limit = query.limit || 20;
 
-    const members = await this.conversationMemberQueryRepo.list({ userId: query.userId }, { page, limit });
-
-    const activeMembers = members.filter(
-      (member) => member.status === ConversationMemberStatus.ACTIVE && !member.leftAt,
+    await ensureSelfConversation(
+      query.userId,
+      this.conversationQueryRepo,
+      this.conversationCommandRepo,
+      this.conversationMemberQueryRepo,
+      this.conversationMemberCommandRepo,
     );
+
+    const activeMembers = await this.listActiveMembersForUser(query.userId);
 
     if (activeMembers.length === 0) {
       return [];
@@ -31,7 +58,7 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
 
     const targetUserIds = new Set<string>();
     conversations.forEach((conv) => {
-      if (conv.type === ConversationType.PRIVATE && conv.pairKey) {
+      if (conv.type === ConversationType.PRIVATE && conv.pairKey && !isSelfConversation(conv, query.userId)) {
         const ids = conv.pairKey.split("_");
         const targetId = ids.find((id) => id !== query.userId);
         if (targetId) targetUserIds.add(targetId);
@@ -50,7 +77,10 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
         let name = conv.name || "";
         let avatarUrl = conv.avatarUrl || "";
 
-        if (conv.type === ConversationType.PRIVATE && conv.pairKey) {
+        if (isSelfConversation(conv, query.userId)) {
+          name = "My Document";
+          avatarUrl = "";
+        } else if (conv.type === ConversationType.PRIVATE && conv.pairKey) {
           const ids = conv.pairKey.split("_");
           const targetId = ids.find((id) => id !== query.userId);
           const targetUser = targetId ? targetUserMap.get(targetId) : null;
@@ -97,14 +127,15 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
         }
 
         const visibleLast = await this.resolveVisibleLastMessage(conv, query.userId, member?.hiddenAt);
-        const activityAt =
-          member?.lastActivityAt ||
-          visibleLast.lastMessageAt ||
-          conv.lastMessageAt ||
-          conv.updatedAt ||
-          conv.createdAt;
+        const activityAt = this.resolveActivityAt(
+          member?.lastActivityAt,
+          visibleLast.lastMessageAt,
+          conv.lastMessageAt,
+          conv.updatedAt,
+          conv.createdAt,
+        );
 
-        return {
+        return normalizeConversationListItem({
           ...conv,
           lastMessage: visibleLast.lastMessage,
           lastMessageAt: visibleLast.lastMessageAt,
@@ -113,19 +144,46 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
           avatarUrl,
           unreadCount: member?.unreadCount || 0,
           role: member?.role || ConversationMemberRole.MEMBER,
+          pinned: !!member?.pinned,
+          isPinned: !!member?.pinned,
+          pinnedAt: member?.pinnedAt || undefined,
+          archived: !!member?.archived,
+          muteUntil: member?.muteUntil || undefined,
           lastMessageStatus,
           lastMessageTimeFormatted,
-        };
+        }, query.userId);
       }),
     );
 
-    result.sort((a, b) => {
-      const timeA = (a as any).activityAt?.getTime?.() || a.lastMessageAt?.getTime() || a.createdAt.getTime();
-      const timeB = (b as any).activityAt?.getTime?.() || b.lastMessageAt?.getTime() || b.createdAt.getTime();
-      return timeB - timeA;
-    });
+    result.sort(compareConversationListItems(query.userId));
 
-    return result;
+    const start = (page - 1) * limit;
+    return result.slice(start, start + limit);
+  }
+
+  private async listActiveMembersForUser(userId: string): Promise<ConversationMember[]> {
+    const repoWithActiveLookup = this.conversationMemberQueryRepo as any;
+    const members: ConversationMember[] = typeof repoWithActiveLookup.findActiveByUserId === "function"
+      ? await repoWithActiveLookup.findActiveByUserId(userId)
+      : await this.conversationMemberQueryRepo.list({ userId }, { page: 1, limit: 1000 });
+
+    return members.filter(
+      (member) => member.status === ConversationMemberStatus.ACTIVE && !member.leftAt,
+    );
+  }
+
+  private resolveActivityAt(
+    memberActivityAt: Date | undefined | null,
+    visibleLastMessageAt: Date | undefined | null,
+    conversationLastMessageAt: Date | undefined | null,
+    updatedAt: Date | undefined | null,
+    createdAt: Date,
+  ): Date {
+    const messageActivity = [memberActivityAt, visibleLastMessageAt, conversationLastMessageAt]
+      .filter((date): date is Date => !!date)
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+
+    return messageActivity || updatedAt || createdAt;
   }
 
   private async resolveVisibleLastMessage(
