@@ -449,6 +449,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
     query: string,
     cursor?: string,
     limit: number = 20,
+    options: { from?: Date; to?: Date; hiddenAfter?: Date } = {},
   ): Promise<{
     messages: Message[];
     nextCursor?: string;
@@ -457,42 +458,34 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
   }> {
     const docClient = getDocClient();
     const tableName = getTableName(TABLE_NAMES.MESSAGES);
-    const lowerQuery = query.toLowerCase();
+    const lowerQuery = query.toLowerCase().trim();
 
     const allMessages: Message[] = [];
-    let lastEvaluatedKey: Record<string, unknown> | undefined = undefined;
+    let lastEvaluatedKey: Record<string, unknown> | undefined = cursor
+      ? await this.resolveCursorKey(cursor)
+      : undefined;
     let totalScanned = 0;
     const maxScan = 2000;
+    const pageLimit = Math.max(100, limit * 4);
 
     while (totalScanned < maxScan) {
-      const exclusiveStartKeyStr: string | undefined = lastEvaluatedKey
-        ? Buffer.from(JSON.stringify(lastEvaluatedKey)).toString("base64")
-        : undefined;
-      const exclusiveStartKeyObj: Record<string, unknown> | undefined = exclusiveStartKeyStr
-        ? JSON.parse(Buffer.from(exclusiveStartKeyStr, "base64").toString("utf-8"))
-        : undefined;
-
       const result: { Items?: Record<string, unknown>[]; LastEvaluatedKey?: Record<string, unknown> } = await docClient.send(
         new QueryCommand({
           TableName: tableName,
           KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
           FilterExpression:
-            "(attribute_not_exists(messageStatus) OR messageStatus = :active) AND (attribute_not_exists(deletedAt) OR deletedAt = :nullVal) AND (attribute_not_exists(deletedForUserIds) OR NOT contains(deletedForUserIds, :userId)) AND (attribute_not_exists(expireAtEpoch) OR expireAtEpoch > :nowEpoch) AND contains(#text, :query)",
-          ExpressionAttributeNames: {
-            "#text": "text",
-          },
+            "(attribute_not_exists(messageStatus) OR messageStatus = :active) AND (attribute_not_exists(deletedAt) OR deletedAt = :nullVal) AND (attribute_not_exists(deletedForUserIds) OR NOT contains(deletedForUserIds, :userId)) AND (attribute_not_exists(expireAtEpoch) OR expireAtEpoch > :nowEpoch)",
           ExpressionAttributeValues: {
             ":pk": `CONV#${conversationId}`,
             ":skPrefix": "MSG#",
-            ":query": lowerQuery,
             ":userId": userId,
             ":active": MessageStatus.ACTIVE,
             ":nullVal": null,
             ":nowEpoch": Math.floor(Date.now() / 1000),
           },
-          Limit: limit,
+          Limit: pageLimit,
           ScanIndexForward: false,
-          ExclusiveStartKey: exclusiveStartKeyObj,
+          ExclusiveStartKey: lastEvaluatedKey,
         }),
       );
 
@@ -511,9 +504,9 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
           pinnedAt: pinnedAt ? new Date(pinnedAt as string) : null,
           expiresAt: expiresAt ? new Date(expiresAt as string) : undefined,
         } as Message;
-      });
+      }).filter((message) => this.matchesSearch(message, lowerQuery, options, userId));
       allMessages.push(...mapped);
-      totalScanned += mapped.length;
+      totalScanned += items.length;
       lastEvaluatedKey = result.LastEvaluatedKey;
 
       if (!result.LastEvaluatedKey) break;
@@ -531,7 +524,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
     let nextCursor: string | undefined;
     if (hasMore && results.length > 0) {
       const lastMsg = results[results.length - 1];
-      nextCursor = Buffer.from(lastMsg.createdAt.toISOString()).toString("base64");
+      nextCursor = lastMsg.id;
     }
 
     return {
@@ -540,6 +533,43 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
       hasMore,
       total: sortedMessages.length,
     };
+  }
+
+  private async resolveCursorKey(cursor: string): Promise<Record<string, unknown> | undefined> {
+    try {
+      const decoded = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
+      if (decoded && typeof decoded === "object") return decoded;
+    } catch {
+      // Cursor can be a message ID.
+    }
+
+    const result = await getDocClient().send(
+      new QueryCommand({
+        TableName: getTableName(TABLE_NAMES.MESSAGES),
+        IndexName: "id-index",
+        KeyConditionExpression: "id = :id",
+        ExpressionAttributeValues: { ":id": cursor },
+        Limit: 1,
+      }),
+    );
+
+    const item = result.Items?.[0];
+    return item ? { pk: item.pk, sk: item.sk } : undefined;
+  }
+
+  private matchesSearch(
+    message: Message,
+    lowerQuery: string,
+    options: { from?: Date; to?: Date; hiddenAfter?: Date },
+    userId: string,
+  ): boolean {
+    if (message.messageStatus === MessageStatus.REVOKED || message.deletedAt) return false;
+    if (message.deletedForUserIds?.includes(userId)) return false;
+    if (message.expireAtEpoch && message.expireAtEpoch <= Math.floor(Date.now() / 1000)) return false;
+    if (options.hiddenAfter && message.createdAt <= options.hiddenAfter) return false;
+    if (options.from && message.createdAt < options.from) return false;
+    if (options.to && message.createdAt > options.to) return false;
+    return (message.text || "").toLowerCase().includes(lowerQuery);
   }
 
   async deleteByConversationId(conversationId: string): Promise<void> {

@@ -1,5 +1,6 @@
 import {
   ConversationMember,
+  ConversationMemberStatus,
 } from "../../../model";
 import {
   ConversationMemberCondDTO,
@@ -571,7 +572,9 @@ export class DynamoConversationMemberRepository extends BaseRepositoryDynamoDB<
 
   async findActiveByUserId(userId: string): Promise<ConversationMember[]> {
     const result = await (this.queryRepo as DynamoConversationMemberQueryRepository).listByUserIdCursor(userId, undefined, 1000);
-    return [...result.pinnedMembers, ...result.normalMembers];
+    return [...result.pinnedMembers, ...result.normalMembers].filter(
+      (member) => member.status === ConversationMemberStatus.ACTIVE && !member.leftAt,
+    );
   }
 
   async incrementUnreadCountForConversation(

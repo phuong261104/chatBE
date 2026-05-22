@@ -59,6 +59,7 @@ import {
 import {
   getDraftsSchema,
 } from "../../model/dto/draft-dto";
+import { parseSearchDate, parseSearchEndDate } from "@modules/search/model";
 
 export class MessagingHttpService {
   private socketService?: MessagingSocketService;
@@ -1488,7 +1489,7 @@ export class MessagingHttpService {
         ? req.params.conversationId[0]
         : req.params.conversationId;
 
-      const { query, cursor, limit = "20" } = req.query;
+      const { query, cursor, limit = "20", from, to, contextLimit = "1" } = req.query;
 
       const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
@@ -1503,6 +1504,9 @@ export class MessagingHttpService {
         query,
         cursor,
         limit: parseInt(limit as string, 10),
+        from: from || undefined,
+        to: to || undefined,
+        contextLimit: parseInt(contextLimit as string, 10),
       });
 
       const result = await this.useCase.searchMessages(
@@ -1511,6 +1515,11 @@ export class MessagingHttpService {
         validatedData.query,
         validatedData.cursor,
         validatedData.limit,
+        {
+          from: parseSearchDate(validatedData.from),
+          to: parseSearchEndDate(validatedData.to),
+          contextLimit: validatedData.contextLimit,
+        },
       );
 
       res.status(200).json({ data: result });

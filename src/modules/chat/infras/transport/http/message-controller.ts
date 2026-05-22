@@ -16,6 +16,7 @@ import {
 import { searchMessagesDTOSchema } from "../../../model/dto/search-dto";
 import { ConversationType } from "../../../model";
 import { z } from "zod";
+import { parseSearchDate, parseSearchEndDate } from "@modules/search/model";
 
 export class MessageController extends BaseController {
   async sendMessageAPI(req: Request, res: Response) {
@@ -482,7 +483,7 @@ export class MessageController extends BaseController {
   async searchMessagesAPI(req: Request, res: Response) {
     try {
       const conversationId = this.parseIdParam(req, "conversationId");
-      const { query, cursor, limit } = req.query;
+      const { query, cursor, limit, from, to, contextLimit } = req.query;
       const currentUserId = this.getCurrentUserId(req, res);
 
       if (!currentUserId) {
@@ -495,6 +496,9 @@ export class MessageController extends BaseController {
         query,
         cursor,
         limit: limit ? Number(limit) : 20,
+        from: from || undefined,
+        to: to || undefined,
+        contextLimit: contextLimit ? Number(contextLimit) : 1,
       });
 
       const result = await (this.useCase as any).searchMessages(
@@ -503,6 +507,11 @@ export class MessageController extends BaseController {
         validatedData.query,
         validatedData.cursor,
         validatedData.limit,
+        {
+          from: parseSearchDate(validatedData.from),
+          to: parseSearchEndDate(validatedData.to),
+          contextLimit: validatedData.contextLimit,
+        },
       );
 
       res.status(200).json({ data: result });
