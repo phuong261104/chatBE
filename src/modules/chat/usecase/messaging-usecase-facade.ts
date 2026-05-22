@@ -576,6 +576,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     query: string,
     cursor?: string,
     limit?: number,
+    options?: { from?: Date; to?: Date; contextLimit?: number },
   ): Promise<{
     messages: Message[];
     nextCursor?: string;
@@ -588,6 +589,9 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       query,
       cursor,
       limit: limit || 20,
+      from: options?.from?.toISOString(),
+      to: options?.to?.toISOString(),
+      contextLimit: options?.contextLimit,
     });
   }
 

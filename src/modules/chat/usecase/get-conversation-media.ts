@@ -80,13 +80,15 @@ export class GetConversationMediaQueryHandler
     const files: FileItem[] = [];
     const links: LinkItem[] = [];
 
+    const nowEpoch = Math.floor(Date.now() / 1000);
     for (const item of returnItems) {
       const message = await this.messageQueryRepo.get(item.messageId);
       if (
         !message ||
         message.messageStatus === MessageStatus.REVOKED ||
         message.deletedAt ||
-        message.deletedForUserIds?.includes(data.userId)
+        message.deletedForUserIds?.includes(data.userId) ||
+        (message.expireAtEpoch && message.expireAtEpoch <= nowEpoch)
       ) {
         continue;
       }

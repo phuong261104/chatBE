@@ -6,6 +6,9 @@ export const searchMessagesDTOSchema = z.object({
   query: z.string().min(1, "Search query is required").max(200),
   cursor: z.string().optional(),
   limit: z.number().min(1).max(50).default(20),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  contextLimit: z.number().min(0).max(5).default(1),
 });
 
 export type SearchMessagesDTO = z.infer<typeof searchMessagesDTOSchema>;

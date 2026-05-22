@@ -96,6 +96,7 @@ export interface IMessageQueryRepository {
     query: string,
     cursor?: string,
     limit?: number,
+    options?: { from?: Date; to?: Date; hiddenAfter?: Date },
   ): Promise<{
     messages: Message[];
     nextCursor?: string;
@@ -337,6 +338,7 @@ export interface IMessagingUseCase {
     query: string,
     cursor?: string,
     limit?: number,
+    options?: { from?: Date; to?: Date; contextLimit?: number },
   ): Promise<{
     messages: Message[];
     nextCursor?: string;
