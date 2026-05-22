@@ -14,6 +14,7 @@ import {
   EditMessageHandler,
   ForwardMessagesHandler,
   GetConversationDetailQueryHandler,
+  GetConversationMediaQueryHandler,
   GetConversationMembersQueryHandler,
   GetPendingMembersHandler,
   GetPinnedMessagesHandler,
@@ -36,6 +37,7 @@ import {
   SendGroupMessageHandler,
   SendMessageHandler,
   SetAdminHandler,
+  SearchMessagesHandler,
   TransferOwnerHandler,
   UnpinMessageHandler,
   UnpinPollHandler,
@@ -234,6 +236,12 @@ export function buildUseCase(store: ChatE2EStore) {
     userRepo as any,
   );
   const getPinnedMessages = new GetPinnedMessagesHandler(messageRepo as any, memberRepo as any);
+  const getConversationMedia = new GetConversationMediaQueryHandler(
+    memberRepo as any,
+    classificationRepo as any,
+    messageRepo as any,
+  );
+  const searchMessages = new SearchMessagesHandler(memberRepo as any, messageRepo as any);
   const addReaction = new AddReactionHandler(
     messageRepo as any,
     reactionRepo as any,
@@ -440,8 +448,30 @@ export function buildUseCase(store: ChatE2EStore) {
         updateGroupNote.execute({ noteId, userId, ...data }),
       deleteGroupNote: (noteId: string, userId: string) => deleteGroupNote.execute({ noteId, userId }),
       getMessage: (messageId: string) => messageRepo.get(messageId),
-      searchMessages: (conversationId: string, userId: string, query: string, cursor?: string, limit?: number) =>
-        messageRepo.searchMessages(conversationId, userId, query, cursor, limit),
+      searchMessages: (
+        conversationId: string,
+        userId: string,
+        query: string,
+        cursor?: string,
+        limit?: number,
+        options?: { from?: Date; to?: Date; contextLimit?: number },
+      ) => searchMessages.query({
+        conversationId,
+        userId,
+        query,
+        cursor,
+        limit: limit || 20,
+        from: options?.from?.toISOString(),
+        to: options?.to?.toISOString(),
+        contextLimit: options?.contextLimit,
+      }),
+      getConversationMedia: (
+        conversationId: string,
+        userId: string,
+        cursor: string | undefined,
+        limit: number,
+        type: "all" | "image" | "file" | "link" | "video" | "voice",
+      ) => getConversationMedia.query({ conversationId, userId, cursor, limit, type }),
     },
   };
 }

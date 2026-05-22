@@ -12,6 +12,8 @@ import { responseFormatMiddleware } from "@share/middleware";
 import { MessagingHttpService, MessagingSocketService } from "@modules/chat/infras";
 import { ChatV2Controller } from "@modules/chat/infras/transport/http/v2-chat-controller";
 import { setupChatV2Routes } from "@modules/chat/infras/transport/http/v2-chat.routes";
+import { SearchHTTPService } from "@modules/search/infras/transport";
+import { SearchUseCase } from "@modules/search/usecase";
 import { ChatE2EStore } from "./chat-e2e-store";
 import { buildUseCase, TestPresenceUseCase } from "./chat-e2e-usecase";
 import { socketToken } from "./chat-e2e-socket";
@@ -65,6 +67,15 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
   const socketService = new RecordingMessagingSocketService(io, useCase as any, presenceUseCase as any);
   const httpService = new MessagingHttpService(useCase as any);
   httpService.setSocketService(socketService);
+  const searchUseCase = new SearchUseCase({
+    userRepo: repos.userRepo as any,
+    conversationRepo: repos.conversationRepo as any,
+    conversationMemberRepo: repos.memberRepo as any,
+    messageRepo: repos.messageRepo as any,
+    classificationRepo: repos.classificationRepo as any,
+    blockRepo: repos.blockRepo as any,
+  });
+  const searchHttpService = new SearchHTTPService(searchUseCase);
 
   const mdlFactory = {
     auth,
@@ -111,6 +122,8 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
   v1Router.get("/messages/:messageId/reactions", auth, httpService.getReactionsAPI.bind(httpService));
   v1Router.post("/messages/:messageId/quote", auth, httpService.quoteMessageAPI.bind(httpService));
   v1Router.get("/conversations/:conversationId/search", auth, httpService.searchMessagesAPI.bind(httpService));
+  v1Router.get("/conversations/:conversationId/media", auth, httpService.getConversationMediaAPI.bind(httpService));
+  v1Router.get("/search", auth, searchHttpService.globalSearchAPI.bind(searchHttpService));
   v1Router.post("/groups/:groupId/set-admin", auth, httpService.setAdminAPI.bind(httpService));
   v1Router.post("/groups/:groupId/transfer-owner", auth, httpService.transferOwnerAPI.bind(httpService));
   v1Router.get("/groups/:groupId/pending-members", auth, httpService.getPendingMembersAPI.bind(httpService));

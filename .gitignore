@@ -57,6 +57,8 @@ tests/*
 !tests/call-v2.service.test.ts
 !tests/chat-v2-behavior.test.ts
 !tests/chat-advanced-messages.e2e.test.ts
+!tests/chat-search.e2e.test.ts
+!tests/chat-search.live.e2e.test.ts
 !tests/chat-advanced-messages.live.e2e.test.ts
 !tests/chat-group-utilities.e2e.test.ts
 !tests/chat-group-utilities.live.e2e.test.ts

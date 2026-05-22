@@ -69,10 +69,11 @@ export class InMemoryUserRepository {
     const needle = query.toLowerCase();
     return Array.from(this.store.users.values())
       .filter((user: any) => user.id !== currentUserId)
+      .filter((user: any) => user.status === UserStatus.ACTIVE)
       .filter((user: any) =>
         (user.displayName || "").toLowerCase().includes(needle) ||
-        (user.username || "").toLowerCase().includes(needle) ||
-        (user.phone || "").includes(query),
+        ((user.privacy?.searchableByUsername ?? true) && (user.username || "").toLowerCase().includes(needle)) ||
+        ((user.privacy?.searchableByPhone ?? true) && (user.phone || "").includes(query)),
       )
       .slice(0, limit);
   }
@@ -266,6 +267,7 @@ export class InMemoryMessageRepository {
     query: string,
     cursor?: string,
     limit = 20,
+    options: { from?: Date; to?: Date; hiddenAfter?: Date } = {},
   ): Promise<{ messages: Message[]; nextCursor?: string; hasMore: boolean; total: number }> {
     const needle = query.toLowerCase();
     let messages = this.store.visibleMessages(conversationId, userId)
@@ -273,6 +275,9 @@ export class InMemoryMessageRepository {
         (message) =>
           message.messageStatus !== MessageStatus.REVOKED &&
           !message.deletedAt &&
+          (!options.hiddenAfter || message.createdAt > options.hiddenAfter) &&
+          (!options.from || message.createdAt >= options.from) &&
+          (!options.to || message.createdAt <= options.to) &&
           (message.text || "").toLowerCase().includes(needle),
       );
     if (cursor) {
@@ -545,25 +550,35 @@ export class InMemoryClassificationRepository {
   async listByConversationAndType(
     conversationId: string,
     type: ClassificationType,
+    cursor?: string,
+    limit = 20,
   ): Promise<{ items: MessageClassification[]; nextCursor: string; hasMore: boolean }> {
+    const allItems = this.store.classifications
+      .filter((item) => item.conversationId === conversationId && item.type === type)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const start = cursor ? allItems.findIndex((item) => item.id === cursor) + 1 : 0;
+    const page = allItems.slice(start, start + limit);
     return {
-      items: this.store.classifications.filter(
-        (item) => item.conversationId === conversationId && item.type === type,
-      ),
-      nextCursor: "",
-      hasMore: false,
+      items: page,
+      nextCursor: start + page.length < allItems.length && page.length > 0 ? page[page.length - 1].id : "",
+      hasMore: start + page.length < allItems.length,
     };
   }
 
-  async listByConversation(conversationId: string): Promise<{
+  async listByConversation(conversationId: string, cursor?: string, limit = 20): Promise<{
     items: MessageClassification[];
     nextCursor: string;
     hasMore: boolean;
   }> {
+    const allItems = this.store.classifications
+      .filter((item) => item.conversationId === conversationId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const start = cursor ? allItems.findIndex((item) => item.id === cursor) + 1 : 0;
+    const page = allItems.slice(start, start + limit);
     return {
-      items: this.store.classifications.filter((item) => item.conversationId === conversationId),
-      nextCursor: "",
-      hasMore: false,
+      items: page,
+      nextCursor: start + page.length < allItems.length && page.length > 0 ? page[page.length - 1].id : "",
+      hasMore: start + page.length < allItems.length,
     };
   }
 }

@@ -39,6 +39,7 @@ import { setupFriendshipHexagon } from "@modules/friendships";
 import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
 import { setupBlockHexagon } from "@modules/blocks";
 import { setupUserHexagon } from "@modules/user";
+import { setupSearchHexagon } from "@modules/search";
 import { getDocClient, getTableName } from "@share/repository/dynamodb/client";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
@@ -48,6 +49,7 @@ export type LiveUser = {
   id: string;
   displayName: string;
   phone?: string;
+  username?: string;
 };
 
 export type LiveChatE2EHarness = {
@@ -225,6 +227,7 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
   const friendshipRouter = setupFriendshipHexagon(sctx, friendRequestHexagon.socketService);
   const blockHexagon = setupBlockHexagon(sctx, io);
   const userHexagon = setupUserHexagon(sctx, io);
+  const searchRouter = setupSearchHexagon(sctx);
 
   app.use(express.json());
   app.use("/v1", responseFormatMiddleware);
@@ -234,6 +237,7 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
   app.use("/v1", friendshipRouter);
   app.use("/v1", blockHexagon.router);
   app.use("/v1", userHexagon.router);
+  app.use("/v1", searchRouter);
   app.use("/v2", v2Router);
   app.use("/v2", userHexagon.v2Router);
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => responseErr(err, res));
@@ -434,7 +438,7 @@ export async function seedUser(
 
   await harness.repos.user.insert(user);
   harness.trackUser(user.id);
-  return { id: user.id, displayName: user.displayName, phone: user.phone };
+  return { id: user.id, displayName: user.displayName, phone: user.phone, username: user.username };
 }
 
 export async function seedFriendship(
@@ -602,6 +606,11 @@ export async function seedMessage(
     createdAt?: Date;
     media?: any[];
     links?: string[];
+    messageStatus?: Message["messageStatus"];
+    deletedForUserIds?: string[];
+    deletedAt?: Date;
+    expiresAt?: Date;
+    expireAtEpoch?: number;
   },
 ): Promise<Message> {
   const message = {
@@ -612,6 +621,11 @@ export async function seedMessage(
     text: data.text,
     media: data.media,
     links: data.links || [],
+    messageStatus: data.messageStatus,
+    deletedForUserIds: data.deletedForUserIds,
+    deletedAt: data.deletedAt,
+    expiresAt: data.expiresAt,
+    expireAtEpoch: data.expireAtEpoch,
     createdAt: data.createdAt || new Date(),
     pinned: false,
   } as Message;
