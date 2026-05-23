@@ -14,6 +14,7 @@ import { setupMediaHexagon } from "@modules/media";
 import {
   createSocketIOServer,
   connectionRegistry,
+  setSocketTokenIntrospector,
 } from "@share/component/socket-io";
 import { setupMessagingHexagon } from "@modules/chat";
 import { setupBlockHexagon } from "@modules/blocks";
@@ -62,9 +63,18 @@ config();
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
   app.use(
     cors({
-      origin: "*",
+      origin: (origin, callback) => {
+        const origins = appConfig.cors.origins;
+        const allowWildcard = origins.includes("*") && !appConfig.auth.refreshCookie.enabled;
+        if (!origin || allowWildcard || origins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error("Not allowed by CORS"));
+      },
       methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
       allowedHeaders: "*",
+      credentials: appConfig.auth.refreshCookie.enabled,
     }),
   );
   // app.use((req, res, next) => {
@@ -109,7 +119,8 @@ config();
     redisClient,
   );
   const sctx = { mdlFactory: setupMiddlewares(authUseCase) };
-  const { router: authRouter } = setupAuthHexagon(sctx, redisClient);
+  const { router: authRouter, authUseCase: mountedAuthUseCase } = setupAuthHexagon(sctx, redisClient);
+  setSocketTokenIntrospector(mountedAuthUseCase);
 
   // if (appConfig.envName === "development") {
   //   setTimeout(() => {
