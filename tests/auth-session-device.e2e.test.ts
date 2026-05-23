@@ -11,7 +11,8 @@ import { v7 } from "uuid";
 import { AuthHTTPService } from "@modules/auth/infras/transport";
 import { RedisSessionStore } from "@modules/auth/infras/session/redis-session";
 import { AuthUseCase } from "@modules/auth/usecase";
-import { createSocketIOServer } from "@share/component/socket-io";
+import { config } from "@share/component/config";
+import { authenticateSocketConnection, createSocketIOServer, setSocketTokenIntrospector } from "@share/component/socket-io";
 import { ITokenBlacklist, UserRole } from "@share/interface";
 
 class FakeRedis {
@@ -111,6 +112,13 @@ class InMemoryAuthUserRepository {
     this.users.set(user.id, user);
     return { user, password };
   }
+
+  addUserWithOverrides(phone = "0900000001", password = "Password123!", overrides: Record<string, any> = {}) {
+    const seeded = this.addUser(phone, password);
+    const user = { ...seeded.user, ...overrides };
+    this.users.set(user.id, user);
+    return { user, password };
+  }
 }
 
 type Harness = {
@@ -118,6 +126,7 @@ type Harness = {
   repo: InMemoryAuthUserRepository;
   close: () => Promise<void>;
   connectSocket: (token: string, deviceId: string) => Promise<ClientSocket>;
+  connectNamespaceSocket: (namespace: string, token: string, deviceId: string) => Promise<ClientSocket>;
 };
 
 async function createHarness(): Promise<Harness> {
@@ -132,19 +141,30 @@ async function createHarness(): Promise<Harness> {
   const app = express();
   const httpServer: HttpServer = createServer(app);
   const io = createSocketIOServer(httpServer);
+  setSocketTokenIntrospector(useCase);
+
+  io.of("/messages").use(authenticateSocketConnection);
+  io.of("/messages").on("connection", (socket: any) => {
+    socket.emit("connected", {
+      socketId: socket.id,
+      userId: socket.userId,
+      deviceId: socket.deviceId,
+    });
+  });
 
   const auth = async (req: Request, res: Response, next: NextFunction) => {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
     if (!token) return res.status(401).json({ error: "Unauthorized" });
     const result = await useCase.introspect(token);
     if (!result.isOk || !result.payload) return res.status(401).json({ error: "Unauthorized" });
-    res.locals.requester = { sub: result.payload.sub, role: UserRole.USER };
+    res.locals.requester = result.payload;
     return next();
   };
 
   app.use(express.json());
   app.post("/v1/auth/login", service.loginAPI.bind(service));
   app.post("/v1/auth/refresh", service.refreshAPI.bind(service));
+  app.post("/v1/auth/logout", auth, service.logoutAPI.bind(service));
   app.post("/v1/auth/logout-all", auth, service.logoutAllAPI.bind(service));
   app.get("/v1/auth/sessions", auth, service.listSessionsAPI.bind(service));
   app.delete("/v1/auth/sessions/:deviceId", auth, service.revokeSessionAPI.bind(service));
@@ -178,10 +198,31 @@ async function createHarness(): Promise<Harness> {
       });
       return socket;
     },
+    connectNamespaceSocket: async (namespace: string, token: string, deviceId: string) => {
+      const socket = createSocketClient(`${baseURL}${namespace}`, {
+        auth: { token, deviceId },
+        transports: ["websocket"],
+        forceNew: true,
+      });
+      clients.push(socket);
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`Timed out connecting socket ${namespace}`)), 1000);
+        socket.once("connect", () => {
+          clearTimeout(timer);
+          resolve();
+        });
+        socket.once("connect_error", (error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+      });
+      return socket;
+    },
     close: async () => {
       for (const client of clients) client.disconnect();
       await new Promise<void>((resolve) => io.close(() => resolve()));
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+      setSocketTokenIntrospector(null);
     },
   };
 }
@@ -209,6 +250,11 @@ function waitForEvent<T>(socket: ClientSocket, event: string): Promise<T> {
       resolve(payload);
     });
   });
+}
+
+function cookieHeader(response: any) {
+  const cookies = response.headers["set-cookie"] || [];
+  return Array.isArray(cookies) ? cookies.map((cookie) => cookie.split(";")[0]).join("; ") : "";
 }
 
 describe("auth session and device E2E", () => {
@@ -317,5 +363,127 @@ describe("auth session and device E2E", () => {
       headers: authHeaders(web2.data.data.accessToken, "web-2"),
     });
     expect(rejectedAfterLogoutAll.status).toBe(401);
+  });
+
+  it("returns FE token metadata, supports cookie refresh, and revokes the device on refresh reuse", async () => {
+    const login = await harness.api.post(
+      "/v1/auth/login",
+      { phone: credentials.user.phone, password: credentials.password },
+      { headers: deviceHeaders("cookie-web", "web", "Chrome - Windows") },
+    );
+    expect(login.status).toBe(200);
+    expect(login.data.data).toEqual(
+      expect.objectContaining({
+        accessToken: expect.any(String),
+        refreshToken: expect.any(String),
+        tokenType: "Bearer",
+        expiresIn: expect.any(Number),
+        refreshExpiresIn: expect.any(Number),
+        deviceId: "cookie-web",
+        deviceType: "desktop-web",
+        platform: "web",
+      }),
+    );
+    expect(cookieHeader(login)).toContain("chatbe_refresh_token=");
+
+    const cookieRefresh = await harness.api.post(
+      "/v1/auth/refresh",
+      {},
+      { headers: { Cookie: cookieHeader(login) } },
+    );
+    expect(cookieRefresh.status).toBe(200);
+    expect(cookieRefresh.data.data.refreshToken).not.toBe(login.data.data.refreshToken);
+    expect(cookieRefresh.data.data).toEqual(
+      expect.objectContaining({
+        deviceId: "cookie-web",
+        tokenType: "Bearer",
+        refreshExpiresIn: expect.any(Number),
+      }),
+    );
+    expect(cookieHeader(cookieRefresh)).toContain("chatbe_refresh_token=");
+
+    const reusedOldRefresh = await harness.api.post("/v1/auth/refresh", {
+      refreshToken: login.data.data.refreshToken,
+    });
+    expect(reusedOldRefresh.status).toBe(401);
+
+    const revokedSessionRequest = await harness.api.get("/v1/auth/sessions", {
+      headers: authHeaders(cookieRefresh.data.data.accessToken, "cookie-web"),
+    });
+    expect(revokedSessionRequest.status).toBe(401);
+
+    const newRefreshAfterReuse = await harness.api.post("/v1/auth/refresh", {
+      refreshToken: cookieRefresh.data.data.refreshToken,
+    });
+    expect(newRefreshAfterReuse.status).toBe(401);
+  });
+
+  it("logs out the current session using the token device when X-Device-Id is missing", async () => {
+    const login = await harness.api.post(
+      "/v1/auth/login",
+      { phone: credentials.user.phone, password: credentials.password },
+      { headers: deviceHeaders("token-device", "web", "Chrome - Windows") },
+    );
+    expect(login.status).toBe(200);
+
+    const logout = await harness.api.post(
+      "/v1/auth/logout",
+      {},
+      { headers: { Authorization: `Bearer ${login.data.data.accessToken}` } },
+    );
+    expect(logout.status).toBe(200);
+
+    const refreshAfterLogout = await harness.api.post("/v1/auth/refresh", {
+      refreshToken: login.data.data.refreshToken,
+    });
+    expect(refreshAfterLogout.status).toBe(401);
+  });
+
+  it("rejects revoked access tokens on default and module socket namespaces", async () => {
+    const web1 = await harness.api.post(
+      "/v1/auth/login",
+      { phone: credentials.user.phone, password: credentials.password },
+      { headers: deviceHeaders("socket-web-1", "web", "Chrome - Windows") },
+    );
+    expect(web1.status).toBe(200);
+
+    const defaultSocket = await harness.connectSocket(web1.data.data.accessToken, "socket-web-1");
+    const moduleSocket = await harness.connectNamespaceSocket("/messages", web1.data.data.accessToken, "socket-web-1");
+    expect(defaultSocket.connected).toBe(true);
+    expect(moduleSocket.connected).toBe(true);
+
+    const revokedEvent = waitForEvent<any>(defaultSocket, "session:revoked");
+    const web2 = await harness.api.post(
+      "/v1/auth/login",
+      { phone: credentials.user.phone, password: credentials.password },
+      { headers: deviceHeaders("socket-web-2", "web", "Edge - macOS") },
+    );
+    expect(web2.status).toBe(200);
+    await expect(revokedEvent).resolves.toEqual(
+      expect.objectContaining({ deviceId: "socket-web-1", reason: "platform_session_replaced" }),
+    );
+
+    await expect(harness.connectSocket(web1.data.data.accessToken, "socket-web-1")).rejects.toThrow();
+    await expect(harness.connectNamespaceSocket("/messages", web1.data.data.accessToken, "socket-web-1")).rejects.toThrow();
+  });
+
+  it("blocks login for unverified email when verification is required", async () => {
+    const previous = config.auth.requireEmailVerification;
+    config.auth.requireEmailVerification = true;
+    try {
+      const seeded = harness.repo.addUserWithOverrides("0900000099", "Password123!", {
+        email: "unverified@chatbe.test",
+        verified: { email: false, phone: true },
+      });
+
+      const login = await harness.api.post(
+        "/v1/auth/login",
+        { email: seeded.user.email, password: seeded.password },
+        { headers: deviceHeaders("unverified-web", "web", "Chrome - Windows") },
+      );
+      expect(login.status).toBe(403);
+    } finally {
+      config.auth.requireEmailVerification = previous;
+    }
   });
 });
