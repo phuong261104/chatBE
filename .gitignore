@@ -60,6 +60,7 @@ tasks
 test-*
 !docs/test-flows/
 !docs/test-flows/*.md
+docs/handoff/
 docker
 tests/*
 !tests/
