@@ -5,6 +5,9 @@ import { AuthHTTPService } from "./infras/transport";
 import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb/dynamodb-repo";
 import { RedisSessionStore } from "@modules/auth/infras/session/redis-session";
 import { TokenBlacklistService } from "@modules/auth/infras/token/blacklist";
+import { AccessTokenService } from "@modules/auth/infras/token/access-token";
+import { RefreshTokenService } from "@modules/auth/infras/token/refresh-token";
+import { RedisRefreshTokenStore } from "@modules/auth/infras/redis/refresh-store";
 import { Handler } from "express";
 
 let redisClient: any = null;
@@ -23,8 +26,11 @@ export const setupAuthHexagon = (sctx: ServiceContext | { mdlFactory: { auth: Ha
   const userRepository = new DynamoUserRepository();
   const sessionStore = new RedisSessionStore(redis);
   const blacklistService = new TokenBlacklistService(redis);
+  const refreshTokenStore = new RedisRefreshTokenStore(redis);
+  const accessTokenService = new AccessTokenService(blacklistService);
+  const refreshTokenService = new RefreshTokenService(refreshTokenStore);
 
-  authUseCase = new AuthUseCase(userRepository, sessionStore, blacklistService);
+  authUseCase = new AuthUseCase(userRepository, sessionStore, blacklistService, accessTokenService, refreshTokenService);
   authUseCase.setRedisClient(redis);
 
   httpService = new AuthHTTPService(authUseCase);

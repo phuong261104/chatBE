@@ -2,8 +2,7 @@ import { IAuthUseCase, RegisterPendingResponse } from "../../usecase";
 import { Requester, DeviceType, DeviceDetails, Platform, DeviceInfo } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { config } from "@share/component/config";
-import { Request, Response } from "express";
-import jwt from "jsonwebtoken";
+import { CookieOptions, Request, Response } from "express";
 import { parseUserAgent } from "../device/device-parser";
 import {
   LoginDTO,
@@ -29,6 +28,62 @@ const VALID_DEVICE_TYPES: DeviceType[] = [
 
 export class AuthHTTPService {
   constructor(private readonly usecase: IAuthUseCase) {}
+
+  private refreshCookieOptions(maxAgeSeconds?: number): CookieOptions {
+    return {
+      httpOnly: true,
+      secure: config.auth.refreshCookie.secure,
+      sameSite: config.auth.refreshCookie.sameSite,
+      path: "/v1/auth",
+      ...(maxAgeSeconds ? { maxAge: maxAgeSeconds * 1000 } : {}),
+    };
+  }
+
+  private setRefreshCookie(res: Response, refreshToken: string, refreshExpiresIn?: number) {
+    if (!config.auth.refreshCookie.enabled) return;
+    res.cookie(
+      config.auth.refreshCookie.name,
+      refreshToken,
+      this.refreshCookieOptions(refreshExpiresIn),
+    );
+  }
+
+  private clearRefreshCookie(res: Response) {
+    if (!config.auth.refreshCookie.enabled) return;
+    res.clearCookie(config.auth.refreshCookie.name, this.refreshCookieOptions());
+  }
+
+  private parseCookies(req: Request): Record<string, string> {
+    const header = req.headers.cookie;
+    if (!header) return {};
+
+    return header.split(";").reduce<Record<string, string>>((acc, part) => {
+      const index = part.indexOf("=");
+      if (index <= 0) return acc;
+      const key = part.slice(0, index).trim();
+      const value = part.slice(index + 1).trim();
+      if (key) acc[key] = decodeURIComponent(value);
+      return acc;
+    }, {});
+  }
+
+  private getRefreshTokenFromRequest(req: Request): string | undefined {
+    const bodyToken = (req.body as RefreshTokenDTO | undefined)?.refreshToken;
+    if (bodyToken) return bodyToken;
+    return this.parseCookies(req)[config.auth.refreshCookie.name];
+  }
+
+  private setDeviceHeaders(res: Response, result: {
+    deviceId?: string;
+    deviceType?: DeviceType;
+    displayLabel?: string;
+    platform?: Platform;
+  }) {
+    if (result.deviceId) res.setHeader("X-Device-Id", result.deviceId);
+    if (result.deviceType) res.setHeader("X-Device-Type", result.deviceType);
+    if (result.displayLabel) res.setHeader("X-Display-Label", result.displayLabel);
+    if (result.platform) res.setHeader("X-Device-Platform", result.platform);
+  }
 
   private resolveDeviceType(headerType?: string, userAgent?: string): DeviceType {
     if (headerType && VALID_DEVICE_TYPES.includes(headerType as DeviceType)) {
@@ -92,7 +147,7 @@ export class AuthHTTPService {
   async registerAPI(req: Request, res: Response) {
     try {
       const dto = RegistrationDTOSchema.parse(req.body);
-      const requireVerification = dto.sendVerificationEmail;
+      const requireVerification = dto.sendVerificationEmail || config.auth.requireEmailVerification;
 
       let deviceInfo: { deviceId: string; deviceType: DeviceType; userAgent: string; ip: string; location?: string; details?: DeviceDetails } | undefined;
 
@@ -105,11 +160,8 @@ export class AuthHTTPService {
       if ("pendingVerification" in result) {
         res.status(200).json({ data: result });
       } else {
-        const deviceId = this.extractDeviceIdFromToken(result.refreshToken);
-        res.setHeader("X-Device-Id", deviceId);
-        res.setHeader("X-Device-Type", result.deviceType);
-        if (result.displayLabel) res.setHeader("X-Display-Label", result.displayLabel);
-        if (result.platform) res.setHeader("X-Device-Platform", result.platform);
+        this.setDeviceHeaders(res, result);
+        this.setRefreshCookie(res, result.refreshToken, result.refreshExpiresIn);
         res.status(201).json({ data: result });
       }
     } catch (error) {
@@ -125,42 +177,31 @@ export class AuthHTTPService {
     try {
       const deviceInfo = this.extractDeviceInfo(req);
       const result = await this.usecase.login(req.body as LoginDTO, deviceInfo);
-      const effectiveDeviceId = deviceInfo?.deviceId || (result.refreshToken ? this.extractDeviceIdFromToken(result.refreshToken) : "");
-      if (effectiveDeviceId) {
-        res.setHeader("X-Device-Id", effectiveDeviceId);
-        res.setHeader("X-Device-Type", result.deviceType);
-        if (result.displayLabel) res.setHeader("X-Display-Label", result.displayLabel);
-        if (result.platform) res.setHeader("X-Device-Platform", result.platform);
-      }
+      this.setDeviceHeaders(res, result);
+      this.setRefreshCookie(res, result.refreshToken, result.refreshExpiresIn);
       res.status(200).json({ data: result });
     } catch (error) {
-      if (error instanceof AppError && error.getStatusCode() === 400) {
-        res.status(401).json({ message: error.message });
+      if (error instanceof AppError) {
+        res.status(error.getStatusCode()).json({ message: error.message });
         return;
       }
       res.status(401).json({ message: (error as Error).message });
     }
   }
 
-  private extractDeviceIdFromToken(refreshToken: string): string {
-    try {
-      const payload = jwt.decode(refreshToken) as { deviceId?: string };
-      return payload?.deviceId || "";
-    } catch {
-      return "";
-    }
-  }
-
   async refreshAPI(req: Request, res: Response) {
     try {
-      const { refreshToken } = req.body as RefreshTokenDTO;
+      const refreshToken = this.getRefreshTokenFromRequest(req);
       if (!refreshToken) {
         res.status(400).json({ message: "refreshToken is required" });
         return;
       }
       const result = await this.usecase.refreshToken(refreshToken);
+      this.setDeviceHeaders(res, result);
+      this.setRefreshCookie(res, result.refreshToken, result.refreshExpiresIn);
       res.status(200).json({ data: result });
     } catch (error) {
+      this.clearRefreshCookie(res);
       if (error instanceof AppError && error.getStatusCode() === 401) {
         res.status(401).json({ message: error.message });
         return;
@@ -172,19 +213,9 @@ export class AuthHTTPService {
   async logoutAPI(req: Request, res: Response) {
     try {
       const requester = res.locals["requester"] as Requester;
-      const deviceId = req.headers["x-device-id"] as string;
-      const token = req.headers.authorization?.split(" ")[1];
+      const deviceId = (req.headers["x-device-id"] as string) || requester.deviceId;
       await this.usecase.logout(requester, deviceId);
-      if (token) {
-        try {
-          const jwtLib = await import("jsonwebtoken");
-          const payload = jwtLib.default.verify(token, config.accessToken.secretKey) as any;
-          if (payload?.jti) {
-            const ttl = Math.max(0, (payload.exp || 0) - Math.floor(Date.now() / 1000));
-            if (ttl > 0) await this.usecase.blacklistToken(payload.jti, payload.exp);
-          }
-        } catch {}
-      }
+      this.clearRefreshCookie(res);
       res.status(200).json({ data: true });
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });
@@ -195,6 +226,7 @@ export class AuthHTTPService {
     try {
       const requester = res.locals["requester"] as Requester;
       await this.usecase.logoutAll(requester);
+      this.clearRefreshCookie(res);
       res.status(200).json({ data: true });
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });
@@ -303,6 +335,7 @@ export class AuthHTTPService {
   async resetPasswordAPI(req: Request, res: Response) {
     try {
       const result = await this.usecase.resetPassword(req.body as ResetPasswordDTO);
+      this.clearRefreshCookie(res);
       res.status(200).json({ data: { success: result }, message: "Password has been reset successfully" });
     } catch (error) {
       if (error instanceof AppError) {
@@ -317,6 +350,7 @@ export class AuthHTTPService {
     try {
       const requester = res.locals["requester"] as Requester;
       const result = await this.usecase.changePassword(requester, req.body as ChangePasswordDTO);
+      this.clearRefreshCookie(res);
       res.status(200).json({ data: { success: result }, message: "Password changed successfully" });
     } catch (error) {
       if (error instanceof AppError) {
@@ -330,7 +364,7 @@ export class AuthHTTPService {
   async listSessionsAPI(req: Request, res: Response) {
     try {
       const requester = res.locals["requester"] as Requester;
-      const currentDeviceId = (req.headers["x-device-id"] as string) || "";
+      const currentDeviceId = (req.headers["x-device-id"] as string) || requester.deviceId || "";
       const sessions = await this.usecase.getSessions(requester.sub, currentDeviceId);
       res.status(200).json({ data: sessions });
     } catch (error) {
@@ -342,7 +376,7 @@ export class AuthHTTPService {
     try {
       const requester = res.locals["requester"] as Requester;
       const deviceId = req.params.deviceId as string;
-      const currentDeviceId = req.headers["x-device-id"] as string | undefined;
+      const currentDeviceId = (req.headers["x-device-id"] as string | undefined) || requester.deviceId;
       if (currentDeviceId && currentDeviceId === deviceId) {
         res.status(400).json({ message: "Use /auth/logout to revoke the current session" });
         return;
@@ -361,7 +395,7 @@ export class AuthHTTPService {
   async revokeAllSessionsAPI(req: Request, res: Response) {
     try {
       const requester = res.locals["requester"] as Requester;
-      const currentDeviceId = req.headers["x-device-id"] as string | undefined;
+      const currentDeviceId = (req.headers["x-device-id"] as string | undefined) || requester.deviceId;
       if (!currentDeviceId) {
         res.status(400).json({ message: "X-Device-Id is required to revoke other sessions" });
         return;

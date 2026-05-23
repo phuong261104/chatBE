@@ -4,7 +4,10 @@ import { LoginDTO, RegistrationDTO, SendVerificationDTO, VerifyEmailDTO, ForgotP
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
+  tokenType: "Bearer";
   expiresIn: number;
+  refreshExpiresIn: number;
+  deviceId: string;
   deviceType: DeviceType;
   displayLabel?: string;
   platform?: Platform;
