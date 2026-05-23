@@ -15,9 +15,8 @@ export function authMiddleware(
 
       // 2. Introspect token
       const { payload, isOk } = await introspector.introspect(token);
-      console.log(`[AUTH MW] isOk=${isOk} payload.sub=${(payload as any)?.sub}`);
 
-      if (!isOk) {
+      if (!isOk || !payload) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }

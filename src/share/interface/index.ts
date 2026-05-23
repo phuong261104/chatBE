@@ -42,6 +42,11 @@ export interface IUseCase<CreateDTO, UpdateDTO, Entity, Cond> {
 export interface TokenPayload {
   sub: string;
   role: UserRole;
+  type?: "access";
+  jti?: string;
+  tokenVersion?: number;
+  deviceId?: string;
+  exp?: number;
 }
 
 export interface Requester extends TokenPayload {}
@@ -72,6 +77,9 @@ export interface AccessTokenPayload {
   type: "access";
   jti: string;
   tokenVersion: number;
+  deviceId: string;
+  exp?: number;
+  iat?: number;
 }
 
 export interface RefreshTokenPayload {
@@ -79,6 +87,9 @@ export interface RefreshTokenPayload {
   type: "refresh";
   jti: string;
   deviceId: string;
+  tokenVersion: number;
+  exp?: number;
+  iat?: number;
 }
 
 export interface PasswordResetPayload {
@@ -122,8 +133,10 @@ export interface Session {
   deviceType: DeviceType;
   deviceInfo: DeviceInfo;
   refreshTokenJti: string;
+  refreshTokenExpiresAt?: number;
   accessTokenJti?: string;
   accessTokenExpiresAt?: number;
+  tokenVersion?: number;
   createdAt: Date;
   lastActive: Date;
 }
@@ -135,6 +148,8 @@ export interface ISessionStore {
     refreshTokenJti: string,
     accessTokenJti?: string,
     accessTokenExpiresAt?: number,
+    refreshTokenExpiresAt?: number,
+    tokenVersion?: number,
   ): Promise<Session>;
   get(deviceId: string): Promise<Session | null>;
   update(deviceId: string, data: Partial<Session>): Promise<void>;
@@ -147,5 +162,22 @@ export interface ISessionStore {
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
+  tokenType?: "Bearer";
   expiresIn: number;
+  refreshExpiresIn?: number;
+  deviceId?: string;
+  deviceType?: DeviceType;
+  platform?: Platform;
+  displayLabel?: string;
+  user?: {
+    id: string;
+    email?: string;
+    phone?: string;
+    displayName?: string;
+    avatarUrl?: string;
+    verified: {
+      email: boolean;
+      phone: boolean;
+    };
+  };
 }

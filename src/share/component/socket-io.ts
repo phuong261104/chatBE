@@ -1,6 +1,8 @@
 import { Server as SocketIOServer } from "socket.io";
 import { Server as HttpServer } from "http";
 import { jwtProvider } from "./jwt";
+import { ITokenIntrospect, TokenPayload } from "@share/interface";
+import { config } from "./config";
 
 export enum ConnectionState {
   CONNECTING = "connecting",
@@ -56,6 +58,7 @@ interface SocketPresenceVisibilityPort {
 let socketPresencePort: SocketPresencePort | null = null;
 let socketPresenceVisibilityPort: SocketPresenceVisibilityPort | null = null;
 let activeSocketServer: SocketIOServer | null = null;
+let socketTokenIntrospector: ITokenIntrospect | null = null;
 
 export function setSocketPresencePort(port: SocketPresencePort): void {
   socketPresencePort = port;
@@ -63,6 +66,51 @@ export function setSocketPresencePort(port: SocketPresencePort): void {
 
 export function setSocketPresenceVisibilityPort(port: SocketPresenceVisibilityPort): void {
   socketPresenceVisibilityPort = port;
+}
+
+export function setSocketTokenIntrospector(introspector: ITokenIntrospect | null): void {
+  socketTokenIntrospector = introspector;
+}
+
+function extractSocketToken(socket: any): string | undefined {
+  return (
+    socket.handshake.auth?.token ||
+    socket.handshake.query?.token ||
+    socket.handshake.headers?.authorization?.replace("Bearer ", "")
+  );
+}
+
+export async function verifySocketToken(token: string): Promise<TokenPayload | null> {
+  if (socketTokenIntrospector) {
+    const result = await socketTokenIntrospector.introspect(token);
+    return result.isOk && result.payload ? (result.payload as TokenPayload) : null;
+  }
+
+  return jwtProvider.verifyToken(token);
+}
+
+export async function authenticateSocketConnection(socket: any, next: (err?: Error) => void): Promise<void> {
+  try {
+    const token = extractSocketToken(socket);
+
+    if (!token) {
+      return next(new Error("Authentication error: No token provided"));
+    }
+
+    const payload = await verifySocketToken(token);
+
+    if (!payload || !payload.sub) {
+      return next(new Error("Authentication error: Invalid token"));
+    }
+
+    socket.userId = payload.sub;
+    socket.deviceId = payload.deviceId || socket.handshake.auth?.deviceId || socket.handshake.query?.deviceId;
+    socket.platform = socket.handshake.auth?.platform || socket.handshake.query?.platform;
+
+    next();
+  } catch {
+    next(new Error("Authentication error"));
+  }
 }
 
 export async function resolveSocketPresenceForViewer(
@@ -213,7 +261,7 @@ export const connectionRegistry = new InMemoryConnectionRegistry();
 export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: "*",
+      origin: config.cors.origins.includes("*") ? "*" : config.cors.origins,
       methods: ["GET", "POST"],
       credentials: true,
     },
@@ -227,33 +275,7 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
   });
   activeSocketServer = io;
 
-  io.use(async (socket: any, next) => {
-    try {
-      const token =
-        socket.handshake.auth?.token ||
-        socket.handshake.query?.token ||
-        socket.handshake.headers?.authorization?.replace("Bearer ", "");
-
-      if (!token) {
-        return next(new Error("Authentication error: No token provided"));
-      }
-
-      const payload = await jwtProvider.verifyToken(token);
-
-      if (!payload || !payload.sub) {
-        return next(new Error("Authentication error: Invalid token"));
-      }
-
-      socket.userId = payload.sub;
-      socket.deviceId = socket.handshake.auth?.deviceId || socket.handshake.query?.deviceId;
-      socket.platform = socket.handshake.auth?.platform || socket.handshake.query?.platform;
-
-      next();
-    } catch (error) {
-      console.error("Socket authentication error:", error);
-      next(new Error("Authentication error"));
-    }
-  });
+  io.use(authenticateSocketConnection);
 
   io.on("connection", (socket: any) => {
     const userId = socket.userId;

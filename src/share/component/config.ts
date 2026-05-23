@@ -2,6 +2,14 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const parseCsv = (value: string | undefined, fallback: string[]): string[] => {
+  const items = (value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items.length > 0 ? items : fallback;
+};
+
 export const config = {
   envName: process.env.NODE_ENV,
   rpc: {
@@ -40,7 +48,7 @@ export const config = {
     secure: process.env.SMTP_SECURE === "true",
     auth: {
       user: process.env.SMTP_USER || "hideonbush2611@gmail.com",
-      pass: process.env.SMTP_PASS || "qaiy paqo ijce xaox",
+      pass: process.env.SMTP_PASS || "",
     },
     from: process.env.EMAIL_FROM || "noreply@chatbe.io",
     fromName: process.env.EMAIL_FROM_NAME || "ChatBE",
@@ -51,6 +59,21 @@ export const config = {
   },
   auth: {
     requireEmailVerification: process.env.AUTH_REQUIRE_EMAIL_VERIFICATION === "true",
+    refreshCookie: {
+      enabled: process.env.AUTH_REFRESH_COOKIE_ENABLED !== "false",
+      name: process.env.AUTH_REFRESH_COOKIE_NAME || "chatbe_refresh_token",
+      sameSite: (process.env.AUTH_REFRESH_COOKIE_SAMESITE || "lax") as "lax" | "strict" | "none",
+      secure:
+        process.env.AUTH_REFRESH_COOKIE_SECURE !== undefined
+          ? process.env.AUTH_REFRESH_COOKIE_SECURE === "true"
+          : process.env.NODE_ENV === "production",
+    },
+  },
+  cors: {
+    origins: parseCsv(process.env.CORS_ORIGINS, [
+      process.env.FRONTEND_URL || "http://localhost:5173",
+      process.env.APP_URL || "http://localhost:3000",
+    ]),
   },
   upload: {
     maxFileSize: parseInt(process.env.UPLOAD_MAX_FILE_SIZE || "10485760"),
