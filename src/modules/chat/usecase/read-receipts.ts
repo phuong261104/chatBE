@@ -61,6 +61,7 @@ export class MarkMultipleAsReadHandler implements ICommandHandler<{
 
     const now = new Date();
     let lastReadMessageId: string | undefined;
+    let lastReadMessageCreatedAt: Date | undefined;
 
     for (const messageId of messageIds) {
       const message = await this.messageQueryRepo.get(messageId);
@@ -70,16 +71,18 @@ export class MarkMultipleAsReadHandler implements ICommandHandler<{
 
       const readBy = (message as any).readBy || [];
       const alreadyRead = readBy.some((r: any) => r.userId === userId);
-      if (!alreadyRead) {
-        readBy.push({ userId, readAt: now.toISOString() });
-      }
+      if (alreadyRead) continue;
+
+      readBy.push({ userId, readAt: now.toISOString() });
 
       await this.messageCommandRepo.update(messageId, {
         readBy,
       } as any);
 
-      if (!lastReadMessageId || new Date(message.createdAt) > new Date((this.messageQueryRepo as any).get(lastReadMessageId)?.createdAt || 0)) {
+      const messageCreatedAt = new Date(message.createdAt);
+      if (!lastReadMessageId || !lastReadMessageCreatedAt || messageCreatedAt > lastReadMessageCreatedAt) {
         lastReadMessageId = messageId;
+        lastReadMessageCreatedAt = messageCreatedAt;
       }
     }
 

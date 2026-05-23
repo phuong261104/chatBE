@@ -713,6 +713,9 @@ export class ChatV2Controller {
     if (existing.status === ConversationMemberStatus.REJECTED && status !== ConversationMemberStatus.ACTIVE) {
       throw this.error("Message request has been rejected", 403);
     }
+    if (existing.status === ConversationMemberStatus.ACTIVE && status === ConversationMemberStatus.PENDING && !existing.leftAt) {
+      return;
+    }
     if (existing.leftAt || existing.status !== status) {
       await this.conversationMemberRepo.update(existing.id, {
         status,
