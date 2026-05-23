@@ -250,6 +250,7 @@ class DynamoUserCommandRepository extends BaseCommandRepositoryDynamoDB<User, Us
     if (d.username !== undefined) updateData.username = d.username;
     if (d.password !== undefined) updateData.password = d.password;
     if (d.salt !== undefined) updateData.salt = d.salt;
+    if (d.tokenVersion !== undefined) updateData.tokenVersion = d.tokenVersion;
     if (d.status !== undefined) updateData.status = d.status;
     if (d.displayName !== undefined) updateData.displayName = d.displayName;
     if (d.avatarUrl !== undefined) updateData.avatarUrl = d.avatarUrl;

@@ -55,6 +55,7 @@ export const UserSchema = z.object({
 
   password: z.string(),
   salt: z.string(),
+  tokenVersion: z.number().int().positive().optional(),
   status: z.nativeEnum(UserStatus),
   verified: UserVerifiedSchema,
 
