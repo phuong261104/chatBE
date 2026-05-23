@@ -44,7 +44,16 @@ brand
 uploads
 category
 scripts
-.cursor
+# AI agent/editor local instructions
+.cursor/
+.codex/
+.claude/
+.gemini/
+.windsurf/
+.windsurfrules
+AGENTS.md
+CLAUDE.md
+GEMINI.md
 output
 
 tasks
