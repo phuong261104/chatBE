@@ -1,9 +1,11 @@
 export const ErrInvalidCredentials = new Error("Invalid email and password");
 export const ErrEmailExisted = new Error("Email already exists");
+export const ErrEmailRequired = new Error("Email is required");
 export const ErrPhoneExisted = new Error("Phone number already exists");
 export const ErrUserInactivated = new Error("User is inactivated or banned");
 export const ErrInvalidToken = new Error("Invalid or expired token");
 export const ErrUserNotFound = new Error("User not found");
+export const ErrEmailNotVerified = new Error("Email is not verified");
 export const ErrEmailNotFound = new Error("Email not found");
 export const ErrInvalidVerificationCode = new Error("Invalid verification code");
 export const ErrVerificationExpired = new Error("Verification code has expired");

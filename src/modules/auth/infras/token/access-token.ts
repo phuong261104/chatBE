@@ -6,7 +6,12 @@ import { config } from "@share/component/config";
 export class AccessTokenService {
   constructor(private readonly blacklist: ITokenBlacklist) {}
 
-  async generate(userId: string, role: UserRole, tokenVersion: number): Promise<string> {
+  async generate(
+    userId: string,
+    role: UserRole,
+    tokenVersion: number,
+    deviceId: string,
+  ): Promise<{ token: string; jti: string; expiresAt?: number }> {
     const jti = uuidv7();
     const payload: AccessTokenPayload = {
       sub: userId,
@@ -14,18 +19,24 @@ export class AccessTokenService {
       type: "access",
       jti,
       tokenVersion,
+      deviceId,
     };
 
     const options: SignOptions = {
       expiresIn: config.accessToken.expiresIn as any,
     };
 
-    return jwt.sign(payload, config.accessToken.secretKey, options as any);
+    const token = jwt.sign(payload, config.accessToken.secretKey, options as any);
+    const decoded = jwt.decode(token) as (AccessTokenPayload & { exp?: number }) | null;
+    return { token, jti, expiresAt: decoded?.exp };
   }
 
   async verify(token: string): Promise<AccessTokenPayload | null> {
     try {
       const payload = jwt.verify(token, config.accessToken.secretKey) as AccessTokenPayload;
+      if (payload.type !== "access") {
+        return null;
+      }
 
       const isBlacklisted = await this.blacklist.isBlacklisted(payload.jti);
       if (isBlacklisted) {

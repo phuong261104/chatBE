@@ -5,6 +5,7 @@ import {
   TokenPair,
   UserRole,
   AccessTokenPayload,
+  RefreshTokenPayload,
   DeviceInfo,
   DeviceType,
   DeviceDetails,
@@ -19,6 +20,9 @@ import bcrypt from "bcrypt";
 import { v7 as uuidv7 } from "uuid";
 import jwt, { SignOptions } from "jsonwebtoken";
 import { config } from "@share/component/config";
+import { AccessTokenService } from "../infras/token/access-token";
+import { RefreshTokenService } from "../infras/token/refresh-token";
+import { RedisRefreshTokenStore } from "../infras/redis/refresh-store";
 import {
   LoginDTO,
   LoginDTOSchema,
@@ -34,11 +38,13 @@ import {
 } from "../model/dto";
 import {
   ErrEmailExisted,
+  ErrEmailRequired,
   ErrInvalidCredentials,
   ErrInvalidToken,
   ErrPhoneExisted,
   ErrUserInactivated,
   ErrEmailNotFound,
+  ErrEmailNotVerified,
   ErrInvalidVerificationCode,
   ErrVerificationExpired,
   ErrTooManyAttempts,
@@ -68,7 +74,10 @@ const RESET_OTP_MAX_ATTEMPTS = 3;
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
+  tokenType: "Bearer";
   expiresIn: number;
+  refreshExpiresIn: number;
+  deviceId: string;
   deviceType: DeviceType;
   displayLabel?: string;
   platform?: "app" | "web";
@@ -126,12 +135,27 @@ export class AuthUseCase implements IAuthUseCase {
     private readonly userRepository: IRepository<any, any, any>,
     private readonly sessionStore: ISessionStore,
     private readonly blacklist: ITokenBlacklist,
+    private readonly accessTokenService: AccessTokenService = new AccessTokenService(blacklist),
+    private refreshTokenService?: RefreshTokenService,
   ) {
     this.emailService = new EmailTemplateService(getEmailProvider());
   }
 
   setRedisClient(redisClient: any) {
     this.redisClient = redisClient;
+    if (!this.refreshTokenService) {
+      this.refreshTokenService = new RefreshTokenService(new RedisRefreshTokenStore(redisClient));
+    }
+  }
+
+  private getRefreshTokenService(): RefreshTokenService {
+    if (!this.refreshTokenService) {
+      if (!this.redisClient) {
+        throw new Error("Refresh token service has not been initialized");
+      }
+      this.refreshTokenService = new RefreshTokenService(new RedisRefreshTokenStore(this.redisClient));
+    }
+    return this.refreshTokenService;
   }
 
   private parseExpiresIn(expiresIn: string): number {
@@ -148,48 +172,16 @@ export class AuthUseCase implements IAuthUseCase {
     }
   }
 
-  private generateAccessToken(userId: string, role: UserRole, tokenVersion: number): { token: string; jti: string; expiresAt?: number } {
-    const jti = uuidv7();
-    const payload: AccessTokenPayload = {
-      sub: userId,
-      role,
-      type: "access",
-      jti,
-      tokenVersion,
-    };
-    const token = jwt.sign(payload, config.accessToken.secretKey, {
-      expiresIn: config.accessToken.expiresIn as any,
-    } as SignOptions);
-    const decoded = jwt.decode(token) as (AccessTokenPayload & { exp?: number }) | null;
-    return { token, jti, expiresAt: decoded?.exp };
+  private generateAccessToken(userId: string, role: UserRole, tokenVersion: number, deviceId: string): Promise<{ token: string; jti: string; expiresAt?: number }> {
+    return this.accessTokenService.generate(userId, role, tokenVersion, deviceId);
   }
 
-  private async generateRefreshTokenPair(userId: string, deviceId: string): Promise<{ token: string; jti: string }> {
-    const jti = uuidv7();
-    const payload = { sub: userId, type: "refresh", jti, deviceId };
-    const token = jwt.sign(payload, config.refreshToken.secretKey, {
-      expiresIn: config.refreshToken.expiresIn as any,
-    } as SignOptions);
-    await this.storeRefreshToken(jti, userId, deviceId);
-    return { token, jti };
-  }
-
-  private async storeRefreshToken(jti: string, userId: string, deviceId: string): Promise<void> {
-    const key = `refresh:${jti}`;
-    const value = JSON.stringify({ userId, deviceId });
-    await this.redisClient.setEx(key, 7 * 24 * 60 * 60, value);
-  }
-
-  private async getRefreshToken(jti: string): Promise<{ userId: string; deviceId: string } | null> {
-    const key = `refresh:${jti}`;
-    const result = await this.redisClient.get(key);
-    if (!result) return null;
-    return JSON.parse(result);
+  private async generateRefreshTokenPair(userId: string, deviceId: string, tokenVersion: number): Promise<{ token: string; jti: string; expiresAt?: number }> {
+    return this.getRefreshTokenService().generate(userId, deviceId, tokenVersion);
   }
 
   private async revokeRefreshToken(jti: string): Promise<void> {
-    const key = `refresh:${jti}`;
-    await this.redisClient.del(key);
+    await this.getRefreshTokenService().revokeJti(jti);
   }
 
   private normalizePhone(phone: string): string {
@@ -318,16 +310,19 @@ export class AuthUseCase implements IAuthUseCase {
 
     const user = await this.userRepository.findByCond(cond);
     if (!user) {
-      throw AppError.from(ErrInvalidCredentials, 400).withLog("User not found");
+      throw AppError.from(ErrInvalidCredentials, 401).withLog("User not found");
     }
 
     const isMatch = await bcrypt.compare(`${dto.password}.${user.salt}`, user.password);
     if (!isMatch) {
-      throw AppError.from(ErrInvalidCredentials, 400).withLog("Password is incorrect");
+      throw AppError.from(ErrInvalidCredentials, 401).withLog("Password is incorrect");
     }
 
     if (user.status === UserStatus.DISABLED) {
       throw AppError.from(ErrUserInactivated, 400);
+    }
+    if (config.auth.requireEmailVerification && user.email && !user.verified?.email) {
+      throw AppError.from(ErrEmailNotVerified, 403);
     }
 
     await this.userRepository.update(user.id, { lastLoginAt: new Date() });
@@ -340,8 +335,8 @@ export class AuthUseCase implements IAuthUseCase {
     await this.revokeSessionsByPlatform(user.id, platform, effectiveDeviceId);
 
     const tokenVersion = user.tokenVersion || 1;
-    const accessToken = this.generateAccessToken(user.id, UserRole.USER, tokenVersion);
-    const { token: refreshToken, jti: refreshTokenJti } = await this.generateRefreshTokenPair(user.id, effectiveDeviceId);
+    const accessToken = await this.generateAccessToken(user.id, UserRole.USER, tokenVersion, effectiveDeviceId);
+    const { token: refreshToken, jti: refreshTokenJti, expiresAt: refreshTokenExpiresAt } = await this.generateRefreshTokenPair(user.id, effectiveDeviceId, tokenVersion);
 
     await this.sessionStore.create(
       user.id,
@@ -349,12 +344,17 @@ export class AuthUseCase implements IAuthUseCase {
       refreshTokenJti,
       accessToken.jti,
       accessToken.expiresAt,
+      refreshTokenExpiresAt,
+      tokenVersion,
     );
 
     return {
       accessToken: accessToken.token,
       refreshToken,
+      tokenType: "Bearer",
       expiresIn: this.parseExpiresIn(config.accessToken.expiresIn),
+      refreshExpiresIn: this.parseExpiresIn(config.refreshToken.expiresIn),
+      deviceId: effectiveDeviceId,
       deviceType: effectiveDeviceType,
       displayLabel: normalizedDeviceInfo.details?.displayLabel,
       platform,
@@ -382,6 +382,9 @@ export class AuthUseCase implements IAuthUseCase {
     const newId = uuidv7();
 
     const requireVerification = dto.sendVerificationEmail || config.auth.requireEmailVerification;
+    if (requireVerification && !dto.email) {
+      throw AppError.from(ErrEmailRequired, 422);
+    }
 
     if (requireVerification && dto.email) {
       const salt = bcrypt.genSaltSync(10);
@@ -457,8 +460,8 @@ export class AuthUseCase implements IAuthUseCase {
     const effectiveDeviceType = deviceInfo?.deviceType || this.detectDeviceTypeFallback(deviceInfo?.userAgent || "");
     const normalizedDeviceInfo = this.buildDeviceInfo(deviceInfo, effectiveDeviceId, effectiveDeviceType);
     const platform = this.resolvePlatform(effectiveDeviceType, normalizedDeviceInfo.details);
-    const accessToken = this.generateAccessToken(newId, UserRole.USER, 1);
-    const { token: refreshToken, jti: refreshTokenJti } = await this.generateRefreshTokenPair(newId, effectiveDeviceId);
+    const accessToken = await this.generateAccessToken(newId, UserRole.USER, 1, effectiveDeviceId);
+    const { token: refreshToken, jti: refreshTokenJti, expiresAt: refreshTokenExpiresAt } = await this.generateRefreshTokenPair(newId, effectiveDeviceId, 1);
 
     await this.sessionStore.create(
       newId,
@@ -466,12 +469,17 @@ export class AuthUseCase implements IAuthUseCase {
       refreshTokenJti,
       accessToken.jti,
       accessToken.expiresAt,
+      refreshTokenExpiresAt,
+      1,
     );
 
     return {
       accessToken: accessToken.token,
       refreshToken,
+      tokenType: "Bearer",
       expiresIn: this.parseExpiresIn(config.accessToken.expiresIn),
+      refreshExpiresIn: this.parseExpiresIn(config.refreshToken.expiresIn),
+      deviceId: effectiveDeviceId,
       deviceType: effectiveDeviceType,
       displayLabel: normalizedDeviceInfo.details?.displayLabel,
       platform,
@@ -501,12 +509,25 @@ export class AuthUseCase implements IAuthUseCase {
 
   async refreshToken(refreshToken: string): Promise<TokenPair> {
     try {
-      const payload = jwt.verify(refreshToken, config.refreshToken.secretKey) as any;
-      const stored = await this.getRefreshToken(payload.jti);
-      if (!stored) {
+      const payload = jwt.verify(refreshToken, config.refreshToken.secretKey) as RefreshTokenPayload;
+      if (payload.type !== "refresh" || !payload.jti || !payload.deviceId) {
         throw AppError.from(ErrInvalidToken, 401);
       }
-      if (stored.userId !== payload.sub || stored.deviceId !== payload.deviceId) {
+
+      const refreshTokenService = this.getRefreshTokenService();
+      const stored = await refreshTokenService.getStored(payload.jti);
+      if (!stored) {
+        const used = await refreshTokenService.getUsed(payload.jti);
+        if (used?.userId && used?.deviceId) {
+          await this.revokeSessionByDevice(used.userId, used.deviceId, "refresh_token_reused");
+        }
+        throw AppError.from(ErrInvalidToken, 401);
+      }
+      if (
+        stored.userId !== payload.sub ||
+        stored.deviceId !== payload.deviceId ||
+        (stored.tokenVersion || 1) !== (payload.tokenVersion || 1)
+      ) {
         throw AppError.from(ErrInvalidToken, 401);
       }
 
@@ -515,38 +536,59 @@ export class AuthUseCase implements IAuthUseCase {
       if (user.status === UserStatus.DISABLED) {
         throw AppError.from(ErrUserInactivated, 400);
       }
-
-      const existingSession = await this.sessionStore.get(payload.deviceId);
-      if (!existingSession || existingSession.userId !== user.id) {
+      const tokenVersion = user.tokenVersion || 1;
+      if ((payload.tokenVersion || 1) !== tokenVersion) {
         throw AppError.from(ErrInvalidToken, 401);
       }
 
-      await this.revokeRefreshToken(payload.jti);
+      const existingSession = await this.sessionStore.get(payload.deviceId);
+      if (
+        !existingSession ||
+        existingSession.userId !== user.id ||
+        existingSession.refreshTokenJti !== payload.jti
+      ) {
+        throw AppError.from(ErrInvalidToken, 401);
+      }
 
-      const tokenVersion = user.tokenVersion || 1;
-      const newAccessToken = this.generateAccessToken(user.id, UserRole.USER, tokenVersion);
-      const { token: newRefreshToken, jti: newRefreshTokenJti } = await this.generateRefreshTokenPair(user.id, payload.deviceId);
+      await refreshTokenService.consume(payload.jti, payload.exp);
+
+      const newAccessToken = await this.generateAccessToken(user.id, UserRole.USER, tokenVersion, payload.deviceId);
+      const { token: newRefreshToken, jti: newRefreshTokenJti, expiresAt: refreshTokenExpiresAt } = await this.generateRefreshTokenPair(user.id, payload.deviceId, tokenVersion);
 
       await this.sessionStore.update(payload.deviceId, {
         refreshTokenJti: newRefreshTokenJti,
+        refreshTokenExpiresAt,
         accessTokenJti: newAccessToken.jti,
         accessTokenExpiresAt: newAccessToken.expiresAt,
+        tokenVersion,
         lastActive: new Date(),
       });
 
       return {
         accessToken: newAccessToken.token,
         refreshToken: newRefreshToken,
+        tokenType: "Bearer",
         expiresIn: this.parseExpiresIn(config.accessToken.expiresIn),
+        refreshExpiresIn: this.parseExpiresIn(config.refreshToken.expiresIn),
+        deviceId: payload.deviceId,
+        deviceType: existingSession.deviceType,
+        displayLabel: existingSession.deviceInfo.details?.displayLabel,
+        platform: this.getSessionPlatform(existingSession),
+        user: this.extractUserPublic(user),
       };
     } catch (e) {
+      if (e instanceof AppError) throw e;
       throw AppError.from(ErrInvalidToken, 401);
     }
   }
 
   async logout(requester: Requester, deviceId?: string): Promise<void> {
-    if (deviceId) {
-      await this.revokeSessionByDevice(requester.sub, deviceId, "logout");
+    const effectiveDeviceId = deviceId || requester.deviceId;
+    if (effectiveDeviceId) {
+      await this.revokeSessionByDevice(requester.sub, effectiveDeviceId, "logout");
+    }
+    if (requester.jti && requester.exp) {
+      await this.blacklistToken(requester.jti, requester.exp);
     }
   }
 
@@ -564,12 +606,21 @@ export class AuthUseCase implements IAuthUseCase {
   async introspect(token: string): Promise<{ payload: any; isOk: boolean }> {
     try {
       const payload = jwt.verify(token, config.accessToken.secretKey) as AccessTokenPayload;
+      if (payload.type !== "access" || !payload.jti || !payload.deviceId) {
+        return { payload: null, isOk: false };
+      }
       const isBlacklisted = await this.blacklist.isBlacklisted(payload.jti);
       if (isBlacklisted) return { payload: null, isOk: false };
 
       const user = await this.userRepository.get(payload.sub);
       if (!user) return { payload: null, isOk: false };
+      if (user.status === UserStatus.DISABLED) return { payload: null, isOk: false };
       if (user.tokenVersion !== payload.tokenVersion) return { payload: null, isOk: false };
+
+      const session = await this.sessionStore.get(payload.deviceId);
+      if (!session || session.userId !== payload.sub || session.accessTokenJti !== payload.jti) {
+        return { payload: null, isOk: false };
+      }
 
       return { payload, isOk: true };
     } catch {

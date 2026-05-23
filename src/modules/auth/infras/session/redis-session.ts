@@ -17,6 +17,8 @@ export class RedisSessionStore implements ISessionStore {
     refreshTokenJti: string,
     accessTokenJti?: string,
     accessTokenExpiresAt?: number,
+    refreshTokenExpiresAt?: number,
+    tokenVersion?: number,
   ): Promise<Session> {
     const session: Session = {
       userId,
@@ -24,8 +26,10 @@ export class RedisSessionStore implements ISessionStore {
       deviceType: deviceInfo.deviceType,
       deviceInfo,
       refreshTokenJti,
+      refreshTokenExpiresAt,
       accessTokenJti,
       accessTokenExpiresAt,
+      tokenVersion,
       createdAt: new Date(),
       lastActive: new Date(),
     };

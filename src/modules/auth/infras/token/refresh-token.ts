@@ -1,24 +1,27 @@
 import jwt, { SignOptions } from "jsonwebtoken";
 import { v7 as uuidv7 } from "uuid";
-import { RefreshTokenPayload, DeviceInfo, TokenPair, UserRole } from "@share/interface";
+import { RefreshTokenPayload, TokenPair, UserRole } from "@share/interface";
 import { config } from "@share/component/config";
 
 export interface IRefreshTokenStore {
-  store(jti: string, userId: string, deviceId: string): Promise<void>;
-  get(jti: string): Promise<{ userId: string; deviceId: string } | null>;
+  store(jti: string, userId: string, deviceId: string, tokenVersion: number, expiresInSeconds: number): Promise<void>;
+  get(jti: string): Promise<{ userId: string; deviceId: string; tokenVersion?: number } | null>;
   revoke(jti: string): Promise<void>;
+  consume(jti: string, usedTtlSeconds: number): Promise<void>;
+  getUsed(jti: string): Promise<{ userId: string; deviceId: string; tokenVersion?: number } | null>;
 }
 
 export class RefreshTokenService {
   constructor(private readonly tokenStore: IRefreshTokenStore) {}
 
-  async generate(userId: string, deviceId: string): Promise<string> {
+  async generate(userId: string, deviceId: string, tokenVersion: number): Promise<{ token: string; jti: string; expiresAt?: number }> {
     const jti = uuidv7();
     const payload: RefreshTokenPayload = {
       sub: userId,
       type: "refresh",
       jti,
       deviceId,
+      tokenVersion,
     };
 
     const options: SignOptions = {
@@ -26,10 +29,11 @@ export class RefreshTokenService {
     };
 
     const token = jwt.sign(payload, config.refreshToken.secretKey, options as any);
+    const decoded = jwt.decode(token) as (RefreshTokenPayload & { exp?: number }) | null;
 
-    await this.tokenStore.store(jti, userId, deviceId);
+    await this.tokenStore.store(jti, userId, deviceId, tokenVersion, this.parseExpiresIn(config.refreshToken.expiresIn));
 
-    return token;
+    return { token, jti, expiresAt: decoded?.exp };
   }
 
   async verify(token: string): Promise<RefreshTokenPayload | null> {
@@ -56,11 +60,27 @@ export class RefreshTokenService {
     } catch {}
   }
 
+  async revokeJti(jti: string): Promise<void> {
+    await this.tokenStore.revoke(jti);
+  }
+
+  async getStored(jti: string): Promise<{ userId: string; deviceId: string; tokenVersion?: number } | null> {
+    return this.tokenStore.get(jti);
+  }
+
+  async getUsed(jti: string): Promise<{ userId: string; deviceId: string; tokenVersion?: number } | null> {
+    return this.tokenStore.getUsed(jti);
+  }
+
+  async consume(jti: string, expiresAt?: number): Promise<void> {
+    const ttl = expiresAt ? Math.max(0, expiresAt - Math.floor(Date.now() / 1000)) : this.parseExpiresIn(config.refreshToken.expiresIn);
+    await this.tokenStore.consume(jti, ttl);
+  }
+
   async rotate(
     currentToken: string,
-    deviceInfo: DeviceInfo,
     tokenVersion: number,
-    accessTokenService: { generate(userId: string, role: UserRole, tokenVersion: number): Promise<string> },
+    accessTokenService: { generate(userId: string, role: UserRole, tokenVersion: number, deviceId: string): Promise<{ token: string }> },
     role: UserRole
   ): Promise<TokenPair> {
     const currentPayload = await this.verify(currentToken);
@@ -68,21 +88,22 @@ export class RefreshTokenService {
       throw new Error("Invalid refresh token");
     }
 
-    await this.tokenStore.revoke(currentPayload.jti);
+    await this.consume(currentPayload.jti, currentPayload.exp);
 
     const newAccessToken = await accessTokenService.generate(
       currentPayload.sub,
       role,
-      tokenVersion
+      tokenVersion,
+      currentPayload.deviceId,
     );
 
-    const newRefreshToken = await this.generate(currentPayload.sub, currentPayload.deviceId);
+    const newRefreshToken = await this.generate(currentPayload.sub, currentPayload.deviceId, tokenVersion);
 
     const expiresIn = this.parseExpiresIn(config.accessToken.expiresIn);
 
     return {
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
+      accessToken: newAccessToken.token,
+      refreshToken: newRefreshToken.token,
       expiresIn,
     };
   }
