@@ -48,8 +48,8 @@ Auth module đọc thêm các header này để quản lý session theo thiết 
 ### Token flow chính
 
 1. `POST /v1/auth/register` tạo user và có thể trả token nếu không bắt buộc verify email.
-2. `POST /v1/auth/login` trả `accessToken`, `refreshToken`, user và device/session info.
-3. `POST /v1/auth/refresh` đổi refresh token lấy access token mới.
+2. `POST /v1/auth/login` trả `accessToken`, `refreshToken`, `tokenType`, TTL, user và device/session info. Khi bật hybrid cookie, backend đồng thời set refresh token vào HttpOnly cookie `chatbe_refresh_token`.
+3. `POST /v1/auth/refresh` đổi refresh token lấy cặp access/refresh token mới. Endpoint ưu tiên `refreshToken` trong JSON body, sau đó fallback sang cookie `chatbe_refresh_token`.
 4. `POST /v1/auth/logout` revoke session hiện tại.
 5. `POST /v1/auth/logout-all` revoke toàn bộ session của user.
 6. `DELETE /v1/auth/sessions/{deviceId}` revoke một thiết bị cụ thể.
@@ -389,8 +389,9 @@ Tất cả route AI nằm dưới `/v1/ai` và được bảo vệ bằng auth m
 
 - Client gửi phone/email/password và device headers.
 - Auth usecase hash password bằng bcrypt, lưu user vào DynamoDB, tạo access/refresh token.
-- Session metadata lưu trong Redis theo device.
-- Logout/revoke session đưa token/session vào blacklist/store để chặn refresh hoặc access tiếp.
+- Session metadata lưu trong Redis theo device, với một session web và một session app đang hoạt động cho mỗi user.
+- Refresh token rotate sau mỗi lần dùng; token đã rotate được đánh dấu consumed để phát hiện reuse. Nếu refresh token cũ bị dùng lại, session của device đó bị revoke.
+- Logout/revoke session đưa refresh token/session vào Redis revoke state và blacklist access token hiện tại để chặn refresh hoặc access tiếp.
 
 ### Profile/privacy
 

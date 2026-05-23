@@ -190,16 +190,19 @@ Auth flow:
 
 1. Client login/register gửi password và device headers.
 2. `AuthUseCase` validate credential, hash bằng bcrypt và phát JWT.
-3. Access token dùng `JWT_ACCESS_SECRET`, refresh token dùng `JWT_REFRESH_SECRET`.
-4. Session/refresh state lưu trong Redis.
-5. Logout/revoke đưa token/session vào blacklist/store.
-6. `authMiddleware` introspect access token và đặt requester vào `res.locals.requester`.
+3. Access token dùng `JWT_ACCESS_SECRET`, refresh token dùng `JWT_REFRESH_SECRET`; cả hai token mang `deviceId`, `jti` và `tokenVersion`.
+4. Session/refresh state lưu trong Redis bằng `session:{deviceId}`, `user:sessions:{userId}`, `refresh:{jti}`, `refresh:used:{jti}` và `blacklist:{accessJti}`.
+5. Refresh token rotate sau mỗi lần dùng; nếu refresh token consumed bị dùng lại, backend revoke session của device đó và phát `session:revoked`.
+6. Logout/revoke đưa token/session vào blacklist/store.
+7. `authMiddleware` introspect access token, kiểm tra blacklist/session/latest access JTI và đặt requester vào `res.locals.requester`.
 
 Device management:
 
 - `x-device-id` định danh thiết bị.
 - `user-agent`, `x-display-label`, `x-device-platform`, `x-device-location` làm metadata session.
 - `GET /v1/auth/sessions` trả danh sách session để user quản lý.
+- Nghiệp vụ hiện tại giữ tối đa một session `web` và một session `app` cho mỗi user; login mới cùng platform sẽ revoke session cũ cùng platform.
+- Web có thể dùng hybrid refresh cookie `chatbe_refresh_token` HttpOnly, còn app/FE vẫn nhận token trong JSON response để tương thích.
 
 ## DynamoDB Architecture
 
@@ -346,10 +349,10 @@ Env groups:
 
 | Group | Variables |
 | --- | --- |
-| App | `NODE_ENV`, `PORT`, `APP_URL`, `FRONTEND_URL` |
+| App | `NODE_ENV`, `PORT`, `APP_URL`, `FRONTEND_URL`, `CORS_ORIGINS` |
 | DynamoDB | `DYNAMODB_REGION`, `DYNAMODB_ENDPOINT`, `DYNAMODB_TABLE_PREFIX`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
 | Redis | `REDIS_HOST`, `REDIS_URL`, `REDIS_PORT`, `REDIS_PASSWORD` |
-| JWT | `JWT_ACCESS_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXPIRES_IN` |
+| JWT/Auth | `JWT_ACCESS_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXPIRES_IN`, `AUTH_REQUIRE_EMAIL_VERIFICATION`, `AUTH_REFRESH_COOKIE_ENABLED`, `AUTH_REFRESH_COOKIE_NAME`, `AUTH_REFRESH_COOKIE_SAMESITE`, `AUTH_REFRESH_COOKIE_SECURE` |
 | Password reset | `JWT_PASSWORD_RESET_SECRET`, `JWT_PASSWORD_RESET_EXPIRES_IN` |
 | Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`, `EMAIL_FROM_NAME` |
 | Upload | `UPLOAD_MAX_FILE_SIZE`, `UPLOAD_DESTINATION`, `UPLOAD_BASE_URL`, `UPLOAD_ALLOWED_MIME_TYPES` |

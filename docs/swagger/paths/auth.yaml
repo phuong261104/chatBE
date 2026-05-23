@@ -258,7 +258,10 @@ paths:
                 data:
                   accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  tokenType: "Bearer"
                   expiresIn: 900
+                  refreshExpiresIn: 604800
+                  deviceId: "550e8400-e29b-41d4-a716-446655440000"
                   deviceType: "mobile-app"
                   displayLabel: "iPhone 15 Pro"
                   platform: "app"
@@ -441,7 +444,10 @@ paths:
                 data:
                   accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  tokenType: "Bearer"
                   expiresIn: 900
+                  refreshExpiresIn: 604800
+                  deviceId: "550e8400-e29b-41d4-a716-446655440000"
                   deviceType: "mobile-app"
                   displayLabel: "iPhone 15 Pro"
                   platform: "app"
@@ -469,6 +475,8 @@ paths:
       tags: [Auth]
       description: |
         Use refresh token to get a new access token + refresh token pair.
+        The refresh token can be sent in the JSON body or via the HttpOnly
+        `chatbe_refresh_token` cookie set by login/register/refresh responses.
         
         ## When to Call
         
@@ -479,7 +487,7 @@ paths:
         
         - **Old refresh token is invalidated** after use
         - **New refresh token** must be used for next refresh
-        - Old tokens cannot be reused
+        - Old tokens cannot be reused; reuse revokes the affected device session
         
         ## Frontend Implementation (JavaScript)
         
@@ -544,10 +552,27 @@ paths:
                       refreshToken:
                         type: string
                         example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      tokenType:
+                        type: string
+                        example: "Bearer"
                       expiresIn:
                         type: integer
                         example: 900
                         description: "Access token expiration time in seconds"
+                      refreshExpiresIn:
+                        type: integer
+                        example: 604800
+                        description: "Refresh token expiration time in seconds"
+                      deviceId:
+                        type: string
+                        example: "550e8400-e29b-41d4-a716-446655440000"
+                      deviceType:
+                        $ref: '#/components/schemas/DeviceTypeEnum'
+                      displayLabel:
+                        type: string
+                        example: "Chrome - Windows"
+                      platform:
+                        $ref: '#/components/schemas/PlatformEnum'
         '401':
           description: "Invalid or expired refresh token"
           content:
@@ -569,7 +594,7 @@ paths:
         | Header | Required | Description |
         |--------|----------|-------------|
         | Authorization | **Yes** | Bearer token (accessToken) |
-        | X-Device-Id | No | UUID of device to logout |
+        | X-Device-Id | No | UUID of device to logout. If omitted, backend uses the `deviceId` embedded in the access token. |
         
         ## Frontend Implementation (JavaScript)
         
@@ -598,7 +623,7 @@ paths:
         ## Behavior
         
         - If `X-Device-Id` is provided → delete that device's session
-        - If `X-Device-Id` is NOT provided → only token blacklist is updated (no session deleted)
+        - If `X-Device-Id` is NOT provided → delete the current token device session
         - Access token is added to blacklist (cannot be reused)
       parameters:
         - in: header
@@ -1875,10 +1900,22 @@ components:
               type: string
               description: "JWT refresh token for getting new access token"
               example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            tokenType:
+              type: string
+              description: "Authorization token type"
+              example: "Bearer"
             expiresIn:
               type: integer
               description: "Access token expiration time in seconds"
               example: 900
+            refreshExpiresIn:
+              type: integer
+              description: "Refresh token expiration time in seconds"
+              example: 604800
+            deviceId:
+              type: string
+              description: "Current session device identifier"
+              example: "550e8400-e29b-41d4-a716-446655440000"
             deviceType:
               $ref: '#/components/schemas/DeviceTypeEnum'
             displayLabel:
