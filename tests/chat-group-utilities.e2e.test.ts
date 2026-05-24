@@ -45,7 +45,7 @@ describe("group utilities, owner role, and permissions E2E", () => {
     addFriendshipsWith(harness, owner.id, [adminCandidate.id, newOwner.id]);
 
     const createResponse = await harness.api.post(
-      "/v2/groups",
+      "/v1/groups",
       { name: "Owners", memberIds: [adminCandidate.id, newOwner.id] },
       { headers: authHeader(owner.id) },
     );
@@ -95,7 +95,7 @@ describe("group utilities, owner role, and permissions E2E", () => {
     const { owner, admin, conversation } = seedGroupConversation(harness.store);
 
     const leaveResponse = await harness.api.post(
-      `/v2/groups/${conversation.id}/leave`,
+      `/v1/groups/${conversation.id}/leave`,
       {},
       { headers: authHeader(owner.id) },
     );
@@ -116,7 +116,7 @@ describe("group utilities, owner role, and permissions E2E", () => {
     addFriendshipsWith(harness, admin.id, [adminInvitee.id]);
 
     const defaultAddResponse = await harness.api.post(
-      `/v2/groups/${conversation.id}/members`,
+      `/v1/groups/${conversation.id}/members`,
       { memberIds: [activeInvitee.id] },
       { headers: authHeader(member.id) },
     );
@@ -130,14 +130,14 @@ describe("group utilities, owner role, and permissions E2E", () => {
     );
 
     const requireApprovalResponse = await harness.api.patch(
-      `/v2/groups/${conversation.id}/settings`,
+      `/v1/groups/${conversation.id}/settings`,
       { requireApproval: true },
       { headers: authHeader(owner.id) },
     );
     expect(requireApprovalResponse.status).toBe(200);
 
     const pendingAddResponse = await harness.api.post(
-      `/v2/groups/${conversation.id}/members`,
+      `/v1/groups/${conversation.id}/members`,
       { memberIds: [pendingInvitee.id] },
       { headers: authHeader(member.id) },
     );
@@ -152,21 +152,21 @@ describe("group utilities, owner role, and permissions E2E", () => {
     expect(pendingListResponse.data.data.map((item: any) => item.userId)).toContain(pendingInvitee.id);
 
     const restrictAddResponse = await harness.api.patch(
-      `/v2/groups/${conversation.id}/settings`,
+      `/v1/groups/${conversation.id}/settings`,
       { whoCanAddMembers: "admins" },
       { headers: authHeader(owner.id) },
     );
     expect(restrictAddResponse.status).toBe(200);
 
     const memberBlockedResponse = await harness.api.post(
-      `/v2/groups/${conversation.id}/members`,
+      `/v1/groups/${conversation.id}/members`,
       { memberIds: [blockedInvitee.id] },
       { headers: authHeader(member.id) },
     );
     expect(memberBlockedResponse.status).toBe(403);
 
     const adminAddResponse = await harness.api.post(
-      `/v2/groups/${conversation.id}/members`,
+      `/v1/groups/${conversation.id}/members`,
       { memberIds: [adminInvitee.id] },
       { headers: authHeader(admin.id) },
     );
@@ -360,7 +360,7 @@ describe("group utilities, owner role, and permissions E2E", () => {
     expect(memberNote.status).toBe(201);
 
     const restrictUtilities = await harness.api.patch(
-      `/v2/groups/${conversation.id}/settings`,
+      `/v1/groups/${conversation.id}/settings`,
       { utilityPermissions: { reminder: "admins", note: "admins" } },
       { headers: authHeader(owner.id) },
     );

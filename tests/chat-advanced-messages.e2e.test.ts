@@ -20,7 +20,7 @@ async function loadMessageIds(harness: ChatE2EHarness, conversationId: string, u
   return response.data.data.messages.map((message: any) => message.id);
 }
 
-describe("advanced messaging E2E, v2 preferred", () => {
+describe("advanced messaging E2E, canonical v1", () => {
   let harness: ChatE2EHarness;
 
   beforeEach(async () => {
@@ -31,13 +31,13 @@ describe("advanced messaging E2E, v2 preferred", () => {
     await harness.close();
   });
 
-  it("sends messages through HTTP v2, emits receiveMessage, and hides expired TTL messages", async () => {
+  it("sends messages through HTTP /v1, emits receiveMessage, and hides expired TTL messages", async () => {
     const { owner, member, conversation } = seedGroupConversation(harness.store);
     const memberSocket = await harness.connectMessagesSocket(member.id);
     const received = waitForSocketEvent<any>(memberSocket, SocketEvent.RECEIVE_MESSAGE);
 
     const response = await harness.api.post(
-      `/v2/conversations/${conversation.id}/messages`,
+      `/v1/conversations/${conversation.id}/messages`,
       { text: "temporary secret", ttlSeconds: 60 },
       { headers: authHeader(owner.id) },
     );
@@ -67,7 +67,7 @@ describe("advanced messaging E2E, v2 preferred", () => {
     expect(searchResponse.data.data.messages).toHaveLength(0);
   });
 
-  it("keeps socket sendMessage aligned with HTTP v2 TTL behavior", async () => {
+  it("keeps socket sendMessage aligned with HTTP /v1 TTL behavior", async () => {
     const { owner, member, conversation } = seedGroupConversation(harness.store);
     const ownerSocket = await harness.connectMessagesSocket(owner.id);
     const memberSocket = await harness.connectMessagesSocket(member.id);
@@ -95,7 +95,7 @@ describe("advanced messaging E2E, v2 preferred", () => {
     );
   });
 
-  it("edits through HTTP v2 within 30 seconds and rejects stale edits on HTTP and socket", async () => {
+  it("edits through HTTP /v1 within 30 seconds and rejects stale edits on HTTP and socket", async () => {
     const { owner, member, conversation } = seedGroupConversation(harness.store);
     const fresh = harness.store.addMessage({
       conversationId: conversation.id,
@@ -115,7 +115,7 @@ describe("advanced messaging E2E, v2 preferred", () => {
     const edited = waitForSocketEvent<any>(memberSocket, SocketEvent.MESSAGE_EDITED);
 
     const editResponse = await harness.api.put(
-      `/v2/messages/${fresh.id}`,
+      `/v1/messages/${fresh.id}`,
       { text: "after" },
       { headers: authHeader(owner.id) },
     );
@@ -131,7 +131,7 @@ describe("advanced messaging E2E, v2 preferred", () => {
     );
 
     const staleHttpResponse = await harness.api.put(
-      `/v2/messages/${stale.id}`,
+      `/v1/messages/${stale.id}`,
       { text: "after stale" },
       { headers: authHeader(owner.id) },
     );
@@ -150,7 +150,7 @@ describe("advanced messaging E2E, v2 preferred", () => {
     }
   });
 
-  it("updates delivered and read state through legacy HTTP and socket because no HTTP v2 route exists", async () => {
+  it("updates delivered and read state through legacy HTTP and socket because no HTTP /v1 route exists", async () => {
     const { owner, member, conversation } = seedGroupConversation(harness.store);
     const first = harness.store.addMessage({
       conversationId: conversation.id,

@@ -1,6 +1,6 @@
 # chat-private-message-requests.e2e.test.ts
 
-Purpose: verify v2 private message request behavior across REST and Socket.IO.
+Purpose: verify private message request behavior across REST and Socket.IO.
 
 Business flows:
 - Non-friend private messages create a pending request and emit `message-request:incoming`.

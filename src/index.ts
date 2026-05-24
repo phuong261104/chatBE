@@ -132,20 +132,15 @@ config();
   // }
 
   app.use("/v1", responseFormatMiddleware);
-  app.use("/v2", responseFormatMiddleware);
 
   const {
     router: userRouter,
     v2Router: userV2Router,
-    profileAPI,
-    updateProfileAPI,
   } = setupUserHexagon(sctx, io);
 
   app.use("/v1", authRouter);
-  app.get("/v1/users/profile", sctx.mdlFactory.auth, profileAPI);
-  app.patch("/v1/users/profile", sctx.mdlFactory.auth, updateProfileAPI);
+  app.use("/v1", userV2Router);
   app.use("/v1", userRouter);
-  app.use("/v2", userV2Router);
 
   const mediaRouter = setupMediaHexagon(sctx);
   const {
@@ -158,27 +153,23 @@ config();
     setupFriendRequestHexagon(sctx, io);
   const friendshipRouter = setupFriendshipHexagon(sctx, socketService);
   app.use("/v1", mediaRouter);
+  app.use("/v1", messagingV2Router);
   app.use("/v1", messagingRouter);
-  app.use("/v2", messagingV2Router);
   app.use("/v1", blockRouter);
   app.use("/v1", friendRequestRouter);
   app.use("/v1", friendshipRouter);
-  app.use("/v2", blockRouter);
-  app.use("/v2", friendRequestRouter);
-  app.use("/v2", friendshipRouter);
 
   const myCloudRouter = setupMyCloudHexagon(sctx, io);
   const searchRouter = setupSearchHexagon(sctx);
   app.use("/v1", myCloudRouter);
   app.use("/v1", searchRouter);
 
-  const { router: callRouter, v2Router: callV2Router } = setupCallHexagon(
+  const { router: callRouter } = setupCallHexagon(
     io,
     sctx,
     messagingSocketService,
   );
   app.use("/v1", callRouter);
-  app.use("/v2", callV2Router);
 
   const { router: aiRouter } = setupAiHexagon({
     messageRepo: new DynamoMessageRepository(),

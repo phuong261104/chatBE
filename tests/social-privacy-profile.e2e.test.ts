@@ -215,7 +215,18 @@ async function createHarness(): Promise<Harness> {
   const mdlFactory = { auth };
   app.use(express.json());
   app.use("/v1", responseFormatMiddleware);
-  app.use("/v2", responseFormatMiddleware);
+
+  const canonical = express.Router();
+  canonical.get("/users/me/profile", auth, userV2.getMyProfileAPI);
+  canonical.patch("/users/me/profile", auth, userV2.updateMyProfileAPI);
+  canonical.patch("/users/me/privacy", auth, userV2.updateMyPrivacyAPI);
+  canonical.get("/users/me/avatar-history", auth, userV2.getAvatarHistoryAPI);
+  canonical.get("/users/search-by-phone", auth, userV2.searchByPhoneAPI);
+  canonical.get("/users/:id/public", auth, userV2.getPublicProfileAPI);
+  canonical.get("/users/:id/presence", auth, userV2.getPresenceAPI);
+  canonical.get("/friends/suggestions", auth, userV2.getFriendSuggestionsAPI);
+  app.use("/v1", canonical);
+  app.use("/v1", setupChatV2Routes(chatV2, mdlFactory as any));
 
   const v1 = express.Router();
   v1.post("/friend-requests/:receiverId", auth, friendRequestHttp.sendFriendRequestAPI.bind(friendRequestHttp));
@@ -226,18 +237,6 @@ async function createHarness(): Promise<Harness> {
   v1.get("/blocks/:blockedUserId/check", auth, blockHttp.checkBlockStatusAPI.bind(blockHttp));
   v1.get("/conversations/:conversationId/messages", auth, messagingHttp.loadMessagesAPI.bind(messagingHttp));
   app.use("/v1", v1);
-
-  const v2 = express.Router();
-  v2.get("/users/me/profile", auth, userV2.getMyProfileAPI);
-  v2.patch("/users/me/profile", auth, userV2.updateMyProfileAPI);
-  v2.patch("/users/me/privacy", auth, userV2.updateMyPrivacyAPI);
-  v2.get("/users/me/avatar-history", auth, userV2.getAvatarHistoryAPI);
-  v2.get("/users/search-by-phone", auth, userV2.searchByPhoneAPI);
-  v2.get("/users/:id/public", auth, userV2.getPublicProfileAPI);
-  v2.get("/users/:id/presence", auth, userV2.getPresenceAPI);
-  v2.get("/friends/suggestions", auth, userV2.getFriendSuggestionsAPI);
-  app.use("/v2", v2);
-  app.use("/v2", setupChatV2Routes(chatV2, mdlFactory as any));
 
   const jwtSpy = jest.spyOn(jwtProvider, "verifyToken").mockImplementation(async (token: string) => {
     const normalized = token.replace(/^Bearer\s+/i, "");
@@ -374,7 +373,7 @@ describe("social, privacy, profile E2E", () => {
     harness.store.addMember({ conversationId: group.id, userId: alice.id, role: ConversationMemberRole.OWNER });
     harness.store.addMember({ conversationId: group.id, userId: sharedOnly.id });
 
-    const suggestions = await harness.api.get("/v2/friends/suggestions", { headers: authHeader(alice.id) });
+    const suggestions = await harness.api.get("/v1/friends/suggestions", { headers: authHeader(alice.id) });
     expect(suggestions.status).toBe(200);
     expect(suggestions.data.data).toEqual(
       expect.arrayContaining([
@@ -416,15 +415,15 @@ describe("social, privacy, profile E2E", () => {
     expect(block.status).toBe(200);
 
     const blockedMessage = await harness.api.post(
-      "/v2/messages/private",
+      "/v1/messages/private",
       { targetUserId: blocker.id, text: "can I send?" },
       { headers: authHeader(blocked.id) },
     );
     expect(blockedMessage.status).toBe(403);
 
-    const hiddenProfile = await harness.api.get(`/v2/users/${blocker.id}/public`, { headers: authHeader(blocked.id) });
+    const hiddenProfile = await harness.api.get(`/v1/users/${blocker.id}/public`, { headers: authHeader(blocked.id) });
     expect(hiddenProfile.status).toBe(403);
-    const hiddenPresence = await harness.api.get(`/v2/users/${blocker.id}/presence`, { headers: authHeader(blocked.id) });
+    const hiddenPresence = await harness.api.get(`/v1/users/${blocker.id}/presence`, { headers: authHeader(blocked.id) });
     expect(hiddenPresence.status).toBe(200);
     expect(hiddenPresence.data.data).toEqual(expect.objectContaining({ visibility: "hidden", isOnline: false }));
 
@@ -435,7 +434,7 @@ describe("social, privacy, profile E2E", () => {
     expect(history.data.data.messages).toEqual(expect.arrayContaining([expect.objectContaining({ id: oldMessage.id })]));
 
     const privacy = await harness.api.patch(
-      "/v2/users/me/privacy",
+      "/v1/users/me/privacy",
       {
         blockMessagesFromStrangers: true,
         phoneVisibility: UserInfoVisibility.ONLY_ME,
@@ -450,30 +449,30 @@ describe("social, privacy, profile E2E", () => {
     expect(privacy.status).toBe(200);
 
     const strangerBlocked = await harness.api.post(
-      "/v2/messages/private",
+      "/v1/messages/private",
       { targetUserId: contact.id, text: "hello from stranger" },
       { headers: authHeader(stranger.id) },
     );
     expect(strangerBlocked.status).toBe(403);
 
-    const searchHidden = await harness.api.get(`/v2/users/search-by-phone?phone=${encodeURIComponent(contact.phone)}`, {
+    const searchHidden = await harness.api.get(`/v1/users/search-by-phone?phone=${encodeURIComponent(contact.phone)}`, {
       headers: authHeader(stranger.id),
     });
     expect(searchHidden.status).toBe(404);
 
-    const publicProfile = await harness.api.get(`/v2/users/${contact.id}/public`, { headers: authHeader(stranger.id) });
+    const publicProfile = await harness.api.get(`/v1/users/${contact.id}/public`, { headers: authHeader(stranger.id) });
     expect(publicProfile.status).toBe(200);
     expect(publicProfile.data.data.phone).toBeUndefined();
     expect(publicProfile.data.data.birthday).toBeUndefined();
     expect(publicProfile.data.data.avatarUrl).toBeUndefined();
 
     const updateProfile = await harness.api.patch(
-      "/v2/users/me/profile",
+      "/v1/users/me/profile",
       { avatarUrl: "https://cdn.test/contact-new.png", coverUrl: "https://cdn.test/cover.png", bio: "updated" },
       { headers: authHeader(contact.id) },
     );
     expect(updateProfile.status).toBe(200);
-    const avatarHistory = await harness.api.get("/v2/users/me/avatar-history", { headers: authHeader(contact.id) });
+    const avatarHistory = await harness.api.get("/v1/users/me/avatar-history", { headers: authHeader(contact.id) });
     expect(avatarHistory.data.data).toEqual([
       expect.objectContaining({ userId: contact.id, avatarUrl: "https://cdn.test/contact-old.png" }),
     ]);
@@ -482,7 +481,7 @@ describe("social, privacy, profile E2E", () => {
     const receiver = seedUser(harness.store, { displayName: "Receiver" });
     const messageRequestEvent = waitForSocketEvent<any>(await harness.connectMessagesSocket(receiver.id), "message-request:incoming");
     const requestMessage = await harness.api.post(
-      "/v2/messages/private",
+      "/v1/messages/private",
       { targetUserId: receiver.id, text: "message request" },
       { headers: authHeader(sender.id) },
     );
@@ -490,7 +489,7 @@ describe("social, privacy, profile E2E", () => {
     expect(requestMessage.data.data.messageRequestStatus).toBe("pending");
     await expect(messageRequestEvent).resolves.toEqual(expect.objectContaining({ fromUserId: sender.id }));
 
-    const strangers = await harness.api.get("/v2/conversations/strangers", { headers: authHeader(receiver.id) });
+    const strangers = await harness.api.get("/v1/conversations/strangers", { headers: authHeader(receiver.id) });
     expect(strangers.status).toBe(200);
     expect(strangers.data.data).toEqual([
       expect.objectContaining({ messageRequestStatus: "pending" }),
@@ -499,7 +498,7 @@ describe("social, privacy, profile E2E", () => {
     const conversationId = requestMessage.data.data.conversation.id;
     const profileCardEvent = waitForSocketEvent<any>(await harness.connectMessagesSocket(sender.id), "receiveMessage");
     const profileCard = await harness.api.post(
-      `/v2/conversations/${conversationId}/profile-cards`,
+      `/v1/conversations/${conversationId}/profile-cards`,
       { userId: contact.id },
       { headers: authHeader(receiver.id) },
     );

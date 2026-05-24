@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  title: Chat V2 API - Conversations, Messages, Groups
-  version: 2.0.0
-  description: Chat V2 endpoints - newer version with hidden conversations, message requests, ttl, stricter group rules.
+  title: Chat API - Conversations, Messages, Groups
+  version: 1.0.0
+  description: Chat endpoints with hidden conversations, message requests, ttl, stricter group rules.
 
 components:
   schemas:
@@ -235,11 +235,11 @@ components:
           example: "all"
 
 paths:
-  # ==================== CONVERSATIONS V2 ====================
+  # ==================== CONVERSATIONS ====================
   /conversations:
     get:
-      summary: List conversations (v2 - hides hidden conversations)
-      tags: [Chat V2 - Conversations]
+      summary: List conversations (hides hidden conversations)
+      tags: [Chat - Conversations]
       security:
         - BearerAuth: []
       description: |
@@ -275,8 +275,8 @@ paths:
 
   /conversations/cursor:
     get:
-      summary: List conversations with cursor pagination (v2 - hides hidden)
-      tags: [Chat V2 - Conversations]
+      summary: List conversations with cursor pagination (hides hidden)
+      tags: [Chat - Conversations]
       security:
         - BearerAuth: []
       description: |
@@ -321,7 +321,7 @@ paths:
   /conversations/strangers:
     get:
       summary: List stranger conversations (pending/rejected message requests)
-      tags: [Chat V2 - Conversations]
+      tags: [Chat - Conversations]
       security:
         - BearerAuth: []
       description: |
@@ -353,7 +353,7 @@ paths:
   /conversations/{conversationId}/presence:
     get:
       summary: Get presence of all visible members in a conversation
-      tags: [Chat V2 - Conversations]
+      tags: [Chat - Conversations]
       security:
         - BearerAuth: []
       parameters:
@@ -391,11 +391,11 @@ paths:
         "404":
           description: Conversation not found
 
-  # ==================== MESSAGES V2 ====================
+  # ==================== MESSAGES ====================
   /conversations/{conversationId}/messages:
     post:
-      summary: Send message in a conversation (v2 - supports ttlSeconds)
-      tags: [Chat V2 - Messages]
+      summary: Send message in a conversation (supports ttlSeconds)
+      tags: [Chat - Messages]
       security:
         - BearerAuth: []
       description: |
@@ -467,7 +467,7 @@ paths:
   /conversations/{conversationId}/profile-cards:
     post:
       summary: Send a profile card message
-      tags: [Chat V2 - Messages]
+      tags: [Chat - Messages]
       security:
         - BearerAuth: []
       description: |
@@ -511,8 +511,8 @@ paths:
 
   /messages/private:
     post:
-      summary: Send private message to a user (v2 - creates message request if not friends)
-      tags: [Chat V2 - Messages]
+      summary: Send private message to a user (creates message request if not friends)
+      tags: [Chat - Messages]
       security:
         - BearerAuth: []
       description: |
@@ -590,8 +590,8 @@ paths:
 
   /messages/{messageId}:
     put:
-      summary: Edit message (v2 - 30-second window only)
-      tags: [Chat V2 - Messages]
+      summary: Edit message (30-second window only)
+      tags: [Chat - Messages]
       security:
         - BearerAuth: []
       description: |
@@ -634,11 +634,11 @@ paths:
         "404":
           description: Message not found
 
-  # ==================== MESSAGE REQUESTS V2 ====================
+  # ==================== MESSAGE REQUESTS ====================
   /message-requests:
     get:
       summary: List pending message requests (incoming stranger messages)
-      tags: [Chat V2 - Message Requests]
+      tags: [Chat - Message Requests]
       security:
         - BearerAuth: []
       description: |
@@ -670,7 +670,7 @@ paths:
   /message-requests/{conversationId}/accept:
     post:
       summary: Accept a message request
-      tags: [Chat V2 - Message Requests]
+      tags: [Chat - Message Requests]
       security:
         - BearerAuth: []
       description: |
@@ -706,7 +706,7 @@ paths:
   /message-requests/{conversationId}/reject:
     post:
       summary: Reject a message request
-      tags: [Chat V2 - Message Requests]
+      tags: [Chat - Message Requests]
       security:
         - BearerAuth: []
       description: |
@@ -736,11 +736,11 @@ paths:
         "404":
           description: Message request not found
 
-  # ==================== HIDDEN CONVERSATIONS V2 ====================
+  # ==================== HIDDEN CONVERSATIONS ====================
   /conversations/{conversationId}/hide:
     post:
       summary: Hide a conversation (requires PIN)
-      tags: [Chat V2 - Hidden Conversations]
+      tags: [Chat - Hidden Conversations]
       security:
         - BearerAuth: []
       description: |
@@ -793,7 +793,7 @@ paths:
   /conversations/{conversationId}/unlock:
     post:
       summary: Unlock a hidden conversation (verify PIN, get detail)
-      tags: [Chat V2 - Hidden Conversations]
+      tags: [Chat - Hidden Conversations]
       security:
         - BearerAuth: []
       description: |
@@ -842,7 +842,7 @@ paths:
   /conversations/{conversationId}/unhide:
     post:
       summary: Unhide a conversation (verify PIN first)
-      tags: [Chat V2 - Hidden Conversations]
+      tags: [Chat - Hidden Conversations]
       security:
         - BearerAuth: []
       description: |
@@ -886,11 +886,11 @@ paths:
         "404":
           description: Conversation not found
 
-  # ==================== GROUPS V2 ====================
+  # ==================== GROUPS ====================
   /groups:
     post:
-      summary: Create group (v2 - members must be active friends and unblocked)
-      tags: [Chat V2 - Groups]
+      summary: Create group (members must be active friends and unblocked)
+      tags: [Chat - Groups]
       security:
         - BearerAuth: []
       description: |
@@ -951,8 +951,8 @@ paths:
 
   /groups/{groupId}/members:
     post:
-      summary: Add members to group (v2 - members must be active friends and unblocked)
-      tags: [Chat V2 - Groups]
+      summary: Add members to group (members must be active friends and unblocked)
+      tags: [Chat - Groups]
       security:
         - BearerAuth: []
       description: |
@@ -1014,8 +1014,8 @@ paths:
 
   /groups/{groupId}/leave:
     post:
-      summary: Leave group (v2 - owner auto-transfers ownership)
-      tags: [Chat V2 - Groups]
+      summary: Leave group (owner auto-transfers ownership)
+      tags: [Chat - Groups]
       security:
         - BearerAuth: []
       description: |
@@ -1047,8 +1047,8 @@ paths:
 
   /groups/{groupId}/settings:
     patch:
-      summary: Update group settings (v2 - includes whoCanSendMessages)
-      tags: [Chat V2 - Groups]
+      summary: Update group settings (includes whoCanSendMessages)
+      tags: [Chat - Groups]
       security:
         - BearerAuth: []
       description: |

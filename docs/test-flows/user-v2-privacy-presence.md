@@ -1,6 +1,6 @@
 # user-v2-privacy-presence.test.ts
 
-Purpose: verify user v2 privacy, presence, and stranger-message policy rules.
+Purpose: verify user privacy, presence, and stranger-message policy rules.
 
 Business flows:
 - Presence is hidden when the viewer disables online visibility.

@@ -1,6 +1,6 @@
 # call-v2.service.test.ts
 
-Purpose: verify v2 call lifecycle rules without HTTP or LiveKit dependencies.
+Purpose: verify call lifecycle rules without HTTP or LiveKit dependencies.
 
 Business flows:
 - Group calls invite all members or selected invitees depending on request data.

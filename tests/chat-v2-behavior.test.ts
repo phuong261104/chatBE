@@ -29,7 +29,7 @@ import {
   InMemoryUserRepository,
 } from "./helpers/chat-e2e-repositories";
 
-describe("chat v2 business behavior", () => {
+describe("canonical chat business behavior", () => {
   function createConversationListRepos(store: ChatE2EStore) {
     return {
       conversationRepo: new InMemoryConversationRepository(store),

@@ -46,7 +46,7 @@ liveDescribe("group utilities live E2E with real app and DynamoDB repositories",
     await seedFriendship(harness, owner.id, memberB.id);
 
     const response = await harness.api.post(
-      "/v2/groups",
+      "/v1/groups",
       { name: "Live Owner Group", memberIds: [memberA.id, memberB.id] },
       owner.id,
     );
@@ -89,7 +89,7 @@ liveDescribe("group utilities live E2E with real app and DynamoDB repositories",
     ]);
 
     const defaultAdd = await harness.api.post(
-      `/v2/groups/${conversation.id}/members`,
+      `/v1/groups/${conversation.id}/members`,
       { memberIds: [activeInvitee.id] },
       member.id,
     );
@@ -102,14 +102,14 @@ liveDescribe("group utilities live E2E with real app and DynamoDB repositories",
     );
 
     const requireApproval = await harness.api.patch(
-      `/v2/groups/${conversation.id}/settings`,
+      `/v1/groups/${conversation.id}/settings`,
       { requireApproval: true },
       owner.id,
     );
     expect(requireApproval.status).toBe(200);
 
     const pendingAdd = await harness.api.post(
-      `/v2/groups/${conversation.id}/members`,
+      `/v1/groups/${conversation.id}/members`,
       { memberIds: [pendingInvitee.id] },
       member.id,
     );
@@ -117,21 +117,21 @@ liveDescribe("group utilities live E2E with real app and DynamoDB repositories",
     expect(pendingAdd.data.data[0].status).toBe(ConversationMemberStatus.PENDING);
 
     const restrictAdd = await harness.api.patch(
-      `/v2/groups/${conversation.id}/settings`,
+      `/v1/groups/${conversation.id}/settings`,
       { whoCanAddMembers: "admins" },
       owner.id,
     );
     expect(restrictAdd.status).toBe(200);
 
     const blockedAdd = await harness.api.post(
-      `/v2/groups/${conversation.id}/members`,
+      `/v1/groups/${conversation.id}/members`,
       { memberIds: [blockedInvitee.id] },
       member.id,
     );
     expect(blockedAdd.status).toBe(403);
 
     const adminAdd = await harness.api.post(
-      `/v2/groups/${conversation.id}/members`,
+      `/v1/groups/${conversation.id}/members`,
       { memberIds: [adminInvitee.id] },
       admin.id,
     );

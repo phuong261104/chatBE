@@ -24,7 +24,7 @@ describe("private message requests E2E", () => {
     const incoming = waitForSocketEvent<any>(receiverSocket, "message-request:incoming");
 
     const firstMessage = await harness.api.post(
-      "/v2/messages/private",
+      "/v1/messages/private",
       { targetUserId: receiver.id, text: "hello stranger" },
       { headers: authHeader(sender.id) },
     );
@@ -42,14 +42,14 @@ describe("private message requests E2E", () => {
     const conversationId = firstMessage.data.data.conversation.id;
     expect(harness.store.getMember(conversationId, receiver.id)?.status).toBe(ConversationMemberStatus.PENDING);
 
-    const requests = await harness.api.get("/v2/message-requests", {
+    const requests = await harness.api.get("/v1/message-requests", {
       headers: authHeader(receiver.id),
     });
     expect(requests.status).toBe(200);
     expect(requests.data.data.map((request: any) => request.conversation.id)).toContain(conversationId);
 
     const accepted = await harness.api.post(
-      `/v2/message-requests/${conversationId}/accept`,
+      `/v1/message-requests/${conversationId}/accept`,
       {},
       { headers: authHeader(receiver.id) },
     );
@@ -57,7 +57,7 @@ describe("private message requests E2E", () => {
     expect(harness.store.getMember(conversationId, receiver.id)?.status).toBe(ConversationMemberStatus.ACTIVE);
 
     const secondMessage = await harness.api.post(
-      "/v2/messages/private",
+      "/v1/messages/private",
       { targetUserId: receiver.id, text: "after accept" },
       { headers: authHeader(sender.id) },
     );
@@ -72,7 +72,7 @@ describe("private message requests E2E", () => {
     harness.store.blocks.add(`${receiver.id}#${sender.id}`);
 
     const response = await harness.api.post(
-      "/v2/messages/private",
+      "/v1/messages/private",
       { targetUserId: receiver.id, text: "blocked" },
       { headers: authHeader(sender.id) },
     );

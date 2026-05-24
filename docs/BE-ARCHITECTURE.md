@@ -8,7 +8,7 @@ Runtime chính:
 
 | Thành phần | Vai trò |
 | --- | --- |
-| Express | REST API v1/v2, middleware, Swagger UI |
+| Express | REST API v1, middleware, Swagger UI |
 | HTTP server | Server nền để gắn Express và Socket.IO |
 | Socket.IO | Realtime chat, presence, social notifications, call notifications |
 | DynamoDB | Database nghiệp vụ chính |
@@ -47,7 +47,7 @@ Startup sequence:
 6. Dereference Swagger YAML và serve Swagger UI tại `/api-docs`.
 7. Tạo Socket.IO server bằng `createSocketIOServer(httpServer)`.
 8. Setup auth trước để lấy `authUseCase`, sau đó tạo `sctx.mdlFactory`.
-9. Gắn `responseFormatMiddleware` cho `/v1` và `/v2`.
+9. Gắn `responseFormatMiddleware` cho `/v1`.
 10. Setup từng module hexagon-ish và mount router.
 11. Gắn global error handler `responseErr`.
 12. Listen port từ `PORT` hoặc `3000`.
@@ -175,14 +175,14 @@ Layer responsibilities:
 
 ## Response and Error Handling
 
-`responseFormatMiddleware` normalize response dưới `/v1` và `/v2`:
+`responseFormatMiddleware` normalize response dưới `/v1`:
 
 - Success: `{ status: "success", msg, data?, meta? }`
 - Error: `{ status: "error", msg, code, details? }`
 
 `AppError` trong `src/share/app-error.ts` giữ HTTP status và details. Global error handler `responseErr` xử lý `AppError`, `ZodError` và unknown errors.
 
-Một số controller legacy tự `res.status(...).json(...)`; miễn là route nằm dưới `/v1` hoặc `/v2`, middleware vẫn cố normalize về envelope chung.
+Một số controller legacy tự `res.status(...).json(...)`; miễn là route nằm dưới `/v1`, middleware vẫn cố normalize về envelope chung.
 
 ## Authentication Architecture
 
@@ -277,7 +277,7 @@ Chat là module lớn nhất, gồm:
 - Message usecases: send, edit, delete, revoke, forward, quote, read/delivered, search.
 - Group usecases: members, owner/admin, pending approval, settings.
 - Utilities: poll, reminder, note.
-- V2 usecases/controllers cho stranger conversations, message requests, hidden chat, profile cards.
+- Canonical usecases/controllers cho stranger conversations, message requests, hidden chat, profile cards.
 
 Persistence split:
 
@@ -313,7 +313,7 @@ Khi cloud storage bật, env cần có `CLOUD_BUCKET_NAME`, `CLOUD_REGION`, `CLO
 Call module có hai nhánh:
 
 - Legacy v1 self-hosted LiveKit: `/v1/calls`.
-- V2/cloud flow: `/v1/calls/v2` và `/v2/calls`.
+- Cloud flow: `/v1/calls`.
 
 `LivekitService` phát token dựa trên provider:
 
@@ -413,8 +413,8 @@ Các nhóm test hiện có:
 
 - Auth session/device.
 - Social privacy/profile/presence.
-- Chat v2 behavior.
+- Canonical chat behavior.
 - Chat search.
 - Group utilities.
 - Advanced messages.
-- Call v2 service.
+- Call cloud service.

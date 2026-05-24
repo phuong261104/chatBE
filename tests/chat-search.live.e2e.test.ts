@@ -34,7 +34,7 @@ async function sendConversationMessage(
   senderId: string,
   body: { text?: string; media?: any[] },
 ) {
-  const response = await harness.api.post(`/v2/conversations/${conversationId}/messages`, body, senderId);
+  const response = await harness.api.post(`/v1/conversations/${conversationId}/messages`, body, senderId);
   expect(response.status).toBe(201);
   return response.data.data;
 }

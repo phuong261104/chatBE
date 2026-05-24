@@ -30,7 +30,7 @@ async function sendConversationMessage(
   body: { text?: string; media?: any[] },
 ) {
   const response = await harness.api.post(
-    `/v2/conversations/${conversationId}/messages`,
+    `/v1/conversations/${conversationId}/messages`,
     body,
     { headers: authHeader(senderId) },
   );

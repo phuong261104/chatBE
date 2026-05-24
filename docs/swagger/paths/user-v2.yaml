@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  title: User V2 API - Profile, Privacy, Presence
-  version: 2.0.0
-  description: User V2 endpoints - privacy-aware profile, presence, friend suggestions with relationship context.
+  title: User API - Profile, Privacy, Presence
+  version: 1.0.0
+  description: User endpoints - privacy-aware profile, presence, friend suggestions with relationship context.
 
 components:
   schemas:
@@ -164,11 +164,11 @@ components:
           enum: [everyone, friends, nobody]
 
 paths:
-  # ==================== PROFILE V2 ====================
+  # ==================== PROFILE ====================
   /users/me/profile:
     get:
       summary: Get current user's profile with privacy settings
-      tags: [User V2]
+      tags: [User]
       security:
         - BearerAuth: []
       description: |
@@ -190,7 +190,7 @@ paths:
 
     patch:
       summary: Update current user's profile
-      tags: [User V2]
+      tags: [User]
       security:
         - BearerAuth: []
       description: |
@@ -233,11 +233,11 @@ paths:
         "422":
           description: Validation error
 
-  # ==================== PRIVACY V2 ====================
+  # ==================== PRIVACY ====================
   /users/me/privacy:
     patch:
       summary: Update privacy settings
-      tags: [User V2]
+      tags: [User]
       security:
         - BearerAuth: []
       description: |
@@ -274,7 +274,7 @@ paths:
   /users/me/avatar-history:
     get:
       summary: Get avatar change history
-      tags: [User V2]
+      tags: [User]
       security:
         - BearerAuth: []
       description: |
@@ -302,11 +302,11 @@ paths:
         "401":
           description: Unauthorized
 
-  # ==================== USER SEARCH V2 ====================
+  # ==================== USER SEARCH ====================
   /users/search:
     get:
       summary: Search users by name or username
-      tags: [User V2]
+      tags: [User]
       security:
         - BearerAuth: []
       description: |
@@ -348,7 +348,7 @@ paths:
   /users/search-by-phone:
     get:
       summary: Search user by phone number
-      tags: [User V2]
+      tags: [User]
       security:
         - BearerAuth: []
       description: |
@@ -378,11 +378,11 @@ paths:
         "404":
           description: User not found (not found, blocked, or privacy denied)
 
-  # ==================== PRESENCE V2 ====================
+  # ==================== PRESENCE ====================
   /users/{id}/presence:
     get:
       summary: Get user presence with privacy awareness
-      tags: [User V2]
+      tags: [User]
       security:
         - BearerAuth: []
       description: |
@@ -419,11 +419,11 @@ paths:
         "404":
           description: User not found
 
-  # ==================== PUBLIC PROFILE V2 ====================
+  # ==================== PUBLIC PROFILE ====================
   /users/{id}/public:
     get:
       summary: Get public profile with relationship-aware sanitization
-      tags: [User V2]
+      tags: [User]
       security:
         - BearerAuth: []
       description: |
@@ -456,11 +456,11 @@ paths:
         "404":
           description: User not found
 
-  # ==================== FRIEND SUGGESTIONS V2 ====================
+  # ==================== FRIEND SUGGESTIONS ====================
   /friends/suggestions:
     get:
       summary: Get ranked friend suggestions
-      tags: [User V2]
+      tags: [User]
       security:
         - BearerAuth: []
       description: |

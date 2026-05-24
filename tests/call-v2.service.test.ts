@@ -4,6 +4,9 @@ import {
   CallV2SessionStatus,
 } from "@modules/call/usecase";
 import { CallType, LivekitProvider } from "@modules/call/interface";
+import { setupCallHexagon } from "@modules/call";
+import { createServer } from "http";
+import { Server as SocketIOServer } from "socket.io";
 
 describe("CallV2Service", () => {
   beforeEach(() => {
@@ -168,5 +171,27 @@ describe("CallV2Service", () => {
     expect(ended.status).toBe(CallV2SessionStatus.ENDED);
     expect(legacy.participantOutcomes?.u1.status).toBe(CallV2ParticipantStatus.LEFT);
     expect(legacy.participantOutcomes?.u2.status).toBe(CallV2ParticipantStatus.LEFT);
+  });
+});
+
+describe("call socket namespace", () => {
+  it("mounts the canonical /v1/calls namespace without legacy /socket/calls", () => {
+    const httpServer = createServer();
+    const io = new SocketIOServer(httpServer);
+
+    try {
+      setupCallHexagon(io, {
+        mdlFactory: {
+          auth: (_req: unknown, _res: unknown, next: () => void) => next(),
+        },
+      } as any);
+
+      const namespaces = (io as any)._nsps as Map<string, unknown>;
+      expect(namespaces.has("/v1/calls")).toBe(true);
+      expect(namespaces.has("/socket/calls")).toBe(false);
+    } finally {
+      io.close();
+      httpServer.close();
+    }
   });
 });

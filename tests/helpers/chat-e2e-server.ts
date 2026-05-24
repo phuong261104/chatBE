@@ -96,11 +96,8 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
 
   app.use(express.json());
   app.use("/v1", responseFormatMiddleware);
-  app.use("/v2", responseFormatMiddleware);
 
   const v1Router = express.Router();
-  v1Router.get("/conversations", auth, httpService.getConversationsAPI.bind(httpService));
-  v1Router.get("/conversations/cursor", auth, httpService.getConversationsCursorAPI.bind(httpService));
   v1Router.get("/conversations/:conversationId/messages", auth, httpService.loadMessagesAPI.bind(httpService));
   v1Router.post("/conversations/:conversationId/delivered", auth, httpService.markAsDeliveredAPI.bind(httpService));
   v1Router.post("/conversations/:conversationId/seen", auth, httpService.markAsSeenAPI.bind(httpService));
@@ -112,7 +109,6 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
     httpService.deleteMessageForEveryoneAPI.bind(httpService),
   );
   v1Router.post("/messages/forward", auth, httpService.forwardMessagesAPI.bind(httpService));
-  v1Router.post("/messages/save-to-my-document", auth, httpService.saveMessagesToMyDocumentAPI.bind(httpService));
   v1Router.post("/messages/:messageId/pin", auth, httpService.pinMessageAPI.bind(httpService));
   v1Router.delete("/messages/:messageId/pin", auth, httpService.unpinMessageAPI.bind(httpService));
   v1Router.post(
@@ -158,8 +154,8 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
   v1Router.put("/groups/:groupId/notes/:noteId", auth, httpService.updateGroupNoteAPI.bind(httpService));
   v1Router.delete("/groups/:groupId/notes/:noteId", auth, httpService.deleteGroupNoteAPI.bind(httpService));
 
+  app.use("/v1", setupChatV2Routes(v2Controller, mdlFactory as any));
   app.use("/v1", v1Router);
-  app.use("/v2", setupChatV2Routes(v2Controller, mdlFactory as any));
 
   const jwtSpy = jest.spyOn(jwtProvider, "verifyToken").mockImplementation(async (token: string) => {
     const normalized = token.replace(/^Bearer\s+/i, "");

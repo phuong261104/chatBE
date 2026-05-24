@@ -11,7 +11,7 @@ export class CallV2SocketService {
   private userSockets: Map<string, Set<string>> = new Map();
 
   constructor(io: SocketIOServer) {
-    this.namespace = io.of('/v2/calls');
+    this.namespace = io.of('/v1/calls');
     this.namespace.use(async (socket: AuthenticatedSocket, next) => {
       await authenticateSocketConnection(socket, next);
     });

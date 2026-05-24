@@ -19,8 +19,7 @@ Base URLs:
 
 Version prefix:
 
-- `/v1`: API legacy/đầy đủ tính năng hiện có.
-- `/v2`: API mới cho chat/user privacy/presence/call, đồng thời alias một số social route từ v1.
+- `/v1`: version public duy nhất hiện tại. Các luồng chat/user/call mới đã được hợp nhất dưới `/v1`.
 
 ## Authentication
 
@@ -79,7 +78,7 @@ My Cloud cũng có endpoint upload riêng dưới `/v1/my-cloud/upload*`.
 
 ## Response Format
 
-`/v1` và `/v2` được gắn `responseFormatMiddleware`, nên response được normalize về envelope hiện tại.
+`/v1` được gắn `responseFormatMiddleware`, nên response được normalize về envelope hiện tại.
 
 Success:
 
@@ -130,7 +129,7 @@ HTTP status vẫn là nguồn phân loại chính. Middleware map code phổ bi�
 | 422 | `VALIDATION_ERROR` |
 | 500+ | `INTERNAL_ERROR` |
 
-Một số controller legacy trả `{ error: string }` hoặc `{ message: string }`; middleware sẽ normalize khi route nằm dưới `/v1` hoặc `/v2`.
+Một số controller legacy trả `{ error: string }` hoặc `{ message: string }`; middleware sẽ normalize khi route nằm dưới `/v1`.
 
 ## Endpoint Catalog
 
@@ -157,30 +156,20 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | DELETE | `/v1/auth/sessions/{deviceId}` | Revoke một session |
 | PATCH | `/v1/auth/avatar` | Cập nhật avatar auth profile |
 
-### User v1
+### User
 
 | Method | Path | Mục đích |
 | --- | --- | --- |
-| GET/PATCH | `/v1/users/profile` | Xem/cập nhật profile của user hiện tại |
+| GET/PATCH | `/v1/users/me/profile` | Profile của user hiện tại kèm privacy settings |
+| PATCH | `/v1/users/me/privacy` | Cập nhật privacy settings |
+| GET | `/v1/users/me/avatar-history` | Lịch sử avatar |
 | GET/POST | `/v1/users` | List user hoặc admin tạo user |
-| GET | `/v1/users/search` | Search user |
-| GET | `/v1/users/search-by-phone` | Search user theo phone |
-| GET | `/v1/users/{id}/presence` | Presence user |
-| GET | `/v1/users/{id}/public` | Public profile |
+| GET | `/v1/users/search` | Search user có áp dụng privacy |
+| GET | `/v1/users/search-by-phone` | Search phone có áp dụng privacy |
+| GET | `/v1/users/{id}/presence` | Presence theo privacy |
+| GET | `/v1/users/{id}/public` | Public profile theo relationship/privacy |
 | GET/PATCH/DELETE | `/v1/users/{id}` | Xem/cập nhật/xóa user theo id |
-
-### User v2
-
-| Method | Path | Mục đích |
-| --- | --- | --- |
-| GET/PATCH | `/v2/users/me/profile` | Profile v2 của user hiện tại |
-| PATCH | `/v2/users/me/privacy` | Cập nhật privacy settings |
-| GET | `/v2/users/me/avatar-history` | Lịch sử avatar |
-| GET | `/v2/users/search` | Search user có áp dụng privacy |
-| GET | `/v2/users/search-by-phone` | Search phone có áp dụng privacy |
-| GET | `/v2/users/{id}/presence` | Presence theo privacy |
-| GET | `/v2/users/{id}/public` | Public profile theo relationship/privacy |
-| GET | `/v2/friends/suggestions` | Gợi ý bạn bè |
+| GET | `/v1/friends/suggestions` | Gợi ý bạn bè |
 
 ### Chat v1 - Conversations
 
@@ -249,28 +238,20 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | GET/POST | `/v1/groups/{groupId}/notes` | List/tạo note |
 | PUT/DELETE | `/v1/groups/{groupId}/notes/{noteId}` | Update/delete note |
 
-### Chat v2
+### Chat canonical additions
 
 | Method | Path | Mục đích |
 | --- | --- | --- |
-| GET | `/v2/conversations` | List conversations v2 |
-| GET | `/v2/conversations/cursor` | Cursor conversations v2 |
-| GET | `/v2/conversations/strangers` | Message request/stranger conversations |
-| GET | `/v2/conversations/{conversationId}/presence` | Presence trong conversation |
-| POST | `/v2/conversations/{conversationId}/messages` | Gửi message vào conversation |
-| POST | `/v2/conversations/{conversationId}/profile-cards` | Gửi profile card |
-| POST | `/v2/conversations/{conversationId}/hide` | Hide conversation |
-| POST | `/v2/conversations/{conversationId}/unlock` | Unlock hidden conversation |
-| POST | `/v2/conversations/{conversationId}/unhide` | Unhide conversation |
-| POST | `/v2/messages/private` | Gửi private message |
-| PUT | `/v2/messages/{messageId}` | Edit message v2 |
-| GET | `/v2/message-requests` | List message requests |
-| POST | `/v2/message-requests/{conversationId}/accept` | Accept message request |
-| POST | `/v2/message-requests/{conversationId}/reject` | Reject message request |
-| POST | `/v2/groups` | Tạo group v2 |
-| POST | `/v2/groups/{groupId}/members` | Thêm members v2 |
-| POST | `/v2/groups/{groupId}/leave` | Rời group v2 |
-| PATCH | `/v2/groups/{groupId}/settings` | Cập nhật settings v2 |
+| GET | `/v1/conversations/strangers` | Message request/stranger conversations |
+| GET | `/v1/conversations/{conversationId}/presence` | Presence trong conversation |
+| POST | `/v1/conversations/{conversationId}/profile-cards` | Gửi profile card |
+| POST | `/v1/conversations/{conversationId}/hide` | Hide conversation |
+| POST | `/v1/conversations/{conversationId}/unlock` | Unlock hidden conversation |
+| POST | `/v1/conversations/{conversationId}/unhide` | Unhide conversation |
+| POST | `/v1/messages/private` | Gửi private message |
+| GET | `/v1/message-requests` | List message requests |
+| POST | `/v1/message-requests/{conversationId}/accept` | Accept message request |
+| POST | `/v1/message-requests/{conversationId}/reject` | Reject message request |
 
 ### Media
 
@@ -301,7 +282,7 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | GET | `/v1/friend-requests/check/{targetUserId}` | Check request status |
 | GET | `/v1/friend-requests/count` | Count pending requests |
 
-Các route tương ứng cũng được mount dưới `/v2` cho social alias.
+Không còn social alias version khác; dùng các route `/v1` trong bảng trên.
 
 ### Blocks
 
@@ -311,7 +292,7 @@ Các route tương ứng cũng được mount dưới `/v2` cho social alias.
 | GET | `/v1/blocks` | List blocked users |
 | GET | `/v1/blocks/{blockedUserId}/check` | Check block status |
 
-Các route tương ứng cũng được mount dưới `/v2`.
+Không còn block alias version khác; dùng các route `/v1` trong bảng trên.
 
 ### My Cloud
 
@@ -348,28 +329,16 @@ Các route tương ứng cũng được mount dưới `/v2`.
 
 | Method | Path | Mục đích |
 | --- | --- | --- |
-| POST | `/v1/calls` | Tạo call legacy self-hosted LiveKit |
-| POST | `/v1/calls/{callId}/answer` | Answer call |
+| POST | `/v1/calls` | Tạo call LiveKit Cloud |
+| GET | `/v1/calls/conversations/{conversationId}/active` | Active call theo conversation |
+| GET | `/v1/calls/active-by-conversation/{conversationId}` | Alias active call |
+| POST | `/v1/calls/{callId}/join` | Join call |
+| POST | `/v1/calls/{callId}/leave` | Leave call |
 | POST | `/v1/calls/{callId}/reject` | Reject call |
 | POST | `/v1/calls/{callId}/missed` | Mark missed |
-| DELETE | `/v1/calls/{callId}` | End call |
-| GET | `/v1/calls/{callId}/token` | Lấy LiveKit token |
-| POST | `/v1/calls/v2` | Tạo cloud call alias |
-| POST | `/v1/calls/v2/{callId}/answer` | Answer cloud call |
-| POST | `/v1/calls/v2/{callId}/reject` | Reject cloud call |
-| POST | `/v1/calls/v2/{callId}/missed` | Mark missed cloud call |
-| DELETE | `/v1/calls/v2/{callId}` | End cloud call |
-| GET | `/v1/calls/v2/{callId}/token` | Lấy cloud LiveKit token |
-| POST | `/v2/calls` | Tạo call v2 |
-| GET | `/v2/calls/conversations/{conversationId}/active` | Active call theo conversation |
-| GET | `/v2/calls/active-by-conversation/{conversationId}` | Alias active call |
-| POST | `/v2/calls/{callId}/join` | Join call |
-| POST | `/v2/calls/{callId}/leave` | Leave call |
-| POST | `/v2/calls/{callId}/reject` | Reject call |
-| POST | `/v2/calls/{callId}/missed` | Mark missed |
-| POST | `/v2/calls/{callId}/end` | End call |
-| DELETE | `/v2/calls/{callId}` | End call alias |
-| GET | `/v2/calls/{callId}/token` | Lấy token |
+| POST | `/v1/calls/{callId}/end` | End call |
+| DELETE | `/v1/calls/{callId}` | End call alias |
+| GET | `/v1/calls/{callId}/token` | Lấy token |
 
 ### AI
 
@@ -395,8 +364,7 @@ Tất cả route AI nằm dưới `/v1/ai` và được bảo vệ bằng auth m
 
 ### Profile/privacy
 
-- V1 profile phục vụ backward compatibility.
-- V2 profile/privacy dùng `UserPrivacySchema` để kiểm soát search, birthday/phone/avatar visibility, online/last-seen và message từ stranger.
+- Profile/privacy dùng `UserPrivacySchema` để kiểm soát search, birthday/phone/avatar visibility, online/last-seen và message từ stranger.
 - Presence response có thể bị ẩn theo privacy và relationship.
 
 ### Private chat
@@ -427,8 +395,7 @@ Tất cả route AI nằm dưới `/v1/ai` và được bảo vệ bằng auth m
 
 ### Calls
 
-- V1 legacy dùng self-hosted LiveKit config: `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_WS_URL`.
-- V1 `/calls/v2` và V2 có thể dùng LiveKit Cloud: `LIVEKIT_CLOUD_API_KEY`, `LIVEKIT_CLOUD_API_SECRET`, `LIVEKIT_CLOUD_WS_URL`.
+- Calls dùng LiveKit Cloud config: `LIVEKIT_CLOUD_API_KEY`, `LIVEKIT_CLOUD_API_SECRET`, `LIVEKIT_CLOUD_WS_URL`.
 - Call state runtime nằm trong service memory; call log có thể phát message hệ thống vào chat khi call kết thúc/missed/rejected.
 
 ### AI

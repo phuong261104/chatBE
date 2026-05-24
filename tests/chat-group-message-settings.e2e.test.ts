@@ -26,14 +26,14 @@ describe("group message settings E2E", () => {
     const adminSocket = await harness.connectMessagesSocket(admin.id);
 
     const settingsResponse = await harness.api.patch(
-      `/v2/groups/${conversation.id}/settings`,
+      `/v1/groups/${conversation.id}/settings`,
       { whoCanSendMessages: "admins" },
       { headers: authHeader(owner.id) },
     );
     expect(settingsResponse.status).toBe(200);
 
     const memberResponse = await harness.api.post(
-      `/v2/conversations/${conversation.id}/messages`,
+      `/v1/conversations/${conversation.id}/messages`,
       { text: "member should be blocked" },
       { headers: authHeader(member.id) },
     );
@@ -68,14 +68,14 @@ describe("group message settings E2E", () => {
     const memberSocket = await harness.connectMessagesSocket(member.id);
 
     const settingsResponse = await harness.api.patch(
-      `/v2/groups/${conversation.id}/settings`,
+      `/v1/groups/${conversation.id}/settings`,
       { allowSendLink: false },
       { headers: authHeader(owner.id) },
     );
     expect(settingsResponse.status).toBe(200);
 
     const blockedLink = await harness.api.post(
-      `/v2/conversations/${conversation.id}/messages`,
+      `/v1/conversations/${conversation.id}/messages`,
       { text: "read https://blocked.test now" },
       { headers: authHeader(admin.id) },
     );
@@ -84,7 +84,7 @@ describe("group message settings E2E", () => {
 
     const received = waitForSocketEvent<any>(memberSocket, SocketEvent.RECEIVE_MESSAGE);
     const allowedText = await harness.api.post(
-      `/v2/conversations/${conversation.id}/messages`,
+      `/v1/conversations/${conversation.id}/messages`,
       { text: "plain text still works" },
       { headers: authHeader(admin.id) },
     );

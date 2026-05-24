@@ -30,7 +30,7 @@ describe("profile card messages E2E", () => {
     const received = waitForSocketEvent<any>(memberSocket, SocketEvent.RECEIVE_MESSAGE);
 
     const response = await harness.api.post(
-      `/v2/conversations/${conversation.id}/profile-cards`,
+      `/v1/conversations/${conversation.id}/profile-cards`,
       { userId: profileUser.id },
       { headers: authHeader(owner.id) },
     );
@@ -70,7 +70,7 @@ describe("profile card messages E2E", () => {
     harness.store.blocks.add(`${profileUser.id}#${owner.id}`);
 
     const response = await harness.api.post(
-      `/v2/conversations/${conversation.id}/profile-cards`,
+      `/v1/conversations/${conversation.id}/profile-cards`,
       { userId: profileUser.id },
       { headers: authHeader(owner.id) },
     );

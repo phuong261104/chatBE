@@ -6,7 +6,7 @@ import {
 } from "@modules/user/usecase/relationship-privacy-policy-v2";
 import { PresenceUseCase } from "@modules/user/usecase/presence-usecase";
 
-describe("user v2 privacy and presence", () => {
+describe("user privacy and presence", () => {
   const makeUser = (id: string, privacy: Partial<typeof DEFAULT_USER_PRIVACY> = {}) => ({
     id,
     status: "active",

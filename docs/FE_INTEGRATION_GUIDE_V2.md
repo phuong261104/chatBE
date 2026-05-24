@@ -1,4 +1,4 @@
-# Frontend Integration Guide V2
+# Frontend Integration Guide V1
 
 Updated: 2026-05-15
 
@@ -9,11 +9,11 @@ Updated: 2026-05-15
 This document was checked against the current backend source on 2026-05-15:
 
 - Route registration: `src/index.ts`
-- V2 chat routes: `src/modules/chat/infras/transport/http/v2-chat.routes.ts`
-- V2 call routes/socket: `src/modules/call/infras/transport/http/call-v2.routes.ts`, `src/modules/call/infras/transport/call-v2-socket.service.ts`
-- V2 user routes: `src/modules/user/infras/transport/user-v2.routes.ts`
-- V1/V2 friendship/block routes: `src/modules/friend-requests/index.ts`, `src/modules/friendships/index.ts`, `src/modules/blocks/index.ts`
-- V1 media, my-cloud, AI routes: `src/modules/media/index.ts`, `src/modules/my-cloud/index.ts`, `src/modules/ai/infras/transport/http-service.ts`
+- Canonical chat routes: `src/modules/chat/infras/transport/http/v2-chat.routes.ts`
+- Canonical call routes/socket: `src/modules/call/infras/transport/http/call-v2.routes.ts`, `src/modules/call/infras/transport/call-v2-socket.service.ts`
+- Canonical user routes: `src/modules/user/infras/transport/user-v2.routes.ts`
+- Friendship/block routes: `src/modules/friend-requests/index.ts`, `src/modules/friendships/index.ts`, `src/modules/blocks/index.ts`
+- Media, my-cloud, AI routes: `src/modules/media/index.ts`, `src/modules/my-cloud/index.ts`, `src/modules/ai/infras/transport/http-service.ts`
 
 Frontend handoff reading order:
 
@@ -21,8 +21,8 @@ Frontend handoff reading order:
 |---|---|---|---|
 | 1 | `docs/FE_INTEGRATION_GUIDE_V2.md` | Main integration guide and source-verified endpoint inventory | Required |
 | 2 | `docs/SOCKET_EVENTS_V2_REFERENCE.md` | Socket.IO namespaces/events including chat, calls, friends, blocks, My Cloud | Required |
-| 3 | `docs/handoff/FRONTEND_API_SOCKET_V2_CHANGES.md` | Concise V1 -> V2 migration notes | Required |
-| 4 | `docs/handoff/FRONTEND_CALL_INTEGRATION_GUIDE.md` | Call V2 LiveKit integration flow | Required for calls |
+| 3 | `docs/handoff/FRONTEND_API_SOCKET_V2_CHANGES.md` | Concise canonical API migration notes | Required |
+| 4 | `docs/handoff/FRONTEND_CALL_INTEGRATION_GUIDE.md` | Call V1 LiveKit integration flow | Required for calls |
 | 5 | `http://localhost:3000/api-docs` | Swagger UI for exact request/response schemas | Required |
 | 6 | `docs/SOCKET_FRIENDS_BLOCKS_REFERENCE.md` | Detailed friendship/block socket payloads | Reference |
 | 7 | `docs/CHAT_WEBSOCKET_EVENTS_CHECKLIST.md` | Chat websocket implementation checklist and caveats | Reference |
@@ -30,29 +30,29 @@ Frontend handoff reading order:
 
 Notes:
 
-- REST V2 uses `/v2`; legacy modules that do not have dedicated V2 business rules remain mounted under `/v1`.
-- Friend requests, friendships, and blocks are mounted under both `/v1` and `/v2`; behavior is the same unless stated otherwise.
+- REST uses `/v1` as the only public version.
+- Friend requests, friendships, and blocks are mounted under `/v1` only.
 - Swagger is the schema source of truth for request/response field details. This guide focuses on frontend flows and route/event inventory.
 
 ---
 
 ## 1. Overview
 
-This guide covers the V2 API and Socket.IO integration for frontend clients. **Always prefer V2 endpoints** over V1 when both exist — V2 includes critical features like hidden conversations (PIN protection), message requests (stranger messages), TTL messages, stricter group membership rules, and privacy-aware presence.
+This guide covers the canonical V1 API and Socket.IO integration for frontend clients. **Use the `/v1` endpoints**; V1 includes critical features like hidden conversations (PIN protection), message requests (stranger messages), TTL messages, stricter group membership rules, and privacy-aware presence.
 
-### Key Differences: V1 vs V2
+### Canonical V1 Behavior
 
-| Feature | V1 | V2 |
+| Feature | Current V1 behavior | Notes |
 |---|---|---|
-| Conversations list | Returns hidden conversations | Automatically excludes hidden |
-| Private messages to strangers | Allowed or blocked by server | Creates message request, requires acceptance |
-| Message edit window | Server-defined | Strictly 30 seconds |
-| Self-destruct messages | Not supported | Supported via `ttlSeconds` |
-| Hidden conversations | Not supported | PIN-protected hide/unlock/unhide |
-| Group member validation | Members can be anyone | Members must be active friends |
-| Profile visibility | Fixed | Privacy-controlled (`everyone`, `friends`, `nobody`) |
-| Presence | Public last seen | Privacy-aware last seen |
-| Friend suggestions | Basic | Relationship-aware with scoring |
+| Conversations list | Hidden conversations are excluded | Use unlock/unhide flows to access hidden conversations |
+| Private messages to strangers | Creates message requests | Receiver must accept before normal conversation flow |
+| Message edit window | Strictly 30 seconds | Enforced by backend |
+| Self-destruct messages | Supported via `ttlSeconds` | Expired messages are hidden from reads/search |
+| Hidden conversations | PIN-protected hide/unlock/unhide | Per-user hidden state |
+| Group member validation | Members must be active friends | Block checks still apply |
+| Profile visibility | Privacy-controlled | Supports `everyone`, `friends`, `nobody` |
+| Presence | Privacy-aware last seen | Relationship context is applied |
+| Friend suggestions | Relationship-aware scoring | Returned from `/v1/friends/suggestions` |
 
 ---
 
@@ -63,16 +63,13 @@ Production: https://api.example.com
 Local:      http://localhost:3000
 
 Auth:       /v1/auth/*
-User V1:    /v1/users/*
-User V2:    /v2/users/*
-Chat V1:    /v1/conversations/*
-Chat V2:    /v2/conversations/*
-Calls V1:   /v1/calls/*
-Calls V2:   /v2/calls/*
+User:    /v1/users/*
+Chat:    /v1/conversations/*
+Calls:   /v1/calls/*
 Media:      /v1/media/*
-Friend requests: /v1/friend-requests/* and /v2/friend-requests/*
-Friendships:     /v1/friendships/* and /v2/friendships/*
-Blocks:          /v1/blocks/* and /v2/blocks/*
+Friend requests: /v1/friend-requests/*
+Friendships:     /v1/friendships/*
+Blocks:          /v1/blocks/*
 My Cloud:        /v1/my-cloud/*
 Search:          /v1/search
 AI:              /v1/ai/*
@@ -217,35 +214,35 @@ socket.emit("unsubscribeConversation", { conversationId });
 
 ---
 
-## 5. Chat V2 Endpoints
+## 5. Chat Endpoints
 
-Source-verified V2 route inventory:
+Source-verified route inventory:
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/v2/conversations` | List conversations, hidden conversations excluded |
-| `GET` | `/v2/conversations/cursor` | Cursor pagination list |
-| `GET` | `/v2/conversations/strangers` | List pending stranger/message request conversations |
-| `GET` | `/v2/conversations/{conversationId}/presence` | Conversation presence summary |
-| `POST` | `/v2/conversations/{conversationId}/messages` | Send message in conversation |
-| `POST` | `/v2/conversations/{conversationId}/profile-cards` | Send a profile card message |
-| `POST` | `/v2/conversations/{conversationId}/hide` | Hide conversation with PIN |
-| `POST` | `/v2/conversations/{conversationId}/unlock` | Unlock hidden conversation with PIN |
-| `POST` | `/v2/conversations/{conversationId}/unhide` | Unhide conversation with PIN |
-| `POST` | `/v2/messages/private` | Send private message; may create message request |
-| `PUT` | `/v2/messages/{messageId}` | Edit message within 30 seconds |
-| `GET` | `/v2/message-requests` | List pending message requests |
-| `POST` | `/v2/message-requests/{conversationId}/accept` | Accept message request |
-| `POST` | `/v2/message-requests/{conversationId}/reject` | Reject message request |
-| `POST` | `/v2/groups` | Create group |
-| `POST` | `/v2/groups/{groupId}/members` | Add group members |
-| `POST` | `/v2/groups/{groupId}/leave` | Leave group; owner auto-transfer is handled |
-| `PATCH` | `/v2/groups/{groupId}/settings` | Update group settings |
+| `GET` | `/v1/conversations` | List conversations, hidden conversations excluded |
+| `GET` | `/v1/conversations/cursor` | Cursor pagination list |
+| `GET` | `/v1/conversations/strangers` | List pending stranger/message request conversations |
+| `GET` | `/v1/conversations/{conversationId}/presence` | Conversation presence summary |
+| `POST` | `/v1/conversations/{conversationId}/messages` | Send message in conversation |
+| `POST` | `/v1/conversations/{conversationId}/profile-cards` | Send a profile card message |
+| `POST` | `/v1/conversations/{conversationId}/hide` | Hide conversation with PIN |
+| `POST` | `/v1/conversations/{conversationId}/unlock` | Unlock hidden conversation with PIN |
+| `POST` | `/v1/conversations/{conversationId}/unhide` | Unhide conversation with PIN |
+| `POST` | `/v1/messages/private` | Send private message; may create message request |
+| `PUT` | `/v1/messages/{messageId}` | Edit message within 30 seconds |
+| `GET` | `/v1/message-requests` | List pending message requests |
+| `POST` | `/v1/message-requests/{conversationId}/accept` | Accept message request |
+| `POST` | `/v1/message-requests/{conversationId}/reject` | Reject message request |
+| `POST` | `/v1/groups` | Create group |
+| `POST` | `/v1/groups/{groupId}/members` | Add group members |
+| `POST` | `/v1/groups/{groupId}/leave` | Leave group; owner auto-transfer is handled |
+| `PATCH` | `/v1/groups/{groupId}/settings` | Update group settings |
 
-### 5.1 List Conversations (V2)
+### 5.1 List Conversations
 
 ```http
-GET /v2/conversations?page=1&limit=20
+GET /v1/conversations?page=1&limit=20
 Authorization: Bearer <token>
 ```
 
@@ -271,12 +268,12 @@ Response:
 }
 ```
 
-> **Note:** Hidden conversations are NOT returned. Use `/v2/conversations/{id}/unlock` to view hidden conversations with PIN.
+> **Note:** Hidden conversations are NOT returned. Use `/v1/conversations/{id}/unlock` to view hidden conversations with PIN.
 
 ### 5.2 List Strangers (Message Requests)
 
 ```http
-GET /v2/conversations/strangers?limit=50
+GET /v1/conversations/strangers?limit=50
 Authorization: Bearer <token>
 ```
 
@@ -303,24 +300,24 @@ Use this to show the "Message Requests" / "Strangers" tab. Returns conversations
 ### 5.3 Message Requests
 
 ```http
-GET /v2/message-requests?limit=50
+GET /v1/message-requests?limit=50
 Authorization: Bearer <token>
 ```
 
 ```http
-POST /v2/message-requests/{conversationId}/accept
+POST /v1/message-requests/{conversationId}/accept
 Authorization: Bearer <token>
 ```
 
 ```http
-POST /v2/message-requests/{conversationId}/reject
+POST /v1/message-requests/{conversationId}/reject
 Authorization: Bearer <token>
 ```
 
-### 5.4 Send Message (V2)
+### 5.4 Send Message
 
 ```http
-POST /v2/conversations/{conversationId}/messages
+POST /v1/conversations/{conversationId}/messages
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -333,10 +330,10 @@ Content-Type: application/json
 
 > `ttlSeconds`: Message will be auto-deleted after this many seconds (server-side TTL).
 
-### 5.5 Send Private Message (V2)
+### 5.5 Send Private Message
 
 ```http
-POST /v2/messages/private
+POST /v1/messages/private
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -352,10 +349,10 @@ Behavior:
 - If not friends but stranger messages allowed: creates message request
 - If blocked: returns `403`
 
-### 5.6 Edit Message (V2)
+### 5.6 Edit Message
 
 ```http
-PUT /v2/messages/{messageId}
+PUT /v1/messages/{messageId}
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -371,7 +368,7 @@ Content-Type: application/json
 #### Hide (with PIN)
 
 ```http
-POST /v2/conversations/{conversationId}/hide
+POST /v1/conversations/{conversationId}/hide
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -385,7 +382,7 @@ Hidden conversations disappear from the list. User must remember the PIN to unlo
 #### Unlock (view without unhiding)
 
 ```http
-POST /v2/conversations/{conversationId}/unlock
+POST /v1/conversations/{conversationId}/unlock
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -399,7 +396,7 @@ Returns conversation details. Does NOT unhide.
 #### Unhide
 
 ```http
-POST /v2/conversations/{conversationId}/unhide
+POST /v1/conversations/{conversationId}/unhide
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -413,7 +410,7 @@ Conversation reappears in the list.
 ### 5.8 Get Conversation Presence
 
 ```http
-GET /v2/conversations/{conversationId}/presence
+GET /v1/conversations/{conversationId}/presence
 Authorization: Bearer <token>
 ```
 
@@ -428,12 +425,12 @@ Authorization: Bearer <token>
 
 ---
 
-## 6. Groups V2
+## 6. Groups V1
 
-### 6.1 Create Group (V2)
+### 6.1 Create Group
 
 ```http
-POST /v2/groups
+POST /v1/groups
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -446,10 +443,10 @@ Content-Type: application/json
 
 > **Important:** All `memberIds` must be active friends of the creator AND must not be blocked in either direction.
 
-### 6.2 Add Members (V2)
+### 6.2 Add Members
 
 ```http
-POST /v2/groups/{groupId}/members
+POST /v1/groups/{groupId}/members
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -460,10 +457,10 @@ Content-Type: application/json
 
 Same validation as create — all targets must be active friends.
 
-### 6.3 Leave Group (V2)
+### 6.3 Leave Group
 
 ```http
-POST /v2/groups/{groupId}/leave
+POST /v1/groups/{groupId}/leave
 Authorization: Bearer <token>
 ```
 
@@ -471,10 +468,10 @@ Behavior:
 - **Owner leaves**: Ownership auto-transfers to oldest active admin, or oldest active member, or group marked inactive
 - **Admin/Member leaves**: Normal leave
 
-### 6.4 Update Group Settings (V2)
+### 6.4 Update Group Settings
 
 ```http
-PATCH /v2/groups/{groupId}/settings
+PATCH /v1/groups/{groupId}/settings
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -490,21 +487,21 @@ Content-Type: application/json
 
 ---
 
-## 7. User V2 Endpoints
+## 7. User V1 Endpoints
 
-### 7.1 Get My Profile (V2)
+### 7.1 Get My Profile
 
 ```http
-GET /v2/users/me/profile
+GET /v1/users/me/profile
 Authorization: Bearer <token>
 ```
 
 Includes privacy settings in the response.
 
-### 7.2 Update My Profile (V2)
+### 7.2 Update My Profile
 
 ```http
-PATCH /v2/users/me/profile
+PATCH /v1/users/me/profile
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -515,10 +512,10 @@ Content-Type: application/json
 }
 ```
 
-### 7.3 Privacy Settings (V2)
+### 7.3 Privacy Settings
 
 ```http
-PATCH /v2/users/me/privacy
+PATCH /v1/users/me/privacy
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -537,37 +534,37 @@ Content-Type: application/json
 - `searchableByPhone`: Allow search by phone number
 - `allowStrangerMessage`: Who can send message requests (`everyone`, `friends`, `nobody`)
 
-### 7.4 Avatar History (V2)
+### 7.4 Avatar History
 
 ```http
-GET /v2/users/me/avatar-history
+GET /v1/users/me/avatar-history
 Authorization: Bearer <token>
 ```
 
 Returns history of previous avatars.
 
-### 7.5 Get User Presence (V2)
+### 7.5 Get User Presence
 
 ```http
-GET /v2/users/{userId}/presence
+GET /v1/users/{userId}/presence
 Authorization: Bearer <token>
 ```
 
 Respects privacy settings — may return limited info for users with `lastSeen: "friends"`.
 
-### 7.6 Get User Public Info (V2)
+### 7.6 Get User Public Info
 
 ```http
-GET /v2/users/{userId}/public
+GET /v1/users/{userId}/public
 Authorization: Bearer <token>
 ```
 
 Returns public-only profile info, respects privacy settings.
 
-### 7.7 Friend Suggestions (V2)
+### 7.7 Friend Suggestions
 
 ```http
-GET /v2/friends/suggestions
+GET /v1/friends/suggestions
 Authorization: Bearer <token>
 ```
 
@@ -589,26 +586,26 @@ Authorization: Bearer <token>
 
 Sorted by score descending.
 
-### 7.8 Search Users (V2)
+### 7.8 Search Users
 
 ```http
-GET /v2/users/search?q=keyword&limit=20
+GET /v1/users/search?q=keyword&limit=20
 Authorization: Bearer <token>
 ```
 
 ```http
-GET /v2/users/search-by-phone?phone=+84...&limit=20
+GET /v1/users/search-by-phone?phone=+84...&limit=20
 Authorization: Bearer <token>
 ```
 
 ---
 
-## 8. Calls V2
+## 8. Calls V1
 
 ### 8.1 Create Call
 
 ```http
-POST /v2/calls
+POST /v1/calls
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -643,14 +640,14 @@ If user is busy:
 ### 8.2 Get Active Call
 
 ```http
-GET /v2/calls/conversations/{conversationId}/active
+GET /v1/calls/conversations/{conversationId}/active
 Authorization: Bearer <token>
 ```
 
 ### 8.3 Join Call (Get Token)
 
 ```http
-POST /v2/calls/{callId}/join
+POST /v1/calls/{callId}/join
 Authorization: Bearer <token>
 ```
 
@@ -660,7 +657,7 @@ Authorization: Bearer <token>
     "call": { ... },
     "token": "eyJhbG...",
     "wsUrl": "wss://livekit.example.com",
-    "roomName": "call-v2-...",
+    "roomName": "call-v1-...",
     "livekitProvider": "cloud"
   }
 }
@@ -669,26 +666,26 @@ Authorization: Bearer <token>
 ### 8.4 Leave/End Call
 
 ```http
-POST /v2/calls/{callId}/leave
+POST /v1/calls/{callId}/leave
 Authorization: Bearer <token>
 ```
 
 ```http
-POST /v2/calls/{callId}/end
+POST /v1/calls/{callId}/end
 Authorization: Bearer <token>
 ```
 
 ```http
-DELETE /v2/calls/{callId}
+DELETE /v1/calls/{callId}
 Authorization: Bearer <token>
 ```
 
-### 8.5 Socket Events for Calls (V2)
+### 8.5 Socket Events for Calls
 
-Namespace: `/v2/calls`
+Namespace: `/v1/calls`
 
 ```javascript
-const callSocket = io("/v2/calls", { auth: { token: accessToken } });
+const callSocket = io("/v1/calls", { auth: { token: accessToken } });
 
 // Incoming call
 callSocket.on("call:incoming", (callData) => {
@@ -859,7 +856,7 @@ socket.on("poll:closed", ({ pollId }) => {
 
 ---
 
-## 10. V2-Only Features
+## 10. V1-Only Features
 
 ### 10.1 Hidden Conversation PIN
 
@@ -871,11 +868,11 @@ socket.on("poll:closed", ({ pollId }) => {
 ### 10.2 Message Request Flow
 
 ```
-1. Stranger sends message via POST /v2/messages/private
-2. Receiver sees conversation in /v2/conversations/strangers with status "pending"
+1. Stranger sends message via POST /v1/messages/private
+2. Receiver sees conversation in /v1/conversations/strangers with status "pending"
 3. Receiver can:
-   a. Accept -> POST /v2/message-requests/{id}/accept
-   b. Reject -> POST /v2/message-requests/{id}/reject
+   a. Accept -> POST /v1/message-requests/{id}/accept
+   b. Reject -> POST /v1/message-requests/{id}/reject
 4. After accept, messages flow normally
 ```
 
@@ -894,7 +891,7 @@ socket.on("poll:closed", ({ pollId }) => {
 
 ### 10.5 Group Member Validation
 
-- V2 requires all group members to be active friends
+- Current V1 requires all group members to be active friends
 - Server validates before adding
 - Frontend should pre-filter friend list before showing "Add to group" options
 
@@ -951,7 +948,7 @@ socket.on("poll:closed", ({ pollId }) => {
 
 ## 12. Source-Verified Supporting API Inventory
 
-The following modules are fully covered by backend and Swagger, but they are not all V2-only. Frontend should still implement the UI flows if the product needs the feature.
+The following modules are fully covered by backend and Swagger, but they are not all Canonical. Frontend should still implement the UI flows if the product needs the feature.
 
 ### 12.1 Auth V1
 
@@ -976,19 +973,19 @@ The following modules are fully covered by backend and Swagger, but they are not
 | `DELETE` | `/v1/auth/sessions` | Revoke all sessions |
 | `PATCH` | `/v1/auth/avatar` | Update avatar |
 
-### 12.2 User V2
+### 12.2 User
 
 | Method | Path | UI / client use |
 |---|---|---|
-| `GET` | `/v2/users/me/profile` | My profile |
-| `PATCH` | `/v2/users/me/profile` | Edit my profile |
-| `PATCH` | `/v2/users/me/privacy` | Privacy settings |
-| `GET` | `/v2/users/me/avatar-history` | Avatar history |
-| `GET` | `/v2/users/search` | Search users |
-| `GET` | `/v2/users/search-by-phone` | Search by phone |
-| `GET` | `/v2/users/{id}/presence` | Privacy-aware presence |
-| `GET` | `/v2/users/{id}/public` | Public profile |
-| `GET` | `/v2/friends/suggestions` | Friend suggestions |
+| `GET` | `/v1/users/me/profile` | My profile |
+| `PATCH` | `/v1/users/me/profile` | Edit my profile |
+| `PATCH` | `/v1/users/me/privacy` | Privacy settings |
+| `GET` | `/v1/users/me/avatar-history` | Avatar history |
+| `GET` | `/v1/users/search` | Search users |
+| `GET` | `/v1/users/search-by-phone` | Search by phone |
+| `GET` | `/v1/users/{id}/presence` | Privacy-aware presence |
+| `GET` | `/v1/users/{id}/public` | Public profile |
+| `GET` | `/v1/friends/suggestions` | Friend suggestions |
 
 ### 12.3 Media V1
 
@@ -1003,26 +1000,25 @@ The following modules are fully covered by backend and Swagger, but they are not
 
 ### 12.4 Friend Requests / Friendships
 
-These routes are mounted under both `/v1` and `/v2`.
+These routes are mounted under `/v1`.
 
-Exact V2 aliases:
 
 | Method | Path |
 |---|---|
-| `POST` | `/v2/friend-requests/{receiverId}` |
-| `PATCH` | `/v2/friend-requests/{requestId}` |
-| `DELETE` | `/v2/friend-requests/{requestId}` |
-| `GET` | `/v2/friend-requests/received` |
-| `GET` | `/v2/friend-requests/sent` |
-| `GET` | `/v2/friend-requests/check/{targetUserId}` |
-| `GET` | `/v2/friend-requests/count` |
-| `GET` | `/v2/friendships` |
-| `GET` | `/v2/friendships/count` |
-| `GET` | `/v2/friendships/search` |
-| `DELETE` | `/v2/friendships/{friendId}` |
-| `GET` | `/v2/friendships/{friendId}/check` |
-| `GET` | `/v2/users/{id}/mutual-friends` |
-| `GET` | `/v2/users/{id}/suggestions` |
+| `POST` | `/v1/friend-requests/{receiverId}` |
+| `PATCH` | `/v1/friend-requests/{requestId}` |
+| `DELETE` | `/v1/friend-requests/{requestId}` |
+| `GET` | `/v1/friend-requests/received` |
+| `GET` | `/v1/friend-requests/sent` |
+| `GET` | `/v1/friend-requests/check/{targetUserId}` |
+| `GET` | `/v1/friend-requests/count` |
+| `GET` | `/v1/friendships` |
+| `GET` | `/v1/friendships/count` |
+| `GET` | `/v1/friendships/search` |
+| `DELETE` | `/v1/friendships/{friendId}` |
+| `GET` | `/v1/friendships/{friendId}/check` |
+| `GET` | `/v1/users/{id}/mutual-friends` |
+| `GET` | `/v1/users/{id}/suggestions` |
 
 | Method | Path | UI / client use |
 |---|---|---|
@@ -1043,16 +1039,15 @@ Exact V2 aliases:
 
 ### 12.5 Blocks
 
-These routes are mounted under both `/v1` and `/v2`.
+These routes are mounted under `/v1`.
 
-Exact V2 aliases:
 
 | Method | Path |
 |---|---|
-| `POST` | `/v2/blocks/{blockedUserId}` |
-| `DELETE` | `/v2/blocks/{blockedUserId}` |
-| `GET` | `/v2/blocks` |
-| `GET` | `/v2/blocks/{blockedUserId}/check` |
+| `POST` | `/v1/blocks/{blockedUserId}` |
+| `DELETE` | `/v1/blocks/{blockedUserId}` |
+| `GET` | `/v1/blocks` |
+| `GET` | `/v1/blocks/{blockedUserId}/check` |
 
 | Method | Path | UI / client use |
 |---|---|---|
@@ -1111,21 +1106,21 @@ Exact V2 aliases:
 
 ## 13. Migration Checklist
 
-If migrating from V1 to V2:
+Current migration notes:
 
-- [ ] Replace conversation list calls: `GET /v1/conversations` -> `GET /v2/conversations`
-- [ ] Remove manual filtering of hidden conversations (V2 excludes them automatically)
-- [ ] Add stranger/message request tab using `GET /v2/conversations/strangers`
+- [ ] Replace conversation list calls: `GET /v1/conversations` now uses the canonical hidden-aware behavior
+- [ ] Remove manual filtering of hidden conversations (V1 excludes them automatically)
+- [ ] Add stranger/message request tab using `GET /v1/conversations/strangers`
 - [ ] Update send message: add `ttlSeconds` support for self-destruct
 - [ ] Add 30-second edit window timer UI
 - [ ] Implement hidden conversation PIN flow (hide/unlock/unhide)
 - [ ] Update group creation: pre-filter members to only show friends
-- [ ] Update profile endpoints to V2 for privacy controls
-- [ ] Update friend suggestions to V2 for scoring
+- [ ] Use `/v1/users/me/*` profile/privacy endpoints for privacy controls
+- [ ] Use `/v1/friends/suggestions` for scoring
 - [ ] Add presence privacy handling based on user's privacy settings
-- [ ] Update call integration to use `/v2/calls` namespace
+- [ ] Use the `/v1/calls` call socket namespace
 - [ ] Implement Socket.IO `subscribeConversation` / `unsubscribeConversation`
-- [ ] Remove V1 call socket namespace `/socket/calls` usage, switch to `/v2/calls`
+- [ ] Remove legacy call socket usage; use `/v1/calls`
 
 ---
 
@@ -1138,25 +1133,25 @@ src/
   modules/chat/
     infras/transport/
       socket-service.ts           # /messages namespace
-      http/v2-chat.routes.ts      # Chat V2 routes
-      http/v2-chat-controller.ts  # Chat V2 controller
+      http/v2-chat.routes.ts      # Canonical chat routes mounted under /v1
+      http/v2-chat-controller.ts  # Canonical chat controller
     constants/socket-events.ts     # Event name constants
   modules/user/
     infras/transport/
       socket-service.ts           # /user namespace
-      user-v2.routes.ts          # User V2 routes
-      user-v2-http-service.ts    # User V2 service
+      user-v2.routes.ts          # Canonical user routes mounted under /v1
+      user-v2-http-service.ts    # Canonical user service
   modules/call/
     infras/transport/
-      call-v2-socket.service.ts   # /v2/calls namespace
-      http/call-v2.routes.ts      # Call V2 routes
-      http/call-v2.controller.ts  # Call V2 controller
+      call-v2-socket.service.ts   # /v1/calls namespace
+      http/call-v2.routes.ts      # Canonical call routes
+      http/call-v2.controller.ts  # Canonical call controller
 
 docs/
   swagger/main.yaml               # OpenAPI spec
-  swagger/paths/chat-v2.yaml      # Chat V2 paths
-  swagger/paths/user-v2.yaml      # User V2 paths
-  swagger/paths/calls.yaml        # Call V1/V2 paths
+  swagger/paths/chat-v2.yaml      # Canonical chat paths
+  swagger/paths/user-v2.yaml      # Canonical user paths
+  swagger/paths/calls.yaml        # Call paths
   handoff/FRONTEND_HANDOFF_FILES_V2.md # Handoff reading checklist
   SOCKET_EVENTS_V2_REFERENCE.md   # Socket.IO events reference
   FE_INTEGRATION_GUIDE_V2.md     # This file

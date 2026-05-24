@@ -15,8 +15,7 @@ Canonical socket handoff for the current source code in `src/index.ts` and the s
 | --- | --- | --- |
 | `/` | `createSocketIOServer`, `MyCloudSocketService` | Base connection, presence utilities, root my-cloud socket handlers |
 | `/messages` | `MessagingSocketService` | Chat, messages, group operations, polls, reminders, notes |
-| `/socket/calls` | `CallSocketService` | Legacy call socket |
-| `/v2/calls` | `CallV2SocketService` | Current LiveKit cloud call socket |
+| `/v1/calls` | `CallV2SocketService` | Current LiveKit cloud call socket |
 | `/friends` | `FriendNotificationSocketService` | Friend request and friendship notifications |
 | `/blocks` | `BlockNotificationSocketService` | Block/unblock notifications |
 
@@ -232,25 +231,7 @@ type MediaAttachment = {
 | `online_status` | `{ userId, isOnline }` when notifier is invoked |
 | `user_presence` | `{ userId, lastSeen }` when notifier is invoked |
 
-## Call Namespace `/socket/calls`
-
-Legacy call socket used by the v1 call controller. It authenticates with the shared JWT token sources and joins `user:${userId}`.
-
-| Client Event | Payload | Server Event |
-| --- | --- | --- |
-| `call:join` | `{ callId }` | `call:joined` with `{ callId }` |
-| `call:leave` | `{ callId }` | none |
-
-| Server Notification | Payload |
-| --- | --- |
-| `call:incoming` | Call payload from controller |
-| `call:ringing` | `{ callId }` |
-| `call:answered` | `{ callId, roomName, token?, wsUrl?, livekitProvider? }` |
-| `call:rejected` | `{ callId }` |
-| `call:ended` | `{ callId }` |
-| `call:missed` | `{ callId }` |
-
-## Call Namespace `/v2/calls`
+## Call Namespace `/v1/calls`
 
 Current LiveKit cloud call socket. It authenticates with the shared JWT token sources and joins `user:${userId}`.
 

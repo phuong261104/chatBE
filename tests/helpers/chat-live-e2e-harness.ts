@@ -231,15 +231,14 @@ export async function createLiveChatE2EHarness(): Promise<LiveChatE2EHarness> {
 
   app.use(express.json());
   app.use("/v1", responseFormatMiddleware);
-  app.use("/v2", responseFormatMiddleware);
+  app.use("/v1", v2Router);
+  app.use("/v1", userHexagon.v2Router);
   app.use("/v1", router);
   app.use("/v1", friendRequestHexagon.router);
   app.use("/v1", friendshipRouter);
   app.use("/v1", blockHexagon.router);
   app.use("/v1", userHexagon.router);
   app.use("/v1", searchRouter);
-  app.use("/v2", v2Router);
-  app.use("/v2", userHexagon.v2Router);
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => responseErr(err, res));
 
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));

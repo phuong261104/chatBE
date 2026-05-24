@@ -103,7 +103,7 @@ Khi validation fail:
 
 ## 5. Response Format
 
-Tất cả route dưới `/v1` và `/v2` phải đi qua `responseFormatMiddleware`.
+Tất cả route dưới `/v1` phải đi qua `responseFormatMiddleware`.
 
 Success chuẩn:
 
@@ -131,7 +131,7 @@ Quy tắc:
 - Controller nên trả `{ data }`, `{ data, meta }`, hoặc throw `AppError`.
 - Không tự tạo envelope khác nếu không cần.
 - List/cursor response phải có `meta` hoặc fields rõ ràng như `nextCursor`, `hasMore`.
-- Không bypass middleware bằng cách mount API mới ngoài `/v1` hoặc `/v2` nếu đó là public API.
+- Không bypass middleware bằng cách mount API mới ngoài `/v1` nếu đó là public API.
 
 ## 6. Error Handling
 
@@ -277,7 +277,7 @@ Không làm các việc sau:
 - Không hardcode AWS, Redis, JWT, Gemini, LiveKit secret.
 - Không thêm API public mà quên Swagger.
 - Không thêm DynamoDB access pattern dựa trên full table scan cho luồng dùng thường xuyên.
-- Không mount public route mới ngoài `/v1` hoặc `/v2` nếu muốn response envelope chuẩn.
+- Không mount public route mới ngoài `/v1` nếu muốn response envelope chuẩn.
 - Không bypass `responseFormatMiddleware` bằng response custom không cần thiết.
 - Không đưa business logic vào Socket.IO callback hoặc Express handler khi logic đó thuộc usecase.
 - Không phát socket event cho user không phải member/không có quyền.
@@ -286,7 +286,7 @@ Không làm các việc sau:
 
 ## 16. Checklist Khi Thêm Feature/API
 
-1. Xác định route/event và version (`/v1` hay `/v2`).
+1. Xác định route/event dưới version public hiện tại (`/v1`).
 2. Tạo/cập nhật DTO Zod.
 3. Cập nhật usecase và permission checks.
 4. Cập nhật repository/table/index nếu cần persistence mới.

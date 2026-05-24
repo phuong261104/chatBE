@@ -112,7 +112,7 @@ liveDescribe("social, privacy, profile live E2E with real DynamoDB repositories"
     await seedMember(harness, { conversationId: group.id, userId: sharedOnly.id });
 
     await eventually(async () => {
-      const suggestions = await harness.api.get("/v2/friends/suggestions", alice.id);
+      const suggestions = await harness.api.get("/v1/friends/suggestions", alice.id);
       expect(suggestions.status).toBe(200);
       expect(suggestions.data.data).toEqual(
         expect.arrayContaining([
@@ -154,15 +154,15 @@ liveDescribe("social, privacy, profile live E2E with real DynamoDB repositories"
     harness.trackBlock(blocker.id, blocked.id);
 
     const blockedMessage = await harness.api.post(
-      "/v2/messages/private",
+      "/v1/messages/private",
       { targetUserId: blocker.id, text: "can I send?" },
       blocked.id,
     );
     expect(blockedMessage.status).toBe(403);
 
-    const hiddenProfile = await harness.api.get(`/v2/users/${blocker.id}/public`, blocked.id);
+    const hiddenProfile = await harness.api.get(`/v1/users/${blocker.id}/public`, blocked.id);
     expect(hiddenProfile.status).toBe(403);
-    const hiddenPresence = await harness.api.get(`/v2/users/${blocker.id}/presence`, blocked.id);
+    const hiddenPresence = await harness.api.get(`/v1/users/${blocker.id}/presence`, blocked.id);
     expect(hiddenPresence.status).toBe(200);
     expect(hiddenPresence.data.data).toEqual(expect.objectContaining({ visibility: "hidden", isOnline: false }));
 
@@ -175,7 +175,7 @@ liveDescribe("social, privacy, profile live E2E with real DynamoDB repositories"
     });
 
     const privacy = await harness.api.patch(
-      "/v2/users/me/privacy",
+      "/v1/users/me/privacy",
       {
         blockMessagesFromStrangers: true,
         phoneVisibility: UserInfoVisibility.ONLY_ME,
@@ -190,33 +190,33 @@ liveDescribe("social, privacy, profile live E2E with real DynamoDB repositories"
     expect(privacy.status).toBe(200);
 
     const strangerBlocked = await harness.api.post(
-      "/v2/messages/private",
+      "/v1/messages/private",
       { targetUserId: contact.id, text: "hello from stranger" },
       stranger.id,
     );
     expect(strangerBlocked.status).toBe(403);
 
     const searchHidden = await harness.api.get(
-      `/v2/users/search-by-phone?phone=${encodeURIComponent(contact.phone || "")}`,
+      `/v1/users/search-by-phone?phone=${encodeURIComponent(contact.phone || "")}`,
       stranger.id,
     );
     expect(searchHidden.status).toBe(404);
 
-    const publicProfile = await harness.api.get(`/v2/users/${contact.id}/public`, stranger.id);
+    const publicProfile = await harness.api.get(`/v1/users/${contact.id}/public`, stranger.id);
     expect(publicProfile.status).toBe(200);
     expect(publicProfile.data.data.phone).toBeUndefined();
     expect(publicProfile.data.data.birthday).toBeUndefined();
     expect(publicProfile.data.data.avatarUrl).toBeUndefined();
 
     const updateProfile = await harness.api.patch(
-      "/v2/users/me/profile",
+      "/v1/users/me/profile",
       { avatarUrl: "https://cdn.test/live-contact-new.png", coverUrl: "https://cdn.test/live-cover.png", bio: "updated" },
       contact.id,
     );
     expect(updateProfile.status).toBe(200);
 
     await eventually(async () => {
-      const avatarHistory = await harness.api.get("/v2/users/me/avatar-history", contact.id);
+      const avatarHistory = await harness.api.get("/v1/users/me/avatar-history", contact.id);
       expect(avatarHistory.status).toBe(200);
       expect(avatarHistory.data.data).toEqual(
         expect.arrayContaining([
@@ -230,7 +230,7 @@ liveDescribe("social, privacy, profile live E2E with real DynamoDB repositories"
     const receiverSocket = await harness.connectMessagesSocket(receiver.id);
     const messageRequestEvent = waitForSocketEvent<any>(receiverSocket, "message-request:incoming");
     const requestMessage = await harness.api.post(
-      "/v2/messages/private",
+      "/v1/messages/private",
       { targetUserId: receiver.id, text: "message request" },
       sender.id,
     );
@@ -240,7 +240,7 @@ liveDescribe("social, privacy, profile live E2E with real DynamoDB repositories"
     await expect(messageRequestEvent).resolves.toEqual(expect.objectContaining({ fromUserId: sender.id }));
 
     await eventually(async () => {
-      const strangers = await harness.api.get("/v2/conversations/strangers", receiver.id);
+      const strangers = await harness.api.get("/v1/conversations/strangers", receiver.id);
       expect(strangers.status).toBe(200);
       expect(strangers.data.data).toEqual([
         expect.objectContaining({ messageRequestStatus: "pending" }),
@@ -256,7 +256,7 @@ liveDescribe("social, privacy, profile live E2E with real DynamoDB repositories"
         payload.message?.type === MessageType.PROFILE_CARD,
     );
     const profileCard = await harness.api.post(
-      `/v2/conversations/${requestMessage.data.data.conversation.id}/profile-cards`,
+      `/v1/conversations/${requestMessage.data.data.conversation.id}/profile-cards`,
       { userId: contact.id },
       receiver.id,
     );

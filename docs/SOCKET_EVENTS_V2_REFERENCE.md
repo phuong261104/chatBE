@@ -1,4 +1,4 @@
-# Socket.IO Events V2 Reference
+# Socket.IO Events Reference
 
 Updated: 2026-05-15
 
@@ -17,8 +17,7 @@ The server uses Socket.IO with multiple namespaces. All connections require JWT 
 | `/socket.io` (root) | Connection lifecycle, presence, core events, My Cloud realtime actions | `/socket.io` |
 | `/messages` | Chat messaging, reactions, groups, typing | `/socket.io/messages` |
 | `/user` | User presence, heartbeat | `/socket.io/user` |
-| `/socket/calls` | V1 Call events (legacy) | `/socket.io/socket/calls` |
-| `/v2/calls` | V2 Call events (LiveKit cloud) | `/socket.io/v2/calls` |
+| `/v1/calls` | Call events (LiveKit cloud) | `/socket.io/v1/calls` |
 | `/friends` | Friend request notifications | `/socket.io/friends` |
 | `/blocks` | Block notifications | `/socket.io/blocks` |
 
@@ -142,7 +141,7 @@ Chat messaging namespace. Requires JWT authentication via middleware.
 | Event | Payload | Description |
 |---|---|---|
 | `sendMessage` | `{ conversationId, text?, media?, type?, ttlSeconds?, quotedMessageId?, forwardedFromMessageIds? }` | Send message. `ttlSeconds` enables self-destruct. |
-| `editMessage` | `{ messageId, text }` | Edit message text (within 30s for v2) |
+| `editMessage` | `{ messageId, text }` | Edit message text (within 30s) |
 | `deleteMessage` | `{ messageId }` | Delete message for self |
 | `revokeMessage` | `{ messageId }` | Delete message for everyone |
 | `deleteMessageForEveryone` | `{ messageId }` | Alias for revoke |
@@ -282,9 +281,9 @@ Chat messaging namespace. Requires JWT authentication via middleware.
 
 ---
 
-## `/v2/calls` Namespace
+## `/v1/calls` Namespace
 
-V2 Call namespace using LiveKit cloud infrastructure.
+Call namespace using LiveKit cloud infrastructure.
 
 ### Client -> Server (Incoming)
 
@@ -309,39 +308,15 @@ V2 Call namespace using LiveKit cloud infrastructure.
 ### Call Flow
 
 ```
-1. Caller: POST /v2/calls -> creates call -> server emits call:incoming to callees
+1. Caller: POST /v1/calls -> creates call -> server emits call:incoming to callees
 2. Callee: receives call:incoming
 3. Callee: socket.emit("call:join", { callId }) -> server emits call:joined
-4. Callee: POST /v2/calls/{callId}/join -> gets LiveKit token
-5. Either: socket.emit("call:leave") or DELETE /v2/calls/{callId} -> server emits call:ended
+4. Callee: POST /v1/calls/{callId}/join -> gets LiveKit token
+5. Either: socket.emit("call:leave") or DELETE /v1/calls/{callId} -> server emits call:ended
 ```
 
 ---
 
-## `/socket/calls` Namespace (V1 - Legacy)
-
-V1 Call namespace. Use `/v2/calls` for new implementations.
-
-### Client -> Server (Incoming)
-
-| Event | Payload | Description |
-|---|---|---|
-| `call:join` | `{ callId: string }` | Join call room |
-| `call:leave` | `{ callId: string }` | Leave call room |
-
-### Server -> Client (Outgoing)
-
-| Event | Payload | Description |
-|---|---|---|
-| `call:joined` | `{ callId }` | Joined call room |
-| `call:incoming` | `callData` | Incoming call |
-| `call:ringing` | `{ callId }` | Call is ringing |
-| `call:answered` | `{ callId, roomName, token, wsUrl, livekitProvider }` | Call answered, LiveKit token provided |
-| `call:rejected` | `{ callId }` | Call rejected |
-| `call:ended` | `{ callId }` | Call ended |
-| `call:missed` | `{ callId }` | Call missed |
-
----
 
 ## `/friends` Namespace
 
@@ -470,8 +445,7 @@ On authentication failure, the socket connection is rejected with the error mess
 | `src/share/component/socket-io.ts` | `/` (root) | Main Socket.IO server, auth, connection registry |
 | `src/modules/chat/infras/transport/socket-service.ts` | `/messages` | Messaging socket service |
 | `src/modules/user/infras/transport/socket-service.ts` | `/user` | User presence socket service |
-| `src/modules/call/infras/transport/call-socket.service.ts` | `/socket/calls` | V1 Call service |
-| `src/modules/call/infras/transport/call-v2-socket.service.ts` | `/v2/calls` | V2 Call service |
+| `src/modules/call/infras/transport/call-v2-socket.service.ts` | `/v1/calls` | Call service |
 | `src/modules/friend-requests/infras/transport/socket-service.ts` | `/friends` | Friend request notifications |
 | `src/modules/blocks/infras/transport/socket-service.ts` | `/blocks` | Block notifications |
 | `src/modules/my-cloud/infras/transport/socket-service.ts` | `/` (root) | My Cloud realtime actions |

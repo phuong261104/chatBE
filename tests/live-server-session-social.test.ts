@@ -350,7 +350,7 @@ async function runFriendSuggestionTests() {
   for (const index of [1, 2]) {
     const group = await request(
       "POST",
-      "/v2/groups",
+      "/v1/groups",
       {
         name: `Live suggestion group ${RUN_ID}-${index}`,
         memberIds: [suggestAlice.userId, sharedCandidate.userId],
@@ -360,7 +360,7 @@ async function runFriendSuggestionTests() {
     expectStatus(`Create shared suggestion group ${index}`, group, 201);
   }
 
-  const suggestions = await request("GET", "/v2/friends/suggestions?limit=20", undefined, suggestAlice);
+  const suggestions = await request("GET", "/v1/friends/suggestions?limit=20", undefined, suggestAlice);
   expectStatus("Friend suggestions endpoint", suggestions, 200);
   const items = ((suggestions.data as any).data || []) as any[];
   expect(
@@ -593,7 +593,7 @@ async function runSocialPrivacyTests() {
 
   await runFriendSuggestionTests();
 
-  const firstMessage = await request("POST", "/v2/messages/private", { targetUserId: bob.userId, text: "before block" }, alice);
+  const firstMessage = await request("POST", "/v1/messages/private", { targetUserId: bob.userId, text: "before block" }, alice);
   expectStatus("Friend private message before block succeeds", firstMessage, 201);
   const conversationId = (firstMessage.data as any).data?.conversation?.id;
   expect("Private message creates conversation", conversationId, JSON.stringify(firstMessage.data));
@@ -603,16 +603,16 @@ async function runSocialPrivacyTests() {
 
   const blockedMessage = await request(
     "POST",
-    `/v2/conversations/${conversationId}/messages`,
+    `/v1/conversations/${conversationId}/messages`,
     { text: "blocked message" },
     bob,
   );
   expectStatus("Block prevents sending private message", blockedMessage, 403);
 
-  const blockedCall = await request("POST", "/v2/calls", { conversationId, type: "audio" }, bob);
+  const blockedCall = await request("POST", "/v1/calls", { conversationId, type: "audio" }, bob);
   expectStatus("Block prevents calls", blockedCall, 403);
 
-  const blockedProfile = await request("GET", `/v2/users/${alice.userId}/public`, undefined, bob);
+  const blockedProfile = await request("GET", `/v1/users/${alice.userId}/public`, undefined, bob);
   expectStatus("Block prevents viewing public profile", blockedProfile, 403);
 
   const oldHistory = await request("GET", `/v1/conversations/${conversationId}/messages`, undefined, alice);
@@ -638,7 +638,7 @@ async function runSocialPrivacyTests() {
   const presenceTarget = await createUser("presence-target", "web");
   const hideWatcherPrivacy = await request(
     "PATCH",
-    "/v2/users/me/privacy",
+    "/v1/users/me/privacy",
     { showOnline: false, showLastSeen: false },
     hiddenWatcher,
   );
@@ -682,14 +682,14 @@ async function runSocialPrivacyTests() {
   const requestSender = await createUser("stranger-requester", "web");
   const receiverPrivacyBlocked = await request(
     "PATCH",
-    "/v2/users/me/privacy",
+    "/v1/users/me/privacy",
     { blockMessagesFromStrangers: true },
     receiver,
   );
   expectStatus("Receiver enables stranger-message block", receiverPrivacyBlocked, 200);
   const blockedStrangerMessage = await request(
     "POST",
-    "/v2/messages/private",
+    "/v1/messages/private",
     { targetUserId: receiver.userId, text: "stranger blocked" },
     stranger,
   );
@@ -697,14 +697,14 @@ async function runSocialPrivacyTests() {
 
   const receiverPrivacyOpen = await request(
     "PATCH",
-    "/v2/users/me/privacy",
+    "/v1/users/me/privacy",
     { blockMessagesFromStrangers: false },
     receiver,
   );
   expectStatus("Receiver allows stranger message requests", receiverPrivacyOpen, 200);
   const requestMessage = await request(
     "POST",
-    "/v2/messages/private",
+    "/v1/messages/private",
     { targetUserId: receiver.userId, text: "message request" },
     requestSender,
   );
@@ -714,7 +714,7 @@ async function runSocialPrivacyTests() {
     (requestMessage.data as any).data?.messageRequestStatus === "pending",
     JSON.stringify(requestMessage.data),
   );
-  const strangerConversations = await request("GET", "/v2/conversations/strangers", undefined, receiver);
+  const strangerConversations = await request("GET", "/v1/conversations/strangers", undefined, receiver);
   expectStatus("List stranger conversations", strangerConversations, 200);
   expect(
     "Stranger conversation list includes pending request",
@@ -730,7 +730,7 @@ async function runSocialPrivacyTests() {
   const avatarTwo = `https://example.com/${RUN_ID}/avatar-two.png`;
   const profileFirst = await request(
     "PATCH",
-    "/v2/users/me/profile",
+    "/v1/users/me/profile",
     {
       displayName: "Private Profile Target",
       avatarUrl: avatarOne,
@@ -741,9 +741,9 @@ async function runSocialPrivacyTests() {
     profileTarget,
   );
   expectStatus("Update profile first avatar", profileFirst, 200);
-  const profileSecond = await request("PATCH", "/v2/users/me/profile", { avatarUrl: avatarTwo }, profileTarget);
+  const profileSecond = await request("PATCH", "/v1/users/me/profile", { avatarUrl: avatarTwo }, profileTarget);
   expectStatus("Update profile second avatar", profileSecond, 200);
-  const avatarHistory = await request("GET", "/v2/users/me/avatar-history", undefined, profileTarget);
+  const avatarHistory = await request("GET", "/v1/users/me/avatar-history", undefined, profileTarget);
   expectStatus("Avatar history endpoint", avatarHistory, 200);
   expect(
     "Avatar change writes previous avatar to history",
@@ -753,7 +753,7 @@ async function runSocialPrivacyTests() {
 
   const privatePrivacy = await request(
     "PATCH",
-    "/v2/users/me/privacy",
+    "/v1/users/me/privacy",
     {
       phoneVisibility: "only_me",
       birthdayVisibility: "only_me",
@@ -765,7 +765,7 @@ async function runSocialPrivacyTests() {
     profileTarget,
   );
   expectStatus("Set profile privacy to private", privatePrivacy, 200);
-  const publicProfile = await request("GET", `/v2/users/${profileTarget.userId}/public`, undefined, profileViewer);
+  const publicProfile = await request("GET", `/v1/users/${profileTarget.userId}/public`, undefined, profileViewer);
   expectStatus("Public profile respects privacy", publicProfile, 200);
   const publicData = (publicProfile.data as any).data || {};
   expect(
@@ -775,7 +775,7 @@ async function runSocialPrivacyTests() {
   );
   const phoneSearch = await request(
     "GET",
-    `/v2/users/search-by-phone?phone=${encodeURIComponent(profileTarget.phone)}`,
+    `/v1/users/search-by-phone?phone=${encodeURIComponent(profileTarget.phone)}`,
     undefined,
     profileViewer,
   );
@@ -784,7 +784,7 @@ async function runSocialPrivacyTests() {
   const receiverRootSocket = await connectSocket(receiver);
   const viewerNoPresence = await request(
     "PATCH",
-    "/v2/users/me/privacy",
+    "/v1/users/me/privacy",
     { showOnline: false, showLastSeen: false },
     profileViewer,
   );
@@ -802,7 +802,7 @@ async function runSocialPrivacyTests() {
   await makeFriends(cardSender, cardReceiver);
   const cardConversation = await request(
     "POST",
-    "/v2/messages/private",
+    "/v1/messages/private",
     { targetUserId: cardReceiver.userId, text: "conversation for profile card" },
     cardSender,
   );
@@ -814,7 +814,7 @@ async function runSocialPrivacyTests() {
   const profileCardRealtime = waitForEvent<any>(cardReceiverSocket, "receiveMessage");
   const sendProfileCard = await request(
     "POST",
-    `/v2/conversations/${cardConversationId}/profile-cards`,
+    `/v1/conversations/${cardConversationId}/profile-cards`,
     { userId: profileTarget.userId },
     cardSender,
   );

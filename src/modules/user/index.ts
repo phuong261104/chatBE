@@ -40,10 +40,6 @@ export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
   const adminChecker = mdlFactory.allowRoles([UserRole.USER]);
 
   router.post("/users", mdlFactory.auth, adminChecker, httpService.createAPI.bind(httpService));
-  router.get("/users/search", mdlFactory.auth, httpService.searchUsersAPI.bind(httpService));
-  router.get("/users/search-by-phone", mdlFactory.auth, httpService.searchByPhoneAPI.bind(httpService));
-  router.get("/users/:id/presence", mdlFactory.auth, httpService.getPresenceAPI.bind(httpService));
-  router.get("/users/:id/public", httpService.publicProfileAPI.bind(httpService));
   router.get("/users/:id", httpService.getDetailAPI.bind(httpService));
   router.get("/users", httpService.listAPI.bind(httpService));
   router.patch("/users/:id", mdlFactory.auth, adminChecker, httpService.updateAPI.bind(httpService));
@@ -52,8 +48,6 @@ export const setupUserHexagon = (sctx: ServiceContext, io?: SocketIOServer) => {
   return {
     router,
     v2Router,
-    profileAPI: httpService.profileAPI.bind(httpService),
-    updateProfileAPI: httpService.updateProfileAPI.bind(httpService),
     socketService,
   };
 };

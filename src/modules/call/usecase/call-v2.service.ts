@@ -87,7 +87,7 @@ class CallV2Service {
     const invitedUserIds = input.calleeIds.filter((userId) => !busyUserIds.includes(userId));
 
     const callId = uuidv4();
-    const roomName = `call-v2-${input.conversationId}-${callId.substring(0, 8)}`;
+    const roomName = `call-v1-${input.conversationId}-${callId.substring(0, 8)}`;
     const now = Date.now();
     const participants: Record<string, CallV2Participant> = {
       [input.callerId]: {

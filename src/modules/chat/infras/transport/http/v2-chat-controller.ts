@@ -114,9 +114,12 @@ export class ChatV2Controller {
         : null;
       const data = await this.filterHiddenConversations(currentUserId, result.data);
       return res.status(200).json({
-        ...result,
+        status: "success",
+        msg: "OK",
         pinned,
         data,
+        nextCursor: result.nextCursor,
+        hasMore: result.hasMore,
       });
     } catch (err) {
       return this.sendError(res, err);

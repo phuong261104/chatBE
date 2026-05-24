@@ -36,13 +36,13 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
     await harness.close();
   });
 
-  it("sends messages through HTTP v2, emits receiveMessage, and hides expired TTL messages from DB queries", async () => {
+  it("sends messages through HTTP /v1, emits receiveMessage, and hides expired TTL messages from DB queries", async () => {
     const { owner, member, conversation } = await seedGroupConversation(harness);
     const memberSocket = await harness.connectMessagesSocket(member.id);
     const received = waitForSocketEvent<any>(memberSocket, SocketEvent.RECEIVE_MESSAGE);
 
     const response = await harness.api.post(
-      `/v2/conversations/${conversation.id}/messages`,
+      `/v1/conversations/${conversation.id}/messages`,
       { text: "temporary secret", ttlSeconds: 1 },
       owner.id,
     );
@@ -77,7 +77,7 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
     expect(searchResponse.data.data.messages).toHaveLength(0);
   });
 
-  it("keeps socket sendMessage aligned with HTTP v2 TTL behavior using the real DB", async () => {
+  it("keeps socket sendMessage aligned with HTTP /v1 TTL behavior using the real DB", async () => {
     const { owner, member, conversation } = await seedGroupConversation(harness);
     const ownerSocket = await harness.connectMessagesSocket(owner.id);
     const memberSocket = await harness.connectMessagesSocket(member.id);
@@ -110,7 +110,7 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
     });
   });
 
-  it("edits through HTTP v2 within 30 seconds and rejects stale edits on HTTP and socket", async () => {
+  it("edits through HTTP /v1 within 30 seconds and rejects stale edits on HTTP and socket", async () => {
     const { owner, member, conversation } = await seedGroupConversation(harness);
     const fresh = await seedMessage(harness, {
       conversationId: conversation.id,
@@ -129,7 +129,7 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
     const memberSocket = await harness.connectMessagesSocket(member.id);
     const edited = waitForSocketEvent<any>(memberSocket, SocketEvent.MESSAGE_EDITED);
 
-    const editResponse = await harness.api.put(`/v2/messages/${fresh.id}`, { text: "after" }, owner.id);
+    const editResponse = await harness.api.put(`/v1/messages/${fresh.id}`, { text: "after" }, owner.id);
     expect(editResponse.status).toBe(200);
     expect(editResponse.data.data).toEqual(
       expect.objectContaining({ id: fresh.id, text: "after", editedAt: expect.any(String) }),
@@ -142,7 +142,7 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
     );
 
     const staleHttpResponse = await harness.api.put(
-      `/v2/messages/${stale.id}`,
+      `/v1/messages/${stale.id}`,
       { text: "after stale" },
       owner.id,
     );
@@ -161,7 +161,7 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
     }
   });
 
-  it("updates delivered and read state through legacy HTTP and socket because no HTTP v2 route exists", async () => {
+  it("updates delivered and read state through legacy HTTP and socket because no HTTP /v1 route exists", async () => {
     const { owner, member, conversation } = await seedGroupConversation(harness);
     const first = await seedMessage(harness, {
       conversationId: conversation.id,

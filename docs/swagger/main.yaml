@@ -36,7 +36,7 @@ components:
           example: "Error message"
 
 paths:
-  # ==================== AUTH V1 ====================
+  # ==================== AUTH ====================
   # Auth - Register & Login
   /v1/auth/register:
     $ref: "./paths/auth.yaml#/paths/~1v1~1auth~1register"
@@ -82,18 +82,8 @@ paths:
     $ref: "./paths/auth.yaml#/paths/~1v1~1auth~1avatar"
 
   # ==================== USER V1 ====================
-  /v1/users/profile:
-    $ref: "./paths/user.yaml#/paths/~1v1~1users~1profile"
   /v1/users:
     $ref: "./paths/user.yaml#/paths/~1v1~1users"
-  /v1/users/search:
-    $ref: "./paths/user.yaml#/paths/~1v1~1users~1search"
-  /v1/users/search-by-phone:
-    $ref: "./paths/user.yaml#/paths/~1v1~1users~1search-by-phone"
-  /v1/users/{id}/presence:
-    $ref: "./paths/user.yaml#/paths/~1v1~1users~1{id}~1presence"
-  /v1/users/{id}/public:
-    $ref: "./paths/user.yaml#/paths/~1v1~1users~1{id}~1public"
   /v1/users/{id}:
     $ref: "./paths/user.yaml#/paths/~1v1~1users~1{id}"
 
@@ -102,10 +92,6 @@ paths:
     $ref: "./paths/chat-conversations-base.yaml#/paths/~1v1~1conversations~1private"
   /v1/conversations/unread-count:
     $ref: "./paths/chat-conversations-base.yaml#/paths/~1v1~1conversations~1unread-count"
-  /v1/conversations:
-    $ref: "./paths/chat-conversations-base.yaml#/paths/~1v1~1conversations"
-  /v1/conversations/cursor:
-    $ref: "./paths/chat-conversations-base.yaml#/paths/~1v1~1conversations~1cursor"
   /v1/conversations/{conversationId}:
     $ref: "./paths/chat-conversations-base.yaml#/paths/~1v1~1conversations~1{conversationId}"
   /v1/conversations/{conversationId}/mute:
@@ -126,8 +112,6 @@ paths:
     $ref: "./paths/chat-conversations-base.yaml#/paths/~1v1~1users~1{userId}~1conversations"
 
   # ==================== CHAT V1 - MESSAGES ====================
-  /v1/conversations/{conversationId}/messages:
-    $ref: "./paths/chat-messages-crud.yaml#/paths/~1v1~1conversations~1{conversationId}~1messages"
   /v1/conversations/{conversationId}/seen:
     $ref: "./paths/chat-messages-status.yaml#/paths/~1v1~1conversations~1{conversationId}~1seen"
   /v1/conversations/{conversationId}/delivered:
@@ -140,8 +124,6 @@ paths:
     $ref: "./paths/chat-messages-search.yaml#/paths/~1v1~1conversations~1{conversationId}~1media"
   /v1/conversations/{conversationId}/messages/bulk:
     $ref: "./paths/chat-messages-interactions.yaml#/paths/~1v1~1conversations~1{conversationId}~1messages~1bulk"
-  /v1/messages/{messageId}:
-    $ref: "./paths/chat-messages-crud.yaml#/paths/~1v1~1messages~1{messageId}"
   /v1/messages/{messageId}/revoke:
     $ref: "./paths/chat-messages-actions.yaml#/paths/~1v1~1messages~1{messageId}~1revoke"
   /v1/messages/{messageId}/delete:
@@ -150,8 +132,6 @@ paths:
     $ref: "./paths/chat-messages-actions.yaml#/paths/~1v1~1messages~1{messageId}~1delete-for-everyone"
   /v1/messages/forward:
     $ref: "./paths/chat-messages-interactions.yaml#/paths/~1v1~1messages~1forward"
-  /v1/messages/save-to-my-document:
-    $ref: "./paths/chat-messages-interactions.yaml#/paths/~1v1~1messages~1save-to-my-document"
   /v1/messages/{messageId}/pin:
     $ref: "./paths/chat-messages-interactions.yaml#/paths/~1v1~1messages~1{messageId}~1pin"
   /v1/messages/{messageId}/quote:
@@ -164,18 +144,12 @@ paths:
     $ref: "./paths/chat-reactions.yaml#/paths/~1v1~1messages~1{messageId}~1react"
 
   # ==================== CHAT V1 - GROUPS, POLLS, UTILITIES ====================
-  /v1/groups:
-    $ref: "./paths/chat-groups-base.yaml#/paths/~1v1~1groups"
   /v1/groups/{groupId}:
     $ref: "./paths/chat-groups-base.yaml#/paths/~1v1~1groups~1{groupId}"
   /v1/groups/{groupId}/info:
     $ref: "./paths/chat-groups-base.yaml#/paths/~1v1~1groups~1{groupId}~1info"
-  /v1/groups/{groupId}/members:
-    $ref: "./paths/chat-groups-members.yaml#/paths/~1v1~1groups~1{groupId}~1members"
   /v1/groups/{groupId}/members/{userId}:
     $ref: "./paths/chat-groups-members.yaml#/paths/~1v1~1groups~1{groupId}~1members~1{userId}"
-  /v1/groups/{groupId}/leave:
-    $ref: "./paths/chat-groups-base.yaml#/paths/~1v1~1groups~1{groupId}~1leave"
   /v1/groups/{groupId}/set-admin:
     $ref: "./paths/chat-groups-members.yaml#/paths/~1v1~1groups~1{groupId}~1set-admin"
   /v1/groups/{groupId}/transfer-owner:
@@ -186,8 +160,6 @@ paths:
     $ref: "./paths/chat-groups-pending.yaml#/paths/~1v1~1groups~1{groupId}~1members~1{userId}~1approve"
   /v1/groups/{groupId}/members/{userId}/reject:
     $ref: "./paths/chat-groups-pending.yaml#/paths/~1v1~1groups~1{groupId}~1members~1{userId}~1reject"
-  /v1/groups/{groupId}/settings:
-    $ref: "./paths/chat-groups-base.yaml#/paths/~1v1~1groups~1{groupId}~1settings"
   /v1/groups/{groupId}/polls:
     $ref: "./paths/chat-polls.yaml#/paths/~1v1~1groups~1{groupId}~1polls"
   /v1/groups/{groupId}/polls/{pollId}/vote:
@@ -301,149 +273,89 @@ paths:
   /v1/my-cloud/collections/{id}/items/{itemId}:
     $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1collections~1{id}~1items~1{itemId}"
 
-  # ==================== SEARCH V1 ====================
+  # ==================== SEARCH ====================
   /v1/search:
     $ref: "./paths/search.yaml#/paths/~1v1~1search"
 
-  # ==================== CHAT V2 ====================
-  /v2/conversations:
+  # ==================== CHAT - CANONICAL ====================
+  /v1/conversations:
     $ref: "./paths/chat-v2.yaml#/paths/~1conversations"
-  /v2/conversations/cursor:
+  /v1/conversations/cursor:
     $ref: "./paths/chat-v2.yaml#/paths/~1conversations~1cursor"
-  /v2/conversations/strangers:
+  /v1/conversations/strangers:
     $ref: "./paths/chat-v2.yaml#/paths/~1conversations~1strangers"
-  /v2/conversations/{conversationId}/presence:
+  /v1/conversations/{conversationId}/presence:
     $ref: "./paths/chat-v2.yaml#/paths/~1conversations~1{conversationId}~1presence"
-  /v2/conversations/{conversationId}/messages:
+  /v1/conversations/{conversationId}/messages:
     $ref: "./paths/chat-v2.yaml#/paths/~1conversations~1{conversationId}~1messages"
-  /v2/conversations/{conversationId}/profile-cards:
+  /v1/conversations/{conversationId}/profile-cards:
     $ref: "./paths/chat-v2.yaml#/paths/~1conversations~1{conversationId}~1profile-cards"
-  /v2/conversations/{conversationId}/hide:
+  /v1/conversations/{conversationId}/hide:
     $ref: "./paths/chat-v2.yaml#/paths/~1conversations~1{conversationId}~1hide"
-  /v2/conversations/{conversationId}/unlock:
+  /v1/conversations/{conversationId}/unlock:
     $ref: "./paths/chat-v2.yaml#/paths/~1conversations~1{conversationId}~1unlock"
-  /v2/conversations/{conversationId}/unhide:
+  /v1/conversations/{conversationId}/unhide:
     $ref: "./paths/chat-v2.yaml#/paths/~1conversations~1{conversationId}~1unhide"
-  /v2/messages/private:
+  /v1/messages/private:
     $ref: "./paths/chat-v2.yaml#/paths/~1messages~1private"
-  /v2/messages/{messageId}:
+  /v1/messages/{messageId}:
     $ref: "./paths/chat-v2.yaml#/paths/~1messages~1{messageId}"
-  /v2/message-requests:
+  /v1/message-requests:
     $ref: "./paths/chat-v2.yaml#/paths/~1message-requests"
-  /v2/message-requests/{conversationId}/accept:
+  /v1/message-requests/{conversationId}/accept:
     $ref: "./paths/chat-v2.yaml#/paths/~1message-requests~1{conversationId}~1accept"
-  /v2/message-requests/{conversationId}/reject:
+  /v1/message-requests/{conversationId}/reject:
     $ref: "./paths/chat-v2.yaml#/paths/~1message-requests~1{conversationId}~1reject"
-  /v2/groups:
+  /v1/groups:
     $ref: "./paths/chat-v2.yaml#/paths/~1groups"
-  /v2/groups/{groupId}/members:
+  /v1/groups/{groupId}/members:
     $ref: "./paths/chat-v2.yaml#/paths/~1groups~1{groupId}~1members"
-  /v2/groups/{groupId}/leave:
+  /v1/groups/{groupId}/leave:
     $ref: "./paths/chat-v2.yaml#/paths/~1groups~1{groupId}~1leave"
-  /v2/groups/{groupId}/settings:
+  /v1/groups/{groupId}/settings:
     $ref: "./paths/chat-v2.yaml#/paths/~1groups~1{groupId}~1settings"
 
-  # --- User V2 ---
-  /v2/users/me/profile:
+  # --- User ---
+  /v1/users/me/profile:
     $ref: "./paths/user-v2.yaml#/paths/~1users~1me~1profile"
-  /v2/users/me/privacy:
+  /v1/users/me/privacy:
     $ref: "./paths/user-v2.yaml#/paths/~1users~1me~1privacy"
-  /v2/users/me/avatar-history:
+  /v1/users/me/avatar-history:
     $ref: "./paths/user-v2.yaml#/paths/~1users~1me~1avatar-history"
-  /v2/users/search:
+  /v1/users/search:
     $ref: "./paths/user-v2.yaml#/paths/~1users~1search"
-  /v2/users/search-by-phone:
+  /v1/users/search-by-phone:
     $ref: "./paths/user-v2.yaml#/paths/~1users~1search-by-phone"
-  /v2/users/{id}/presence:
+  /v1/users/{id}/presence:
     $ref: "./paths/user-v2.yaml#/paths/~1users~1{id}~1presence"
-  /v2/users/{id}/public:
+  /v1/users/{id}/public:
     $ref: "./paths/user-v2.yaml#/paths/~1users~1{id}~1public"
-  /v2/friends/suggestions:
+  /v1/friends/suggestions:
     $ref: "./paths/user-v2.yaml#/paths/~1friends~1suggestions"
 
-  # --- V2 aliases mounted from V1 social routers ---
-  /v2/blocks/{blockedUserId}:
-    $ref: "./paths/blocks.yaml#/paths/~1v1~1blocks~1{blockedUserId}"
-  /v2/blocks:
-    $ref: "./paths/blocks.yaml#/paths/~1v1~1blocks"
-  /v2/blocks/{blockedUserId}/check:
-    $ref: "./paths/blocks.yaml#/paths/~1v1~1blocks~1{blockedUserId}~1check"
-  /v2/friend-requests/{receiverId}:
-    $ref: "./paths/friend-requests.yaml#/paths/~1v1~1friend-requests~1{receiverId}"
-  /v2/friend-requests/{requestId}:
-    $ref: "./paths/friend-requests.yaml#/paths/~1v1~1friend-requests~1{requestId}"
-  /v2/friend-requests/received:
-    $ref: "./paths/friend-requests.yaml#/paths/~1v1~1friend-requests~1received"
-  /v2/friend-requests/sent:
-    $ref: "./paths/friend-requests.yaml#/paths/~1v1~1friend-requests~1sent"
-  /v2/friend-requests/check/{targetUserId}:
-    $ref: "./paths/friend-requests.yaml#/paths/~1v1~1friend-requests~1check~1{targetUserId}"
-  /v2/friend-requests/count:
-    $ref: "./paths/friend-requests.yaml#/paths/~1v1~1friend-requests~1count"
-  /v2/friendships:
-    $ref: "./paths/friendships.yaml#/paths/~1v1~1friendships"
-  /v2/friendships/{friendId}:
-    $ref: "./paths/friendships.yaml#/paths/~1v1~1friendships~1{friendId}"
-  /v2/friendships/{friendId}/check:
-    $ref: "./paths/friendships.yaml#/paths/~1v1~1friendships~1{friendId}~1check"
-  /v2/users/{id}/mutual-friends:
-    $ref: "./paths/friendships.yaml#/paths/~1v1~1users~1{id}~1mutual-friends"
-  /v2/users/{id}/suggestions:
-    $ref: "./paths/friendships.yaml#/paths/~1v1~1users~1{id}~1suggestions"
-  /v2/friendships/count:
-    $ref: "./paths/friendships.yaml#/paths/~1v1~1friendships~1count"
-  /v2/friendships/search:
-    $ref: "./paths/friendships.yaml#/paths/~1v1~1friendships~1search"
-
-  # --- Calls V1 legacy and V2 aliases ---
+  # --- Calls LiveKit Cloud ---
   /v1/calls:
     $ref: "./paths/calls.yaml#/paths/~1v1~1calls"
-  /v1/calls/{callId}/answer:
-    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1{callId}~1answer"
+  /v1/calls/conversations/{conversationId}/active:
+    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1conversations~1{conversationId}~1active"
+  /v1/calls/active-by-conversation/{conversationId}:
+    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1active-by-conversation~1{conversationId}"
+  /v1/calls/{callId}/join:
+    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1{callId}~1join"
+  /v1/calls/{callId}/leave:
+    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1{callId}~1leave"
   /v1/calls/{callId}/reject:
     $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1{callId}~1reject"
   /v1/calls/{callId}/missed:
     $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1{callId}~1missed"
+  /v1/calls/{callId}/end:
+    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1{callId}~1end"
   /v1/calls/{callId}:
     $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1{callId}"
   /v1/calls/{callId}/token:
     $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1{callId}~1token"
-  /v1/calls/v2:
-    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1v2"
-  /v1/calls/v2/{callId}/answer:
-    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1v2~1{callId}~1answer"
-  /v1/calls/v2/{callId}/reject:
-    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1v2~1{callId}~1reject"
-  /v1/calls/v2/{callId}/missed:
-    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1v2~1{callId}~1missed"
-  /v1/calls/v2/{callId}:
-    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1v2~1{callId}"
-  /v1/calls/v2/{callId}/token:
-    $ref: "./paths/calls.yaml#/paths/~1v1~1calls~1v2~1{callId}~1token"
 
-  # --- Call V2 (livekit-cloud) ---
-  /v2/calls:
-    $ref: "./paths/calls.yaml#/paths/~1v2~1calls"
-  /v2/calls/conversations/{conversationId}/active:
-    $ref: "./paths/calls.yaml#/paths/~1v2~1calls~1conversations~1{conversationId}~1active"
-  /v2/calls/active-by-conversation/{conversationId}:
-    $ref: "./paths/calls.yaml#/paths/~1v2~1calls~1active-by-conversation~1{conversationId}"
-  /v2/calls/{callId}/join:
-    $ref: "./paths/calls.yaml#/paths/~1v2~1calls~1{callId}~1join"
-  /v2/calls/{callId}/leave:
-    $ref: "./paths/calls.yaml#/paths/~1v2~1calls~1{callId}~1leave"
-  /v2/calls/{callId}/reject:
-    $ref: "./paths/calls.yaml#/paths/~1v2~1calls~1{callId}~1reject"
-  /v2/calls/{callId}/missed:
-    $ref: "./paths/calls.yaml#/paths/~1v2~1calls~1{callId}~1missed"
-  /v2/calls/{callId}/end:
-    $ref: "./paths/calls.yaml#/paths/~1v2~1calls~1{callId}~1end"
-  /v2/calls/{callId}:
-    $ref: "./paths/calls.yaml#/paths/~1v2~1calls~1{callId}"
-  /v2/calls/{callId}/token:
-    $ref: "./paths/calls.yaml#/paths/~1v2~1calls~1{callId}~1token"
-
-  # ==================== AI V1 ====================
+  # ==================== AI ====================
   /v1/ai/summarize:
     $ref: "./paths/ai.yaml#/paths/~1v1~1ai~1summarize"
   /v1/ai/smart-reply:

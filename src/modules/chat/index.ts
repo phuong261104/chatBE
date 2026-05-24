@@ -575,12 +575,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   router.post("/conversations/private", mdlFactory.auth, httpService.getPrivateConversationAPI.bind(httpService));
   router.get("/conversations/unread-count", mdlFactory.auth, httpService.getTotalUnreadCountAPI.bind(httpService));
-  router.get("/conversations", mdlFactory.auth, httpService.getConversationsAPI.bind(httpService));
-  router.get("/conversations/cursor", mdlFactory.auth, httpService.getConversationsCursorAPI.bind(httpService));
   router.get("/conversations/:conversationId", mdlFactory.auth, httpService.getConversationDetailAPI.bind(httpService));
   router.get("/conversations/:conversationId/messages", mdlFactory.auth, httpService.loadMessagesAPI.bind(httpService));
-
-  router.post("/conversations/:conversationId/messages", mdlFactory.auth, httpService.sendMessageAPI.bind(httpService));
 
   router.post("/messages/:messageId/revoke", mdlFactory.auth, httpService.revokeMessageAPI.bind(httpService));
 
@@ -593,11 +589,6 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   );
 
   router.post("/messages/forward", mdlFactory.auth, httpService.forwardMessagesAPI.bind(httpService));
-  router.post(
-    "/messages/save-to-my-document",
-    mdlFactory.auth,
-    httpService.saveMessagesToMyDocumentAPI.bind(httpService),
-  );
 
   router.post("/conversations/:conversationId/seen", mdlFactory.auth, httpService.markAsSeenAPI.bind(httpService));
   router.post(
@@ -606,11 +597,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     httpService.markAsDeliveredAPI.bind(httpService),
   );
 
-  router.post("/groups", mdlFactory.auth, httpService.createGroupAPI.bind(httpService));
-  router.post("/groups/:groupId/members", mdlFactory.auth, httpService.addMembersAPI.bind(httpService));
   router.delete("/groups/:groupId/members/:userId", mdlFactory.auth, httpService.removeMemberAPI.bind(httpService));
   router.put("/groups/:groupId", mdlFactory.auth, httpService.updateGroupAPI.bind(httpService));
-  router.post("/groups/:groupId/leave", mdlFactory.auth, httpService.leaveGroupAPI.bind(httpService));
   router.get("/groups/:groupId/members", mdlFactory.auth, httpService.getGroupMembersAPI.bind(httpService));
 
   router.post(
@@ -645,8 +633,6 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     mdlFactory.auth,
     httpService.unarchiveConversationAPI.bind(httpService),
   );
-
-  router.put("/messages/:messageId", mdlFactory.auth, httpService.editMessageAPI.bind(httpService));
 
   router.post("/messages/:messageId/pin", mdlFactory.auth, httpService.pinMessageAPI.bind(httpService));
 
@@ -693,8 +679,6 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     mdlFactory.auth,
     httpService.rejectMemberAPI.bind(httpService),
   );
-
-  router.patch("/groups/:groupId/settings", mdlFactory.auth, httpService.updateGroupSettingsAPI.bind(httpService));
 
   router.get("/groups/:groupId/info", mdlFactory.auth, httpService.getGroupInfoAPI.bind(httpService));
 
