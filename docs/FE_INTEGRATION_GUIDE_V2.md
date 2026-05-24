@@ -20,13 +20,14 @@ Frontend handoff reading order:
 | Priority | File / URL | Purpose | Status |
 |---|---|---|---|
 | 1 | `docs/FE_INTEGRATION_GUIDE_V2.md` | Main integration guide and source-verified endpoint inventory | Required |
-| 2 | `docs/SOCKET_EVENTS_V2_REFERENCE.md` | Socket.IO namespaces/events including chat, calls, friends, blocks, My Cloud | Required |
-| 3 | `docs/handoff/FRONTEND_API_SOCKET_V2_CHANGES.md` | Concise canonical API migration notes | Required |
-| 4 | `docs/handoff/FRONTEND_CALL_INTEGRATION_GUIDE.md` | Call V1 LiveKit integration flow | Required for calls |
-| 5 | `http://localhost:3000/api-docs` | Swagger UI for exact request/response schemas | Required |
-| 6 | `docs/SOCKET_FRIENDS_BLOCKS_REFERENCE.md` | Detailed friendship/block socket payloads | Reference |
-| 7 | `docs/CHAT_WEBSOCKET_EVENTS_CHECKLIST.md` | Chat websocket implementation checklist and caveats | Reference |
-| 8 | `docs/handoff/FRONTEND_HANDOFF_FILES_V2.md` | Handoff file checklist for frontend devs | Reference |
+| 2 | `docs/SOCKET_IO_BACKEND_REFERENCE.md` | Canonical Socket.IO namespace/event/payload reference | Required |
+| 3 | `docs/SOCKET_IO_EVENTS_OVERVIEW.md` | Quick Socket.IO namespace/event map including chat, calls, friends, blocks, My Cloud | Required |
+| 4 | `docs/handoff/FRONTEND_API_SOCKET_V2_CHANGES.md` | Concise canonical API migration notes | Required |
+| 5 | `docs/handoff/FRONTEND_CALL_INTEGRATION_GUIDE.md` | Call V1 LiveKit integration flow | Required for calls |
+| 6 | `http://localhost:3000/api-docs` | Swagger UI for exact request/response schemas | Required |
+| 7 | `docs/SOCKET_IO_FRIENDS_BLOCKS_REFERENCE.md` | Detailed friendship/block socket payloads | Reference |
+| 8 | `docs/SOCKET_IO_CHAT_EVENTS_CHECKLIST.md` | Chat websocket implementation checklist and caveats | Reference |
+| 9 | `docs/handoff/FRONTEND_HANDOFF_FILES_V2.md` | Handoff file checklist for frontend devs | Reference |
 
 Notes:
 
@@ -736,22 +737,23 @@ callSocket.emit("call:leave", { callId });
 
 ## 9. Socket.IO Events (Chat)
 
-Namespace: `/messages` (via root socket subscription)
+Namespace: `/messages`. Use `/messages` `joinGroup` for chat rooms, or root `/`
+`subscribeConversation` only when you need root namespace room subscription.
 
 ### 9.1 Real-time Messages
 
 ```javascript
 // When subscribed to a conversation, receive messages via:
-socket.on("receiveMessage", (message) => {
+socket.on("receiveMessage", ({ message, conversationId }) => {
   appendMessage(message);
 });
 
-socket.on("message:edited", ({ messageId, text, editedAt }) => {
-  updateMessageText(messageId, text);
-  showEditedIndicator(messageId);
+socket.on("message:edited", ({ conversationId, message }) => {
+  updateMessageText(message.id, message.text);
+  showEditedIndicator(message.id);
 });
 
-socket.on("message:revoked", ({ messageId, conversationId }) => {
+socket.on("message:revoked", ({ conversationId, messageId, revokedBy }) => {
   removeMessage(messageId);
   showMessageRevoked(messageId);
 });
@@ -764,8 +766,8 @@ socket.on("message:reaction:remove", ({ messageId, userId, emoji }) => {
   removeReactionFromMessage(messageId, userId, emoji);
 });
 
-socket.on("message:pinned", ({ messageId, conversationId }) => {
-  showPinnedIndicator(messageId);
+socket.on("message:pinned", ({ conversationId, message }) => {
+  showPinnedIndicator(message.id);
 });
 ```
 
@@ -773,23 +775,23 @@ socket.on("message:pinned", ({ messageId, conversationId }) => {
 
 ```javascript
 // Send typing
-function onTextChange(conversationId) {
+function onTextChange(groupId) {
   debouncedEmit(() => {
-    socket.emit("typing:start", { conversationId });
+    socket.emit("typing:start", { groupId });
   });
 }
 
-function onTextEmpty() {
-  socket.emit("typing:stop", { conversationId });
+function onTextEmpty(groupId) {
+  socket.emit("typing:stop", { groupId });
 }
 
 // Receive typing
-socket.on("typing:start", ({ conversationId, userId }) => {
-  showTypingIndicator(conversationId, userId);
+socket.on("typing:start", ({ groupId, userId }) => {
+  showTypingIndicator(groupId, userId);
 });
 
-socket.on("typing:stop", ({ conversationId, userId }) => {
-  hideTypingIndicator(conversationId, userId);
+socket.on("typing:stop", ({ groupId, userId }) => {
+  hideTypingIndicator(groupId, userId);
 });
 ```
 
@@ -812,16 +814,16 @@ socket.on("online_status", ({ userId, isOnline }) => {
 ### 9.4 Group Events
 
 ```javascript
-socket.on("group:member_joined", ({ conversationId, userId }) => {
-  showMemberJoinedNotification(conversationId, userId);
+socket.on("conversation:members_added", ({ conversationId, newMembers }) => {
+  showMembersAddedNotification(conversationId, newMembers);
 });
 
-socket.on("group:member_left", ({ conversationId, userId }) => {
-  showMemberLeftNotification(conversationId, userId);
+socket.on("group:member_left", ({ conversationId, leftUserId }) => {
+  showMemberLeftNotification(conversationId, leftUserId);
 });
 
-socket.on("group:admin_changed", ({ conversationId, userId, isAdmin }) => {
-  updateMemberRole(conversationId, userId, isAdmin ? "admin" : "member");
+socket.on("group:admin_changed", ({ conversationId, targetUserId, isAdmin }) => {
+  updateMemberRole(conversationId, targetUserId, isAdmin ? "admin" : "member");
 });
 
 socket.on("group:owner_transferred", ({ conversationId, newOwnerId }) => {
@@ -1138,7 +1140,7 @@ src/
     constants/socket-events.ts     # Event name constants
   modules/user/
     infras/transport/
-      socket-service.ts           # /user namespace
+      socket-service.ts           # root namespace heartbeat/presence helper
       user-v2.routes.ts          # Canonical user routes mounted under /v1
       user-v2-http-service.ts    # Canonical user service
   modules/call/
@@ -1153,6 +1155,9 @@ docs/
   swagger/paths/user-v2.yaml      # Canonical user paths
   swagger/paths/calls.yaml        # Call paths
   handoff/FRONTEND_HANDOFF_FILES_V2.md # Handoff reading checklist
-  SOCKET_EVENTS_V2_REFERENCE.md   # Socket.IO events reference
+  SOCKET_IO_BACKEND_REFERENCE.md  # Canonical Socket.IO details
+  SOCKET_IO_EVENTS_OVERVIEW.md    # Socket.IO events overview
+  SOCKET_IO_CHAT_EVENTS_CHECKLIST.md # Chat socket checklist
+  SOCKET_IO_FRIENDS_BLOCKS_REFERENCE.md # Friends/blocks socket reference
   FE_INTEGRATION_GUIDE_V2.md     # This file
 ```

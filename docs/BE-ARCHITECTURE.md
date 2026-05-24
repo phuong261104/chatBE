@@ -266,8 +266,8 @@ Room/key convention phổ biến:
 Socket event source:
 
 - `src/modules/chat/constants/socket-events.ts`
-- `docs/SOCKET_EVENTS_V2_REFERENCE.md`
-- `docs/CHAT_API_SOCKET_REFERENCE.md`
+- `docs/SOCKET_IO_EVENTS_OVERVIEW.md`
+- `docs/SOCKET_IO_BACKEND_REFERENCE.md`
 
 ## Chat Architecture
 

@@ -1,4 +1,4 @@
-# Chat Backend Socket.IO Reference
+# Socket.IO Backend Reference
 
 Canonical socket handoff for the current source code in `src/index.ts` and the socket services under `src/modules`.
 
@@ -54,6 +54,7 @@ The root namespace is created by `createSocketIOServer`. It handles base connect
 | Event | Payload | Ack |
 | --- | --- | --- |
 | `ping` | optional | emits `pong` |
+| `heartbeat` | ignored | No ack; touches root presence via `UserSocketService` |
 | `subscribeConversation` | `{ conversationId }` | `{ success, room, timestamp? }` |
 | `unsubscribeConversation` | `{ conversationId }` | `{ success, room? }` |
 | `getOnlineStatus` | `{ userId }` | `{ userId, online, isOnline, visibility, lastSeen, connectionCount, timestamp }` |

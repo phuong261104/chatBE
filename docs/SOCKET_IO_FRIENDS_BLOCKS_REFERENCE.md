@@ -1,4 +1,4 @@
-# Socket.IO Reference — Friend & Block Namespaces
+# Socket.IO Friends/Blocks Reference
 
 Tài liệu này mô tả chi tiết các Namespace, Events và Payloads cho hệ thống **Friends** và **Blocks**, giúp Frontend tích hợp dễ dàng.
 
@@ -72,7 +72,7 @@ friendsSocket.on("connect_error", (error) => {
     fromUserId: string;  // ID người gửi lời mời
     toUserId: string;    // ID người nhận (= user hiện tại)
   };
-  timestamp: Date;
+  timestamp: string; // ISO string on the client
 }
 ```
 
@@ -102,7 +102,7 @@ friendsSocket.on("friend_request:received", (payload) => {
     fromUserId: string;   // ID người gửi lời mời
     toUserId: string;     // ID người nhận lời mời
   };
-  timestamp: Date;
+  timestamp: string; // ISO string on the client
 }
 ```
 
@@ -131,7 +131,7 @@ friendsSocket.on("friend_request:accepted", (payload) => {
     fromUserId: string;   // ID người gửi lời mời
     toUserId: string;      // ID người nhận lời mời
   };
-  timestamp: Date;
+  timestamp: string; // ISO string on the client
 }
 ```
 
@@ -159,7 +159,7 @@ friendsSocket.on("friend_request:rejected", (payload) => {
     fromUserId: string;   // ID người gửi lời mời
     toUserId: string;      // ID người nhận lời mời
   };
-  timestamp: Date;
+  timestamp: string; // ISO string on the client
 }
 ```
 
@@ -184,7 +184,7 @@ friendsSocket.on("friend_request:canceled", (payload) => {
   data: {
     unfriendedBy: string;  // ID người hủy kết bạn
   };
-  timestamp: Date;
+  timestamp: string; // ISO string on the client
 }
 ```
 
@@ -211,7 +211,7 @@ friendsSocket.on("friendship:unfriended", (payload) => {
     blockedUserId?: string;  // ID người bị block (khi direction = "BLOCKING")
     blockerId?: string;     // ID người block (khi direction = "BLOCKED_BY")
   };
-  timestamp: Date;
+  timestamp: string; // ISO string on the client
 }
 ```
 
@@ -304,7 +304,7 @@ blocksSocket.on("connect_error", (error) => {
   data: {
     blockedBy: string;  // ID người đã chặn user hiện tại
   };
-  timestamp: Date;
+  timestamp: string; // ISO string on the client
 }
 ```
 
@@ -329,7 +329,7 @@ blocksSocket.on("block:blocked", (payload) => {
   data: {
     unblockedBy: string;  // ID người đã bỏ chặn user hiện tại
   };
-  timestamp: Date;
+  timestamp: string; // ISO string on the client
 }
 ```
 
