@@ -1,19 +1,21 @@
 import { Block } from "@modules/blocks/model/model";
-import { BlockCondDTO, BlockUpdateDTO } from "@modules/blocks/model/dto";
+import { BlockCondDTO, BlockCursorPage, BlockUpdateDTO } from "@modules/blocks/model/dto";
+import { IBlockRepository } from "@modules/blocks/interface";
 import {
   BaseQueryRepositoryDynamoDB,
   BaseCommandRepositoryDynamoDB,
   BaseRepositoryDynamoDB,
 } from "@share/repository/dynamodb/repo-dynamodb";
+import { PagingDTO } from "@share/model/paging";
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
-import { PutCommand, QueryCommand, DeleteCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { QueryCommand, DeleteCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<Block, BlockCondDTO, typeof TABLE_NAMES.BLOCKS> {
   constructor() {
     super(TABLE_NAMES.BLOCKS, { createdAt: -1 });
   }
 
-  protected toEntity(doc: Record<string, any>): Block {
+  protected toEntity(doc: Record<string, unknown>): Block {
     const { pk, sk, ...rest } = doc;
     return { ...rest } as Block;
   }
@@ -29,8 +31,8 @@ class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<Block, Bloc
     return { "#blockerId": "blockerId", "#blockedUserId": "blockedUserId" };
   }
 
-  protected buildAttributeValues(cond: BlockCondDTO): Record<string, any> {
-    const values: Record<string, any> = {};
+  protected buildAttributeValues(cond: BlockCondDTO): Record<string, unknown> {
+    const values: Record<string, unknown> = {};
     if (cond.blockerId) values[":blockerId"] = cond.blockerId;
     if (cond.blockedUserId) values[":blockedUserId"] = cond.blockedUserId;
     return values;
@@ -64,7 +66,7 @@ class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<Block, Bloc
     return super.findByCond(cond);
   }
 
-  async list(cond: BlockCondDTO, paging: any): Promise<Block[]> {
+  async list(cond: BlockCondDTO, paging: PagingDTO): Promise<Block[]> {
     const docClient = getDocClient();
     if (cond.blockerId) {
       const result = await docClient.send(
@@ -96,12 +98,12 @@ class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<Block, Bloc
     cond: BlockCondDTO,
     cursor: string | undefined,
     limit: number | undefined,
-  ): Promise<{ items: Block[]; nextCursor: string; hasMore: boolean }> {
+  ): Promise<BlockCursorPage> {
     const docClient = getDocClient();
     const pageLimit = (limit || 20) + 1;
 
     if (cond.blockerId) {
-      let exclusiveStartKey: Record<string, any> | undefined;
+      let exclusiveStartKey: Record<string, unknown> | undefined;
       if (cursor) {
         exclusiveStartKey = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
       }
@@ -126,7 +128,7 @@ class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<Block, Bloc
       return { items: returnItems, nextCursor, hasMore };
     }
 
-    let exclusiveStartKey: Record<string, any> | undefined;
+    let exclusiveStartKey: Record<string, unknown> | undefined;
     if (cursor) {
       exclusiveStartKey = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
     }
@@ -159,18 +161,17 @@ class DynamoBlockCommandRepository extends BaseCommandRepositoryDynamoDB<
     super(TABLE_NAMES.BLOCKS, true);
   }
 
-  protected beforeInsert(data: Block): Record<string, any> {
-    const d = data as any;
+  protected beforeInsert(data: Block): Record<string, unknown> {
     const now = new Date().toISOString();
     return {
-      id: d.id,
-      blockerId: d.blockerId,
-      blockedUserId: d.blockedUserId,
-      createdAt: d.createdAt ? d.createdAt.toISOString() : now,
+      id: data.id,
+      blockerId: data.blockerId,
+      blockedUserId: data.blockedUserId,
+      createdAt: data.createdAt ? data.createdAt.toISOString() : now,
     };
   }
 
-  protected beforeUpdate(id: string, data: BlockUpdateDTO): Record<string, any> {
+  protected beforeUpdate(id: string, data: BlockUpdateDTO): Record<string, unknown> {
     return {};
   }
 
@@ -191,7 +192,7 @@ export class DynamoBlockRepository extends BaseRepositoryDynamoDB<
   BlockCondDTO,
   BlockUpdateDTO,
   typeof TABLE_NAMES.BLOCKS
-> {
+> implements IBlockRepository {
   constructor() {
     super(new DynamoBlockQueryRepository(), new DynamoBlockCommandRepository());
   }

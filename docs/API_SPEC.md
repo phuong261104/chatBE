@@ -290,6 +290,7 @@ Không còn social alias version khác; dùng các route `/v1` trong bảng trê
 | --- | --- | --- |
 | POST/DELETE | `/v1/blocks/{blockedUserId}` | Block/unblock user |
 | GET | `/v1/blocks` | List blocked users |
+| GET | `/v1/blocks/cursor` | List blocked users with cursor pagination |
 | GET | `/v1/blocks/{blockedUserId}/check` | Check block status |
 
 Không còn block alias version khác; dùng các route `/v1` trong bảng trên.

@@ -1,13 +1,14 @@
 import { ISessionStore, DeviceInfo, Session, DeviceType } from "@share/interface";
+import { AuthRedisClient } from "../../interface";
 
 const SESSION_PREFIX = "session:";
 const USER_SESSIONS_PREFIX = "user:sessions:";
 const SESSION_TTL = 30 * 24 * 60 * 60;
 
 export class RedisSessionStore implements ISessionStore {
-  private redisClient: any;
+  private redisClient: AuthRedisClient;
 
-  constructor(redisClient: any) {
+  constructor(redisClient: AuthRedisClient) {
     this.redisClient = redisClient;
   }
 

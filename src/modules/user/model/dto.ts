@@ -37,6 +37,7 @@ export const UserUpdateSchema = z.object({
   username: z.string().optional(),
   password: z.string().optional(),
   salt: z.string().optional(),
+  tokenVersion: z.number().int().positive().optional(),
   status: z.nativeEnum(UserStatus).optional(),
   displayName: z.string().optional(),
   avatarUrl: z.string().optional(),
@@ -47,7 +48,8 @@ export const UserUpdateSchema = z.object({
   verified: UserVerifiedSchema.optional(),
   privacy: UserPrivacySchema.optional(),
   settings: UserSettingsSchema.optional(),
-  lastLoginAt: z.date().optional()
+  lastLoginAt: z.date().optional(),
+  emailVerifiedAt: z.date().optional()
 });
 
 export type UserUpdateDTO = z.infer<typeof UserUpdateSchema>;

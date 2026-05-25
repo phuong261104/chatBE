@@ -267,6 +267,10 @@ class DynamoUserCommandRepository extends BaseCommandRepositoryDynamoDB<User, Us
       const val = d.lastLoginAt;
       updateData.lastLoginAt = val instanceof Date ? val.toISOString() : String(val);
     }
+    if (d.emailVerifiedAt !== undefined) {
+      const val = d.emailVerifiedAt;
+      updateData.emailVerifiedAt = val instanceof Date ? val.toISOString() : String(val);
+    }
     return updateData;
   }
 }

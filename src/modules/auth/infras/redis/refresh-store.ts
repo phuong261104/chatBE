@@ -1,12 +1,13 @@
 import { IRefreshTokenStore } from "../token/refresh-token";
+import { AuthRedisClient, RefreshTokenRecord } from "../../interface";
 
 const REFRESH_PREFIX = "refresh:";
 const USED_REFRESH_PREFIX = "refresh:used:";
 
 export class RedisRefreshTokenStore implements IRefreshTokenStore {
-  private redisClient: any;
+  private redisClient: AuthRedisClient;
 
-  constructor(redisClient: any) {
+  constructor(redisClient: AuthRedisClient) {
     this.redisClient = redisClient;
   }
 
@@ -16,7 +17,7 @@ export class RedisRefreshTokenStore implements IRefreshTokenStore {
     await this.redisClient.setEx(key, expiresInSeconds, value);
   }
 
-  async get(jti: string): Promise<{ userId: string; deviceId: string; tokenVersion?: number } | null> {
+  async get(jti: string): Promise<RefreshTokenRecord | null> {
     const key = `${REFRESH_PREFIX}${jti}`;
     const result = await this.redisClient.get(key);
     if (!result) return null;
@@ -44,7 +45,7 @@ export class RedisRefreshTokenStore implements IRefreshTokenStore {
     );
   }
 
-  async getUsed(jti: string): Promise<{ userId: string; deviceId: string; tokenVersion?: number } | null> {
+  async getUsed(jti: string): Promise<RefreshTokenRecord | null> {
     const result = await this.redisClient.get(`${USED_REFRESH_PREFIX}${jti}`);
     if (!result) return null;
     try {

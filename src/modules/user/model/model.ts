@@ -72,6 +72,7 @@ export const UserSchema = z.object({
 
   lastLoginAt: z.date().optional(),
   lastSeen: z.date().optional(),
+  emailVerifiedAt: z.date().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

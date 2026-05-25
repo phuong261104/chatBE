@@ -5,6 +5,7 @@ import {
   Block,
   BlockCondDTO,
   BlockCreateDTO,
+  BlockCursorListQuerySchema,
   BlockUpdateDTO,
 } from "../../model";
 import { AppError } from "@share/app-error";
@@ -105,6 +106,26 @@ export class BlockHTTPService extends BaseHttpService<
           hasMore: endIndex < blocks.length,
         },
       });
+    } catch (error) {
+      const err = error as Error;
+      if (err instanceof AppError) {
+        res.status((err as AppError).getStatusCode()).json({ message: err.message });
+        return;
+      }
+      res.status(400).json({
+        message: err.message,
+      });
+    }
+  }
+
+  async getBlockedUsersCursorAPI(req: Request, res: Response) {
+    try {
+      const requester = res.locals["requester"];
+      const blockerId = requester.sub;
+      const query = BlockCursorListQuerySchema.parse(req.query);
+      const result = await this.usecase.getBlockedUsersCursor(blockerId, query);
+
+      res.status(200).json({ data: result });
     } catch (error) {
       const err = error as Error;
       if (err instanceof AppError) {

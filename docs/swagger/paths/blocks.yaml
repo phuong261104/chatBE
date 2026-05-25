@@ -60,6 +60,43 @@ paths:
                     blockedId: "60d0fe4f5311236168a2"
                     createdAt: "2026-04-01T10:00:00Z"
 
+  /v1/blocks/cursor:
+    get:
+      summary: Get blocked users with cursor pagination
+      tags: [Blocks]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          required: false
+          description: Cursor returned from the previous page.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          required: false
+      responses:
+        '200':
+          description: A cursor-paginated list of blocked users
+          content:
+            application/json:
+              example:
+                data:
+                  items:
+                    - id: "018f03d3-9d68-7a7b-9b13-8c0d9f0e8a2a"
+                      blockerId: "60d0fe4f5311236168a1"
+                      blockedUserId: "60d0fe4f5311236168a2"
+                      createdAt: "2026-04-01T10:00:00Z"
+                  nextCursor: "eyJibG9ja2VySWQiOiI2MGQwZmU0ZjUzMTEyMzYxNjhhMSJ9"
+                  hasMore: true
+                  limit: 20
+
   /v1/blocks/{blockedUserId}/check:
     get:
       summary: Check if a user is blocked

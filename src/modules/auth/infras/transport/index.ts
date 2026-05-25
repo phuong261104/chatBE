@@ -1,4 +1,4 @@
-import { IAuthUseCase, RegisterPendingResponse } from "../../usecase";
+import { IAuthUseCase, RegisterPendingResponse } from "../../interface";
 import { Requester, DeviceType, DeviceDetails, Platform, DeviceInfo } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { config } from "@share/component/config";

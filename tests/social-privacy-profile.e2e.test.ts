@@ -233,6 +233,7 @@ async function createHarness(): Promise<Harness> {
   v1.patch("/friend-requests/:requestId", auth, friendRequestHttp.updateFriendRequestStatusAPI.bind(friendRequestHttp));
   v1.delete("/friend-requests/:requestId", auth, friendRequestHttp.cancelFriendRequestAPI.bind(friendRequestHttp));
   v1.get("/friendships", auth, friendshipHttp.getFriendsListAPI.bind(friendshipHttp));
+  v1.get("/blocks/cursor", auth, blockHttp.getBlockedUsersCursorAPI.bind(blockHttp));
   v1.post("/blocks/:blockedUserId", auth, blockHttp.blockUserAPI.bind(blockHttp));
   v1.get("/blocks/:blockedUserId/check", auth, blockHttp.checkBlockStatusAPI.bind(blockHttp));
   v1.get("/conversations/:conversationId/messages", auth, messagingHttp.loadMessagesAPI.bind(messagingHttp));
@@ -515,5 +516,35 @@ describe("social, privacy, profile E2E", () => {
         }),
       }),
     );
+  });
+
+  it("lists blocked users with cursor pagination", async () => {
+    const blocker = seedUser(harness.store, { displayName: "Cursor Blocker" });
+    const blocked1 = seedUser(harness.store, { displayName: "Blocked 1" });
+    const blocked2 = seedUser(harness.store, { displayName: "Blocked 2" });
+    const blocked3 = seedUser(harness.store, { displayName: "Blocked 3" });
+
+    for (const blocked of [blocked1, blocked2, blocked3]) {
+      const response = await harness.api.post(`/v1/blocks/${blocked.id}`, {}, { headers: authHeader(blocker.id) });
+      expect(response.status).toBe(200);
+    }
+
+    const firstPage = await harness.api.get("/v1/blocks/cursor?limit=2", {
+      headers: authHeader(blocker.id),
+    });
+    expect(firstPage.status).toBe(200);
+    expect(firstPage.data.data.items).toHaveLength(2);
+    expect(firstPage.data.data.hasMore).toBe(true);
+    expect(firstPage.data.data.limit).toBe(2);
+    expect(firstPage.data.data.nextCursor).toBe("2");
+
+    const secondPage = await harness.api.get(
+      `/v1/blocks/cursor?limit=2&cursor=${encodeURIComponent(firstPage.data.data.nextCursor)}`,
+      { headers: authHeader(blocker.id) },
+    );
+    expect(secondPage.status).toBe(200);
+    expect(secondPage.data.data.items).toHaveLength(1);
+    expect(secondPage.data.data.hasMore).toBe(false);
+    expect(secondPage.data.data.nextCursor).toBe("");
   });
 });

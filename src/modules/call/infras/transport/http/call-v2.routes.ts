@@ -1,7 +1,8 @@
 import { Router } from 'express';
+import { MdlFactory } from '@share/interface/service-context';
 import { CallV2Controller } from './call-v2.controller';
 
-export const setupCallV2Routes = (controller: CallV2Controller, mdlFactory: any) => {
+export const setupCallV2Routes = (controller: CallV2Controller, mdlFactory: MdlFactory) => {
   const router = Router();
 
   router.post('/calls', mdlFactory.auth, controller.createCall.bind(controller));

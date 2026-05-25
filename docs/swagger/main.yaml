@@ -228,6 +228,8 @@ paths:
     $ref: "./paths/blocks.yaml#/paths/~1v1~1blocks~1{blockedUserId}"
   /v1/blocks:
     $ref: "./paths/blocks.yaml#/paths/~1v1~1blocks"
+  /v1/blocks/cursor:
+    $ref: "./paths/blocks.yaml#/paths/~1v1~1blocks~1cursor"
   /v1/blocks/{blockedUserId}/check:
     $ref: "./paths/blocks.yaml#/paths/~1v1~1blocks~1{blockedUserId}~1check"
 

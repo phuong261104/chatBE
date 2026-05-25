@@ -1,12 +1,13 @@
 import { Server as SocketIOServer, Namespace, Socket } from 'socket.io';
 import { authenticateSocketConnection } from '@share/component/socket-io';
+import { ICallSocketNotifier } from '../../interface';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   deviceId?: string;
 }
 
-export class CallV2SocketService {
+export class CallV2SocketService implements ICallSocketNotifier {
   private namespace: Namespace;
   private userSockets: Map<string, Set<string>> = new Map();
 

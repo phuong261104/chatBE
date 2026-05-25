@@ -3,20 +3,24 @@ import { z } from 'zod';
 import {
   ConversationMemberStatus,
   ConversationType,
-  DynamoConversationMemberRepository,
-  DynamoConversationRepository,
 } from '@modules/chat';
-import { DynamoBlockRepository } from '@modules/blocks/infras/repository/dynamodb';
 import {
   callV2Service,
-  CallLogService,
   CallV2Session,
   CallV2SessionStatus,
   TerminalCallLogStatus,
 } from '../../../usecase';
 import { CallType, LivekitProvider } from '../../../interface';
+import {
+  ICallBlockRepository,
+  ICallConversationMemberRepository,
+  ICallConversationRepository,
+  ICallLogService,
+  ICallSocketNotifier,
+} from '../../../interface';
 import { livekitService } from '../../livekit';
-import { CallV2SocketService } from '../call-v2-socket.service';
+import { Requester } from '@share/interface';
+import Logger from '@share/utils/logger';
 
 const CreateCallV2DtoSchema = z.object({
   conversationId: z.string().min(1),
@@ -26,13 +30,13 @@ const CreateCallV2DtoSchema = z.object({
 });
 
 export class CallV2Controller {
-  private socketService: CallV2SocketService | null = null;
+  private socketService: ICallSocketNotifier | null = null;
 
   constructor(
-    private readonly conversationRepo: DynamoConversationRepository,
-    private readonly conversationMemberRepo: DynamoConversationMemberRepository,
-    private readonly blockRepo: DynamoBlockRepository,
-    private readonly callLogService: CallLogService,
+    private readonly conversationRepo: ICallConversationRepository,
+    private readonly conversationMemberRepo: ICallConversationMemberRepository,
+    private readonly blockRepo: ICallBlockRepository,
+    private readonly callLogService: ICallLogService,
   ) {
     callV2Service.setTimeoutHandler(async (session, missedUserIds, terminal) => {
       for (const userId of missedUserIds) {
@@ -56,7 +60,7 @@ export class CallV2Controller {
     });
   }
 
-  setSocketService(socketService: CallV2SocketService) {
+  setSocketService(socketService: ICallSocketNotifier) {
     this.socketService = socketService;
   }
 
@@ -470,7 +474,7 @@ export class CallV2Controller {
       }
       return message;
     } catch (err) {
-      console.error('[CallV2Controller] Failed to create call log message:', err);
+      Logger.error('[CallV2Controller] Failed to create call log message');
       return null;
     }
   }
@@ -502,7 +506,8 @@ export class CallV2Controller {
   }
 
   private getCurrentUserId(res: Response): string | null {
-    return (res as any).locals?.requester?.sub || null;
+    const locals = res.locals as { requester?: Requester };
+    return locals.requester?.sub || null;
   }
 
   private sendError(res: Response, err: unknown) {

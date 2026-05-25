@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ServiceContext } from "@share/interface/service-context";
-import { AuthUseCase, IAuthUseCase } from "./usecase";
+import { AuthUseCase } from "./usecase";
+import { AuthRedisClient } from "./interface";
 import { AuthHTTPService } from "./infras/transport";
 import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb/dynamodb-repo";
 import { RedisSessionStore } from "@modules/auth/infras/session/redis-session";
@@ -10,17 +11,17 @@ import { RefreshTokenService } from "@modules/auth/infras/token/refresh-token";
 import { RedisRefreshTokenStore } from "@modules/auth/infras/redis/refresh-store";
 import { Handler } from "express";
 
-let redisClient: any = null;
+let redisClient: AuthRedisClient | null = null;
 let authUseCase: AuthUseCase;
 let httpService: AuthHTTPService;
 
-export const setAuthRedisClient = (client: any) => {
+export const setAuthRedisClient = (client: AuthRedisClient) => {
   redisClient = client;
 };
 
 export const getAuthUseCase = (): AuthUseCase => authUseCase;
 
-export const setupAuthHexagon = (sctx: ServiceContext | { mdlFactory: { auth: Handler } | null }, redis: any) => {
+export const setupAuthHexagon = (sctx: ServiceContext | { mdlFactory: { auth: Handler } | null }, redis: AuthRedisClient) => {
   setAuthRedisClient(redis);
 
   const userRepository = new DynamoUserRepository();

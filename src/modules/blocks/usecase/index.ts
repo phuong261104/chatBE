@@ -2,11 +2,19 @@ import { AppError } from '@share/app-error';
 import { ErrDataNotFound } from '@share/model/base-error';
 import { PagingDTO } from '@share/model/paging';
 import { v7 } from 'uuid';
-import { IBlockUseCase } from '../interface';
+import {
+  IBlockFriendRequestRepository,
+  IBlockFriendshipRepository,
+  IBlockRepository,
+  IBlockUseCase,
+  IBlockUserRepository,
+} from '../interface';
 import {
   Block,
   BlockCondDTO,
   BlockCreateDTO,
+  BlockCursorListQuery,
+  BlockCursorListResult,
   BlockCreateSchema,
   BlockUpdateDTO,
   ErrAlreadyBlocked,
@@ -18,10 +26,10 @@ import { FriendRequestStatus } from '@modules/friend-requests/model/model';
 
 export class BlockUseCase implements IBlockUseCase {
   constructor(
-    private readonly repository: any,
-    private readonly userRepository: any,
-    private readonly friendshipRepository: any,
-    private readonly friendRequestRepository: any
+    private readonly repository: IBlockRepository,
+    private readonly userRepository: IBlockUserRepository,
+    private readonly friendshipRepository: IBlockFriendshipRepository,
+    private readonly friendRequestRepository: IBlockFriendRequestRepository
   ) {}
 
   async blockUser(blockerId: string, blockedUserId: string): Promise<string> {
@@ -107,6 +115,21 @@ export class BlockUseCase implements IBlockUseCase {
 
   async getBlockedUsers(blockerId: string): Promise<Block[]> {
     return await this.repository.findAllByCond({ blockerId });
+  }
+
+  async getBlockedUsersCursor(
+    blockerId: string,
+    query: BlockCursorListQuery,
+  ): Promise<BlockCursorListResult> {
+    const result = await this.repository.findAllByCondWithCursor(
+      { blockerId },
+      query.cursor,
+      query.limit,
+    );
+    return {
+      ...result,
+      limit: query.limit,
+    };
   }
 
   async create(data: BlockCreateDTO & { blockerId: string }): Promise<string> {

@@ -1,6 +1,5 @@
 import { AppError } from "@share/app-error";
 import {
-  IRepository,
   Requester,
   TokenPair,
   UserRole,
@@ -14,6 +13,7 @@ import {
   ISessionStore,
   ITokenBlacklist,
   PasswordResetPayload,
+  TokenIntrospectResult,
 } from "@share/interface";
 import { ErrDataNotFound } from "@share/model/base-error";
 import bcrypt from "bcrypt";
@@ -58,6 +58,25 @@ import { EmailTemplateService } from "../infras/email/templates";
 import { getEmailProvider } from "../infras/email/nodemailer";
 import { parseUserAgent } from "../infras/device/device-parser";
 import { revokeUserDeviceSockets } from "@share/component/socket-io";
+import { User, UserInfoVisibility } from "@modules/user/model/model";
+import { UserCondDTO } from "@modules/user/model/dto";
+import type {
+  AuthRedisClient,
+  AuthSessionView,
+  IAuthUseCase,
+  IAuthUserRepository,
+  LoginResponse,
+  RegisterPendingResponse,
+  ResetOTPVerifyResponse,
+} from "../interface";
+
+export type {
+  AuthSessionView,
+  IAuthUseCase,
+  LoginResponse,
+  RegisterPendingResponse,
+  ResetOTPVerifyResponse,
+} from "../interface";
 
 const VERIFY_PREFIX = "verify:email:";
 const VERIFY_RATE_PREFIX = "verify:rate:";
@@ -71,68 +90,12 @@ const RESET_TTL = 3600;
 const RESET_OTP_TTL = 300;
 const RESET_OTP_MAX_ATTEMPTS = 3;
 
-export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: "Bearer";
-  expiresIn: number;
-  refreshExpiresIn: number;
-  deviceId: string;
-  deviceType: DeviceType;
-  displayLabel?: string;
-  platform?: "app" | "web";
-  user: {
-    id: string;
-    email?: string;
-    phone?: string;
-    displayName?: string;
-    avatarUrl?: string;
-    verified: { email: boolean; phone: boolean };
-  };
-}
-
-export interface RegisterPendingResponse {
-  pendingVerification: true;
-  userId: string;
-  email: string;
-  expiresIn: number;
-  message: string;
-}
-
-export interface ResetOTPVerifyResponse {
-  tempToken: string;
-  expiresIn: number;
-}
-
-export interface IAuthUseCase {
-  login(data: LoginDTO, deviceInfo?: DeviceInfo): Promise<LoginResponse>;
-  register(data: RegistrationDTO, deviceInfo?: DeviceInfo): Promise<LoginResponse | RegisterPendingResponse>;
-  refreshToken(refreshToken: string): Promise<TokenPair>;
-  logout(requester: Requester, deviceId?: string): Promise<void>;
-  logoutAll(requester: Requester): Promise<void>;
-  blacklistToken(jti: string, expiresAt: number): Promise<void>;
-  introspect(token: string): Promise<{ payload: any; isOk: boolean }>;
-  sendVerificationEmail(data: SendVerificationDTO, userId?: string): Promise<void>;
-  verifyEmail(data: VerifyEmailDTO): Promise<boolean>;
-  resendVerificationEmail(data: SendVerificationDTO): Promise<void>;
-  forgotPassword(data: ForgotPasswordDTO): Promise<void>;
-  verifyResetOTP(data: VerifyResetOTPDTO): Promise<ResetOTPVerifyResponse>;
-  resetPassword(data: ResetPasswordDTO): Promise<boolean>;
-  resendResetOTP(data: ForgotPasswordDTO): Promise<void>;
-  changePassword(requester: Requester, data: ChangePasswordDTO): Promise<boolean>;
-  getSessions(userId: string, currentDeviceId: string): Promise<any[]>;
-  revokeSession(userId: string, deviceId: string): Promise<boolean>;
-  revokeAllSessions(userId: string): Promise<boolean>;
-  revokeOtherSessions(userId: string, currentDeviceId: string): Promise<number>;
-  updateAvatar(userId: string, avatarUrl: string): Promise<boolean>;
-}
-
 export class AuthUseCase implements IAuthUseCase {
-  private redisClient: any;
+  private redisClient!: AuthRedisClient;
   private emailService: EmailTemplateService;
 
   constructor(
-    private readonly userRepository: IRepository<any, any, any>,
+    private readonly userRepository: IAuthUserRepository,
     private readonly sessionStore: ISessionStore,
     private readonly blacklist: ITokenBlacklist,
     private readonly accessTokenService: AccessTokenService = new AccessTokenService(blacklist),
@@ -141,7 +104,7 @@ export class AuthUseCase implements IAuthUseCase {
     this.emailService = new EmailTemplateService(getEmailProvider());
   }
 
-  setRedisClient(redisClient: any) {
+  setRedisClient(redisClient: AuthRedisClient) {
     this.redisClient = redisClient;
     if (!this.refreshTokenService) {
       this.refreshTokenService = new RefreshTokenService(new RedisRefreshTokenStore(redisClient));
@@ -277,7 +240,25 @@ export class AuthUseCase implements IAuthUseCase {
     return `${base}-${platform}` as DeviceType;
   }
 
-  private extractUserPublic(user: any): LoginResponse["user"] {
+  private buildDefaultPrivacy(): User["privacy"] {
+    return {
+      searchableByEmail: true,
+      searchableByPhone: true,
+      searchableByUsername: true,
+      birthdayVisibility: UserInfoVisibility.FRIENDS,
+      phoneVisibility: UserInfoVisibility.FRIENDS,
+      avatarVisibility: UserInfoVisibility.EVERYONE,
+      showOnline: true,
+      showLastSeen: true,
+      blockMessagesFromStrangers: false,
+    };
+  }
+
+  private buildDefaultSettings(): User["settings"] {
+    return { notifications: { push: true, inApp: true } };
+  }
+
+  private extractUserPublic(user: User): LoginResponse["user"] {
     return {
       id: user.id,
       email: user.email,
@@ -304,9 +285,9 @@ export class AuthUseCase implements IAuthUseCase {
 
   async login(data: LoginDTO, deviceInfo?: DeviceInfo): Promise<LoginResponse> {
     const dto = LoginDTOSchema.parse(data);
-    const cond = dto.phone
-      ? ({ phone: this.normalizePhone(dto.phone) } as any)
-      : ({ email: dto.email } as any);
+    const cond: UserCondDTO = dto.phone
+      ? { phone: this.normalizePhone(dto.phone) }
+      : { email: dto.email };
 
     const user = await this.userRepository.findByCond(cond);
     if (!user) {
@@ -366,13 +347,13 @@ export class AuthUseCase implements IAuthUseCase {
     const dto = RegistrationDTOSchema.parse(data);
     const phone = this.normalizePhone(dto.phone);
 
-    const existedByPhone = await this.userRepository.findByCond({ phone } as any);
+    const existedByPhone = await this.userRepository.findByCond({ phone });
     if (existedByPhone) {
       throw AppError.from(ErrPhoneExisted, 400);
     }
 
     if (dto.email) {
-      const existedByEmail = await this.userRepository.findByCond({ email: dto.email } as any);
+      const existedByEmail = await this.userRepository.findByCond({ email: dto.email });
       if (existedByEmail) {
         throw AppError.from(ErrEmailExisted, 400);
       }
@@ -390,7 +371,7 @@ export class AuthUseCase implements IAuthUseCase {
       const salt = bcrypt.genSaltSync(10);
       const hashPassword = bcrypt.hashSync(`${dto.password}.${salt}`, 10);
 
-      const newUser = {
+      const newUser: User = {
         id: newId,
         email: dto.email,
         phone,
@@ -400,8 +381,8 @@ export class AuthUseCase implements IAuthUseCase {
         tokenVersion: 1,
         displayName,
         verified: { email: false, phone: false },
-        privacy: { searchableByEmail: true, searchableByPhone: true, searchableByUsername: true },
-        settings: { notifications: { push: true, inApp: true } },
+        privacy: this.buildDefaultPrivacy(),
+        settings: this.buildDefaultSettings(),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -429,7 +410,7 @@ export class AuthUseCase implements IAuthUseCase {
     const salt = bcrypt.genSaltSync(10);
     const hashPassword = bcrypt.hashSync(`${dto.password}.${salt}`, 10);
 
-    const newUser = {
+    const newUser: User = {
       id: newId,
       email: dto.email,
       phone,
@@ -439,8 +420,8 @@ export class AuthUseCase implements IAuthUseCase {
       tokenVersion: 1,
       displayName,
       verified: { email: false, phone: false },
-      privacy: { searchableByEmail: true, searchableByPhone: true, searchableByUsername: true },
-      settings: { notifications: { push: true, inApp: true } },
+      privacy: this.buildDefaultPrivacy(),
+      settings: this.buildDefaultSettings(),
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -603,7 +584,7 @@ export class AuthUseCase implements IAuthUseCase {
     }
   }
 
-  async introspect(token: string): Promise<{ payload: any; isOk: boolean }> {
+  async introspect(token: string): Promise<TokenIntrospectResult> {
     try {
       const payload = jwt.verify(token, config.accessToken.secretKey) as AccessTokenPayload;
       if (payload.type !== "access" || !payload.jti || !payload.deviceId) {
@@ -639,7 +620,7 @@ export class AuthUseCase implements IAuthUseCase {
     await this.redisClient.expire(rateKey, RATE_LIMIT_TTL);
 
     if (!userId) {
-      const user = await this.userRepository.findByCond({ email } as any);
+      const user = await this.userRepository.findByCond({ email });
       if (!user) throw AppError.from(ErrEmailNotFound, 404);
       userId = user.id;
     }
@@ -660,7 +641,7 @@ export class AuthUseCase implements IAuthUseCase {
 
   async verifyEmail(data: VerifyEmailDTO): Promise<boolean> {
     const { email, code } = data;
-    const user = await this.userRepository.findByCond({ email } as any);
+    const user = await this.userRepository.findByCond({ email });
     if (!user) throw AppError.from(ErrEmailNotFound, 404);
 
     const key = `${VERIFY_PREFIX}${email.toLowerCase()}`;
@@ -686,7 +667,7 @@ export class AuthUseCase implements IAuthUseCase {
     }
 
     await this.redisClient.del(key);
-    await this.userRepository.update(user.id, { verified: { ...user.verified, email: true }, emailVerifiedAt: new Date() } as any);
+    await this.userRepository.update(user.id, { verified: { ...user.verified, email: true }, emailVerifiedAt: new Date() });
 
     return true;
   }
@@ -697,7 +678,7 @@ export class AuthUseCase implements IAuthUseCase {
 
   async forgotPassword(data: ForgotPasswordDTO): Promise<void> {
     const { email } = data;
-    const user = await this.userRepository.findByCond({ email } as any);
+    const user = await this.userRepository.findByCond({ email });
     if (!user) throw AppError.from(ErrUserNotFound, 404);
 
     const rateKey = `${VERIFY_RATE_PREFIX}reset:${email.toLowerCase()}`;
@@ -725,7 +706,7 @@ export class AuthUseCase implements IAuthUseCase {
 
   async verifyResetOTP(data: VerifyResetOTPDTO): Promise<ResetOTPVerifyResponse> {
     const { email, otp } = data;
-    const user = await this.userRepository.findByCond({ email } as any);
+    const user = await this.userRepository.findByCond({ email });
     if (!user) throw AppError.from(ErrUserNotFound, 404);
 
     const key = `${RESET_OTP_PREFIX}${email.toLowerCase()}`;
@@ -812,7 +793,7 @@ export class AuthUseCase implements IAuthUseCase {
     const hashPassword = bcrypt.hashSync(`${newPassword}.${salt}`, 10);
     const newTokenVersion = (user.tokenVersion || 1) + 1;
 
-    await this.userRepository.update(userId, { password: hashPassword, salt, tokenVersion: newTokenVersion } as any);
+    await this.userRepository.update(userId, { password: hashPassword, salt, tokenVersion: newTokenVersion });
     await this.redisClient.del(`${RESET_PREFIX}${jti}`);
     await this.revokeAllSessions(userId);
 
@@ -831,12 +812,12 @@ export class AuthUseCase implements IAuthUseCase {
     const hashPassword = bcrypt.hashSync(`${newPassword}.${salt}`, 10);
     const newTokenVersion = (user.tokenVersion || 1) + 1;
 
-    await this.userRepository.update(user.id, { password: hashPassword, salt, tokenVersion: newTokenVersion } as any);
+    await this.userRepository.update(user.id, { password: hashPassword, salt, tokenVersion: newTokenVersion });
     await this.revokeAllSessions(user.id);
     return true;
   }
 
-  async getSessions(userId: string, currentDeviceId: string): Promise<any[]> {
+  async getSessions(userId: string, currentDeviceId: string): Promise<AuthSessionView[]> {
     const sessions = await this.sessionStore.listByUser(userId);
     return sessions.map((s) => ({
       deviceId: s.deviceId,
@@ -883,7 +864,7 @@ export class AuthUseCase implements IAuthUseCase {
     const user = await this.userRepository.get(userId);
     if (!user) throw AppError.from(ErrUserNotFound, 404);
 
-    await this.userRepository.update(userId, { avatarUrl } as any);
+    await this.userRepository.update(userId, { avatarUrl });
     return true;
   }
 
@@ -895,12 +876,12 @@ export class AuthUseCase implements IAuthUseCase {
     const password = "Test123456!";
 
     for (const userData of testUsers) {
-      const existing = await this.userRepository.findByCond({ phone: userData.phone } as any);
+      const existing = await this.userRepository.findByCond({ phone: userData.phone });
       const salt = bcrypt.genSaltSync(10);
       const hashPassword = bcrypt.hashSync(`${password}.${salt}`, 10);
 
       if (!existing) {
-        const newUser = {
+        const newUser: User = {
           id: uuidv7(),
           email: userData.email,
           phone: userData.phone,
@@ -910,8 +891,8 @@ export class AuthUseCase implements IAuthUseCase {
           tokenVersion: 1,
           displayName: userData.displayName,
           verified: { email: true, phone: true },
-          privacy: { searchableByEmail: true, searchableByPhone: true, searchableByUsername: true },
-          settings: { notifications: { push: true, inApp: true } },
+          privacy: this.buildDefaultPrivacy(),
+          settings: this.buildDefaultSettings(),
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -919,7 +900,7 @@ export class AuthUseCase implements IAuthUseCase {
         await this.userRepository.insert(newUser);
         console.log(`[TEST] Created test user: ${userData.phone} / ${userData.email}`);
       } else {
-        await this.userRepository.update(existing.id, { password: hashPassword, salt } as any);
+        await this.userRepository.update(existing.id, { password: hashPassword, salt });
         console.log(`[TEST] Updated test user: ${userData.phone} / ${userData.email}`);
       }
     }

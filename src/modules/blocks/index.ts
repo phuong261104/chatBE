@@ -19,8 +19,8 @@ export const setupBlockHexagon = (sctx: ServiceContext, io?: SocketIOServer) => 
   const userRepository = new DynamoUserRepository();
   const friendshipRepository = new DynamoFriendshipRepository();
   const friendRequestRepository = new DynamoFriendRequestRepository();
-  const useCase = new BlockUseCase(repository as any, userRepository as any, friendshipRepository as any, friendRequestRepository as any);
-  const httpService = new BlockHTTPService(useCase as any);
+  const useCase = new BlockUseCase(repository, userRepository, friendshipRepository, friendRequestRepository);
+  const httpService = new BlockHTTPService(useCase);
 
   let socketService: BlockNotificationSocketService | undefined;
   if (io) {
@@ -31,6 +31,7 @@ export const setupBlockHexagon = (sctx: ServiceContext, io?: SocketIOServer) => 
   const router = Router();
   const mdlFactory = sctx.mdlFactory;
 
+  router.get('/blocks/cursor', mdlFactory.auth, httpService.getBlockedUsersCursorAPI.bind(httpService));
   router.post('/blocks/:blockedUserId', mdlFactory.auth, httpService.blockUserAPI.bind(httpService));
   router.delete('/blocks/:blockedUserId', mdlFactory.auth, httpService.unblockUserAPI.bind(httpService));
   router.get('/blocks', mdlFactory.auth, httpService.getBlockedUsersAPI.bind(httpService));

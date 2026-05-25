@@ -8,7 +8,10 @@ interface AuthenticatedSocket extends Socket {
 
 interface NotificationPayload {
   type: 'USER_BLOCKED' | 'USER_UNBLOCKED';
-  data: any;
+  data: {
+    blockedBy?: string;
+    unblockedBy?: string;
+  };
   timestamp: Date;
 }
 

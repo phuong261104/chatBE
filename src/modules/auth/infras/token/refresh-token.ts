@@ -2,13 +2,14 @@ import jwt, { SignOptions } from "jsonwebtoken";
 import { v7 as uuidv7 } from "uuid";
 import { RefreshTokenPayload, TokenPair, UserRole } from "@share/interface";
 import { config } from "@share/component/config";
+import { RefreshTokenRecord } from "../../interface";
 
 export interface IRefreshTokenStore {
   store(jti: string, userId: string, deviceId: string, tokenVersion: number, expiresInSeconds: number): Promise<void>;
-  get(jti: string): Promise<{ userId: string; deviceId: string; tokenVersion?: number } | null>;
+  get(jti: string): Promise<RefreshTokenRecord | null>;
   revoke(jti: string): Promise<void>;
   consume(jti: string, usedTtlSeconds: number): Promise<void>;
-  getUsed(jti: string): Promise<{ userId: string; deviceId: string; tokenVersion?: number } | null>;
+  getUsed(jti: string): Promise<RefreshTokenRecord | null>;
 }
 
 export class RefreshTokenService {
@@ -24,11 +25,10 @@ export class RefreshTokenService {
       tokenVersion,
     };
 
-    const options: SignOptions = {
-      expiresIn: config.refreshToken.expiresIn as any,
-    };
+    const expiresIn = config.refreshToken.expiresIn as SignOptions["expiresIn"];
+    const options: SignOptions = { expiresIn };
 
-    const token = jwt.sign(payload, config.refreshToken.secretKey, options as any);
+    const token = jwt.sign(payload, config.refreshToken.secretKey, options);
     const decoded = jwt.decode(token) as (RefreshTokenPayload & { exp?: number }) | null;
 
     await this.tokenStore.store(jti, userId, deviceId, tokenVersion, this.parseExpiresIn(config.refreshToken.expiresIn));
@@ -64,11 +64,11 @@ export class RefreshTokenService {
     await this.tokenStore.revoke(jti);
   }
 
-  async getStored(jti: string): Promise<{ userId: string; deviceId: string; tokenVersion?: number } | null> {
+  async getStored(jti: string): Promise<RefreshTokenRecord | null> {
     return this.tokenStore.get(jti);
   }
 
-  async getUsed(jti: string): Promise<{ userId: string; deviceId: string; tokenVersion?: number } | null> {
+  async getUsed(jti: string): Promise<RefreshTokenRecord | null> {
     return this.tokenStore.getUsed(jti);
   }
 

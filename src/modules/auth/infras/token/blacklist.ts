@@ -1,11 +1,12 @@
 import { ITokenBlacklist } from "@share/interface";
+import { AuthRedisClient } from "../../interface";
 
 const BLACKLIST_PREFIX = "blacklist:";
 
 export class TokenBlacklistService implements ITokenBlacklist {
-  private redisClient: any;
+  private redisClient: AuthRedisClient;
 
-  constructor(redisClient: any) {
+  constructor(redisClient: AuthRedisClient) {
     this.redisClient = redisClient;
   }
 

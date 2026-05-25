@@ -22,11 +22,10 @@ export class AccessTokenService {
       deviceId,
     };
 
-    const options: SignOptions = {
-      expiresIn: config.accessToken.expiresIn as any,
-    };
+    const expiresIn = config.accessToken.expiresIn as SignOptions["expiresIn"];
+    const options: SignOptions = { expiresIn };
 
-    const token = jwt.sign(payload, config.accessToken.secretKey, options as any);
+    const token = jwt.sign(payload, config.accessToken.secretKey, options);
     const decoded = jwt.decode(token) as (AccessTokenPayload & { exp?: number }) | null;
     return { token, jti, expiresAt: decoded?.exp };
   }

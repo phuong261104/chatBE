@@ -10,13 +10,9 @@ import {
   MessageType,
 } from '@modules/chat';
 import { SocketEvent } from '@modules/chat/constants/socket-events';
-import { CallSession, CallType } from '../interface';
+import { CallSession, CallType, TerminalCallLogStatus } from '../model';
 
-export type TerminalCallLogStatus =
-  | 'completed'
-  | 'missed'
-  | 'rejected'
-  | 'cancelled';
+export type { TerminalCallLogStatus } from '../model';
 
 export interface CallLogMessageEmitter {
   emitToUser(userId: string, event: string, data: unknown): void;

@@ -1,4 +1,14 @@
-import { Requester, TokenIntrospectResult, TokenPair, DeviceInfo, DeviceType, Platform } from "@share/interface";
+import {
+  DeviceInfo,
+  DeviceType,
+  IRepository,
+  Platform,
+  Requester,
+  TokenIntrospectResult,
+  TokenPair,
+} from "@share/interface";
+import { User } from "@modules/user/model/model";
+import { UserCondDTO, UserUpdateDTO } from "@modules/user/model/dto";
 import { LoginDTO, RegistrationDTO, SendVerificationDTO, VerifyEmailDTO, ForgotPasswordDTO, VerifyResetOTPDTO, ResetPasswordDTO, ChangePasswordDTO } from "../model/dto";
 
 export interface LoginResponse {
@@ -37,12 +47,44 @@ export interface ResetOTPVerifyResponse {
   expiresIn: number;
 }
 
+export interface AuthSessionView {
+  deviceId: string;
+  deviceType: DeviceType;
+  displayLabel: string;
+  platform: Platform;
+  ip: string;
+  location: string;
+  createdAt: Date;
+  lastActive: Date;
+  isCurrent: boolean;
+}
+
+export interface AuthRedisClient {
+  get(key: string): Promise<string | null>;
+  setEx(key: string, seconds: number, value: string): Promise<unknown>;
+  del(key: string): Promise<unknown>;
+  incr(key: string): Promise<number>;
+  expire(key: string, seconds: number): Promise<unknown>;
+  sAdd(key: string, value: string): Promise<unknown>;
+  sRem(key: string, value: string): Promise<unknown>;
+  sMembers(key: string): Promise<string[]>;
+}
+
+export interface RefreshTokenRecord {
+  userId: string;
+  deviceId: string;
+  tokenVersion?: number;
+}
+
+export interface IAuthUserRepository extends IRepository<User, UserCondDTO, UserUpdateDTO> {}
+
 export interface IAuthUseCase {
   login(data: LoginDTO, deviceInfo?: DeviceInfo): Promise<LoginResponse>;
   register(data: RegistrationDTO, deviceInfo?: DeviceInfo): Promise<LoginResponse | RegisterPendingResponse>;
   refreshToken(refreshToken: string): Promise<TokenPair>;
   logout(requester: Requester, deviceId?: string): Promise<void>;
   logoutAll(requester: Requester): Promise<void>;
+  blacklistToken(jti: string, expiresAt: number): Promise<void>;
   introspect(token: string): Promise<TokenIntrospectResult>;
   sendVerificationEmail(data: SendVerificationDTO, userId?: string): Promise<void>;
   verifyEmail(data: VerifyEmailDTO): Promise<boolean>;
@@ -52,7 +94,7 @@ export interface IAuthUseCase {
   resetPassword(data: ResetPasswordDTO): Promise<boolean>;
   resendResetOTP(data: ForgotPasswordDTO): Promise<void>;
   changePassword(requester: Requester, data: ChangePasswordDTO): Promise<boolean>;
-  getSessions(userId: string, currentDeviceId: string): Promise<any[]>;
+  getSessions(userId: string, currentDeviceId: string): Promise<AuthSessionView[]>;
   revokeSession(userId: string, deviceId: string): Promise<boolean>;
   revokeAllSessions(userId: string): Promise<boolean>;
   revokeOtherSessions(userId: string, currentDeviceId: string): Promise<number>;

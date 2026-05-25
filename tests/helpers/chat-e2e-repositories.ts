@@ -745,6 +745,21 @@ export class InMemoryBlockRepository {
     });
   }
 
+  async findAllByCondWithCursor(
+    cond: { blockerId?: string; blockedUserId?: string },
+    cursor?: string,
+    limit = 20,
+  ): Promise<{ items: Array<{ id: string; blockerId: string; blockedUserId: string; createdAt: Date }>; nextCursor: string; hasMore: boolean }> {
+    const start = cursor ? Number(cursor) : 0;
+    const page = (await this.findAllByCond(cond)).slice(start, start + limit + 1);
+    const hasMore = page.length > limit;
+    return {
+      items: hasMore ? page.slice(0, limit) : page,
+      nextCursor: hasMore ? String(start + limit) : "",
+      hasMore,
+    };
+  }
+
   async insert(block: { blockerId: string; blockedUserId: string }): Promise<boolean> {
     this.store.blocks.add(`${block.blockerId}#${block.blockedUserId}`);
     return true;

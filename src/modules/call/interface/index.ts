@@ -1,43 +1,46 @@
-export enum CallType {
-  AUDIO = 'audio',
-  VIDEO = 'video',
+import {
+  Conversation,
+  ConversationCondDTO,
+  ConversationMember,
+  ConversationMemberCondDTO,
+  Message,
+} from '@modules/chat';
+import { Block, BlockCondDTO } from '@modules/blocks';
+import { CallSession, TerminalCallLogStatus } from '../model';
+
+export * from '../model';
+
+export interface ICallConversationRepository {
+  get(id: string): Promise<Conversation | null>;
+  findByCond(cond: ConversationCondDTO): Promise<Conversation | null>;
 }
 
-export enum CallStatus {
-  RINGING = 'ringing',
-  ANSWERED = 'answered',
-  REJECTED = 'rejected',
-  CANCELLED = 'cancelled',
-  ENDED = 'ended',
-  MISSED = 'missed',
+export interface ICallConversationMemberRepository {
+  findByCond(cond: ConversationMemberCondDTO): Promise<ConversationMember | null>;
+  listByConversationId(conversationId: string): Promise<ConversationMember[]>;
 }
 
-export enum LivekitProvider {
-  SELF_HOSTED = 'self-hosted',
-  CLOUD = 'cloud',
+export interface ICallBlockRepository {
+  findByCond(cond: BlockCondDTO): Promise<Block | null>;
 }
 
-export interface CallSession {
-  callId: string;
-  callerId: string;
-  calleeIds: string[];
-  type: CallType;
-  status: CallStatus;
-  livekitProvider: LivekitProvider;
-  conversationId: string;
-  roomName: string;
-  createdAt: number;
-  answeredAt?: number;
-  endedAt?: number;
-  endedBy?: string;
-  loggedMessageId?: string;
-  participantOutcomes?: Record<
-    string,
-    {
-      status: string;
-      joinedAt?: number | Date;
-      leftAt?: number | Date;
-      endedAt?: number | Date;
-    }
-  >;
+export interface ICallLogService {
+  createTerminalLog(
+    session: CallSession,
+    status: TerminalCallLogStatus,
+    endedBy?: string,
+  ): Promise<Message | null>;
+}
+
+export interface ICallSocketNotifier {
+  notifyIncomingCall(userId: string, callData: unknown): void;
+  notifyOngoingCall(userId: string, callData: unknown): void;
+  notifyJoined(callId: string, payload: unknown): void;
+  notifyLeft(callId: string, payload: unknown): void;
+  notifyDeclined(callId: string, payload: unknown): void;
+  notifyMissed(callId: string, payload: unknown): void;
+  notifyBusy(userId: string, payload: unknown): void;
+  notifyEnded(callId: string, payload: unknown): void;
+  emitToUser(userId: string, event: string, payload: unknown): void;
+  emitToCall(callId: string, event: string, payload: unknown): void;
 }

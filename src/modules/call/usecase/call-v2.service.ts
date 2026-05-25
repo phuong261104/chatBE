@@ -1,68 +1,25 @@
 import { v4 as uuidv4 } from 'uuid';
-import { CallSession, CallStatus, CallType, LivekitProvider } from '../interface';
+import {
+  CallSession,
+  CallStatus,
+  CallV2Participant,
+  CallV2ParticipantStatus,
+  CallV2PublicSession,
+  CallV2Session,
+  CallV2SessionStatus,
+  CreateCallV2Input,
+  CreateCallV2Result,
+  LivekitProvider,
+} from '../model';
 
-export enum CallV2ParticipantStatus {
-  INVITED = 'invited',
-  RINGING = 'ringing',
-  JOINED = 'joined',
-  DECLINED = 'declined',
-  MISSED = 'missed',
-  LEFT = 'left',
-  BUSY = 'busy',
-}
-
-export enum CallV2SessionStatus {
-  RINGING = 'ringing',
-  IN_CALL = 'in-call',
-  ENDED = 'ended',
-  MISSED = 'missed',
-  REJECTED = 'rejected',
-  CANCELLED = 'cancelled',
-}
-
-export interface CallV2Participant {
-  userId: string;
-  status: CallV2ParticipantStatus;
-  invitedAt?: number;
-  joinedAt?: number;
-  leftAt?: number;
-  endedAt?: number;
-}
-
-export interface CallV2Session {
-  callId: string;
-  callerId: string;
-  conversationId: string;
-  type: CallType;
-  isGroup: boolean;
-  livekitProvider: LivekitProvider;
-  roomName: string;
-  status: CallV2SessionStatus;
-  createdAt: number;
-  answeredAt?: number;
-  endedAt?: number;
-  endedBy?: string;
-  calleeIds: string[];
-  participants: Record<string, CallV2Participant>;
-  busyUserIds: string[];
-  loggedMessageId?: string;
-  timeoutHandle?: ReturnType<typeof setTimeout>;
-}
-
-export interface CreateCallV2Input {
-  callerId: string;
-  conversationId: string;
-  type: CallType;
-  calleeIds: string[];
-  isGroup: boolean;
-  livekitProvider?: LivekitProvider;
-}
-
-export interface CreateCallV2Result {
-  session: CallV2Session;
-  invitedUserIds: string[];
-  busyUserIds: string[];
-}
+export type {
+  CallV2Participant,
+  CallV2PublicSession,
+  CallV2Session,
+  CreateCallV2Input,
+  CreateCallV2Result,
+} from '../model';
+export { CallV2ParticipantStatus, CallV2SessionStatus } from '../model';
 
 type TimeoutHandler = (
   session: CallV2Session,
@@ -340,7 +297,7 @@ class CallV2Service {
     };
   }
 
-  toResponse(session: CallV2Session) {
+  toResponse(session: CallV2Session): CallV2PublicSession {
     const { timeoutHandle, ...data } = session;
     return data;
   }

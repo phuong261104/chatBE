@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { CallSession, CallStatus, CallType, LivekitProvider } from '../interface';
+import { CallSession, CallStatus, CallType, LivekitProvider } from '../model';
 
 class CallService {
   private activeCalls: Map<string, CallSession> = new Map();
@@ -49,13 +49,11 @@ class CallService {
 
   answerCall(callId: string, userId: string): CallSession {
     const session = this.activeCalls.get(callId);
-    console.log(`[CallService] answerCall callId=${callId} userId=${userId} session=${!!session} status=${session?.status} calleeIds=${JSON.stringify(session?.calleeIds)} callerId=${session?.callerId}`);
     if (!session) throw new Error('Call not found');
     if (!session.calleeIds.includes(userId) && userId !== session.callerId) {
       throw new Error('User not authorized to answer this call');
     }
     if (session.status === CallStatus.ANSWERED) {
-      console.log(`[CallService] Call already answered, returning existing session`);
       return session;
     }
     if (session.status !== CallStatus.RINGING) throw new Error('Call is not ringing');

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Block } from './model';
 
 export const BlockCreateSchema = z
   .object({
@@ -21,3 +22,20 @@ export const BlockCondDTOSchema = z.object({
 });
 
 export type BlockCondDTO = z.infer<typeof BlockCondDTOSchema>;
+
+export const BlockCursorListQuerySchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20)
+});
+
+export type BlockCursorListQuery = z.infer<typeof BlockCursorListQuerySchema>;
+
+export interface BlockCursorPage {
+  items: Block[];
+  nextCursor: string;
+  hasMore: boolean;
+}
+
+export interface BlockCursorListResult extends BlockCursorPage {
+  limit: number;
+}
