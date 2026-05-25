@@ -77,7 +77,26 @@ export class GroupController extends BaseController {
       );
 
       if (this.socketService) {
-        this.socketService.notifyGroupUpdated(groupId, updatedConversation);
+        const memberUserIds = await this.useCase.getConversationMembers(
+          groupId,
+          currentUserId,
+        );
+        for (const userId of memberUserIds) {
+          if (validatedData.name) {
+            this.socketService.emitToUser(userId, SocketEvent.GROUP_RENAMED, {
+              conversationId: groupId,
+              newName: validatedData.name,
+              renamedBy: currentUserId,
+            });
+          }
+          if (validatedData.avatarUrl) {
+            this.socketService.emitToUser(userId, SocketEvent.GROUP_AVATAR_CHANGED, {
+              conversationId: groupId,
+              avatarUrl: validatedData.avatarUrl,
+              changedBy: currentUserId,
+            });
+          }
+        }
       }
 
       res.status(200).json({ data: updatedConversation });
@@ -296,6 +315,39 @@ export class GroupController extends BaseController {
       }
 
       res.status(200).json({ success: true });
+    } catch (error) {
+      this.sendError(res, error);
+    }
+  }
+
+  async dissolveGroupAPI(req: Request, res: Response) {
+    try {
+      const groupId = this.parseIdParam(req, "groupId");
+      const currentUserId = this.getCurrentUserId(req, res);
+
+      if (!currentUserId) {
+        this.sendUnauthorized(res);
+        return;
+      }
+
+      const memberUserIds = await this.useCase.dissolveGroup(
+        groupId,
+        currentUserId,
+      );
+
+      if (this.socketService) {
+        for (const userId of memberUserIds) {
+          this.socketService.emitToUser(userId, SocketEvent.GROUP_DISSOLVED, {
+            conversationId: groupId,
+            dissolvedBy: currentUserId,
+          });
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Group dissolved successfully",
+      });
     } catch (error) {
       this.sendError(res, error);
     }

@@ -17,6 +17,8 @@ import {
   LoadMessagesResult,
   ReactionResult,
 } from "../model/dto";
+import { Draft } from "../model/dto/draft-dto";
+import { GetConversationMediaResult } from "../model/dto/media-group-dto";
 
 import { GetOrCreatePrivateConversationHandler } from "./get-or-create-private-conversation";
 import { SendMessageHandler } from "./send-message";
@@ -559,7 +561,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     cursor: string | undefined,
     limit: number,
     type: "all" | "image" | "file" | "link" | "video" | "voice",
-  ): Promise<{ images: any[]; files: any[]; links: any[]; nextCursor: string; hasMore: boolean }> {
+  ): Promise<GetConversationMediaResult> {
     return this.getConversationMediaQueryHandler.query({
       conversationId,
       userId,
@@ -643,17 +645,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.getConversationOnlineMembersQueryHandler.query({ conversationId, userId });
   }
 
-  async getDrafts(conversationId: string, userId: string): Promise<{
-    drafts: Array<{
-      id: string;
-      conversationId: string;
-      userId: string;
-      text: string;
-      media: any[];
-      createdAt: Date;
-      updatedAt: Date;
-    }>;
-  }> {
+  async getDrafts(conversationId: string, userId: string): Promise<{ drafts: Draft[] }> {
     return this.getDraftsQueryHandler.query({ conversationId, userId });
   }
 

@@ -1,4 +1,8 @@
-import { ConversationReadState, IMessagingUseCase } from "../../../interface";
+import {
+  ControllerErrorLike,
+  ConversationReadState,
+  IMessagingUseCase,
+} from "../../../interface";
 import { MessagingSocketService } from "../socket-service";
 import { Request, Response } from "express";
 import { z } from "zod";
@@ -21,17 +25,31 @@ export abstract class BaseController {
     res.status(401).json({ error: "Unauthorized" });
   }
 
-  protected sendValidationError(res: Response, error: z.ZodError) {
-    res.status(422).json({
+  protected sendValidationError(res: Response, error: z.ZodError, statusCode = 422) {
+    res.status(statusCode).json({
       error: "Validation error",
       details: error.errors,
     });
   }
 
+  protected sendZodIssues(res: Response, error: z.ZodError, statusCode = 400) {
+    res.status(statusCode).json({ error: error.errors });
+  }
+
   protected sendError(res: Response, error: unknown, statusCode = 400) {
-    const err = error as any;
-    res.status(err.statusCode || statusCode).json({
-      error: err.message,
+    const err = error as ControllerErrorLike;
+    const resolvedStatusCode =
+      typeof err.getStatusCode === "function"
+        ? err.getStatusCode()
+        : err.statusCode || statusCode;
+    const json =
+      typeof err.toJSON === "function"
+        ? err.toJSON(process.env.NODE_ENV === "production")
+        : undefined;
+
+    res.status(resolvedStatusCode).json({
+      error: json?.message || err.message,
+      ...(json?.details ? { details: json.details } : {}),
     });
   }
 

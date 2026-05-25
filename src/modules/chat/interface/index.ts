@@ -22,7 +22,11 @@ import {
   MessageUpdateDTO,
   UserCondDTO,
 } from "../model";
+import { Draft } from "../model/dto/draft-dto";
+import { GetConversationMediaResult } from "../model/dto/media-group-dto";
 import { PagingDTO } from "@share/model/paging";
+
+export * from "./transport";
 
 export interface IUserQueryRepository {
   get(id: string): Promise<UserInfo | null>;
@@ -498,13 +502,7 @@ export interface IMessagingUseCase {
     cursor: string | undefined,
     limit: number,
     type: "all" | "image" | "file" | "link" | "video" | "voice",
-  ): Promise<{
-    images: any[];
-    files: any[];
-    links: any[];
-    nextCursor: string;
-    hasMore: boolean;
-  }>;
+  ): Promise<GetConversationMediaResult>;
 
   getConversationsCursor(
     userId: string,
@@ -543,17 +541,7 @@ export interface IMessagingUseCase {
     lastSeen: Date | null;
   }>>;
 
-  getDrafts(conversationId: string, userId: string): Promise<{
-    drafts: Array<{
-      id: string;
-      conversationId: string;
-      userId: string;
-      text: string;
-      media: any[];
-      createdAt: Date;
-      updatedAt: Date;
-    }>;
-  }>;
+  getDrafts(conversationId: string, userId: string): Promise<{ drafts: Draft[] }>;
 
   translateMessage(
     messageId: string,

@@ -82,7 +82,14 @@ export class ConversationController extends BaseController {
         limitNum,
       );
 
-      res.status(200).json(result);
+      res.status(200).json({
+        status: "success",
+        msg: "OK",
+        pinned: result.pinned,
+        data: result.data,
+        nextCursor: result.nextCursor,
+        hasMore: result.hasMore,
+      });
     } catch (error) {
       this.sendError(res, error);
     }
@@ -122,6 +129,7 @@ export class ConversationController extends BaseController {
 
       const validatedData = loadMessagesDTOSchema.parse({
         conversationId,
+        userId: currentUserId,
         cursor: cursor || undefined,
         limit: parseInt(limit as string, 10),
       });

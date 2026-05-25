@@ -46,8 +46,6 @@ export class MessageController extends BaseController {
       const isGroup =
         conversationDetail.conversation.type === ConversationType.GROUP;
 
-      console.log(`[DEBUG] MessageController: conversationId=${validatedData.conversationId}, type=${conversationDetail.conversation.type}, isGroup=${isGroup}`);
-
       const message = isGroup
         ? await this.useCase.sendGroupMessage(
             validatedData.conversationId,
@@ -429,9 +427,8 @@ export class MessageController extends BaseController {
         return;
       }
 
-      const quotedMsg = await this.useCase.getMessage(messageId);
-      if (!quotedMsg) {
-        res.status(404).json({ error: "Message not found" });
+      if (!text && (!media || media.length === 0)) {
+        res.status(400).json({ error: "Either text or media is required" });
         return;
       }
 
@@ -442,32 +439,34 @@ export class MessageController extends BaseController {
         quotedMessageId: messageId,
       });
 
-      const quotedMessages = await this.useCase.quoteMessage(
-        quotedMsg.conversationId,
+      const quotedMessageObj = await this.useCase.getMessage(messageId);
+      if (!quotedMessageObj) {
+        res.status(404).json({ error: "Quoted message not found" });
+        return;
+      }
+      const conversationId = quotedMessageObj.conversationId;
+
+      const quotedMsg = await this.useCase.quoteMessage(
+        conversationId,
         validatedData.senderId,
         validatedData.text,
         validatedData.media,
         validatedData.quotedMessageId,
       );
 
-      const textMsg = quotedMessages.find((m: any) => m.type === "text");
-      const primaryMsg = textMsg || quotedMessages[0];
-
       if (this.socketService) {
         const memberUserIds = await this.useCase.getConversationMembers(
-          quotedMsg.conversationId,
+          conversationId,
         );
         for (const userId of memberUserIds) {
-          for (const message of quotedMessages) {
-            this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
-              message,
-              conversationId: quotedMsg.conversationId,
-            });
-          }
+          this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
+            message: quotedMsg,
+            conversationId,
+          });
         }
       }
 
-      res.status(201).json({ data: primaryMsg, messages: quotedMessages });
+      res.status(201).json({ data: quotedMsg });
     } catch (error) {
       if (error instanceof z.ZodError) {
         this.sendValidationError(res, error);
@@ -498,7 +497,7 @@ export class MessageController extends BaseController {
         contextLimit: contextLimit ? Number(contextLimit) : 1,
       });
 
-      const result = await (this.useCase as any).searchMessages(
+      const result = await this.useCase.searchMessages(
         validatedData.conversationId,
         currentUserId,
         validatedData.query,

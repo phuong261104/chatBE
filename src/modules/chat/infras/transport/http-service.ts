@@ -1,2836 +1,320 @@
-import { ConversationReadState, IMessagingUseCase } from "../../interface";
+import { IMessagingUseCase } from "../../interface";
 import { Request, Response } from "express";
 import { MessagingSocketService } from "./socket-service";
-import {
-  createGroupDTOSchema,
-  addMembersToGroupDTOSchema,
-  removeMemberFromGroupDTOSchema,
-  updateGroupInfoDTOSchema,
-  getOrCreatePrivateConversationDTOSchema,
-  loadMessagesDTOSchema,
-  markAsSeenDTOSchema,
-  markAsDeliveredDTOSchema,
-  leaveGroupDTOSchema,
-  getGroupMembersDTOSchema,
-  sendMessageDTOSchema,
-  revokeMessageDTOSchema,
-  deleteMessageForMeDTOSchema,
-  deleteMessageForEveryoneDTOSchema,
-  forwardMessagesDTOSchema,
-  saveMessagesToMyDocumentDTOSchema,
-  muteConversationDTOSchema,
-  pinConversationDTOSchema,
-  archiveConversationDTOSchema,
-  editMessageDTOSchema,
-  pinMessageDTOSchema,
-  unpinMessageDTOSchema,
-  getPinnedMessagesDTOSchema,
-  addReactionDTOSchema,
-  removeReactionDTOSchema,
-  removeAllReactionsDTOSchema,
-  getReactionsDTOSchema,
-  quoteMessageDTOSchema,
-} from "../../model";
-import { searchMessagesDTOSchema } from "../../model/dto/search-dto";
-import { z } from "zod";
-import { ConversationType } from "../../model";
-import { GetConversationMediaQuerySchema } from "../../model/dto/media-group-dto";
-import { SocketEvent } from "../../constants/socket-events";
-import {
-  getConversationStatisticsSchema,
-} from "../../model/dto/conversation-statistics-dto";
-import {
-  getSharedConversationsSchema,
-} from "../../model/dto/shared-conversations-dto";
-import {
-  deleteMessagesBulkSchema,
-} from "../../model/dto/delete-messages-bulk-dto";
-import {
-  translateMessageSchema,
-} from "../../model/dto/translate-message-dto";
-import {
-  copyConversationSchema,
-} from "../../model/dto/copy-conversation-dto";
-import {
-  createGroupNoteDTOSchema,
-  createGroupReminderDTOSchema,
-  updateGroupNoteDTOSchema,
-  updateGroupReminderDTOSchema,
-} from "../../model/dto/group-utility-dto";
-import {
-  getDraftsSchema,
-} from "../../model/dto/draft-dto";
-import { parseSearchDate, parseSearchEndDate } from "@modules/search/model";
+import { ConversationActionsController } from "./http/conversation-actions-controller";
+import { ConversationController } from "./http/conversation-controller";
+import { ConversationQueryController } from "./http/conversation-query-controller";
+import { GroupController } from "./http/group-controller";
+import { GroupUtilityController } from "./http/group-utility-controller";
+import { MemberController } from "./http/member-controller";
+import { MessageController } from "./http/message-controller";
+import { MessageToolsController } from "./http/message-tools-controller";
+import { PollController } from "./http/poll-controller";
+import { ReactionController } from "./http/reaction-controller";
 
 export class MessagingHttpService {
-  private socketService?: MessagingSocketService;
+  private readonly conversationActionsController: ConversationActionsController;
+  private readonly conversationController: ConversationController;
+  private readonly conversationQueryController: ConversationQueryController;
+  private readonly groupController: GroupController;
+  private readonly groupUtilityController: GroupUtilityController;
+  private readonly memberController: MemberController;
+  private readonly messageController: MessageController;
+  private readonly messageToolsController: MessageToolsController;
+  private readonly pollController: PollController;
+  private readonly reactionController: ReactionController;
 
-  constructor(private readonly useCase: IMessagingUseCase) {}
-
-  setSocketService(socketService: MessagingSocketService) {
-    this.socketService = socketService;
+  constructor(useCase: IMessagingUseCase) {
+    this.conversationActionsController = new ConversationActionsController(useCase);
+    this.conversationController = new ConversationController(useCase);
+    this.conversationQueryController = new ConversationQueryController(useCase);
+    this.groupController = new GroupController(useCase);
+    this.groupUtilityController = new GroupUtilityController(useCase);
+    this.memberController = new MemberController(useCase);
+    this.messageController = new MessageController(useCase);
+    this.messageToolsController = new MessageToolsController(useCase);
+    this.pollController = new PollController(useCase);
+    this.reactionController = new ReactionController(useCase);
   }
 
-  private toReadStatePayload(state: ConversationReadState) {
-    return {
-      conversationId: state.conversationId,
-      userId: state.userId,
-      lastSeenMessageId: state.lastSeenMessageId,
-      lastReadMessageId: state.lastReadMessageId,
-      lastDeliveredMessageId: state.lastDeliveredMessageId,
-      lastSeenAt: state.lastSeenAt,
-      lastReadAt: state.lastReadAt,
-      lastDeliveredAt: state.lastDeliveredAt,
-      lastSeenMessageCreatedAt: state.lastSeenMessageCreatedAt,
-      lastReadMessageCreatedAt: state.lastReadMessageCreatedAt,
-      lastDeliveredMessageCreatedAt: state.lastDeliveredMessageCreatedAt,
-      unreadCount: state.unreadCount,
-      updatedAt: state.updatedAt,
-    };
+  setSocketService(socketService: MessagingSocketService) {
+    this.conversationActionsController.setSocketService(socketService);
+    this.conversationController.setSocketService(socketService);
+    this.conversationQueryController.setSocketService(socketService);
+    this.groupController.setSocketService(socketService);
+    this.groupUtilityController.setSocketService(socketService);
+    this.memberController.setSocketService(socketService);
+    this.messageController.setSocketService(socketService);
+    this.messageToolsController.setSocketService(socketService);
+    this.pollController.setSocketService(socketService);
+    this.reactionController.setSocketService(socketService);
   }
 
   async getPrivateConversationAPI(req: Request, res: Response) {
-    try {
-      const { targetUserId } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = getOrCreatePrivateConversationDTOSchema.parse({
-        currentUserId,
-        targetUserId,
-      });
-
-      const conversation = await this.useCase.getOrCreatePrivateConversation(
-        validatedData.currentUserId,
-        validatedData.targetUserId,
-      );
-
-      res.status(200).json({ data: conversation });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = typeof err.getStatusCode === "function" ? err.getStatusCode() : err.statusCode || 400;
-      const json = typeof err.toJSON === "function"
-        ? err.toJSON(process.env.NODE_ENV === "production")
-        : undefined;
-      res.status(statusCode).json({
-        error: json?.message || err.message,
-        ...(json?.details ? { details: json.details } : {}),
-      });
-    }
+    return this.conversationController.getPrivateConversationAPI(req, res);
   }
 
   async createGroupAPI(req: Request, res: Response) {
-    try {
-      const { name, memberIds, avatarUrl } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = createGroupDTOSchema.parse({
-        name,
-        memberIds,
-        avatarUrl,
-      });
-
-      const result = await this.useCase.createGroup(
-        currentUserId,
-        validatedData,
-      );
-
-      if (this.socketService) {
-        const allMemberIds = [currentUserId, ...memberIds];
-        this.socketService.notifyNewGroup(allMemberIds, {
-          conversation: result.conversation,
-          systemMessage: result.systemMessage,
-        });
-      }
-
-      res.status(201).json({ data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      res.status(400).json({
-        error: (error as Error).message,
-      });
-    }
+    return this.groupController.createGroupAPI(req, res);
   }
 
   async addMembersAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-      const { memberIds } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = addMembersToGroupDTOSchema.parse({
-        conversationId: groupId,
-        requesterId: currentUserId,
-        memberIds,
-      });
-
-      const newMembers = await this.useCase.addMembersToGroup(
-        validatedData.conversationId,
-        validatedData.requesterId,
-        validatedData.memberIds,
-      );
-
-      if (this.socketService) {
-        this.socketService.notifyMembersAdded(groupId, newMembers);
-      }
-
-      res.status(200).json({ data: newMembers });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = typeof err.getStatusCode === "function" ? err.getStatusCode() : err.statusCode || 400;
-      const json = typeof err.toJSON === "function"
-        ? err.toJSON(process.env.NODE_ENV === "production")
-        : undefined;
-      res.status(statusCode).json({
-        error: json?.message || err.message,
-        ...(json?.details ? { details: json.details } : {}),
-      });
-    }
+    return this.memberController.addMembersAPI(req, res);
   }
 
   async removeMemberAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-      const userId = Array.isArray(req.params.userId)
-        ? req.params.userId[0]
-        : req.params.userId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = removeMemberFromGroupDTOSchema.parse({
-        conversationId: groupId,
-        requesterId: currentUserId,
-        targetUserId: userId,
-      });
-
-      await this.useCase.removeMemberFromGroup(
-        validatedData.conversationId,
-        validatedData.requesterId,
-        validatedData.targetUserId,
-      );
-
-      if (this.socketService) {
-        this.socketService.notifyMemberRemoved(groupId, userId);
-      }
-
-      res.status(204).send();
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.memberController.removeMemberAPI(req, res);
   }
 
   async updateGroupAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-      const { name, avatarUrl } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = updateGroupInfoDTOSchema.parse({
-        conversationId: groupId,
-        requesterId: currentUserId,
-        name,
-        avatarUrl,
-      });
-
-      const updatedConversation = await this.useCase.updateGroupInfo(
-        validatedData.conversationId,
-        validatedData.requesterId,
-        {
-          name: validatedData.name,
-          avatarUrl: validatedData.avatarUrl,
-        },
-      );
-
-      if (this.socketService) {
-        const memberUserIds = await this.useCase.getConversationMembers(groupId, currentUserId);
-        for (const userId of memberUserIds) {
-          if (validatedData.name) {
-            this.socketService.emitToUser(userId, SocketEvent.GROUP_RENAMED, {
-              conversationId: groupId,
-              newName: validatedData.name,
-              renamedBy: currentUserId,
-            });
-          }
-          if (validatedData.avatarUrl) {
-            this.socketService.emitToUser(userId, SocketEvent.GROUP_AVATAR_CHANGED, {
-              conversationId: groupId,
-              avatarUrl: validatedData.avatarUrl,
-              changedBy: currentUserId,
-            });
-          }
-        }
-      }
-
-      res.status(200).json({ data: updatedConversation });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.groupController.updateGroupAPI(req, res);
   }
 
   async getConversationsAPI(req: Request, res: Response) {
-    try {
-      const { page = "1", limit = "20" } = req.query;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const pageNum = parseInt(page as string, 10);
-      const limitNum = Math.min(parseInt(limit as string, 10), 100);
-
-      const conversations = await this.useCase.getConversations(
-        currentUserId,
-        pageNum,
-        limitNum,
-      );
-
-      res.status(200).json({ data: conversations });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.conversationController.getConversationsAPI(req, res);
   }
 
   async getConversationsCursorAPI(req: Request, res: Response) {
-    try {
-      const { cursor, limit = "20" } = req.query;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const limitNum = Math.min(parseInt(limit as string, 10), 100);
-
-      const result = await this.useCase.getConversationsCursor(
-        currentUserId,
-        cursor as string | undefined,
-        limitNum,
-      );
-
-      res.status(200).json({
-        status: "success",
-        msg: "OK",
-        pinned: result.pinned,
-        data: result.data,
-        nextCursor: result.nextCursor,
-        hasMore: result.hasMore,
-      });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.conversationController.getConversationsCursorAPI(req, res);
   }
 
   async getConversationDetailAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const result = await this.useCase.getConversationDetail(
-        conversationId,
-        currentUserId,
-      );
-
-      res.status(200).json({ data: result });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.conversationController.getConversationDetailAPI(req, res);
   }
 
   async loadMessagesAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const { cursor, limit = "20" } = req.query;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = loadMessagesDTOSchema.parse({
-        conversationId,
-        userId: currentUserId,
-        cursor: cursor || undefined,
-        limit: parseInt(limit as string, 10),
-      });
-
-      const result = await this.useCase.loadMessages(
-        validatedData.conversationId,
-        currentUserId,
-        validatedData.cursor,
-        validatedData.limit,
-      );
-
-      res.status(200).json({ data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.conversationController.loadMessagesAPI(req, res);
   }
 
   async markAsSeenAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const { lastSeenMessageId } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = markAsSeenDTOSchema.parse({
-        conversationId,
-        userId: currentUserId,
-        lastSeenMessageId,
-      });
-
-      const result = await this.useCase.markAsSeen(
-        validatedData.conversationId,
-        validatedData.userId,
-        validatedData.lastSeenMessageId,
-      );
-
-      if (this.socketService && result.changed) {
-        const memberUserIds = await this.useCase.getConversationMembers(
-          validatedData.conversationId,
-        );
-        const statePayload = this.toReadStatePayload(result.state);
-
-        for (const memberId of memberUserIds) {
-          this.socketService.notifyMessageSeen(
-            memberId,
-            validatedData.conversationId,
-            validatedData.userId,
-            validatedData.lastSeenMessageId,
-            statePayload,
-          );
-        }
-      }
-
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.conversationController.markAsSeenAPI(req, res);
   }
 
   async markAsDeliveredAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const { lastDeliveredMessageId } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = markAsDeliveredDTOSchema.parse({
-        conversationId,
-        userId: currentUserId,
-        lastDeliveredMessageId,
-      });
-
-      const result = await this.useCase.markAsDelivered(
-        validatedData.conversationId,
-        validatedData.userId,
-        validatedData.lastDeliveredMessageId,
-      );
-
-      if (this.socketService && result.changed) {
-        const memberUserIds = await this.useCase.getConversationMembers(
-          validatedData.conversationId,
-        );
-        const statePayload = this.toReadStatePayload(result.state);
-
-        for (const memberId of memberUserIds) {
-          this.socketService.notifyMessageDelivered(
-            memberId,
-            validatedData.conversationId,
-            validatedData.userId,
-            validatedData.lastDeliveredMessageId,
-            statePayload,
-          );
-        }
-      }
-
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.conversationController.markAsDeliveredAPI(req, res);
   }
 
   async getTotalUnreadCountAPI(req: Request, res: Response) {
-    try {
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const totalUnread = await this.useCase.getTotalUnreadCount(currentUserId);
-
-      res.status(200).json({ totalUnread });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.conversationController.getTotalUnreadCountAPI(req, res);
   }
 
   async leaveGroupAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = leaveGroupDTOSchema.parse({
-        conversationId: groupId,
-        userId: currentUserId,
-      });
-
-      await this.useCase.leaveGroup(
-        validatedData.conversationId,
-        validatedData.userId,
-      );
-
-      if (this.socketService) {
-        this.socketService.notifyMemberLeft(groupId, currentUserId, currentUserId);
-      }
-
-      res.status(200).json({ success: true });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.groupController.leaveGroupAPI(req, res);
   }
 
   async getGroupMembersAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = getGroupMembersDTOSchema.parse({
-        conversationId: groupId,
-        userId: currentUserId,
-      });
-
-      const members = await this.useCase.getGroupMembers(
-        validatedData.conversationId,
-        validatedData.userId,
-      );
-
-      res.status(200).json({ data: members });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.memberController.getGroupMembersAPI(req, res);
   }
 
   async sendMessageAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const { text, media, clientMessageId } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = sendMessageDTOSchema.parse({
-        conversationId,
-        senderId: currentUserId,
-        text,
-        media,
-        clientMessageId,
-      });
-
-      const conversationDetail = await this.useCase.getConversationDetail(
-        validatedData.conversationId,
-        validatedData.senderId,
-      );
-
-      const isGroup =
-        conversationDetail.conversation.type === ConversationType.GROUP;
-
-      const messages = isGroup
-        ? await this.useCase.sendGroupMessage(
-            validatedData.conversationId,
-            validatedData.senderId,
-            validatedData.text,
-            validatedData.media,
-            undefined,
-            validatedData.clientMessageId,
-          )
-        : await this.useCase.sendMessage(
-            validatedData.conversationId,
-            validatedData.senderId,
-            validatedData.text,
-            validatedData.media,
-            undefined,
-            validatedData.clientMessageId,
-          );
-
-      if (this.socketService) {
-        const memberUserIds = await this.useCase.getConversationMembers(
-          validatedData.conversationId,
-        );
-        for (const msg of messages) {
-          for (const userId of memberUserIds) {
-            this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
-              message: msg,
-              conversationId: validatedData.conversationId,
-            });
-          }
-        }
-      }
-
-      res.status(201).json({ data: messages });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.messageController.sendMessageAPI(req, res);
   }
 
   async revokeMessageAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = revokeMessageDTOSchema.parse({
-        messageId,
-        userId: currentUserId,
-      });
-
-      const message = await this.useCase.revokeMessage(
-        validatedData.messageId,
-        validatedData.userId,
-      );
-
-      if (this.socketService) {
-        const memberUserIds = await this.useCase.getConversationMembers(
-          message.conversationId,
-        );
-
-        for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REVOKED, {
-            conversationId: message.conversationId,
-            message,
-          });
-        }
-      }
-
-      res.status(200).json({ data: message });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.messageController.revokeMessageAPI(req, res);
   }
 
   async deleteMessageForMeAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = deleteMessageForMeDTOSchema.parse({
-        messageId,
-        userId: currentUserId,
-      });
-
-      await this.useCase.deleteMessageForMe(
-        validatedData.messageId,
-        validatedData.userId,
-      );
-
-      res.status(200).json({ success: true });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.messageController.deleteMessageForMeAPI(req, res);
   }
 
   async deleteMessageForEveryoneAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = deleteMessageForEveryoneDTOSchema.parse({
-        messageId,
-        userId: currentUserId,
-      });
-
-      const message = await this.useCase.deleteMessageForEveryone(
-        validatedData.messageId,
-        validatedData.userId,
-      );
-
-      if (this.socketService) {
-        const memberUserIds = await this.useCase.getConversationMembers(
-          message.conversationId,
-        );
-
-        for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_DELETED_FOR_EVERYONE, {
-            conversationId: message.conversationId,
-            messageId: validatedData.messageId,
-            deletedBy: currentUserId,
-          });
-        }
-      }
-
-      res.status(200).json({ data: message });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.messageController.deleteMessageForEveryoneAPI(req, res);
   }
 
   async forwardMessagesAPI(req: Request, res: Response) {
-    try {
-      const { messageIds, targetConversationIds } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = forwardMessagesDTOSchema.parse({
-        userId: currentUserId,
-        messageIds,
-        targetConversationIds,
-      });
-
-      const forwardedMessages = await this.useCase.forwardMessages(
-        validatedData.userId,
-        validatedData.messageIds,
-        validatedData.targetConversationIds,
-      );
-
-      if (this.socketService) {
-        for (const message of forwardedMessages) {
-          const memberUserIds = await this.useCase.getConversationMembers(
-            message.conversationId,
-          );
-
-          for (const userId of memberUserIds) {
-            this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
-              message,
-              conversationId: message.conversationId,
-            });
-          }
-        }
-      }
-
-      res.status(201).json({ data: forwardedMessages });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.messageController.forwardMessagesAPI(req, res);
   }
 
   async saveMessagesToMyDocumentAPI(req: Request, res: Response) {
-    try {
-      const { messageIds } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = saveMessagesToMyDocumentDTOSchema.parse({
-        userId: currentUserId,
-        messageIds,
-      });
-
-      const result = await this.useCase.saveMessagesToMyDocument(
-        validatedData.userId,
-        validatedData.messageIds,
-      );
-
-      if (this.socketService) {
-        for (const message of result.messages) {
-          this.socketService.emitToUser(currentUserId, SocketEvent.RECEIVE_MESSAGE, {
-            message,
-            conversationId: message.conversationId,
-          });
-        }
-      }
-
-      res.status(201).json({ data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({
-        error: err.message,
-      });
-    }
+    return this.conversationActionsController.saveMessagesToMyDocumentAPI(req, res);
   }
 
   async muteConversationAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-      const { muteUntil, duration } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = muteConversationDTOSchema.parse({
-        conversationId,
-        userId: currentUserId,
-        muteUntil,
-        duration,
-      });
-
-      await this.useCase.muteConversation(
-        validatedData.conversationId,
-        validatedData.userId,
-        validatedData.muteUntil,
-        validatedData.duration,
-      );
-
-      if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_MUTE_CHANGED, {
-          conversationId,
-          userId: currentUserId,
-          mutedBy: currentUserId,
-          muteUntil: validatedData.muteUntil,
-          duration: validatedData.duration,
-          muted: true,
-        });
-      }
-
-      res.status(200).json({ success: true });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationActionsController.muteConversationAPI(req, res);
   }
 
   async unmuteConversationAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      await this.useCase.unmuteConversation(conversationId, currentUserId);
-
-      if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_MUTE_CHANGED, {
-          conversationId,
-          userId: currentUserId,
-          mutedBy: currentUserId,
-          muted: false,
-        });
-      }
-
-      res.status(200).json({ success: true });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationActionsController.unmuteConversationAPI(req, res);
   }
 
   async pinConversationAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = pinConversationDTOSchema.parse({
-        conversationId,
-        userId: currentUserId,
-      });
-
-      await this.useCase.pinConversation(
-        validatedData.conversationId,
-        validatedData.userId,
-      );
-
-      if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_PIN_TOGGLED, {
-          conversationId,
-          pinnedBy: currentUserId,
-          pinned: true,
-        });
-      }
-
-      res.status(200).json({ success: true });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationActionsController.pinConversationAPI(req, res);
   }
 
   async unpinConversationAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = pinConversationDTOSchema.parse({
-        conversationId,
-        userId: currentUserId,
-      });
-
-      await this.useCase.unpinConversation(
-        validatedData.conversationId,
-        validatedData.userId,
-      );
-
-      if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_PIN_TOGGLED, {
-          conversationId,
-          pinnedBy: currentUserId,
-          pinned: false,
-        });
-      }
-
-      res.status(200).json({ success: true });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationActionsController.unpinConversationAPI(req, res);
   }
 
   async archiveConversationAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = archiveConversationDTOSchema.parse({
-        conversationId,
-        userId: currentUserId,
-      });
-
-      await this.useCase.archiveConversation(
-        validatedData.conversationId,
-        validatedData.userId,
-      );
-
-      if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_ARCHIVED_TOGGLED, {
-          conversationId,
-          userId: currentUserId,
-          archived: true,
-        });
-      }
-
-      res.status(200).json({ success: true });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationActionsController.archiveConversationAPI(req, res);
   }
 
   async unarchiveConversationAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = archiveConversationDTOSchema.parse({
-        conversationId,
-        userId: currentUserId,
-      });
-
-      await this.useCase.unarchiveConversation(
-        validatedData.conversationId,
-        validatedData.userId,
-      );
-
-      if (this.socketService) {
-        this.socketService.emitToUser(currentUserId, SocketEvent.CONVERSATION_ARCHIVED_TOGGLED, {
-          conversationId,
-          userId: currentUserId,
-          archived: false,
-        });
-      }
-
-      res.status(200).json({ success: true });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationActionsController.unarchiveConversationAPI(req, res);
   }
 
   async editMessageAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-      const { text } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = editMessageDTOSchema.parse({
-        messageId,
-        userId: currentUserId,
-        text,
-      });
-
-      const message = await this.useCase.editMessage(
-        validatedData.messageId,
-        validatedData.userId,
-        validatedData.text,
-      );
-
-      if (this.socketService) {
-        const memberUserIds = await this.useCase.getConversationMembers(
-          message.conversationId,
-        );
-
-        for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_EDITED, {
-            conversationId: message.conversationId,
-            message,
-          });
-        }
-      }
-
-      res.status(200).json({ data: message });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.messageController.editMessageAPI(req, res);
   }
 
   async pinMessageAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = pinMessageDTOSchema.parse({
-        messageId,
-        userId: currentUserId,
-      });
-
-      const message = await this.useCase.pinMessage(
-        validatedData.messageId,
-        validatedData.userId,
-      );
-
-      if (this.socketService) {
-        const memberUserIds = await this.useCase.getConversationMembers(
-          message.conversationId,
-        );
-
-        for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_PINNED, {
-            conversationId: message.conversationId,
-            message,
-          });
-        }
-      }
-
-      res.status(200).json({ data: message });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.messageController.pinMessageAPI(req, res);
   }
 
   async unpinMessageAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = unpinMessageDTOSchema.parse({
-        messageId,
-        userId: currentUserId,
-      });
-
-      const message = await this.useCase.unpinMessage(
-        validatedData.messageId,
-        validatedData.userId,
-      );
-
-      if (this.socketService) {
-        const memberUserIds = await this.useCase.getConversationMembers(
-          message.conversationId,
-        );
-
-        for (const memberId of memberUserIds) {
-          this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_UNPINNED, {
-            conversationId: message.conversationId,
-            message,
-          });
-        }
-      }
-
-      res.status(200).json({ data: message });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.messageController.unpinMessageAPI(req, res);
   }
 
   async getPinnedMessagesAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = getPinnedMessagesDTOSchema.parse({
-        conversationId,
-        userId: currentUserId,
-      });
-
-      const messages = await this.useCase.getPinnedMessages(
-        validatedData.conversationId,
-        validatedData.userId,
-      );
-
-      res.status(200).json({ data: messages });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.messageController.getPinnedMessagesAPI(req, res);
   }
 
   async searchMessagesAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const { query, cursor, limit = "20", from, to, contextLimit = "1" } = req.query;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = searchMessagesDTOSchema.parse({
-        conversationId,
-        query,
-        cursor,
-        limit: parseInt(limit as string, 10),
-        from: from || undefined,
-        to: to || undefined,
-        contextLimit: parseInt(contextLimit as string, 10),
-      });
-
-      const result = await this.useCase.searchMessages(
-        validatedData.conversationId,
-        currentUserId,
-        validatedData.query,
-        validatedData.cursor,
-        validatedData.limit,
-        {
-          from: parseSearchDate(validatedData.from),
-          to: parseSearchEndDate(validatedData.to),
-          contextLimit: validatedData.contextLimit,
-        },
-      );
-
-      res.status(200).json({ data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.messageController.searchMessagesAPI(req, res);
   }
 
   async getConversationMediaAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-
-      const { cursor, limit = "20", type = "all" } = req.query;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = GetConversationMediaQuerySchema.parse({
-        conversationId,
-        userId: currentUserId,
-        cursor: cursor || undefined,
-        limit: parseInt(limit as string, 10),
-        type,
-      });
-
-      const result = await this.useCase.getConversationMedia(
-        validatedData.conversationId,
-        validatedData.userId,
-        validatedData.cursor,
-        validatedData.limit,
-        validatedData.type,
-      );
-
-      res.status(200).json({ data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationQueryController.getConversationMediaAPI(req, res);
   }
 
   async addReactionAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-      const { emoji } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = addReactionDTOSchema.parse({
-        messageId,
-        userId: currentUserId,
-        emoji,
-      });
-
-      const reaction = await this.useCase.addReaction(
-        validatedData.messageId,
-        validatedData.userId,
-        validatedData.emoji,
-      );
-
-      if (this.socketService) {
-        const message = await this.useCase.getMessage(validatedData.messageId);
-        if (message) {
-          const memberUserIds = await this.useCase.getConversationMembers(
-            message.conversationId,
-          );
-          for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REACTION, {
-              messageId: validatedData.messageId,
-              reaction,
-            });
-          }
-        }
-      }
-
-      res.status(201).json({ data: reaction });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.reactionController.addReactionAPI(req, res);
   }
 
   async removeReactionAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-      const { emoji } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = removeReactionDTOSchema.parse({
-        messageId,
-        userId: currentUserId,
-      });
-
-      const deletedCount = await this.useCase.removeReaction(
-        validatedData.messageId,
-        validatedData.userId,
-        emoji,
-      );
-
-      if (this.socketService) {
-        const message = await this.useCase.getMessage(validatedData.messageId);
-        if (message) {
-          const memberUserIds = await this.useCase.getConversationMembers(
-            message.conversationId,
-          );
-          for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REACTION_REMOVE, {
-              messageId: validatedData.messageId,
-              userId: currentUserId,
-              emoji,
-            });
-          }
-        }
-      }
-
-      res.status(200).json({ success: true, deletedCount });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.reactionController.removeReactionAPI(req, res);
   }
 
   async removeAllReactionsAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = removeAllReactionsDTOSchema.parse({
-        messageId,
-        userId: currentUserId,
-      });
-
-      const deletedCount = await this.useCase.removeAllReactions(
-        validatedData.messageId,
-        validatedData.userId,
-      );
-
-      if (this.socketService) {
-        const message = await (
-          this.useCase as any
-        ).messageQueryRepo?.get(validatedData.messageId);
-        if (message) {
-          const memberUserIds = await this.useCase.getConversationMembers(
-            message.conversationId,
-          );
-          for (const memberId of memberUserIds) {
-            this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_REACTIONS_CLEAR, {
-              messageId: validatedData.messageId,
-              userId: currentUserId,
-            });
-          }
-        }
-      }
-
-      res.status(200).json({ success: true, deletedCount });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.reactionController.removeAllReactionsAPI(req, res);
   }
 
   async getReactionsAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-
-      const validatedData = getReactionsDTOSchema.parse({ messageId });
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const result = await this.useCase.getReactions(validatedData.messageId, currentUserId);
-
-      res.status(200).json({ data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.reactionController.getReactionsAPI(req, res);
   }
 
   async quoteMessageAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-      const { text, media } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      if (!text && (!media || media.length === 0)) {
-        res.status(400).json({ error: "Either text or media is required" });
-        return;
-      }
-
-      const validatedData = quoteMessageDTOSchema.parse({
-        senderId: currentUserId,
-        text,
-        media,
-        quotedMessageId: messageId,
-      });
-
-      const quotedMessageObj = await this.useCase.getMessage(messageId);
-      if (!quotedMessageObj) {
-        res.status(404).json({ error: "Quoted message not found" });
-        return;
-      }
-      const conversationId = quotedMessageObj.conversationId;
-
-      const quotedMsg = await this.useCase.quoteMessage(
-        conversationId,
-        validatedData.senderId,
-        validatedData.text,
-        validatedData.media,
-        validatedData.quotedMessageId,
-      );
-
-      if (this.socketService) {
-        const memberUserIds = await this.useCase.getConversationMembers(
-          conversationId,
-        );
-        for (const userId of memberUserIds) {
-          this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
-            message: quotedMsg,
-            conversationId,
-          });
-        }
-      }
-
-      res.status(201).json({ data: quotedMsg });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(422).json({
-          error: "Validation error",
-          details: error.errors,
-        });
-        return;
-      }
-
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.messageController.quoteMessageAPI(req, res);
   }
 
   async setAdminAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-      const { targetUserId, isAdmin } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const updatedConversation = await this.useCase.setAdmin(groupId, currentUserId, targetUserId, isAdmin);
-
-      if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_ADMIN_CHANGED, {
-          conversationId: groupId,
-          targetUserId,
-          isAdmin,
-          changedBy: currentUserId,
-        });
-      }
-
-      res.status(200).json({ data: updatedConversation });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.groupController.setAdminAPI(req, res);
   }
 
   async transferOwnerAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-      const { newOwnerId } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const updatedConversation = await this.useCase.transferOwner(groupId, currentUserId, newOwnerId);
-
-      if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_OWNER_TRANSFERRED, {
-          conversationId: groupId,
-          oldOwnerId: currentUserId,
-          newOwnerId,
-        });
-      }
-
-      res.status(200).json({ data: updatedConversation });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.groupController.transferOwnerAPI(req, res);
   }
 
   async createPollAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-      const { question, options, isMultipleChoice, allowAddOption, showResultsBeforeClose, expiresAt } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const poll = await this.useCase.createPoll(
-        groupId,
-        currentUserId,
-        question,
-        options,
-        isMultipleChoice,
-        allowAddOption,
-        showResultsBeforeClose,
-        expiresAt,
-      );
-
-      if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, SocketEvent.POLL_NEW, {
-          conversationId: groupId,
-          poll,
-        });
-      }
-
-      res.status(201).json({ data: poll });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.pollController.createPollAPI(req, res);
   }
 
   async getPollsAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const polls = await this.useCase.getPolls(groupId, currentUserId);
-
-      res.status(200).json({ data: polls });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.pollController.getPollsAPI(req, res);
   }
 
   async votePollAPI(req: Request, res: Response) {
-    try {
-      const pollId = Array.isArray(req.params.pollId)
-        ? req.params.pollId[0]
-        : req.params.pollId;
-      const { optionIds } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const poll = await this.useCase.votePoll(pollId, currentUserId, optionIds);
-
-      if (this.socketService) {
-        this.socketService.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_VOTE, {
-          pollId,
-          userId: currentUserId,
-          poll,
-        });
-      }
-
-      res.status(200).json({ data: poll });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.pollController.votePollAPI(req, res);
   }
 
   async getPollResultsAPI(req: Request, res: Response) {
-    try {
-      const pollId = Array.isArray(req.params.pollId)
-        ? req.params.pollId[0]
-        : req.params.pollId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const poll = await this.useCase.getPollResults(pollId, currentUserId);
-
-      res.status(200).json({ data: poll });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.pollController.getPollResultsAPI(req, res);
   }
 
   async closePollAPI(req: Request, res: Response) {
-    try {
-      const pollId = Array.isArray(req.params.pollId) ? req.params.pollId[0] : req.params.pollId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const poll = await this.useCase.closePoll(pollId, currentUserId);
-      this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_CLOSED, {
-        conversationId: poll.conversationId,
-        pollId,
-        poll,
-        closedBy: currentUserId,
-      });
-      res.status(200).json({ data: poll });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.pollController.closePollAPI(req, res);
   }
 
   async pinPollAPI(req: Request, res: Response) {
-    try {
-      const pollId = Array.isArray(req.params.pollId) ? req.params.pollId[0] : req.params.pollId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const poll = await this.useCase.pinPoll(pollId, currentUserId);
-      this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_PINNED, {
-        conversationId: poll.conversationId,
-        pollId,
-        poll,
-        pinnedBy: currentUserId,
-      });
-      res.status(200).json({ data: poll });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.pollController.pinPollAPI(req, res);
   }
 
   async unpinPollAPI(req: Request, res: Response) {
-    try {
-      const pollId = Array.isArray(req.params.pollId) ? req.params.pollId[0] : req.params.pollId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const poll = await this.useCase.unpinPoll(pollId, currentUserId);
-      this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_UNPINNED, {
-        conversationId: poll.conversationId,
-        pollId,
-        poll,
-        unpinnedBy: currentUserId,
-      });
-      res.status(200).json({ data: poll });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.pollController.unpinPollAPI(req, res);
   }
 
   async createGroupReminderAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const data = createGroupReminderDTOSchema.parse({ conversationId: groupId, ...req.body });
-      const reminder = await this.useCase.createGroupReminder(
-        data.conversationId,
-        currentUserId,
-        data.title,
-        data.description,
-        data.remindAt,
-      );
-      this.socketService?.emitToGroupRoom(groupId, SocketEvent.GROUP_REMINDER_CREATED, {
-        conversationId: groupId,
-        reminder,
-        createdBy: currentUserId,
-      });
-      res.status(201).json({ data: reminder });
-    } catch (error) {
-      if (error instanceof z.ZodError) return res.status(422).json({ error: "Validation error", details: error.errors });
-      const err = error as any;
-      res.status(err.statusCode || 400).json({ error: err.message });
-    }
+    return this.groupUtilityController.createGroupReminderAPI(req, res);
   }
 
   async listGroupRemindersAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const reminders = await this.useCase.listGroupReminders(groupId, currentUserId);
-      res.status(200).json({ data: reminders });
-    } catch (error) {
-      const err = error as any;
-      res.status(err.statusCode || 400).json({ error: err.message });
-    }
+    return this.groupUtilityController.listGroupRemindersAPI(req, res);
   }
 
   async updateGroupReminderAPI(req: Request, res: Response) {
-    try {
-      const reminderId = Array.isArray(req.params.reminderId) ? req.params.reminderId[0] : req.params.reminderId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const data = updateGroupReminderDTOSchema.parse({ reminderId, userId: currentUserId, ...req.body });
-      const reminder = await this.useCase.updateGroupReminder(reminderId, currentUserId, {
-        title: data.title,
-        description: data.description,
-        remindAt: data.remindAt,
-        status: data.status,
-      });
-      this.socketService?.emitToGroupRoom(reminder.conversationId, SocketEvent.GROUP_REMINDER_UPDATED, {
-        conversationId: reminder.conversationId,
-        reminder,
-        updatedBy: currentUserId,
-      });
-      res.status(200).json({ data: reminder });
-    } catch (error) {
-      if (error instanceof z.ZodError) return res.status(422).json({ error: "Validation error", details: error.errors });
-      const err = error as any;
-      res.status(err.statusCode || 400).json({ error: err.message });
-    }
+    return this.groupUtilityController.updateGroupReminderAPI(req, res);
   }
 
   async deleteGroupReminderAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
-      const reminderId = Array.isArray(req.params.reminderId) ? req.params.reminderId[0] : req.params.reminderId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      await this.useCase.deleteGroupReminder(reminderId, currentUserId);
-      this.socketService?.emitToGroupRoom(groupId, SocketEvent.GROUP_REMINDER_DELETED, {
-        conversationId: groupId,
-        reminderId,
-        deletedBy: currentUserId,
-      });
-      res.status(200).json({ success: true });
-    } catch (error) {
-      const err = error as any;
-      res.status(err.statusCode || 400).json({ error: err.message });
-    }
+    return this.groupUtilityController.deleteGroupReminderAPI(req, res);
   }
 
   async createGroupNoteAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const data = createGroupNoteDTOSchema.parse({ conversationId: groupId, ...req.body });
-      const note = await this.useCase.createGroupNote(data.conversationId, currentUserId, data.title, data.content);
-      this.socketService?.emitToGroupRoom(groupId, SocketEvent.GROUP_NOTE_CREATED, {
-        conversationId: groupId,
-        note,
-        createdBy: currentUserId,
-      });
-      res.status(201).json({ data: note });
-    } catch (error) {
-      if (error instanceof z.ZodError) return res.status(422).json({ error: "Validation error", details: error.errors });
-      const err = error as any;
-      res.status(err.statusCode || 400).json({ error: err.message });
-    }
+    return this.groupUtilityController.createGroupNoteAPI(req, res);
   }
 
   async listGroupNotesAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const notes = await this.useCase.listGroupNotes(groupId, currentUserId);
-      res.status(200).json({ data: notes });
-    } catch (error) {
-      const err = error as any;
-      res.status(err.statusCode || 400).json({ error: err.message });
-    }
+    return this.groupUtilityController.listGroupNotesAPI(req, res);
   }
 
   async updateGroupNoteAPI(req: Request, res: Response) {
-    try {
-      const noteId = Array.isArray(req.params.noteId) ? req.params.noteId[0] : req.params.noteId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const data = updateGroupNoteDTOSchema.parse({ noteId, userId: currentUserId, ...req.body });
-      const note = await this.useCase.updateGroupNote(noteId, currentUserId, {
-        title: data.title,
-        content: data.content,
-      });
-      this.socketService?.emitToGroupRoom(note.conversationId, SocketEvent.GROUP_NOTE_UPDATED, {
-        conversationId: note.conversationId,
-        note,
-        updatedBy: currentUserId,
-      });
-      res.status(200).json({ data: note });
-    } catch (error) {
-      if (error instanceof z.ZodError) return res.status(422).json({ error: "Validation error", details: error.errors });
-      const err = error as any;
-      res.status(err.statusCode || 400).json({ error: err.message });
-    }
+    return this.groupUtilityController.updateGroupNoteAPI(req, res);
   }
 
   async deleteGroupNoteAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
-      const noteId = Array.isArray(req.params.noteId) ? req.params.noteId[0] : req.params.noteId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      await this.useCase.deleteGroupNote(noteId, currentUserId);
-      this.socketService?.emitToGroupRoom(groupId, SocketEvent.GROUP_NOTE_DELETED, {
-        conversationId: groupId,
-        noteId,
-        deletedBy: currentUserId,
-      });
-      res.status(200).json({ success: true });
-    } catch (error) {
-      const err = error as any;
-      res.status(err.statusCode || 400).json({ error: err.message });
-    }
+    return this.groupUtilityController.deleteGroupNoteAPI(req, res);
   }
 
   async getPendingMembersAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const pendingMembers = await this.useCase.getPendingMembers(groupId, currentUserId);
-
-      res.status(200).json({ data: pendingMembers });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.groupController.getPendingMembersAPI(req, res);
   }
 
   async approveMemberAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-      const userId = Array.isArray(req.params.userId)
-        ? req.params.userId[0]
-        : req.params.userId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const approvedMember = await this.useCase.approveMember(groupId, userId, currentUserId);
-
-      if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_MEMBER_APPROVED, {
-          conversationId: groupId,
-          userId,
-          member: approvedMember,
-        });
-        this.socketService.emitToUser(userId, SocketEvent.GROUP_MEMBER_APPROVED, {
-          conversationId: groupId,
-          userId,
-          member: approvedMember,
-        });
-      }
-
-      res.status(200).json({ data: approvedMember });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.groupController.approveMemberAPI(req, res);
   }
 
   async rejectMemberAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-      const userId = Array.isArray(req.params.userId)
-        ? req.params.userId[0]
-        : req.params.userId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      await this.useCase.rejectMember(groupId, userId, currentUserId);
-
-      if (this.socketService) {
-        this.socketService.emitToUser(userId, SocketEvent.GROUP_MEMBER_REJECTED, {
-          conversationId: groupId,
-          userId,
-        });
-      }
-
-      res.status(200).json({ success: true });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.groupController.rejectMemberAPI(req, res);
   }
 
   async updateGroupSettingsAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-      const { allowSendLink, requireApproval, allowMemberInvite, whoCanSendMessages, whoCanAddMembers, utilityPermissions } = req.body;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const updatedConversation = await this.useCase.updateGroupSettings(
-        groupId,
-        currentUserId,
-        { allowSendLink, requireApproval, allowMemberInvite, whoCanSendMessages, whoCanAddMembers, utilityPermissions },
-      );
-
-      if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_SETTINGS_UPDATED, {
-          conversationId: groupId,
-          settings: updatedConversation.settings,
-        });
-      }
-
-      res.status(200).json({ data: updatedConversation });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.groupController.updateGroupSettingsAPI(req, res);
   }
 
   async getGroupInfoAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const groupInfo = await this.useCase.getGroupInfo(groupId, currentUserId);
-
-      res.status(200).json({ data: groupInfo });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.groupController.getGroupInfoAPI(req, res);
   }
 
   async dissolveGroupAPI(req: Request, res: Response) {
-    try {
-      const groupId = Array.isArray(req.params.groupId)
-        ? req.params.groupId[0]
-        : req.params.groupId;
-
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const memberUserIds = await this.useCase.dissolveGroup(groupId, currentUserId);
-
-      if (this.socketService) {
-        for (const userId of memberUserIds) {
-          this.socketService.emitToUser(userId, SocketEvent.GROUP_DISSOLVED, {
-            conversationId: groupId,
-            dissolvedBy: currentUserId,
-          });
-        }
-      }
-
-      res.status(200).json({ success: true, message: "Group dissolved successfully" });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.groupController.dissolveGroupAPI(req, res);
   }
 
   async getConversationStatisticsAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = getConversationStatisticsSchema.parse({
-        conversationId,
-        userId: currentUserId,
-      });
-
-      const stats = await this.useCase.getConversationStatistics(
-        validatedData.conversationId,
-        validatedData.userId,
-      );
-
-      res.status(200).json({ data: stats });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: error.errors });
-        return;
-      }
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationQueryController.getConversationStatisticsAPI(req, res);
   }
 
   async getSharedConversationsAPI(req: Request, res: Response) {
-    try {
-      const userId = Array.isArray(req.params.userId)
-        ? req.params.userId[0]
-        : req.params.userId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = getSharedConversationsSchema.parse({
-        userId,
-        currentUserId,
-      });
-
-      const conversations = await this.useCase.getSharedConversations(
-        validatedData.userId,
-        validatedData.currentUserId,
-      );
-
-      res.status(200).json({ data: conversations });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: error.errors });
-        return;
-      }
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationQueryController.getSharedConversationsAPI(req, res);
   }
 
   async deleteMessagesBulkAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-      const { before, after, messageIds } = req.body;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = deleteMessagesBulkSchema.parse({
-        conversationId,
-        userId: currentUserId,
-        before,
-        after,
-        messageIds,
-      });
-
-      const result = await this.useCase.deleteMessagesBulk(
-        validatedData.conversationId,
-        validatedData.userId,
-        validatedData.before,
-        validatedData.after,
-        validatedData.messageIds,
-      );
-
-      res.status(200).json({ data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: error.errors });
-        return;
-      }
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.messageToolsController.deleteMessagesBulkAPI(req, res);
   }
 
   async getConversationOnlineMembersAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const members = await this.useCase.getConversationOnlineMembers(conversationId, currentUserId);
-
-      res.status(200).json({ data: members });
-    } catch (error) {
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationQueryController.getConversationOnlineMembersAPI(req, res);
   }
 
   async getDraftsAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = getDraftsSchema.parse({
-        conversationId,
-        userId: currentUserId,
-      });
-
-      const drafts = await this.useCase.getDrafts(
-        validatedData.conversationId,
-        validatedData.userId,
-      );
-
-      res.status(200).json({ data: drafts });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: error.errors });
-        return;
-      }
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationQueryController.getDraftsAPI(req, res);
   }
 
   async translateMessageAPI(req: Request, res: Response) {
-    try {
-      const messageId = Array.isArray(req.params.messageId)
-        ? req.params.messageId[0]
-        : req.params.messageId;
-      const { targetLanguage } = req.body;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = translateMessageSchema.parse({
-        messageId,
-        userId: currentUserId,
-        targetLanguage,
-      });
-
-      const result = await this.useCase.translateMessage(
-        validatedData.messageId,
-        validatedData.userId,
-        validatedData.targetLanguage,
-      );
-
-      res.status(200).json({ data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: error.errors });
-        return;
-      }
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.messageToolsController.translateMessageAPI(req, res);
   }
 
   async copyConversationAPI(req: Request, res: Response) {
-    try {
-      const conversationId = Array.isArray(req.params.conversationId)
-        ? req.params.conversationId[0]
-        : req.params.conversationId;
-      const { targetUserId, memberIds, before, after } = req.body;
-      const requester = res.locals["requester"];
-      const currentUserId = requester?.sub;
-
-      if (!currentUserId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const validatedData = copyConversationSchema.parse({
-        conversationId,
-        requesterId: currentUserId,
-        targetUserId,
-        memberIds,
-        before,
-        after,
-      });
-
-      const result = await this.useCase.copyConversation(
-        validatedData.conversationId,
-        validatedData.requesterId,
-        validatedData.targetUserId,
-        validatedData.memberIds,
-        validatedData.before,
-        validatedData.after,
-      );
-
-      res.status(201).json({ data: result });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: error.errors });
-        return;
-      }
-      const err = error as any;
-      const statusCode = err.statusCode || 400;
-      res.status(statusCode).json({ error: err.message });
-    }
+    return this.conversationActionsController.copyConversationAPI(req, res);
   }
 }

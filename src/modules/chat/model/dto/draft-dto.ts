@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { uuidV7 } from "@share/utils/zod-validators";
+import { MessageMedia, MessageMediaSchema } from "../model";
 
 export const getDraftsSchema = z.object({
   conversationId: uuidV7("Invalid conversation ID"),
@@ -13,7 +14,7 @@ export interface Draft {
   conversationId: string;
   userId: string;
   text: string;
-  media: any[];
+  media: MessageMedia[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,7 +24,7 @@ export const DraftSchema = z.object({
   conversationId: z.string(),
   userId: z.string(),
   text: z.string(),
-  media: z.array(z.any()).default([]),
+  media: z.array(MessageMediaSchema).default([]),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
