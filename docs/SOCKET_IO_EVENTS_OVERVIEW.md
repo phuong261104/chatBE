@@ -104,7 +104,7 @@ Key payload names:
 | `messageSeen` | `{ conversationId, lastSeenMessageId }` |
 | `messageDelivered` | `{ conversationId, lastDeliveredMessageId }` |
 | `typing:start`, `typing:stop` | `{ toUserId }` for private typing, or `{ groupId }` for group typing |
-| `sendMessage` | `{ conversationId, text?, media?, ttlSeconds? }` |
+| `sendMessage` | `{ conversationId, text?, media?, ttlSeconds?, clientMessageId? }` |
 | `quoteMessage` | `{ conversationId, quotedMessageId, text?, media? }` |
 | `addMembers` | `{ groupId, memberIds }` |
 | `removeMember` | `{ groupId, targetUserId }` |
@@ -133,6 +133,11 @@ Key payload names:
 | Message lifecycle | `receiveMessage`, `message:edited`, `message:deleted`, `message:revoked`, `message:deleted_for_everyone`, `message:pinned`, `message:unpinned`, `message:quoted` |
 | Reactions | `message:reaction`, `message:reaction:remove`, `message:reactions:clear`, `message:reaction_summary` |
 | Status/typing/presence | `messageSeen`, `messageDelivered`, `typing:start`, `typing:stop`, `user:online`, `user:offline`, `online_status`, `user_presence` |
+
+`clientMessageId` on `sendMessage` is idempotent per
+`{conversationId, senderId, clientMessageId}`. `messageSeen` and
+`messageDelivered` broadcasts include read-state fields and are also emitted to
+the actor user room so multiple tabs for the same user stay in sync.
 | Conversation/group | `conversation:created`, `conversation:members_added`, `conversation:member_removed`, `conversation:updated`, `conversation:pin_toggled`, `conversation:archived_toggled`, `conversation:mute_changed`, `group:member_left`, `group:dissolved`, `group:renamed`, `group:avatar_changed`, `group:admin_changed`, `group:owner_transferred`, `group:member_approved`, `group:member_rejected`, `group:settings_updated` |
 | Polls/utilities | `poll:new`, `poll:vote`, `poll:closed`, `poll:pinned`, `poll:unpinned`, `group:reminder_created`, `group:reminder_updated`, `group:reminder_deleted`, `group:note_created`, `group:note_updated`, `group:note_deleted` |
 | Special media/notifier-only | `voice_message`, `location_share`, `message:recall`, `message:edit_start`, `message:edit_end` |

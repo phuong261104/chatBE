@@ -421,6 +421,9 @@ Chat event chính:
 
 - Client to server: `sendMessage`, `editMessage`, `deleteMessage`, `revokeMessage`, `messageSeen`, `messageDelivered`, `typing:start`, `typing:stop`.
 - Server to client: `receiveMessage`, `message:edited`, `message:deleted`, `message:revoked`, `message:deleted_for_everyone`.
+- `sendMessage` nhận thêm optional `clientMessageId` để retry idempotent theo `{conversationId, senderId, clientMessageId}`; retry trả lại message đã tạo và không tăng unread lần hai.
+- `receiveMessage` được emit vào `user:{userId}` của mọi member, gồm cả sender, nên nhiều tab cùng user đều nhận cùng message và frontend nên dedupe theo `message.id`.
+- `messageSeen`/`messageDelivered` chỉ broadcast khi marker tiến lên. Payload giữ field cũ và bổ sung `conversationId`, `userId`, `lastSeenMessageId`/`lastDeliveredMessageId`, `lastReadMessageId`, `unreadCount`, các mốc `...At`, `...MessageCreatedAt`, `updatedAt`; actor user room cũng nhận event để các tab còn lại sync unread/read marker.
 
 Group/poll/utility event chính:
 

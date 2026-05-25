@@ -219,9 +219,56 @@ export class InMemoryConversationMemberRepository {
       member.updatedAt = activityAt;
     }
   }
+
+  async advanceSeenState(input: {
+    memberId: string;
+    lastSeenMessageId: string;
+    messageCreatedAt: Date;
+    clearUnread: boolean;
+    seenAt?: Date;
+  }): Promise<{ changed: boolean; member: ConversationMember | null }> {
+    const member = this.store.members.get(input.memberId);
+    if (!member) return { changed: false, member: null };
+    const currentCreatedAt = member.lastSeenMessageCreatedAt?.getTime() ?? -1;
+    if (currentCreatedAt >= input.messageCreatedAt.getTime()) {
+      return { changed: false, member: cloneMember(member) };
+    }
+    const now = input.seenAt || new Date();
+    member.lastSeenMessageId = input.lastSeenMessageId;
+    member.lastReadMessageId = input.lastSeenMessageId;
+    member.lastSeenAt = now;
+    member.lastReadAt = now;
+    member.lastSeenMessageCreatedAt = input.messageCreatedAt;
+    member.lastReadMessageCreatedAt = input.messageCreatedAt;
+    if (input.clearUnread) member.unreadCount = 0;
+    member.updatedAt = now;
+    return { changed: true, member: cloneMember(member) };
+  }
+
+  async advanceDeliveredState(input: {
+    memberId: string;
+    lastDeliveredMessageId: string;
+    messageCreatedAt: Date;
+    deliveredAt?: Date;
+  }): Promise<{ changed: boolean; member: ConversationMember | null }> {
+    const member = this.store.members.get(input.memberId);
+    if (!member) return { changed: false, member: null };
+    const currentCreatedAt = member.lastDeliveredMessageCreatedAt?.getTime() ?? -1;
+    if (currentCreatedAt >= input.messageCreatedAt.getTime()) {
+      return { changed: false, member: cloneMember(member) };
+    }
+    const now = input.deliveredAt || new Date();
+    member.lastDeliveredMessageId = input.lastDeliveredMessageId;
+    member.lastDeliveredAt = now;
+    member.lastDeliveredMessageCreatedAt = input.messageCreatedAt;
+    member.updatedAt = now;
+    return { changed: true, member: cloneMember(member) };
+  }
 }
 
 export class InMemoryMessageRepository {
+  private readonly clientMessageReservations = new Map<string, string[] | null>();
+
   constructor(private readonly store: ChatE2EStore) {}
 
   async get(id: string): Promise<Message | null> {
@@ -238,6 +285,28 @@ export class InMemoryMessageRepository {
     return Array.from(this.store.messages.values())
       .filter((item) => matchesCond(item, cond))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map(cloneMessage);
+  }
+
+  async findByClientMessageId(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<Message[]> {
+    const key = this.clientMessageKey(conversationId, senderId, clientMessageId);
+    const reservedIds = this.clientMessageReservations.get(key);
+    const source = reservedIds
+      ? reservedIds
+          .map((messageId) => this.store.messages.get(messageId))
+          .filter(isDefined)
+      : Array.from(this.store.messages.values()).filter(
+          (message) =>
+            message.conversationId === conversationId &&
+            message.senderId === senderId &&
+            message.clientMessageId === clientMessageId,
+        );
+    return source
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map(cloneMessage);
   }
 
@@ -323,6 +392,33 @@ export class InMemoryMessageRepository {
     for (const message of Array.from(this.store.messages.values())) {
       if (message.conversationId === conversationId) this.store.messages.delete(message.id);
     }
+  }
+
+  async reserveClientMessage(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<boolean> {
+    const key = this.clientMessageKey(conversationId, senderId, clientMessageId);
+    if (this.clientMessageReservations.has(key)) return false;
+    this.clientMessageReservations.set(key, null);
+    return true;
+  }
+
+  async completeClientMessage(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+    messageIds: string[],
+  ): Promise<void> {
+    this.clientMessageReservations.set(
+      this.clientMessageKey(conversationId, senderId, clientMessageId),
+      [...messageIds],
+    );
+  }
+
+  private clientMessageKey(conversationId: string, senderId: string, clientMessageId: string): string {
+    return `${conversationId}#${senderId}#${clientMessageId}`;
   }
 }
 

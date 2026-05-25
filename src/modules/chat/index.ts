@@ -158,6 +158,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationMemberRepo,
     conversationMemberRepo,
     messageRepo,
+    messageRepo,
     conversationRepo,
     conversationRepo,
     classificationRepo,
@@ -175,6 +176,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const sendGroupMessageHandler = new SendGroupMessageHandler(
     conversationMemberRepo,
     conversationMemberRepo,
+    messageRepo,
     messageRepo,
     conversationRepo,
     conversationRepo,

@@ -19,6 +19,7 @@ export const MessageCondDTOSchema = z.object({
 export type MessageCondDTO = z.infer<typeof MessageCondDTOSchema>;
 
 export const MessageUpdateDTOSchema = z.object({
+  clientMessageId: z.string().min(1).max(128).optional(),
   type: z.nativeEnum(MessageType).optional(),
   text: z.string().optional(),
   media: z.array(MessageMediaSchema).optional(),
@@ -50,6 +51,7 @@ export const sendMessageDTOSchema = z
     text: z.string().max(5000, "Message is too long").optional(),
     media: z.array(MediaAttachmentSchema).optional(),
     ttlSeconds: z.number().int().positive().optional(),
+    clientMessageId: z.string().min(1).max(128).optional(),
   })
   .refine((data) => data.text || (data.media && data.media.length > 0), {
     message: "Either text or media is required",
@@ -64,6 +66,7 @@ export const sendGroupMessageDTOSchema = z
     text: z.string().max(5000, "Message is too long").optional(),
     media: z.array(MediaAttachmentSchema).optional(),
     ttlSeconds: z.number().int().positive().optional(),
+    clientMessageId: z.string().min(1).max(128).optional(),
   })
   .refine((data) => data.text || (data.media && data.media.length > 0), {
     message: "Either text or media is required",
@@ -150,6 +153,7 @@ export interface SendMessageCommand {
   text?: string;
   media?: MediaAttachment[];
   ttlSeconds?: number;
+  clientMessageId?: string;
 }
 
 export interface SendGroupMessageCommand {
@@ -158,6 +162,7 @@ export interface SendGroupMessageCommand {
   text?: string;
   media?: MediaAttachment[];
   ttlSeconds?: number;
+  clientMessageId?: string;
 }
 
 export interface RevokeMessageCommand {

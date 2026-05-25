@@ -30,8 +30,56 @@ paths:
           description: Messages marked as seen
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      changed:
+                        type: boolean
+                        description: False when the submitted marker is stale and no socket event is broadcast.
+                      state:
+                        type: object
+                        properties:
+                          conversationId:
+                            type: string
+                          userId:
+                            type: string
+                          lastSeenMessageId:
+                            type: string
+                          lastReadMessageId:
+                            type: string
+                          unreadCount:
+                            type: integer
+                          lastSeenAt:
+                            type: string
+                            format: date-time
+                          lastReadAt:
+                            type: string
+                            format: date-time
+                          lastSeenMessageCreatedAt:
+                            type: string
+                            format: date-time
+                          lastReadMessageCreatedAt:
+                            type: string
+                            format: date-time
+                          updatedAt:
+                            type: string
+                            format: date-time
               example:
                 success: true
+                data:
+                  changed: true
+                  state:
+                    conversationId: "60d0fe4f5311236168a109cc"
+                    userId: "user_001"
+                    lastSeenMessageId: "msg_001"
+                    lastReadMessageId: "msg_001"
+                    unreadCount: 0
+                    updatedAt: "2026-05-25T10:00:00.000Z"
         "401":
           description: Unauthorized
 
@@ -66,7 +114,46 @@ paths:
           description: Messages marked as delivered
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      changed:
+                        type: boolean
+                        description: False when the submitted marker is stale and no socket event is broadcast.
+                      state:
+                        type: object
+                        properties:
+                          conversationId:
+                            type: string
+                          userId:
+                            type: string
+                          lastDeliveredMessageId:
+                            type: string
+                          unreadCount:
+                            type: integer
+                          lastDeliveredAt:
+                            type: string
+                            format: date-time
+                          lastDeliveredMessageCreatedAt:
+                            type: string
+                            format: date-time
+                          updatedAt:
+                            type: string
+                            format: date-time
               example:
                 success: true
+                data:
+                  changed: true
+                  state:
+                    conversationId: "60d0fe4f5311236168a109cc"
+                    userId: "user_001"
+                    lastDeliveredMessageId: "msg_001"
+                    unreadCount: 0
+                    updatedAt: "2026-05-25T10:00:00.000Z"
         "401":
           description: Unauthorized

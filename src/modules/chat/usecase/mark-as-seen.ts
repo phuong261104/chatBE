@@ -3,21 +3,23 @@ import { AppError } from '@share/app-error';
 import {
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
-  IMessageQueryRepository
+  IMessageQueryRepository,
+  MarkConversationStateResult,
+  ConversationReadState,
 } from '../interface';
-import { ConversationMemberStatus } from '../model/model';
+import { ConversationMember, ConversationMemberStatus } from '../model/model';
 import { markAsSeenDTOSchema, MarkAsSeenCommand } from '../model/dto';
 
-export class MarkAsSeenHandler implements ICommandHandler<MarkAsSeenCommand, void> {
+export class MarkAsSeenHandler implements ICommandHandler<MarkAsSeenCommand, MarkConversationStateResult> {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageQueryRepo: IMessageQueryRepository
   ) {}
 
-  async execute(command: MarkAsSeenCommand): Promise<void> {
+  async execute(command: MarkAsSeenCommand): Promise<MarkConversationStateResult> {
 
-    const { success, data: validatedInput, error } = markAsSeenDTOSchema.safeParse(command);
+    const { success, data: validatedInput } = markAsSeenDTOSchema.safeParse(command);
 
     if (!success) {
       throw new Error('Invalid data');
@@ -48,7 +50,7 @@ export class MarkAsSeenHandler implements ICommandHandler<MarkAsSeenCommand, voi
         currentSeen.conversationId === validatedInput.conversationId &&
         currentSeen.createdAt.getTime() >= message.createdAt.getTime()
       ) {
-        return;
+        return { changed: false, state: this.toReadState(member) };
       }
     }
 
@@ -62,12 +64,35 @@ export class MarkAsSeenHandler implements ICommandHandler<MarkAsSeenCommand, voi
       latestVisible.length === 0 ||
       message.createdAt.getTime() >= latestVisible[0].createdAt.getTime();
 
-    await this.conversationMemberCommandRepo.update(member.id, {
+    const result = await this.conversationMemberCommandRepo.advanceSeenState({
+      memberId: member.id,
       lastSeenMessageId: validatedInput.lastSeenMessageId,
-      lastReadMessageId: validatedInput.lastSeenMessageId,
-      lastSeenAt: new Date(),
-      lastReadAt: new Date(),
-      ...(shouldClearUnread ? { unreadCount: 0 } : {}),
+      messageCreatedAt: message.createdAt,
+      seenAt: new Date(),
+      clearUnread: shouldClearUnread,
     });
+
+    return {
+      changed: result.changed,
+      state: this.toReadState(result.member || member),
+    };
+  }
+
+  private toReadState(member: ConversationMember): ConversationReadState {
+    return {
+      conversationId: member.conversationId,
+      userId: member.userId,
+      lastSeenMessageId: member.lastSeenMessageId,
+      lastReadMessageId: member.lastReadMessageId,
+      lastDeliveredMessageId: member.lastDeliveredMessageId,
+      lastSeenAt: member.lastSeenAt,
+      lastReadAt: member.lastReadAt,
+      lastDeliveredAt: member.lastDeliveredAt,
+      lastSeenMessageCreatedAt: member.lastSeenMessageCreatedAt,
+      lastReadMessageCreatedAt: member.lastReadMessageCreatedAt,
+      lastDeliveredMessageCreatedAt: member.lastDeliveredMessageCreatedAt,
+      unreadCount: member.unreadCount || 0,
+      updatedAt: member.updatedAt,
+    };
   }
 }

@@ -122,7 +122,7 @@ The `/messages` namespace authenticates independently via `setupMessagesSocketAu
 | `messageDelivered` | `{ conversationId, lastDeliveredMessageId }` | `{ success }` |
 | `typing:start` | `{ toUserId }` or `{ groupId }` | none |
 | `typing:stop` | `{ toUserId }` or `{ groupId }` | none |
-| `sendMessage` | `{ conversationId, text?, media?, ttlSeconds? }` | `{ success, messages }` |
+| `sendMessage` | `{ conversationId, text?, media?, ttlSeconds?, clientMessageId? }` | `{ success, messages }` |
 | `editMessage` | `{ messageId, text }` | `{ success, message }` |
 | `deleteMessage` | `{ messageId }` | `{ success }` |
 | `revokeMessage` | `{ messageId }` | `{ success, message }` |
@@ -195,8 +195,8 @@ type MediaAttachment = {
 | `message:recall` | `{ messageId, recallBy }` when notifier is invoked |
 | `message:edit_start` | `{ messageId, userId }` when notifier is invoked |
 | `message:edit_end` | `{ messageId, userId }` when notifier is invoked |
-| `messageSeen` | `{ conversationId, userId, lastSeenMessageId }` |
-| `messageDelivered` | `{ conversationId, userId, lastDeliveredMessageId }` |
+| `messageSeen` | `{ conversationId, userId, lastSeenMessageId, lastReadMessageId, unreadCount, lastSeenAt, lastReadAt, lastSeenMessageCreatedAt, lastReadMessageCreatedAt, updatedAt }` |
+| `messageDelivered` | `{ conversationId, userId, lastDeliveredMessageId, unreadCount, lastDeliveredAt, lastDeliveredMessageCreatedAt, updatedAt }` |
 | `typing:start` | `{ userId, toUserId? }` or `{ userId, groupId }` |
 | `typing:stop` | `{ userId, toUserId? }` or `{ userId, groupId }` |
 | `conversation:created` | `{ conversation, systemMessage }` |
@@ -288,5 +288,7 @@ Authenticated notification namespace for block and unblock events.
 - Use root `subscribeConversation` or `/messages` `joinGroup` when the client wants room-based broadcasts. Both join `group:${conversationId}` and `group_room:${conversationId}`.
 - Most `/messages` write operations require active conversation membership and return `{ success: false, error }` on authorization, validation, or rate-limit failure.
 - `sendMessage`, `forwardMessages`, `quoteMessage`, and `voice_message` can create multiple messages; consume the returned `messages` array and the `receiveMessage` broadcasts.
+- `sendMessage.clientMessageId` is optional and idempotent per `{conversationId, senderId, clientMessageId}`. Retrying the same client id returns the existing message(s) and does not increment unread again.
+- `messageSeen` and `messageDelivered` only broadcast when the marker advances. The actor user room is included so sibling tabs sync `unreadCount` and read markers.
 - `voice_message` currently accepts `{ mediaUrl, duration? }` and internally converts it to a `MediaAttachment` with `audio/webm`.
 - `location_share` broadcasts a location event only; it does not create a chat message row in the current handler.

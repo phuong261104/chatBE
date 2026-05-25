@@ -5,7 +5,7 @@ import { AuthenticatedSocket, SocketHandlerContext } from "./types";
 export const messageSocketHandlers = {
   async handleSendMessage(this: SocketHandlerContext, 
     socket: AuthenticatedSocket,
-    payload: { conversationId: string; text?: string; media?: MediaAttachment[]; ttlSeconds?: number },
+    payload: { conversationId: string; text?: string; media?: MediaAttachment[]; ttlSeconds?: number; clientMessageId?: string },
     callback?: (response: any) => void,
   ) {
     try {
@@ -21,7 +21,7 @@ export const messageSocketHandlers = {
         return;
       }
 
-      const { conversationId, text, media, ttlSeconds } = payload;
+      const { conversationId, text, media, ttlSeconds, clientMessageId } = payload;
 
       if (!conversationId) {
         if (callback) callback({ success: false, error: "conversationId is required" });
@@ -37,8 +37,8 @@ export const messageSocketHandlers = {
       const isGroup = conversationDetail.conversation.type === "group";
 
       const messages = isGroup
-        ? await this.useCase.sendGroupMessage(conversationId, userId, text, media, ttlSeconds)
-        : await this.useCase.sendMessage(conversationId, userId, text, media, ttlSeconds);
+        ? await this.useCase.sendGroupMessage(conversationId, userId, text, media, ttlSeconds, clientMessageId)
+        : await this.useCase.sendMessage(conversationId, userId, text, media, ttlSeconds, clientMessageId);
 
       const memberUserIds = await this.getMemberUserIds(conversationId);
 

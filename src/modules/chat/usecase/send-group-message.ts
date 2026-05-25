@@ -4,6 +4,7 @@ import { v7 } from 'uuid';
 import {
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
+  IMessageQueryRepository,
   IMessageCommandRepository,
   IConversationCommandRepository,
   IConversationQueryRepository,
@@ -87,6 +88,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
+    private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly conversationQueryRepo: IConversationQueryRepository,
@@ -95,6 +97,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
 
   async execute(command: SendGroupMessageCommand): Promise<Message[]> {
     const { conversationId, senderId, text, media, ttlSeconds } = command;
+    const clientMessageId = command.clientMessageId?.trim();
 
     if (!conversationId) throw new Error('conversationId is required');
     if (!senderId) throw new Error('senderId is required');
@@ -132,6 +135,13 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
     if (hasLinks && settings.allowSendLink === false) {
       throw AppError.from(new Error('Sending links is disabled for this group'), 403);
     }
+    const reservedClientMessage = clientMessageId
+      ? await this.reserveClientMessage(conversationId, senderId, clientMessageId)
+      : false;
+    if (clientMessageId && !reservedClientMessage) {
+      return this.waitForClientMessages(conversationId, senderId, clientMessageId);
+    }
+
     const mediaCount = media?.length || 0;
     const shouldSplitByMedia = mediaCount > 1;
     const shouldSplitTextMedia = hasText && hasMedia && hasLinks;
@@ -150,13 +160,13 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
         else if (isAudio) msgType = MessageType.VOICE;
         else msgType = MessageType.FILE;
         const hasTextAndNoLink = hasText && !hasLinks;
-        const msg = this.buildMessage(msgType, hasTextAndNoLink ? text : undefined, mapMediaToDbFormat([m]), conversationId, senderId, undefined, ttlSeconds);
+        const msg = this.buildMessage(msgType, hasTextAndNoLink ? text : undefined, mapMediaToDbFormat([m]), conversationId, senderId, undefined, ttlSeconds, clientMessageId);
         await this.messageCommandRepo.insert(msg);
         createdMessages.push(msg);
         classifications.push(this.buildClassification(msg, mimetypeToClassificationType(m.mimetype), m));
       }
       if (hasText && hasLinks) {
-        const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId, undefined, ttlSeconds);
+        const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId, undefined, ttlSeconds, clientMessageId);
         await this.messageCommandRepo.insert(linkMsg);
         createdMessages.push(linkMsg);
         for (const url of extractLinks(text)) {
@@ -172,13 +182,13 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
       else if (hasVideo) msgType = MessageType.VIDEO;
       else if (hasAudio) msgType = MessageType.VOICE;
       else msgType = MessageType.FILE;
-      const mediaMsg = this.buildMessage(msgType, undefined, mapMediaToDbFormat(media), conversationId, senderId, undefined, ttlSeconds);
+      const mediaMsg = this.buildMessage(msgType, undefined, mapMediaToDbFormat(media), conversationId, senderId, undefined, ttlSeconds, clientMessageId);
       await this.messageCommandRepo.insert(mediaMsg);
       createdMessages.push(mediaMsg);
       for (const m of media) {
         classifications.push(this.buildClassification(mediaMsg, mimetypeToClassificationType(m.mimetype), m));
       }
-      const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId, undefined, ttlSeconds);
+      const linkMsg = this.buildMessage(MessageType.LINK, text, undefined, conversationId, senderId, undefined, ttlSeconds, clientMessageId);
       await this.messageCommandRepo.insert(linkMsg);
       createdMessages.push(linkMsg);
       for (const url of extractLinks(text)) {
@@ -193,7 +203,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
       else if (hasVideo) msgType = MessageType.VIDEO;
       else if (hasAudio) msgType = MessageType.VOICE;
       else msgType = MessageType.FILE;
-      const msg = this.buildMessage(msgType, text, mapMediaToDbFormat(media), conversationId, senderId, undefined, ttlSeconds);
+      const msg = this.buildMessage(msgType, text, mapMediaToDbFormat(media), conversationId, senderId, undefined, ttlSeconds, clientMessageId);
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);
       for (const m of media) {
@@ -213,7 +223,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
             allMembers.filter((m) => m.status === ConversationMemberStatus.ACTIVE && !m.leftAt),
           )
         : undefined;
-      const msg = this.buildMessage(msgType, text, undefined, conversationId, senderId, textMentions, ttlSeconds);
+      const msg = this.buildMessage(msgType, text, undefined, conversationId, senderId, textMentions, ttlSeconds, clientMessageId);
       await this.messageCommandRepo.insert(msg);
       createdMessages.push(msg);
       if (hasLinks) {
@@ -256,7 +266,51 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
       senderId,
     );
 
+    if (clientMessageId) {
+      await this.messageCommandRepo.completeClientMessage(
+        conversationId,
+        senderId,
+        clientMessageId,
+        createdMessages.map((message) => message.id),
+      );
+    }
+
     return createdMessages;
+  }
+
+  private async reserveClientMessage(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<boolean> {
+    const existing = await this.messageQueryRepo.findByClientMessageId(
+      conversationId,
+      senderId,
+      clientMessageId,
+    );
+    if (existing.length > 0) return false;
+    return this.messageCommandRepo.reserveClientMessage(
+      conversationId,
+      senderId,
+      clientMessageId,
+    );
+  }
+
+  private async waitForClientMessages(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<Message[]> {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const existing = await this.messageQueryRepo.findByClientMessageId(
+        conversationId,
+        senderId,
+        clientMessageId,
+      );
+      if (existing.length > 0) return existing;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw AppError.from(new Error('Message send is already in progress'), 409);
   }
 
   private buildMessage(
@@ -267,6 +321,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
     senderId: string,
     mentions?: MessageMention[],
     ttlSeconds?: number,
+    clientMessageId?: string,
   ): Message {
     const id = v7();
     const now = new Date();
@@ -275,6 +330,7 @@ export class SendGroupMessageHandler implements ICommandHandler<SendGroupMessage
       id,
       conversationId,
       senderId,
+      clientMessageId,
       type,
       text,
       media,

@@ -8,12 +8,25 @@ import {
 import { getTableName, getDocClient } from "@share/repository/dynamodb/client";
 import {
   QueryCommand,
+  GetCommand,
   DeleteCommand,
   UpdateCommand,
   PutCommand,
   BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
+
+function idempotencyPk(conversationId: string, senderId: string): string {
+  return `IDEMP#${conversationId}#${senderId}`;
+}
+
+function idempotencySk(clientMessageId: string): string {
+  return `CLIENT#${clientMessageId}`;
+}
+
+function clientMessageKey(conversationId: string, senderId: string, clientMessageId: string): string {
+  return `${conversationId}#${senderId}#${clientMessageId}`;
+}
 
 class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
   Message,
@@ -150,6 +163,57 @@ class DynamoMessageQueryRepository extends BaseQueryRepositoryDynamoDB<
   async get(id: string): Promise<Message | null> {
     return await this.getById(id);
   }
+
+  async findByClientMessageId(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<Message[]> {
+    const result = await getDocClient().send(
+      new GetCommand({
+        TableName: getTableName(TABLE_NAMES.MESSAGES),
+        Key: {
+          pk: idempotencyPk(conversationId, senderId),
+          sk: idempotencySk(clientMessageId),
+        },
+      }),
+    );
+
+    const messageIds = Array.isArray(result.Item?.messageIds)
+      ? (result.Item?.messageIds as string[])
+      : [];
+    if (messageIds.length === 0) {
+      return this.findByClientMessageKey(conversationId, senderId, clientMessageId);
+    }
+
+    const messages = await Promise.all(messageIds.map((messageId) => this.getById(messageId)));
+    return messages
+      .filter((message): message is Message => !!message)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  private async findByClientMessageKey(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<Message[]> {
+    const result = await getDocClient().send(
+      new QueryCommand({
+        TableName: getTableName(TABLE_NAMES.MESSAGES),
+        IndexName: "clientMessageKey-index",
+        KeyConditionExpression: "clientMessageKey = :clientMessageKey",
+        ExpressionAttributeValues: {
+          ":clientMessageKey": clientMessageKey(conversationId, senderId, clientMessageId),
+        },
+        ScanIndexForward: true,
+      }),
+    );
+
+    return (result.Items || [])
+      .filter((item) => String(item.sk || "").startsWith("MSG#"))
+      .map((item) => this.toEntity(item))
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
 }
 
 class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
@@ -213,6 +277,10 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
       id: data.id,
       conversationId: data.conversationId,
       senderId: data.senderId,
+      clientMessageId: data.clientMessageId,
+      clientMessageKey: data.clientMessageId
+        ? clientMessageKey(data.conversationId, data.senderId, data.clientMessageId)
+        : undefined,
       type: data.type,
       text: data.text,
       media: data.media,
@@ -272,6 +340,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
   protected beforeUpdate(id: string, data: MessageUpdateDTO): Record<string, any> {
     const updateData: Record<string, any> = {};
     if (data.type !== undefined) updateData.type = data.type;
+    if (data.clientMessageId !== undefined) updateData.clientMessageId = data.clientMessageId;
     if (data.text !== undefined) updateData.text = data.text;
     if (data.media !== undefined) updateData.media = data.media;
     if (data.links !== undefined) updateData.links = data.links;
@@ -334,6 +403,68 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     return true;
   }
 
+  async reserveClientMessage(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<boolean> {
+    const now = new Date();
+    try {
+      await this.docClient.send(
+        new PutCommand({
+          TableName: this.getTableName(),
+          Item: {
+            pk: idempotencyPk(conversationId, senderId),
+            sk: idempotencySk(clientMessageId),
+            conversationId,
+            senderId,
+            clientMessageId,
+            status: "pending",
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString(),
+            expireAtEpoch: Math.floor(now.getTime() / 1000) + 86400,
+          },
+          ConditionExpression: "attribute_not_exists(pk)",
+        }),
+      );
+      return true;
+    } catch (error) {
+      if ((error as any)?.name === "ConditionalCheckFailedException") {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  async completeClientMessage(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+    messageIds: string[],
+  ): Promise<void> {
+    await this.docClient.send(
+      new UpdateCommand({
+        TableName: this.getTableName(),
+        Key: {
+          pk: idempotencyPk(conversationId, senderId),
+          sk: idempotencySk(clientMessageId),
+        },
+        UpdateExpression: "SET #status = :status, #messageIds = :messageIds, #updatedAt = :updatedAt",
+        ExpressionAttributeNames: {
+          "#status": "status",
+          "#messageIds": "messageIds",
+          "#updatedAt": "updatedAt",
+        },
+        ExpressionAttributeValues: {
+          ":status": "completed",
+          ":messageIds": messageIds,
+          ":updatedAt": new Date().toISOString(),
+        },
+        ConditionExpression: "attribute_exists(pk)",
+      }),
+    );
+  }
+
   private chunkArray<T>(array: T[], size: number): T[][] {
     const chunks: T[][] = [];
     for (let i = 0; i < array.length; i += size) {
@@ -385,11 +516,13 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
   typeof TABLE_NAMES.MESSAGES
 > {
   private readonly _cmdRepo: DynamoMessageCommandRepository;
+  private readonly _queryRepo: DynamoMessageQueryRepository;
 
   constructor() {
     const q = new DynamoMessageQueryRepository();
     const c = new DynamoMessageCommandRepository();
     super(q, c);
+    this._queryRepo = q;
     this._cmdRepo = c;
   }
 
@@ -441,6 +574,31 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
 
   async batchInsert(messages: Message[]): Promise<boolean> {
     return await this._cmdRepo.batchInsert(messages);
+  }
+
+  async findByClientMessageId(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<Message[]> {
+    return this._queryRepo.findByClientMessageId(conversationId, senderId, clientMessageId);
+  }
+
+  async reserveClientMessage(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<boolean> {
+    return this._cmdRepo.reserveClientMessage(conversationId, senderId, clientMessageId);
+  }
+
+  async completeClientMessage(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+    messageIds: string[],
+  ): Promise<void> {
+    return this._cmdRepo.completeClientMessage(conversationId, senderId, clientMessageId, messageIds);
   }
 
   async searchMessages(

@@ -3,21 +3,23 @@ import { AppError } from '@share/app-error';
 import {
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
-  IMessageQueryRepository
+  IMessageQueryRepository,
+  MarkConversationStateResult,
+  ConversationReadState,
 } from '../interface';
-import { ConversationMemberStatus } from '../model/model';
+import { ConversationMember, ConversationMemberStatus } from '../model/model';
 import { markAsDeliveredDTOSchema, MarkAsDeliveredCommand } from '../model/dto';
 
-export class MarkAsDeliveredHandler implements ICommandHandler<MarkAsDeliveredCommand, void> {
+export class MarkAsDeliveredHandler implements ICommandHandler<MarkAsDeliveredCommand, MarkConversationStateResult> {
   constructor(
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageQueryRepo: IMessageQueryRepository
   ) {}
 
-  async execute(command: MarkAsDeliveredCommand): Promise<void> {
+  async execute(command: MarkAsDeliveredCommand): Promise<MarkConversationStateResult> {
 
-    const { success, data: validatedInput, error } = markAsDeliveredDTOSchema.safeParse(command);
+    const { success, data: validatedInput } = markAsDeliveredDTOSchema.safeParse(command);
 
     if (!success) {
       throw new Error('Invalid data');
@@ -48,13 +50,38 @@ export class MarkAsDeliveredHandler implements ICommandHandler<MarkAsDeliveredCo
         currentDelivered.conversationId === validatedInput.conversationId &&
         currentDelivered.createdAt.getTime() >= message.createdAt.getTime()
       ) {
-        return;
+        return { changed: false, state: this.toReadState(member) };
       }
     }
 
-    await this.conversationMemberCommandRepo.update(member.id, {
+    const result = await this.conversationMemberCommandRepo.advanceDeliveredState({
+      memberId: member.id,
       lastDeliveredMessageId: validatedInput.lastDeliveredMessageId,
-      lastDeliveredAt: new Date(),
+      messageCreatedAt: message.createdAt,
+      deliveredAt: new Date(),
     });
+
+    return {
+      changed: result.changed,
+      state: this.toReadState(result.member || member),
+    };
+  }
+
+  private toReadState(member: ConversationMember): ConversationReadState {
+    return {
+      conversationId: member.conversationId,
+      userId: member.userId,
+      lastSeenMessageId: member.lastSeenMessageId,
+      lastReadMessageId: member.lastReadMessageId,
+      lastDeliveredMessageId: member.lastDeliveredMessageId,
+      lastSeenAt: member.lastSeenAt,
+      lastReadAt: member.lastReadAt,
+      lastDeliveredAt: member.lastDeliveredAt,
+      lastSeenMessageCreatedAt: member.lastSeenMessageCreatedAt,
+      lastReadMessageCreatedAt: member.lastReadMessageCreatedAt,
+      lastDeliveredMessageCreatedAt: member.lastDeliveredMessageCreatedAt,
+      unreadCount: member.unreadCount || 0,
+      updatedAt: member.updatedAt,
+    };
   }
 }

@@ -96,6 +96,10 @@ components:
           type: string
         senderId:
           type: string
+        clientMessageId:
+          type: string
+          nullable: true
+          description: Optional client-generated id used for idempotent sends.
         type:
           type: string
           enum: [text, image, file, link, video, voice, sticker, gif, system, profile_card]
@@ -430,10 +434,15 @@ paths:
                   type: integer
                   description: Self-destruct timer in seconds (optional)
                   example: 3600
+                clientMessageId:
+                  type: string
+                  maxLength: 128
+                  description: Optional client-generated id for idempotent retries.
             example:
               text: "Hello everyone!"
               media: []
               ttlSeconds: 3600
+              clientMessageId: "web-tab-a-1715767200000"
       responses:
         "201":
           description: Message(s) created
@@ -545,11 +554,16 @@ paths:
                 ttlSeconds:
                   type: integer
                   description: Self-destruct timer in seconds
+                clientMessageId:
+                  type: string
+                  maxLength: 128
+                  description: Optional client-generated id for idempotent retries.
             example:
               targetUserId: "0192a3bc-def0-7abc-8901-23456789abcd"
               text: "Hello!"
               media: []
               ttlSeconds: 3600
+              clientMessageId: "web-tab-a-1715767200001"
       responses:
         "201":
           description: Message sent

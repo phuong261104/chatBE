@@ -7,6 +7,10 @@ import {
   ConversationMemberUpdateDTO,
 } from "../../../model/dto";
 import {
+  AdvanceDeliveredStateInput,
+  AdvanceSeenStateInput,
+} from "../../../interface";
+import {
   BaseQueryRepositoryDynamoDB,
   BaseCommandRepositoryDynamoDB,
   BaseRepositoryDynamoDB,
@@ -20,6 +24,48 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
+function toConversationMemberEntity(doc: Record<string, any>): ConversationMember {
+  const {
+    pk,
+    sk,
+    joinedAt,
+    leftAt,
+    lastReadAt,
+    lastSeenAt,
+    lastDeliveredAt,
+    lastReadMessageCreatedAt,
+    lastSeenMessageCreatedAt,
+    lastDeliveredMessageCreatedAt,
+    lastActivityAt,
+    muteUntil,
+    updatedAt,
+    pinnedAt,
+    hiddenAt,
+    ...rest
+  } = doc;
+  return {
+    ...rest,
+    id: doc.id || sk?.replace("MEM#", ""),
+    conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
+    joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
+    leftAt: leftAt ? new Date(leftAt) : undefined,
+    lastReadAt: lastReadAt ? new Date(lastReadAt) : null,
+    lastSeenAt: lastSeenAt ? new Date(lastSeenAt) : undefined,
+    lastDeliveredAt: lastDeliveredAt ? new Date(lastDeliveredAt) : undefined,
+    lastReadMessageCreatedAt: lastReadMessageCreatedAt ? new Date(lastReadMessageCreatedAt) : undefined,
+    lastSeenMessageCreatedAt: lastSeenMessageCreatedAt ? new Date(lastSeenMessageCreatedAt) : undefined,
+    lastDeliveredMessageCreatedAt: lastDeliveredMessageCreatedAt ? new Date(lastDeliveredMessageCreatedAt) : undefined,
+    lastActivityAt: lastActivityAt ? new Date(lastActivityAt) : undefined,
+    muteUntil: muteUntil ? new Date(muteUntil) : null,
+    updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
+    pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
+    hiddenUserIds: doc.hiddenUserIds || [],
+    hidden: doc.hidden || false,
+    hiddenAt: hiddenAt ? new Date(hiddenAt) : undefined,
+    hiddenPinHash: doc.hiddenPinHash || undefined,
+  } as ConversationMember;
+}
+
 class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoDB<
   ConversationMember,
   ConversationMemberCondDTO,
@@ -30,39 +76,7 @@ class DynamoConversationMemberQueryRepository extends BaseQueryRepositoryDynamoD
   }
 
   protected toEntity(doc: Record<string, any>): ConversationMember {
-    const {
-      pk,
-      sk,
-      joinedAt,
-      leftAt,
-      lastReadAt,
-      lastSeenAt,
-      lastDeliveredAt,
-      lastActivityAt,
-      muteUntil,
-      updatedAt,
-      pinnedAt,
-      hiddenAt,
-      ...rest
-    } = doc;
-    return {
-      ...rest,
-      id: doc.id || sk?.replace("MEM#", ""),
-      conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
-      joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
-      leftAt: leftAt ? new Date(leftAt) : undefined,
-      lastReadAt: lastReadAt ? new Date(lastReadAt) : null,
-      lastSeenAt: lastSeenAt ? new Date(lastSeenAt) : undefined,
-      lastDeliveredAt: lastDeliveredAt ? new Date(lastDeliveredAt) : undefined,
-      lastActivityAt: lastActivityAt ? new Date(lastActivityAt) : undefined,
-      muteUntil: muteUntil ? new Date(muteUntil) : null,
-      updatedAt: updatedAt ? new Date(updatedAt) : new Date(),
-      pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
-      hiddenUserIds: doc.hiddenUserIds || [],
-      hidden: doc.hidden || false,
-      hiddenAt: hiddenAt ? new Date(hiddenAt) : undefined,
-      hiddenPinHash: doc.hiddenPinHash || undefined,
-    } as ConversationMember;
+    return toConversationMemberEntity(doc);
   }
 
   async findByCond(cond: ConversationMemberCondDTO): Promise<ConversationMember | null> {
@@ -367,21 +381,21 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       : members;
 
     const now = new Date().toISOString();
-    const chunks = this.chunkArray(targets, 25);
-    for (const chunk of chunks) {
-      const writeRequests = chunk.map((member) => ({
-        PutRequest: {
-          Item: {
-            ...member,
-            unreadCount: (member.unreadCount || 0) + 1,
-            lastActivityAt: now,
-            updatedAt: now,
-          },
-        },
-      }));
+    for (const member of targets) {
       await docClient.send(
-        new BatchWriteCommand({
-          RequestItems: { [tableName]: writeRequests },
+        new UpdateCommand({
+          TableName: tableName,
+          Key: { pk: member.pk, sk: member.sk },
+          UpdateExpression: "SET #lastActivityAt = :now, #updatedAt = :now ADD #unreadCount :one",
+          ExpressionAttributeNames: {
+            "#lastActivityAt": "lastActivityAt",
+            "#updatedAt": "updatedAt",
+            "#unreadCount": "unreadCount",
+          },
+          ExpressionAttributeValues: {
+            ":now": now,
+            ":one": 1,
+          },
         }),
       );
     }
@@ -389,24 +403,132 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     const senderTargets = excludeUserId
       ? members.filter((m) => m.userId === excludeUserId)
       : [];
-    if (senderTargets.length > 0) {
-      const senderChunks = this.chunkArray(senderTargets, 25);
-      for (const chunk of senderChunks) {
-        const writeRequests = chunk.map((member) => ({
-          PutRequest: {
-            Item: {
-              ...member,
-              lastActivityAt: now,
-              updatedAt: now,
-            },
+    for (const member of senderTargets) {
+      await docClient.send(
+        new UpdateCommand({
+          TableName: tableName,
+          Key: { pk: member.pk, sk: member.sk },
+          UpdateExpression: "SET #lastActivityAt = :now, #updatedAt = :now",
+          ExpressionAttributeNames: {
+            "#lastActivityAt": "lastActivityAt",
+            "#updatedAt": "updatedAt",
           },
-        }));
-        await docClient.send(
-          new BatchWriteCommand({
-            RequestItems: { [tableName]: writeRequests },
-          }),
-        );
+          ExpressionAttributeValues: {
+            ":now": now,
+          },
+        }),
+      );
+    }
+  }
+
+  async advanceSeenState(input: AdvanceSeenStateInput): Promise<{ changed: boolean; member: ConversationMember | null }> {
+    const member = await this.getByIdQuery(input.memberId);
+    if (!member) return { changed: false, member: null };
+
+    const now = (input.seenAt || new Date()).toISOString();
+    const messageCreatedAt = input.messageCreatedAt.toISOString();
+
+    const setParts = [
+      "#lastSeenMessageId = :messageId",
+      "#lastReadMessageId = :messageId",
+      "#lastSeenAt = :now",
+      "#lastReadAt = :now",
+      "#lastSeenMessageCreatedAt = :messageCreatedAt",
+      "#lastReadMessageCreatedAt = :messageCreatedAt",
+      "#updatedAt = :now",
+    ];
+    if (input.clearUnread) {
+      setParts.push("#unreadCount = :zero");
+    }
+
+    try {
+      const result = await getDocClient().send(
+        new UpdateCommand({
+          TableName: this.getTableName(),
+          Key: { pk: member.pk, sk: member.sk },
+          UpdateExpression: `SET ${setParts.join(", ")}`,
+          ConditionExpression:
+            "attribute_not_exists(#lastSeenMessageCreatedAt) OR attribute_type(#lastSeenMessageCreatedAt, :nullType) OR #lastSeenMessageCreatedAt < :messageCreatedAt",
+          ExpressionAttributeNames: {
+            "#lastSeenMessageId": "lastSeenMessageId",
+            "#lastReadMessageId": "lastReadMessageId",
+            "#lastSeenAt": "lastSeenAt",
+            "#lastReadAt": "lastReadAt",
+            "#lastSeenMessageCreatedAt": "lastSeenMessageCreatedAt",
+            "#lastReadMessageCreatedAt": "lastReadMessageCreatedAt",
+            "#updatedAt": "updatedAt",
+            ...(input.clearUnread ? { "#unreadCount": "unreadCount" } : {}),
+          },
+          ExpressionAttributeValues: {
+            ":messageId": input.lastSeenMessageId,
+            ":messageCreatedAt": messageCreatedAt,
+            ":now": now,
+            ":nullType": "NULL",
+            ...(input.clearUnread ? { ":zero": 0 } : {}),
+          },
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+      return {
+        changed: true,
+        member: result.Attributes ? toConversationMemberEntity(result.Attributes) : null,
+      };
+    } catch (error) {
+      if ((error as any)?.name === "ConditionalCheckFailedException") {
+        const current = await this.getByIdQuery(input.memberId);
+        return {
+          changed: false,
+          member: current ? toConversationMemberEntity(current) : null,
+        };
       }
+      throw error;
+    }
+  }
+
+  async advanceDeliveredState(input: AdvanceDeliveredStateInput): Promise<{ changed: boolean; member: ConversationMember | null }> {
+    const member = await this.getByIdQuery(input.memberId);
+    if (!member) return { changed: false, member: null };
+
+    const now = (input.deliveredAt || new Date()).toISOString();
+    const messageCreatedAt = input.messageCreatedAt.toISOString();
+
+    try {
+      const result = await getDocClient().send(
+        new UpdateCommand({
+          TableName: this.getTableName(),
+          Key: { pk: member.pk, sk: member.sk },
+          UpdateExpression:
+            "SET #lastDeliveredMessageId = :messageId, #lastDeliveredAt = :now, #lastDeliveredMessageCreatedAt = :messageCreatedAt, #updatedAt = :now",
+          ConditionExpression:
+            "attribute_not_exists(#lastDeliveredMessageCreatedAt) OR attribute_type(#lastDeliveredMessageCreatedAt, :nullType) OR #lastDeliveredMessageCreatedAt < :messageCreatedAt",
+          ExpressionAttributeNames: {
+            "#lastDeliveredMessageId": "lastDeliveredMessageId",
+            "#lastDeliveredAt": "lastDeliveredAt",
+            "#lastDeliveredMessageCreatedAt": "lastDeliveredMessageCreatedAt",
+            "#updatedAt": "updatedAt",
+          },
+          ExpressionAttributeValues: {
+            ":messageId": input.lastDeliveredMessageId,
+            ":messageCreatedAt": messageCreatedAt,
+            ":now": now,
+            ":nullType": "NULL",
+          },
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+      return {
+        changed: true,
+        member: result.Attributes ? toConversationMemberEntity(result.Attributes) : null,
+      };
+    } catch (error) {
+      if ((error as any)?.name === "ConditionalCheckFailedException") {
+        const current = await this.getByIdQuery(input.memberId);
+        return {
+          changed: false,
+          member: current ? toConversationMemberEntity(current) : null,
+        };
+      }
+      throw error;
     }
   }
 
@@ -516,10 +638,13 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       unreadCount: data.unreadCount || 0,
       lastReadMessageId: data.lastReadMessageId,
       lastReadAt: data.lastReadAt ? data.lastReadAt.toISOString() : null,
+      lastReadMessageCreatedAt: data.lastReadMessageCreatedAt ? data.lastReadMessageCreatedAt.toISOString() : null,
       lastSeenMessageId: data.lastSeenMessageId,
       lastDeliveredMessageId: data.lastDeliveredMessageId,
       lastSeenAt: data.lastSeenAt ? data.lastSeenAt.toISOString() : null,
       lastDeliveredAt: data.lastDeliveredAt ? data.lastDeliveredAt.toISOString() : null,
+      lastSeenMessageCreatedAt: data.lastSeenMessageCreatedAt ? data.lastSeenMessageCreatedAt.toISOString() : null,
+      lastDeliveredMessageCreatedAt: data.lastDeliveredMessageCreatedAt ? data.lastDeliveredMessageCreatedAt.toISOString() : null,
       lastActivityAt: data.lastActivityAt ? data.lastActivityAt.toISOString() : data.updatedAt?.toISOString?.() || now,
       muteUntil: data.muteUntil ? data.muteUntil.toISOString() : null,
       pinned: data.pinned || false,
@@ -551,6 +676,9 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     if (data.lastReadAt !== undefined && data.lastReadAt !== null) updateData.lastReadAt = (data.lastReadAt as Date).toISOString();
     if (data.lastSeenAt !== undefined && data.lastSeenAt !== null) updateData.lastSeenAt = (data.lastSeenAt as Date).toISOString();
     if (data.lastDeliveredAt !== undefined && data.lastDeliveredAt !== null) updateData.lastDeliveredAt = (data.lastDeliveredAt as Date).toISOString();
+    if (data.lastReadMessageCreatedAt !== undefined && data.lastReadMessageCreatedAt !== null) updateData.lastReadMessageCreatedAt = (data.lastReadMessageCreatedAt as Date).toISOString();
+    if (data.lastSeenMessageCreatedAt !== undefined && data.lastSeenMessageCreatedAt !== null) updateData.lastSeenMessageCreatedAt = (data.lastSeenMessageCreatedAt as Date).toISOString();
+    if (data.lastDeliveredMessageCreatedAt !== undefined && data.lastDeliveredMessageCreatedAt !== null) updateData.lastDeliveredMessageCreatedAt = (data.lastDeliveredMessageCreatedAt as Date).toISOString();
     if (data.lastActivityAt !== undefined && data.lastActivityAt !== null) updateData.lastActivityAt = (data.lastActivityAt as Date).toISOString();
     if (data.muteUntil !== undefined && data.muteUntil !== null) updateData.muteUntil = (data.muteUntil as Date).toISOString();
     if (data.pinned !== undefined) updateData.pinned = data.pinned;
@@ -600,6 +728,16 @@ export class DynamoConversationMemberRepository extends BaseRepositoryDynamoDB<
   ): Promise<void> {
     return (this.cmdRepo as DynamoConversationMemberCommandRepository)
       .touchActivityForConversation(conversationId, activityAt);
+  }
+
+  async advanceSeenState(input: AdvanceSeenStateInput): Promise<{ changed: boolean; member: ConversationMember | null }> {
+    return (this.cmdRepo as DynamoConversationMemberCommandRepository)
+      .advanceSeenState(input);
+  }
+
+  async advanceDeliveredState(input: AdvanceDeliveredStateInput): Promise<{ changed: boolean; member: ConversationMember | null }> {
+    return (this.cmdRepo as DynamoConversationMemberCommandRepository)
+      .advanceDeliveredState(input);
   }
 
   async deleteByConversationId(conversationId: string): Promise<void> {

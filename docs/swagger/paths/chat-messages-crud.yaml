@@ -137,6 +137,11 @@ paths:
                   items:
                     $ref: "./chat-schemas.yaml#/components/schemas/MediaAttachment"
                   description: Attached media files
+                clientMessageId:
+                  type: string
+                  maxLength: 128
+                  description: Optional client-generated id. Reusing the same value for the same conversation and sender returns the original message(s) without incrementing unread again.
+                  example: "web-tab-a-1715767200000"
                 links:
                   type: array
                   items:

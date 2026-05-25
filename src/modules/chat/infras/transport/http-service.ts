@@ -1,4 +1,4 @@
-import { IMessagingUseCase } from "../../interface";
+import { ConversationReadState, IMessagingUseCase } from "../../interface";
 import { Request, Response } from "express";
 import { MessagingSocketService } from "./socket-service";
 import {
@@ -69,6 +69,24 @@ export class MessagingHttpService {
 
   setSocketService(socketService: MessagingSocketService) {
     this.socketService = socketService;
+  }
+
+  private toReadStatePayload(state: ConversationReadState) {
+    return {
+      conversationId: state.conversationId,
+      userId: state.userId,
+      lastSeenMessageId: state.lastSeenMessageId,
+      lastReadMessageId: state.lastReadMessageId,
+      lastDeliveredMessageId: state.lastDeliveredMessageId,
+      lastSeenAt: state.lastSeenAt,
+      lastReadAt: state.lastReadAt,
+      lastDeliveredAt: state.lastDeliveredAt,
+      lastSeenMessageCreatedAt: state.lastSeenMessageCreatedAt,
+      lastReadMessageCreatedAt: state.lastReadMessageCreatedAt,
+      lastDeliveredMessageCreatedAt: state.lastDeliveredMessageCreatedAt,
+      unreadCount: state.unreadCount,
+      updatedAt: state.updatedAt,
+    };
   }
 
   async getPrivateConversationAPI(req: Request, res: Response) {
@@ -502,17 +520,17 @@ export class MessagingHttpService {
         lastSeenMessageId,
       });
 
-      await this.useCase.markAsSeen(
+      const result = await this.useCase.markAsSeen(
         validatedData.conversationId,
         validatedData.userId,
         validatedData.lastSeenMessageId,
       );
 
-      if (this.socketService) {
+      if (this.socketService && result.changed) {
         const memberUserIds = await this.useCase.getConversationMembers(
           validatedData.conversationId,
-          validatedData.userId,
         );
+        const statePayload = this.toReadStatePayload(result.state);
 
         for (const memberId of memberUserIds) {
           this.socketService.notifyMessageSeen(
@@ -520,11 +538,12 @@ export class MessagingHttpService {
             validatedData.conversationId,
             validatedData.userId,
             validatedData.lastSeenMessageId,
+            statePayload,
           );
         }
       }
 
-      res.status(200).json({ success: true });
+      res.status(200).json({ success: true, data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(422).json({
@@ -564,17 +583,17 @@ export class MessagingHttpService {
         lastDeliveredMessageId,
       });
 
-      await this.useCase.markAsDelivered(
+      const result = await this.useCase.markAsDelivered(
         validatedData.conversationId,
         validatedData.userId,
         validatedData.lastDeliveredMessageId,
       );
 
-      if (this.socketService) {
+      if (this.socketService && result.changed) {
         const memberUserIds = await this.useCase.getConversationMembers(
           validatedData.conversationId,
-          validatedData.userId,
         );
+        const statePayload = this.toReadStatePayload(result.state);
 
         for (const memberId of memberUserIds) {
           this.socketService.notifyMessageDelivered(
@@ -582,11 +601,12 @@ export class MessagingHttpService {
             validatedData.conversationId,
             validatedData.userId,
             validatedData.lastDeliveredMessageId,
+            statePayload,
           );
         }
       }
 
-      res.status(200).json({ success: true });
+      res.status(200).json({ success: true, data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(422).json({
@@ -720,7 +740,7 @@ export class MessagingHttpService {
         ? req.params.conversationId[0]
         : req.params.conversationId;
 
-      const { text, media } = req.body;
+      const { text, media, clientMessageId } = req.body;
 
       const requester = res.locals["requester"];
       const currentUserId = requester?.sub;
@@ -735,6 +755,7 @@ export class MessagingHttpService {
         senderId: currentUserId,
         text,
         media,
+        clientMessageId,
       });
 
       const conversationDetail = await this.useCase.getConversationDetail(
@@ -751,12 +772,16 @@ export class MessagingHttpService {
             validatedData.senderId,
             validatedData.text,
             validatedData.media,
+            undefined,
+            validatedData.clientMessageId,
           )
         : await this.useCase.sendMessage(
             validatedData.conversationId,
             validatedData.senderId,
             validatedData.text,
             validatedData.media,
+            undefined,
+            validatedData.clientMessageId,
           );
 
       if (this.socketService) {

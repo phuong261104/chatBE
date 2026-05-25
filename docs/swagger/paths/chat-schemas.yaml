@@ -89,6 +89,10 @@ components:
         senderId:
           type: string
           format: uuid
+        clientMessageId:
+          type: string
+          nullable: true
+          description: Optional client-generated id used for idempotent sends.
         senderName:
           type: string
           description: Display name of the sender (enriched from user query)

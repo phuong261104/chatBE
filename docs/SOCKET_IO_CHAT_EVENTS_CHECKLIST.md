@@ -43,7 +43,7 @@ All events below are registered on `/messages`.
 | `markAllSeen` | `{ conversationId }` | `handleMarkAllSeen` |
 | `typing:start` | `{ toUserId }` or `{ groupId }` | `handleTypingStart` |
 | `typing:stop` | `{ toUserId }` or `{ groupId }` | `handleTypingStop` |
-| `sendMessage` | `{ conversationId, text?, media?, ttlSeconds? }` | `handleSendMessage` |
+| `sendMessage` | `{ conversationId, text?, media?, ttlSeconds?, clientMessageId? }` | `handleSendMessage` |
 | `editMessage` | `{ messageId, text }` | `handleEditMessage` |
 | `deleteMessage` | `{ messageId }` | `handleDeleteMessage` |
 | `revokeMessage` | `{ messageId }` | `handleRevokeMessage` |
@@ -104,8 +104,8 @@ All events below are registered on `/messages`.
 | `message:recall` | `{ messageId, recallBy }` when notifier is invoked |
 | `message:edit_start` | `{ messageId, userId }` when notifier is invoked |
 | `message:edit_end` | `{ messageId, userId }` when notifier is invoked |
-| `messageSeen` | `{ conversationId, userId, lastSeenMessageId }` |
-| `messageDelivered` | `{ conversationId, userId, lastDeliveredMessageId }` |
+| `messageSeen` | `{ conversationId, userId, lastSeenMessageId, lastReadMessageId, unreadCount, lastSeenAt, lastReadAt, lastSeenMessageCreatedAt, lastReadMessageCreatedAt, updatedAt }` |
+| `messageDelivered` | `{ conversationId, userId, lastDeliveredMessageId, unreadCount, lastDeliveredAt, lastDeliveredMessageCreatedAt, updatedAt }` |
 | `typing:start` | `{ userId, toUserId }` or `{ userId, groupId }` |
 | `typing:stop` | `{ userId, toUserId }` or `{ userId, groupId }` |
 | `conversation:created` | `{ conversation, systemMessage? }` or group creation payload from notifier |
@@ -145,6 +145,12 @@ All events below are registered on `/messages`.
 - `messageSeen` and `messageDelivered` on `/messages` require
   `lastSeenMessageId` and `lastDeliveredMessageId`; older examples using
   `messageId` are not correct for the current handlers.
+- `messageSeen` and `messageDelivered` are monotonic. Stale marker calls return
+  a successful ack with `changed: false` and do not broadcast stale events.
+- Marker broadcasts include the actor user room, so other tabs on the same user
+  receive unread/read-state sync.
+- `sendMessage.clientMessageId` is optional and idempotent per
+  `{conversationId, senderId, clientMessageId}`.
 - Member/admin socket actions use `groupId`, not `conversationId`, in their
   payloads.
 - Direct socket `deleteMessage` emits `message:deleted` only to the user who

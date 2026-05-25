@@ -1,4 +1,4 @@
-import { IMessagingUseCase } from "../../../interface";
+import { ConversationReadState, IMessagingUseCase } from "../../../interface";
 import { MessagingSocketService } from "../socket-service";
 import { Request, Response } from "express";
 import { z } from "zod";
@@ -38,5 +38,23 @@ export abstract class BaseController {
   protected parseIdParam(req: Request, paramName: string): string {
     const value = req.params[paramName];
     return Array.isArray(value) ? value[0] : value;
+  }
+
+  protected toReadStatePayload(state: ConversationReadState) {
+    return {
+      conversationId: state.conversationId,
+      userId: state.userId,
+      lastSeenMessageId: state.lastSeenMessageId,
+      lastReadMessageId: state.lastReadMessageId,
+      lastDeliveredMessageId: state.lastDeliveredMessageId,
+      lastSeenAt: state.lastSeenAt,
+      lastReadAt: state.lastReadAt,
+      lastDeliveredAt: state.lastDeliveredAt,
+      lastSeenMessageCreatedAt: state.lastSeenMessageCreatedAt,
+      lastReadMessageCreatedAt: state.lastReadMessageCreatedAt,
+      lastDeliveredMessageCreatedAt: state.lastDeliveredMessageCreatedAt,
+      unreadCount: state.unreadCount,
+      updatedAt: state.updatedAt,
+    };
   }
 }

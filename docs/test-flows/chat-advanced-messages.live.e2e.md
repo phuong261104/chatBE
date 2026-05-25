@@ -7,7 +7,8 @@ Suite này kiểm lại cùng các nghiệp vụ tin nhắn nâng cao như mock 
 Luồng chính:
 - Gửi tin nhắn bằng canonical HTTP và socket, kiểm tra message được lưu DB, emit `receiveMessage`, TTL tạo `expiresAt/expireAtEpoch` và message hết hạn không còn xuất hiện khi load/search.
 - Sửa tin nhắn bằng canonical HTTP và socket, kiểm tra chỉ sửa được trong 30 giây, có `editedAt`, emit `message:edited`, quá hạn bị từ chối.
-- Delivered/read dùng HTTP /v1 và socket, kiểm tra `lastDeliveredMessageId`, `lastSeenMessageId`, `lastReadMessageId`, `unreadCount`.
+- Delivered/read dùng HTTP /v1 và socket, kiểm tra `lastDeliveredMessageId`, `lastSeenMessageId`, `lastReadMessageId`, `unreadCount`; marker stale không broadcast và actor tabs cũng nhận state sync.
+- Send retry dùng `clientMessageId` không tạo duplicate message hoặc tăng unread lần hai.
 - Recall/delete dùng HTTP v1 và socket, kiểm tra tombstone `"Tin nhắn đã được thu hồi"`, message bị revoke toàn cục, delete-for-me chỉ ẩn với người xóa.
 - Reply/forward/pin/reaction dùng HTTP v1 fallback và socket tương ứng, kiểm tra quote preview, forwarded metadata, quyền pin private/group, reaction aggregate và remove.
 

@@ -67,6 +67,42 @@ export interface IConversationMemberQueryRepository {
   listByConversationId(conversationId: string): Promise<ConversationMember[]>;
 }
 
+export interface ConversationReadState {
+  conversationId: string;
+  userId: string;
+  lastSeenMessageId?: string;
+  lastReadMessageId?: string;
+  lastDeliveredMessageId?: string;
+  lastSeenAt?: Date;
+  lastReadAt?: Date;
+  lastDeliveredAt?: Date;
+  lastSeenMessageCreatedAt?: Date;
+  lastReadMessageCreatedAt?: Date;
+  lastDeliveredMessageCreatedAt?: Date;
+  unreadCount: number;
+  updatedAt?: Date;
+}
+
+export interface MarkConversationStateResult {
+  changed: boolean;
+  state: ConversationReadState;
+}
+
+export interface AdvanceSeenStateInput {
+  memberId: string;
+  lastSeenMessageId: string;
+  messageCreatedAt: Date;
+  clearUnread: boolean;
+  seenAt?: Date;
+}
+
+export interface AdvanceDeliveredStateInput {
+  memberId: string;
+  lastDeliveredMessageId: string;
+  messageCreatedAt: Date;
+  deliveredAt?: Date;
+}
+
 export interface IConversationMemberCommandRepository {
   insert(member: ConversationMember): Promise<boolean>;
   update(id: string, data: ConversationMemberUpdateDTO): Promise<boolean>;
@@ -74,12 +110,19 @@ export interface IConversationMemberCommandRepository {
   deleteByConversationId(conversationId: string): Promise<void>;
   incrementUnreadCountForConversation(conversationId: string, excludeUserId?: string): Promise<void>;
   touchActivityForConversation(conversationId: string, activityAt?: Date): Promise<void>;
+  advanceSeenState(input: AdvanceSeenStateInput): Promise<{ changed: boolean; member: ConversationMember | null }>;
+  advanceDeliveredState(input: AdvanceDeliveredStateInput): Promise<{ changed: boolean; member: ConversationMember | null }>;
 }
 
 export interface IMessageQueryRepository {
   get(id: string): Promise<Message | null>;
   findByCond(cond: MessageCondDTO): Promise<Message | null>;
   list(cond: MessageCondDTO, paging: PagingDTO): Promise<Message[]>;
+  findByClientMessageId(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<Message[]>;
 
   listWithCursor(
     conversationId: string,
@@ -111,6 +154,17 @@ export interface IMessageCommandRepository {
   update(id: string, data: MessageUpdateDTO): Promise<boolean>;
   delete(id: string, isHard: boolean): Promise<boolean>;
   deleteByConversationId(conversationId: string): Promise<void>;
+  reserveClientMessage(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+  ): Promise<boolean>;
+  completeClientMessage(
+    conversationId: string,
+    senderId: string,
+    clientMessageId: string,
+    messageIds: string[],
+  ): Promise<void>;
 }
 
 export interface IMessageReactionQueryRepository {
@@ -202,6 +256,7 @@ export interface IMessagingUseCase {
     text?: string,
     media?: MediaAttachment[],
     ttlSeconds?: number,
+    clientMessageId?: string,
   ): Promise<Message[]>;
 
   getConversationMembers(
@@ -224,6 +279,7 @@ export interface IMessagingUseCase {
     text?: string,
     media?: MediaAttachment[],
     ttlSeconds?: number,
+    clientMessageId?: string,
   ): Promise<Message[]>;
 
   addMembersToGroup(
@@ -276,13 +332,13 @@ export interface IMessagingUseCase {
     conversationId: string,
     userId: string,
     lastSeenMessageId: string,
-  ): Promise<void>;
+  ): Promise<MarkConversationStateResult>;
 
   markAsDelivered(
     conversationId: string,
     userId: string,
     lastDeliveredMessageId: string,
-  ): Promise<void>;
+  ): Promise<MarkConversationStateResult>;
 
   getTotalUnreadCount(userId: string): Promise<number>;
 

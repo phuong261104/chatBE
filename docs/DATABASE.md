@@ -148,7 +148,7 @@ Fields chính:
 - Identity: `id`, `conversationId`, `userId`.
 - Role/status: `role` (`owner`, `admin`, `member`), `status` (`active`, `pending`, `rejected`).
 - Timeline: `joinedAt`, `leftAt`, `updatedAt`, `lastActivityAt`.
-- Read state: `unreadCount`, `lastReadMessageId`, `lastReadAt`, `lastSeenMessageId`, `lastSeenAt`, `lastDeliveredMessageId`, `lastDeliveredAt`.
+- Read state: `unreadCount`, `lastReadMessageId`, `lastReadAt`, `lastReadMessageCreatedAt`, `lastSeenMessageId`, `lastSeenAt`, `lastSeenMessageCreatedAt`, `lastDeliveredMessageId`, `lastDeliveredAt`, `lastDeliveredMessageCreatedAt`.
 - User inbox flags: `muteUntil`, `pinned`, `pinnedAt`, `archived`.
 - Hidden chat: `hiddenUserIds`, `hidden`, `hiddenAt`, `hiddenPinHash`.
 
@@ -166,10 +166,12 @@ Primary key:
 
 - `pk = CONV#{conversationId}`.
 - `sk = MSG#{createdAtIso}#{messageId}`.
+- Idempotency reservation rows for send retry use `pk = IDEMP#{conversationId}#{senderId}` and `sk = CLIENT#{clientMessageId}` in the same table. These rows store `messageIds` after the first successful send and expire by `expireAtEpoch`.
 
 Indexes:
 
 - `id-index`: lookup message theo id.
+- `clientMessageKey-index`: lookup message đã ghi theo `conversationId#senderId#clientMessageId` để dedupe retry.
 
 TTL:
 
@@ -177,7 +179,7 @@ TTL:
 
 Fields chính:
 
-- Identity: `id`, `conversationId`, `senderId`.
+- Identity: `id`, `conversationId`, `senderId`, `clientMessageId`.
 - Content: `type`, `text`, `media`, `links`, `call`, `profileCardUserId`.
 - Lifecycle: `messageStatus`, `deletedBy`, `revokedAt`, `deletedForUserIds`, `editedAt`, `deletedAt`, `expiresAt`, `expireAtEpoch`.
 - Interaction: `quotedMessageId`, `quotedMessagePreview`, `forwardedFrom`, `forwardedFromMessageId`, `mentions`, `pinned`, `pinnedAt`, `readBy`, `reactions`.
@@ -187,6 +189,7 @@ Access patterns:
 
 - Load messages in a conversation by `pk` and cursor.
 - Lookup/update/revoke/delete by `id-index`.
+- Dedupe send retries by direct get on the idempotency reservation key `{conversationId, senderId, clientMessageId}` and fallback lookup through `clientMessageKey-index`.
 - Increment unread and update last message after insert.
 
 ### `message_reactions`

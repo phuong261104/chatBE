@@ -221,11 +221,17 @@ export const MESSAGES_TABLE: TableDefinition = {
     { AttributeName: "pk", AttributeType: "S" },
     { AttributeName: "sk", AttributeType: "S" },
     { AttributeName: "id", AttributeType: "S" },
+    { AttributeName: "clientMessageKey", AttributeType: "S" },
   ],
   GlobalSecondaryIndexes: [
     {
       IndexName: "id-index",
       KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "clientMessageKey-index",
+      KeySchema: [{ AttributeName: "clientMessageKey", KeyType: "HASH" }],
       Projection: { ProjectionType: "ALL" },
     },
   ],

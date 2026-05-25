@@ -193,6 +193,13 @@ describe("advanced messaging E2E, canonical v1", () => {
       }),
     );
 
+    const socketLatest = harness.store.addMessage({
+      conversationId: conversation.id,
+      senderId: owner.id,
+      text: "three",
+      type: MessageType.TEXT,
+      createdAt: new Date(),
+    });
     const ownerSocket = await harness.connectMessagesSocket(owner.id);
     const memberSocket = await harness.connectMessagesSocket(member.id);
     const deliveredEvent = waitForSocketEvent<any>(ownerSocket, SocketEvent.MESSAGE_DELIVERED);
@@ -200,21 +207,203 @@ describe("advanced messaging E2E, canonical v1", () => {
 
     const deliveredAck = await emitWithAck<any>(memberSocket, SocketEvent.MESSAGE_DELIVERED, {
       conversationId: conversation.id,
-      lastDeliveredMessageId: latest.id,
+      lastDeliveredMessageId: socketLatest.id,
     });
     const seenAck = await emitWithAck<any>(memberSocket, SocketEvent.MESSAGE_SEEN, {
+      conversationId: conversation.id,
+      lastSeenMessageId: socketLatest.id,
+    });
+
+    expect(deliveredAck.success).toBe(true);
+    expect(deliveredAck.changed).toBe(true);
+    expect(seenAck.success).toBe(true);
+    expect(seenAck.changed).toBe(true);
+    await expect(deliveredEvent).resolves.toEqual(
+      expect.objectContaining({ conversationId: conversation.id, userId: member.id, lastDeliveredMessageId: socketLatest.id }),
+    );
+    await expect(seenEvent).resolves.toEqual(
+      expect.objectContaining({
+        conversationId: conversation.id,
+        userId: member.id,
+        lastSeenMessageId: socketLatest.id,
+        lastReadMessageId: socketLatest.id,
+        unreadCount: 0,
+      }),
+    );
+  });
+
+  it("fans out messages and read state to multiple tabs for the same user", async () => {
+    const { owner, member, conversation } = seedGroupConversation(harness.store);
+    const ownerTabA = await harness.connectMessagesSocket(owner.id);
+    const ownerTabB = await harness.connectMessagesSocket(owner.id);
+    const memberTabA = await harness.connectMessagesSocket(member.id);
+    const memberTabB = await harness.connectMessagesSocket(member.id);
+
+    const memberTabAReceived = waitForSocketEvent<any>(memberTabA, SocketEvent.RECEIVE_MESSAGE);
+    const memberTabBReceived = waitForSocketEvent<any>(memberTabB, SocketEvent.RECEIVE_MESSAGE);
+    const firstAck = await emitWithAck<any>(ownerTabA, SocketEvent.SEND_MESSAGE, {
+      conversationId: conversation.id,
+      text: "fanout to member tabs",
+    });
+
+    expect(firstAck.success).toBe(true);
+    await expect(memberTabAReceived).resolves.toEqual(
+      expect.objectContaining({ message: expect.objectContaining({ id: firstAck.messages[0].id }) }),
+    );
+    await expect(memberTabBReceived).resolves.toEqual(
+      expect.objectContaining({ message: expect.objectContaining({ id: firstAck.messages[0].id }) }),
+    );
+
+    const ownerTabBReceived = waitForSocketEvent<any>(ownerTabB, SocketEvent.RECEIVE_MESSAGE);
+    const memberReceivedSecond = waitForSocketEvent<any>(memberTabA, SocketEvent.RECEIVE_MESSAGE);
+    const secondAck = await emitWithAck<any>(ownerTabA, SocketEvent.SEND_MESSAGE, {
+      conversationId: conversation.id,
+      text: "sender sibling tab",
+    });
+
+    expect(secondAck.success).toBe(true);
+    await expect(ownerTabBReceived).resolves.toEqual(
+      expect.objectContaining({ message: expect.objectContaining({ id: secondAck.messages[0].id }) }),
+    );
+    await expect(memberReceivedSecond).resolves.toEqual(
+      expect.objectContaining({ message: expect.objectContaining({ id: secondAck.messages[0].id }) }),
+    );
+    expect(
+      harness.socketEvents.filter(
+        (event) =>
+          event.target === "user" &&
+          event.targetId === member.id &&
+          event.event === SocketEvent.RECEIVE_MESSAGE &&
+          event.data.message.id === secondAck.messages[0].id,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("syncs actor tabs on seen and ignores stale seen markers", async () => {
+    const { owner, member, conversation } = seedGroupConversation(harness.store);
+    const older = harness.store.addMessage({
+      conversationId: conversation.id,
+      senderId: owner.id,
+      text: "older",
+      type: MessageType.TEXT,
+      createdAt: new Date(Date.now() - 2000),
+    });
+    const latest = harness.store.addMessage({
+      conversationId: conversation.id,
+      senderId: owner.id,
+      text: "latest",
+      type: MessageType.TEXT,
+      createdAt: new Date(Date.now() - 1000),
+    });
+    const memberRecord = harness.store.getMember(conversation.id, member.id)!;
+    memberRecord.unreadCount = 2;
+
+    const ownerSocket = await harness.connectMessagesSocket(owner.id);
+    const memberTabA = await harness.connectMessagesSocket(member.id);
+    const memberTabB = await harness.connectMessagesSocket(member.id);
+    const ownerSeen = waitForSocketEvent<any>(ownerSocket, SocketEvent.MESSAGE_SEEN);
+    const actorTabSeen = waitForSocketEvent<any>(memberTabB, SocketEvent.MESSAGE_SEEN);
+
+    const seenAck = await emitWithAck<any>(memberTabA, SocketEvent.MESSAGE_SEEN, {
       conversationId: conversation.id,
       lastSeenMessageId: latest.id,
     });
 
-    expect(deliveredAck.success).toBe(true);
-    expect(seenAck.success).toBe(true);
-    await expect(deliveredEvent).resolves.toEqual(
-      expect.objectContaining({ conversationId: conversation.id, userId: member.id, lastDeliveredMessageId: latest.id }),
+    expect(seenAck).toEqual(
+      expect.objectContaining({
+        success: true,
+        changed: true,
+        state: expect.objectContaining({
+          conversationId: conversation.id,
+          userId: member.id,
+          lastSeenMessageId: latest.id,
+          lastReadMessageId: latest.id,
+          unreadCount: 0,
+        }),
+      }),
     );
-    await expect(seenEvent).resolves.toEqual(
+    await expect(actorTabSeen).resolves.toEqual(
+      expect.objectContaining({
+        conversationId: conversation.id,
+        userId: member.id,
+        lastSeenMessageId: latest.id,
+        lastReadMessageId: latest.id,
+        unreadCount: 0,
+      }),
+    );
+    await expect(ownerSeen).resolves.toEqual(
       expect.objectContaining({ conversationId: conversation.id, userId: member.id, lastSeenMessageId: latest.id }),
     );
+
+    const seenEventCount = harness.socketEvents.filter(
+      (event) => event.event === SocketEvent.MESSAGE_SEEN && event.data.userId === member.id,
+    ).length;
+    const staleAck = await emitWithAck<any>(memberTabB, SocketEvent.MESSAGE_SEEN, {
+      conversationId: conversation.id,
+      lastSeenMessageId: older.id,
+    });
+
+    expect(staleAck.success).toBe(true);
+    expect(staleAck.changed).toBe(false);
+    expect(harness.store.getMember(conversation.id, member.id)).toEqual(
+      expect.objectContaining({
+        lastSeenMessageId: latest.id,
+        lastReadMessageId: latest.id,
+        unreadCount: 0,
+      }),
+    );
+    expect(
+      harness.socketEvents.filter(
+        (event) => event.event === SocketEvent.MESSAGE_SEEN && event.data.userId === member.id,
+      ),
+    ).toHaveLength(seenEventCount);
+  });
+
+  it("keeps unread atomic for concurrent sends and idempotent for clientMessageId retries", async () => {
+    const { owner, member, conversation } = seedGroupConversation(harness.store);
+    const ownerTabA = await harness.connectMessagesSocket(owner.id);
+    const ownerTabB = await harness.connectMessagesSocket(owner.id);
+
+    const [firstAck, secondAck] = await Promise.all([
+      emitWithAck<any>(ownerTabA, SocketEvent.SEND_MESSAGE, {
+        conversationId: conversation.id,
+        text: "concurrent one",
+      }),
+      emitWithAck<any>(ownerTabB, SocketEvent.SEND_MESSAGE, {
+        conversationId: conversation.id,
+        text: "concurrent two",
+      }),
+    ]);
+
+    expect(firstAck.success).toBe(true);
+    expect(secondAck.success).toBe(true);
+    expect(harness.store.getMember(conversation.id, member.id)?.unreadCount).toBe(2);
+
+    const retryA = await emitWithAck<any>(ownerTabA, SocketEvent.SEND_MESSAGE, {
+      conversationId: conversation.id,
+      text: "idempotent",
+      clientMessageId: "retry-1",
+    });
+    const retryB = await emitWithAck<any>(ownerTabB, SocketEvent.SEND_MESSAGE, {
+      conversationId: conversation.id,
+      text: "idempotent",
+      clientMessageId: "retry-1",
+    });
+
+    expect(retryA.success).toBe(true);
+    expect(retryB.success).toBe(true);
+    expect(retryB.messages.map((message: any) => message.id)).toEqual(
+      retryA.messages.map((message: any) => message.id),
+    );
+    expect(
+      Array.from(harness.store.messages.values()).filter(
+        (message) =>
+          message.conversationId === conversation.id &&
+          message.senderId === owner.id &&
+          message.clientMessageId === "retry-1",
+      ),
+    ).toHaveLength(1);
+    expect(harness.store.getMember(conversation.id, member.id)?.unreadCount).toBe(3);
   });
 
   it("recalls within 24 hours, rejects expired recall, and keeps delete-for-me local", async () => {

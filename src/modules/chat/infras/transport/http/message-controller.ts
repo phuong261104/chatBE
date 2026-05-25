@@ -22,7 +22,7 @@ export class MessageController extends BaseController {
   async sendMessageAPI(req: Request, res: Response) {
     try {
       const conversationId = this.parseIdParam(req, "conversationId");
-      const { text, media } = req.body;
+      const { text, media, clientMessageId } = req.body;
       const currentUserId = this.getCurrentUserId(req, res);
 
       if (!currentUserId) {
@@ -35,6 +35,7 @@ export class MessageController extends BaseController {
         senderId: currentUserId,
         text,
         media,
+        clientMessageId,
       });
 
       const conversationDetail = await this.useCase.getConversationDetail(
@@ -53,34 +54,30 @@ export class MessageController extends BaseController {
             validatedData.senderId,
             validatedData.text,
             validatedData.media,
+            undefined,
+            validatedData.clientMessageId,
           )
         : await this.useCase.sendMessage(
             validatedData.conversationId,
             validatedData.senderId,
             validatedData.text,
             validatedData.media,
+            undefined,
+            validatedData.clientMessageId,
           );
 
       if (this.socketService) {
-        if (isGroup) {
-          this.socketService.emitToGroupRoom(
-            validatedData.conversationId,
-            SocketEvent.RECEIVE_MESSAGE,
-            {
-              message,
-              conversationId: validatedData.conversationId,
-            },
-          );
-        }
         const memberUserIds = await this.useCase.getConversationMembers(
           validatedData.conversationId,
         );
 
-        for (const userId of memberUserIds) {
-          this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
-            message,
-            conversationId: validatedData.conversationId,
-          });
+        for (const msg of message) {
+          for (const userId of memberUserIds) {
+            this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
+              message: msg,
+              conversationId: validatedData.conversationId,
+            });
+          }
         }
       }
 

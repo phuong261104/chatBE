@@ -190,6 +190,7 @@ export function buildUseCase(store: ChatE2EStore) {
     memberRepo as any,
     memberRepo as any,
     messageRepo as any,
+    messageRepo as any,
     conversationRepo as any,
     conversationRepo as any,
     classificationRepo as any,
@@ -198,6 +199,7 @@ export function buildUseCase(store: ChatE2EStore) {
   const sendGroupMessage = new SendGroupMessageHandler(
     memberRepo as any,
     memberRepo as any,
+    messageRepo as any,
     messageRepo as any,
     conversationRepo as any,
     conversationRepo as any,
@@ -393,14 +395,16 @@ export function buildUseCase(store: ChatE2EStore) {
         text?: string,
         media?: any[],
         ttlSeconds?: number,
-      ) => sendMessage.execute({ conversationId, senderId, text, media, ttlSeconds }),
+        clientMessageId?: string,
+      ) => sendMessage.execute({ conversationId, senderId, text, media, ttlSeconds, clientMessageId }),
       sendGroupMessage: (
         conversationId: string,
         senderId: string,
         text?: string,
         media?: any[],
         ttlSeconds?: number,
-      ) => sendGroupMessage.execute({ conversationId, senderId, text, media, ttlSeconds }),
+        clientMessageId?: string,
+      ) => sendGroupMessage.execute({ conversationId, senderId, text, media, ttlSeconds, clientMessageId }),
       loadMessages: (conversationId: string, userId: string, cursor: string | undefined, limit: number) =>
         loadMessages.query({ conversationId, userId, cursor, limit }),
       markAsSeen: (conversationId: string, userId: string, lastSeenMessageId: string) =>

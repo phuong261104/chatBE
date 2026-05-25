@@ -1,4 +1,4 @@
-import { IMessagingUseCase, CreateGroupData } from "../interface";
+import { IMessagingUseCase, CreateGroupData, MarkConversationStateResult } from "../interface";
 import {
   Conversation,
   ConversationMember,
@@ -171,6 +171,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     text?: string,
     media?: MediaAttachment[],
     ttlSeconds?: number,
+    clientMessageId?: string,
   ): Promise<Message[]> {
     return this.sendMessageHandler.execute({
       conversationId,
@@ -178,6 +179,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       text,
       media,
       ttlSeconds,
+      clientMessageId,
     });
   }
 
@@ -208,6 +210,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     text?: string,
     media?: MediaAttachment[],
     ttlSeconds?: number,
+    clientMessageId?: string,
   ): Promise<Message[]> {
     return this.sendGroupMessageHandler.execute({
       conversationId,
@@ -215,6 +218,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       text,
       media,
       ttlSeconds,
+      clientMessageId,
     });
   }
 
@@ -301,7 +305,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     conversationId: string,
     userId: string,
     lastSeenMessageId: string,
-  ): Promise<void> {
+  ): Promise<MarkConversationStateResult> {
     return this.markAsSeenHandler.execute({
       conversationId,
       userId,
@@ -313,7 +317,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     conversationId: string,
     userId: string,
     lastDeliveredMessageId: string,
-  ): Promise<void> {
+  ): Promise<MarkConversationStateResult> {
     return this.markAsDeliveredHandler.execute({
       conversationId,
       userId,

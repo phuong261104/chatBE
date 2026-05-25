@@ -160,17 +160,17 @@ export class ConversationController extends BaseController {
         lastSeenMessageId,
       });
 
-      await this.useCase.markAsSeen(
+      const result = await this.useCase.markAsSeen(
         validatedData.conversationId,
         validatedData.userId,
         validatedData.lastSeenMessageId,
       );
 
-      if (this.socketService) {
+      if (this.socketService && result.changed) {
         const memberUserIds = await this.useCase.getConversationMembers(
           validatedData.conversationId,
-          validatedData.userId,
         );
+        const statePayload = this.toReadStatePayload(result.state);
 
         for (const memberId of memberUserIds) {
           this.socketService.notifyMessageSeen(
@@ -178,11 +178,12 @@ export class ConversationController extends BaseController {
             validatedData.conversationId,
             validatedData.userId,
             validatedData.lastSeenMessageId,
+            statePayload,
           );
         }
       }
 
-      res.status(200).json({ success: true });
+      res.status(200).json({ success: true, data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
         this.sendValidationError(res, error);
@@ -209,17 +210,17 @@ export class ConversationController extends BaseController {
         lastDeliveredMessageId,
       });
 
-      await this.useCase.markAsDelivered(
+      const result = await this.useCase.markAsDelivered(
         validatedData.conversationId,
         validatedData.userId,
         validatedData.lastDeliveredMessageId,
       );
 
-      if (this.socketService) {
+      if (this.socketService && result.changed) {
         const memberUserIds = await this.useCase.getConversationMembers(
           validatedData.conversationId,
-          validatedData.userId,
         );
+        const statePayload = this.toReadStatePayload(result.state);
 
         for (const memberId of memberUserIds) {
           this.socketService.notifyMessageDelivered(
@@ -227,11 +228,12 @@ export class ConversationController extends BaseController {
             validatedData.conversationId,
             validatedData.userId,
             validatedData.lastDeliveredMessageId,
+            statePayload,
           );
         }
       }
 
-      res.status(200).json({ success: true });
+      res.status(200).json({ success: true, data: result });
     } catch (error) {
       if (error instanceof z.ZodError) {
         this.sendValidationError(res, error);

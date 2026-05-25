@@ -1,5 +1,24 @@
 import { SocketEvent } from "../../../constants/socket-events";
+import { ConversationReadState } from "../../../interface";
 import { AuthenticatedSocket, SocketHandlerContext } from "./types";
+
+function toReadStatePayload(state: ConversationReadState) {
+  return {
+    conversationId: state.conversationId,
+    userId: state.userId,
+    lastSeenMessageId: state.lastSeenMessageId,
+    lastReadMessageId: state.lastReadMessageId,
+    lastDeliveredMessageId: state.lastDeliveredMessageId,
+    lastSeenAt: state.lastSeenAt,
+    lastReadAt: state.lastReadAt,
+    lastDeliveredAt: state.lastDeliveredAt,
+    lastSeenMessageCreatedAt: state.lastSeenMessageCreatedAt,
+    lastReadMessageCreatedAt: state.lastReadMessageCreatedAt,
+    lastDeliveredMessageCreatedAt: state.lastDeliveredMessageCreatedAt,
+    unreadCount: state.unreadCount,
+    updatedAt: state.updatedAt,
+  };
+}
 
 export const connectionSocketHandlers = {
   async handleJoinGroup(this: SocketHandlerContext, 
@@ -100,20 +119,24 @@ export const connectionSocketHandlers = {
         return;
       }
 
-      await this.useCase.markAsSeen(conversationId, userId, lastSeenMessageId);
+      const result = await this.useCase.markAsSeen(conversationId, userId, lastSeenMessageId);
 
-      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+      if (result.changed) {
+        const memberUserIds = await this.getMemberUserIds(conversationId);
+        const statePayload = toReadStatePayload(result.state);
 
-      for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, SocketEvent.MESSAGE_SEEN, {
-          conversationId,
-          userId,
-          lastSeenMessageId,
-        });
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.MESSAGE_SEEN, {
+            ...statePayload,
+            conversationId,
+            userId,
+            lastSeenMessageId,
+          });
+        }
       }
 
       if (callback) {
-        callback({ success: true });
+        callback({ success: true, ...result });
       }
     } catch (error) {
       console.error("Error handling messageSeen:", error);
@@ -143,20 +166,24 @@ export const connectionSocketHandlers = {
         return;
       }
 
-      await this.useCase.markAsDelivered(conversationId, userId, lastDeliveredMessageId);
+      const result = await this.useCase.markAsDelivered(conversationId, userId, lastDeliveredMessageId);
 
-      const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+      if (result.changed) {
+        const memberUserIds = await this.getMemberUserIds(conversationId);
+        const statePayload = toReadStatePayload(result.state);
 
-      for (const memberId of memberUserIds) {
-        this.emitToUser(memberId, SocketEvent.MESSAGE_DELIVERED, {
-          conversationId,
-          userId,
-          lastDeliveredMessageId,
-        });
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.MESSAGE_DELIVERED, {
+            ...statePayload,
+            conversationId,
+            userId,
+            lastDeliveredMessageId,
+          });
+        }
       }
 
       if (callback) {
-        callback({ success: true });
+        callback({ success: true, ...result });
       }
     } catch (error) {
       console.error("Error handling messageDelivered:", error);
@@ -244,16 +271,20 @@ export const connectionSocketHandlers = {
 
       if (messages.messages.length > 0) {
         const lastMessage = messages.messages[0];
-        await this.useCase.markAsSeen(conversationId, userId, lastMessage.id);
+        const result = await this.useCase.markAsSeen(conversationId, userId, lastMessage.id);
 
-        const memberUserIds = await this.getMemberUserIds(conversationId, userId);
+        if (result.changed) {
+          const memberUserIds = await this.getMemberUserIds(conversationId);
+          const statePayload = toReadStatePayload(result.state);
 
-        for (const memberId of memberUserIds) {
-          this.emitToUser(memberId, SocketEvent.MESSAGE_SEEN, {
-            conversationId,
-            userId,
-            lastSeenMessageId: lastMessage.id,
-          });
+          for (const memberId of memberUserIds) {
+            this.emitToUser(memberId, SocketEvent.MESSAGE_SEEN, {
+              ...statePayload,
+              conversationId,
+              userId,
+              lastSeenMessageId: lastMessage.id,
+            });
+          }
         }
       }
 

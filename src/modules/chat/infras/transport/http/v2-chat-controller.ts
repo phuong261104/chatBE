@@ -39,6 +39,7 @@ const privateMessageSchema = z
     text: z.string().max(5000).optional(),
     media: z.array(z.any()).optional(),
     ttlSeconds: z.number().int().positive().optional(),
+    clientMessageId: z.string().min(1).max(128).optional(),
   })
   .refine((data) => data.text || (data.media && data.media.length > 0), {
     message: "Either text or media is required",
@@ -49,6 +50,7 @@ const conversationMessageSchema = z
     text: z.string().max(5000).optional(),
     media: z.array(z.any()).optional(),
     ttlSeconds: z.number().int().positive().optional(),
+    clientMessageId: z.string().min(1).max(128).optional(),
   })
   .refine((data) => data.text || (data.media && data.media.length > 0), {
     message: "Either text or media is required",
@@ -238,6 +240,7 @@ export class ChatV2Controller {
         data.text,
         data.media,
         data.ttlSeconds,
+        data.clientMessageId,
       );
 
       const requestStatus =
@@ -510,6 +513,7 @@ export class ChatV2Controller {
               data.text,
               data.media,
               data.ttlSeconds,
+              data.clientMessageId,
             )
           : await this.useCase.sendMessage(
               req.params.conversationId,
@@ -517,6 +521,7 @@ export class ChatV2Controller {
               data.text,
               data.media,
               data.ttlSeconds,
+              data.clientMessageId,
             );
 
       await this.emitMessagesToVisibleMembers(req.params.conversationId, messages);

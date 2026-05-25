@@ -13,8 +13,8 @@ export interface SocketNotifierMethods {
   notifyGroupRenamed(conversationId: string, newName: string, renamedBy: string): void;
   notifyGroupAvatarChanged(conversationId: string, avatarUrl: string, changedBy: string): void;
   notifyGroupUpdated(conversationId: string, updatedData: any): void;
-  notifyMessageSeen(userId: string, conversationId: string, seenBy: string, lastSeenMessageId: string): void;
-  notifyMessageDelivered(userId: string, conversationId: string, deliveredBy: string, lastDeliveredMessageId: string): void;
+  notifyMessageSeen(userId: string, conversationId: string, seenBy: string, lastSeenMessageId: string, state?: Record<string, any>): void;
+  notifyMessageDelivered(userId: string, conversationId: string, deliveredBy: string, lastDeliveredMessageId: string, state?: Record<string, any>): void;
   notifyMessageDeleted(userId: string, conversationId: string, messageId: string, deletedBy: string): void;
   notifyAdminChanged(conversationId: string, targetUserId: string, isAdmin: boolean): void;
   notifyOwnerTransferred(conversationId: string, oldOwnerId: string, newOwnerId: string): void;
@@ -124,8 +124,10 @@ export const socketNotifiers = {
     conversationId: string,
     seenByUserId: string,
     lastSeenMessageId: string,
+    state: Record<string, any> = {},
   ) {
     this.emitToUser(userId, SocketEvent.MESSAGE_SEEN, {
+      ...state,
       conversationId,
       userId: seenByUserId,
       lastSeenMessageId,
@@ -137,8 +139,10 @@ export const socketNotifiers = {
     conversationId: string,
     deliveredByUserId: string,
     lastDeliveredMessageId: string,
+    state: Record<string, any> = {},
   ) {
     this.emitToUser(userId, SocketEvent.MESSAGE_DELIVERED, {
+      ...state,
       conversationId,
       userId: deliveredByUserId,
       lastDeliveredMessageId,
