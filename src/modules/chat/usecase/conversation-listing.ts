@@ -49,9 +49,15 @@ export function compareConversationListItems(userId: string) {
     const pinnedA = !!(a.pinned || a.isPinned);
     const pinnedB = !!(b.pinned || b.isPinned);
 
-    if (pinnedA !== pinnedB) {
-      return pinnedA ? -1 : 1;
-    }
+    const selfA = !!a.isSelfChat || isSelfConversation(a, userId);
+    const selfB = !!b.isSelfChat || isSelfConversation(b, userId);
+
+    // Ordering rules:
+    // 1) All pinned conversations are always on top.
+    // 2) When NOT pinned, self-chat (My Document) is always on top.
+    //    => This makes self-chat sit below the pinned section but above all normal chats.
+    if (pinnedA !== pinnedB) return pinnedA ? -1 : 1;
+    if (!pinnedA && selfA !== selfB) return selfA ? -1 : 1;
 
     if (pinnedA && pinnedB) {
       const pinnedAtA = a.pinnedAt?.getTime?.() || 0;
@@ -63,12 +69,6 @@ export function compareConversationListItems(userId: string) {
       if (activityA !== activityB) return activityB - activityA;
 
       return a.id.localeCompare(b.id);
-    }
-
-    const selfA = !!a.isSelfChat || isSelfConversation(a, userId);
-    const selfB = !!b.isSelfChat || isSelfConversation(b, userId);
-    if (selfA !== selfB) {
-      return selfA ? -1 : 1;
     }
 
     const activityA = getConversationActivityTime(a);

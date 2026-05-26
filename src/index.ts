@@ -64,12 +64,26 @@ config();
   app.use(
     cors({
       origin: (origin, callback) => {
+        // Dev convenience: allow all origins when explicitly configured.
+        // Note: When `credentials: true`, CORS cannot use `*` as Access-Control-Allow-Origin.
         const origins = appConfig.cors.origins;
-        const allowWildcard = origins.includes("*") && !appConfig.auth.refreshCookie.enabled;
-        if (!origin || allowWildcard || origins.includes(origin)) {
+        const allowAll = origins.includes("*");
+
+        if (!origin) {
           callback(null, true);
           return;
         }
+
+        if (allowAll) {
+          callback(null, true);
+          return;
+        }
+
+        if (origins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+
         callback(new Error("Not allowed by CORS"));
       },
       methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
