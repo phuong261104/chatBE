@@ -75,6 +75,7 @@ paths:
           description: Reminder not found
     delete:
       summary: Delete group reminder
+      description: Soft-cancels the reminder. The reminder card remains in the chat timeline with status cancelled.
       tags: [Chat - Group Utilities]
       security:
         - BearerAuth: []
@@ -92,6 +93,52 @@ paths:
           description: Unauthorized
         "403":
           description: Not allowed to delete this reminder
+        "404":
+          description: Reminder not found
+
+  /v1/groups/{groupId}/reminders/{reminderId}/pin:
+    post:
+      summary: Pin group reminder
+      description: Pins the reminder and its linked reminder message card so pinned-message APIs can return the card.
+      tags: [Chat - Group Utilities]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+        - $ref: "#/components/parameters/ReminderId"
+      responses:
+        "200":
+          description: Reminder pinned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not allowed to pin this reminder
+        "404":
+          description: Reminder not found
+    delete:
+      summary: Unpin group reminder
+      description: Unpins the reminder and its linked reminder message card.
+      tags: [Chat - Group Utilities]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+        - $ref: "#/components/parameters/ReminderId"
+      responses:
+        "200":
+          description: Reminder unpinned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not allowed to unpin this reminder
         "404":
           description: Reminder not found
 
@@ -231,6 +278,16 @@ components:
           type: string
           format: date-time
           example: "2026-05-25T09:00:00.000Z"
+        repeatRule:
+          type: string
+          enum: [none, daily, weekly, monthly]
+          default: none
+          example: weekly
+        notifyBeforeMinutes:
+          type: integer
+          minimum: 0
+          default: 0
+          example: 30
     UpdateReminderRequest:
       type: object
       properties:
@@ -242,8 +299,15 @@ components:
         remindAt:
           type: string
           format: date-time
+        repeatRule:
+          type: string
+          enum: [none, daily, weekly, monthly]
+        notifyBeforeMinutes:
+          type: integer
+          minimum: 0
         status:
           type: string
+          enum: [active, cancelled, done]
           example: "done"
     Reminder:
       type: object
@@ -253,6 +317,9 @@ components:
           type: string
         conversationId:
           type: string
+        messageId:
+          type: string
+          nullable: true
         title:
           type: string
         description:
@@ -261,6 +328,31 @@ components:
         remindAt:
           type: string
           format: date-time
+        repeatRule:
+          type: string
+          enum: [none, daily, weekly, monthly]
+        notifyBeforeMinutes:
+          type: integer
+        nextNotifyAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastNotifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [active, cancelled, done]
+        pinned:
+          type: boolean
+        pinnedAt:
+          type: string
+          format: date-time
+          nullable: true
+        pinnedBy:
+          type: string
+          nullable: true
         createdBy:
           type: string
     ReminderResponse:

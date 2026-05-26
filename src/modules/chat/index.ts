@@ -85,6 +85,7 @@ import {
   SetAdminHandler,
   TransferOwnerHandler,
   CreatePollHandler,
+  AddPollOptionHandler,
   GetPollsHandler,
   VotePollHandler,
   GetPollResultsHandler,
@@ -110,12 +111,15 @@ import {
   ListGroupRemindersHandler,
   UpdateGroupReminderHandler,
   DeleteGroupReminderHandler,
+  PinGroupReminderHandler,
+  UnpinGroupReminderHandler,
   CreateGroupNoteHandler,
   ListGroupNotesHandler,
   UpdateGroupNoteHandler,
   DeleteGroupNoteHandler,
   ChatAccessPolicy,
 } from "./usecase";
+import { GroupUtilityWorker } from "./usecase/group-utility-worker";
 
 export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) => {
   const mdlFactory = sctx.mdlFactory;
@@ -249,6 +253,9 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     messageRepo,
     reactionQueryRepo,
     userAdapter,
+    pollQueryRepo,
+    groupReminderRepo,
+    conversationRepo,
   );
 
   const getTotalUnreadCountQueryHandler = new GetTotalUnreadCountQueryHandler(conversationMemberRepo);
@@ -327,7 +334,13 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     userAdapter,
   );
 
-  const getPinnedMessagesHandler = new GetPinnedMessagesHandler(messageRepo, conversationMemberRepo);
+  const getPinnedMessagesHandler = new GetPinnedMessagesHandler(
+    messageRepo,
+    conversationMemberRepo,
+    pollQueryRepo,
+    groupReminderRepo,
+    conversationRepo,
+  );
 
   const addReactionHandler = new AddReactionHandler(
     messageRepo,
@@ -369,19 +382,60 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     userAdapter,
   );
 
-  const createPollHandler = new CreatePollHandler(conversationRepo, conversationMemberRepo, pollCmdRepo);
+  const createPollHandler = new CreatePollHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    pollCmdRepo,
+    messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
 
   const getPollsHandler = new GetPollsHandler(pollQueryRepo as any, conversationRepo, conversationMemberRepo);
 
-  const votePollHandler = new VotePollHandler(pollQueryRepo, pollCmdRepo, conversationMemberRepo);
+  const votePollHandler = new VotePollHandler(
+    pollQueryRepo,
+    pollCmdRepo,
+    conversationMemberRepo,
+    messageRepo,
+    messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
+
+  const addPollOptionHandler = new AddPollOptionHandler(pollQueryRepo, pollCmdRepo, conversationMemberRepo);
 
   const getPollResultsHandler = new GetPollResultsHandler(pollQueryRepo, conversationMemberRepo, conversationRepo);
 
-  const closePollHandler = new ClosePollHandler(pollQueryRepo, pollCmdRepo, conversationMemberRepo, conversationRepo);
+  const closePollHandler = new ClosePollHandler(
+    pollQueryRepo,
+    pollCmdRepo,
+    conversationMemberRepo,
+    conversationRepo,
+    messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
 
-  const pinPollHandler = new PinPollHandler(pollQueryRepo, pollCmdRepo, conversationMemberRepo, conversationRepo);
+  const pinPollHandler = new PinPollHandler(
+    pollQueryRepo,
+    pollCmdRepo,
+    conversationMemberRepo,
+    conversationRepo,
+    messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
 
-  const unpinPollHandler = new UnpinPollHandler(pollQueryRepo, pollCmdRepo, conversationMemberRepo, conversationRepo);
+  const unpinPollHandler = new UnpinPollHandler(
+    pollQueryRepo,
+    pollCmdRepo,
+    conversationMemberRepo,
+    conversationRepo,
+    messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
 
   const getPendingMembersHandler = new GetPendingMembersHandler(conversationRepo, conversationMemberRepo);
 
@@ -475,10 +529,51 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     accessPolicy,
   );
 
-  const createGroupReminderHandler = new CreateGroupReminderHandler(conversationRepo, conversationMemberRepo, groupReminderRepo);
+  const createGroupReminderHandler = new CreateGroupReminderHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    groupReminderRepo,
+    messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
   const listGroupRemindersHandler = new ListGroupRemindersHandler(conversationRepo, conversationMemberRepo, groupReminderRepo);
-  const updateGroupReminderHandler = new UpdateGroupReminderHandler(conversationRepo, conversationMemberRepo, groupReminderRepo, groupReminderRepo);
-  const deleteGroupReminderHandler = new DeleteGroupReminderHandler(conversationRepo, conversationMemberRepo, groupReminderRepo, groupReminderRepo);
+  const updateGroupReminderHandler = new UpdateGroupReminderHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    groupReminderRepo,
+    groupReminderRepo,
+    messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
+  const deleteGroupReminderHandler = new DeleteGroupReminderHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    groupReminderRepo,
+    groupReminderRepo,
+    messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
+  const pinGroupReminderHandler = new PinGroupReminderHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    groupReminderRepo,
+    groupReminderRepo,
+    messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
+  const unpinGroupReminderHandler = new UnpinGroupReminderHandler(
+    conversationRepo,
+    conversationMemberRepo,
+    groupReminderRepo,
+    groupReminderRepo,
+    messageRepo,
+    conversationRepo,
+    conversationMemberRepo,
+  );
   const createGroupNoteHandler = new CreateGroupNoteHandler(conversationRepo, conversationMemberRepo, groupNoteRepo);
   const listGroupNotesHandler = new ListGroupNotesHandler(conversationRepo, conversationMemberRepo, groupNoteRepo);
   const updateGroupNoteHandler = new UpdateGroupNoteHandler(conversationRepo, conversationMemberRepo, groupNoteRepo, groupNoteRepo);
@@ -526,6 +621,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     createPollHandler,
     getPollsHandler,
     votePollHandler,
+    addPollOptionHandler,
     getPollResultsHandler,
     closePollHandler,
     pinPollHandler,
@@ -550,6 +646,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     listGroupRemindersHandler,
     updateGroupReminderHandler,
     deleteGroupReminderHandler,
+    pinGroupReminderHandler,
+    unpinGroupReminderHandler,
     createGroupNoteHandler,
     listGroupNotesHandler,
     updateGroupNoteHandler,
@@ -558,6 +656,18 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const httpService = new MessagingHttpService(useCase);
   const socketService = new MessagingSocketService(io, useCase, presenceUseCase);
+  if (process.env.CHAT_UTILITY_WORKER_ENABLED !== "false") {
+    new GroupUtilityWorker({
+      pollQueryRepo,
+      pollCommandRepo: pollCmdRepo,
+      reminderQueryRepo: groupReminderRepo,
+      reminderCommandRepo: groupReminderRepo,
+      messageCommandRepo: messageRepo,
+      conversationCommandRepo: conversationRepo,
+      conversationMemberCommandRepo: conversationMemberRepo,
+      notifier: socketService,
+    }).start();
+  }
   const v2Controller = new ChatV2Controller(
     useCase,
     conversationRepo,
@@ -692,6 +802,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   router.post("/groups/:groupId/polls/:pollId/vote", mdlFactory.auth, httpService.votePollAPI.bind(httpService));
 
+  router.post("/groups/:groupId/polls/:pollId/options", mdlFactory.auth, httpService.addPollOptionAPI.bind(httpService));
+
   router.post("/groups/:groupId/polls/:pollId/lock", mdlFactory.auth, httpService.closePollAPI.bind(httpService));
 
   router.post("/groups/:groupId/polls/:pollId/pin", mdlFactory.auth, httpService.pinPollAPI.bind(httpService));
@@ -708,6 +820,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   router.post("/groups/:groupId/reminders", mdlFactory.auth, httpService.createGroupReminderAPI.bind(httpService));
   router.put("/groups/:groupId/reminders/:reminderId", mdlFactory.auth, httpService.updateGroupReminderAPI.bind(httpService));
   router.delete("/groups/:groupId/reminders/:reminderId", mdlFactory.auth, httpService.deleteGroupReminderAPI.bind(httpService));
+  router.post("/groups/:groupId/reminders/:reminderId/pin", mdlFactory.auth, httpService.pinGroupReminderAPI.bind(httpService));
+  router.delete("/groups/:groupId/reminders/:reminderId/pin", mdlFactory.auth, httpService.unpinGroupReminderAPI.bind(httpService));
 
   router.get("/groups/:groupId/notes", mdlFactory.auth, httpService.listGroupNotesAPI.bind(httpService));
   router.post("/groups/:groupId/notes", mdlFactory.auth, httpService.createGroupNoteAPI.bind(httpService));

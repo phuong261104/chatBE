@@ -124,4 +124,20 @@ describe("group permission helpers", () => {
     expect(sanitizePollForViewer(original, member({ role: ConversationMemberRole.ADMIN }), conversation())).toBe(original);
     expect(sanitizePollForViewer(poll({ status: PollStatus.CLOSED }), member(), conversation()).totalVotes).toBe(3);
   });
+
+  it("hides voter identities from normal viewers when hideVoters is enabled", () => {
+    const original = poll({
+      hideVoters: true,
+      showResultsBeforeClose: true,
+    });
+
+    const sanitized = sanitizePollForViewer(original, member({ userId: "viewer-id" }), conversation());
+
+    expect(sanitized.totalVotes).toBe(3);
+    expect(sanitized.options).toEqual([
+      expect.objectContaining({ id: "option-a", voteCount: 2, votedUserIds: ["viewer-id"] }),
+      expect.objectContaining({ id: "option-b", voteCount: 1, votedUserIds: [] }),
+    ]);
+    expect(sanitizePollForViewer(original, member({ role: ConversationMemberRole.ADMIN }), conversation())).toBe(original);
+  });
 });

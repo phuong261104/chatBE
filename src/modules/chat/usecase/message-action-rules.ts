@@ -55,6 +55,10 @@ export function getMessagePreview(message: Message): string {
       return "System message";
     case MessageType.PROFILE_CARD:
       return "Profile card";
+    case MessageType.POLL:
+      return "Poll";
+    case MessageType.REMINDER:
+      return "Reminder";
     case MessageType.LINK:
       return "Link";
     default:

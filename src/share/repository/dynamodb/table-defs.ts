@@ -258,11 +258,21 @@ export const POLLS_TABLE: TableDefinition = {
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
     { AttributeName: "conversationId", AttributeType: "S" },
+    { AttributeName: "status", AttributeType: "S" },
+    { AttributeName: "expiresAt", AttributeType: "S" },
   ],
   GlobalSecondaryIndexes: [
     {
       IndexName: "conversation-index",
       KeySchema: [{ AttributeName: "conversationId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "status-expiresAt-index",
+      KeySchema: [
+        { AttributeName: "status", KeyType: "HASH" },
+        { AttributeName: "expiresAt", KeyType: "RANGE" },
+      ],
       Projection: { ProjectionType: "ALL" },
     },
   ],
@@ -275,11 +285,21 @@ export const GROUP_REMINDERS_TABLE: TableDefinition = {
   AttributeDefinitions: [
     { AttributeName: "id", AttributeType: "S" },
     { AttributeName: "conversationId", AttributeType: "S" },
+    { AttributeName: "status", AttributeType: "S" },
+    { AttributeName: "nextNotifyAt", AttributeType: "S" },
   ],
   GlobalSecondaryIndexes: [
     {
       IndexName: "conversation-index",
       KeySchema: [{ AttributeName: "conversationId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "status-nextNotifyAt-index",
+      KeySchema: [
+        { AttributeName: "status", KeyType: "HASH" },
+        { AttributeName: "nextNotifyAt", KeyType: "RANGE" },
+      ],
       Projection: { ProjectionType: "ALL" },
     },
   ],

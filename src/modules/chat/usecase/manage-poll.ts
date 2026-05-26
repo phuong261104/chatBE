@@ -1,18 +1,23 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import {
+  IConversationCommandRepository,
+  IConversationMemberCommandRepository,
   IConversationMemberQueryRepository,
   IConversationQueryRepository,
+  IMessageCommandRepository,
   IPollCommandRepository,
   IPollQueryRepository,
 } from "../interface";
 import {
   ConversationMemberStatus,
+  MessageType,
   Poll,
   PollStatus,
 } from "../model/model";
 import { PollActionCommand } from "../model/dto";
 import { isGroupManager } from "./group-permissions";
+import { attachHiddenMessage, createConversationActivityMessage } from "./utility-messages";
 
 abstract class PollManagerBase implements ICommandHandler<PollActionCommand, Poll> {
   constructor(
@@ -20,6 +25,9 @@ abstract class PollManagerBase implements ICommandHandler<PollActionCommand, Pol
     protected readonly pollCommandRepo: IPollCommandRepository,
     protected readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     protected readonly conversationQueryRepo: IConversationQueryRepository,
+    protected readonly messageCommandRepo: IMessageCommandRepository,
+    protected readonly conversationCommandRepo: IConversationCommandRepository,
+    protected readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
   ) {}
 
   abstract execute(command: PollActionCommand): Promise<Poll>;
@@ -70,30 +78,83 @@ export class ClosePollHandler extends PollManagerBase {
       closedAt: new Date(),
       closedBy: command.userId,
     });
-    return this.reload(command.pollId);
+    const updated = await this.reload(command.pollId);
+    const message = await createConversationActivityMessage({
+      messageCommandRepo: this.messageCommandRepo,
+      conversationCommandRepo: this.conversationCommandRepo,
+      conversationMemberCommandRepo: this.conversationMemberCommandRepo,
+      conversationId: poll.conversationId,
+      senderId: command.userId,
+      type: MessageType.SYSTEM,
+      text: `Đã khóa bình chọn "${poll.question}"`,
+      systemAction: "poll_closed",
+      systemRefId: poll.id,
+      pollId: poll.id,
+    });
+    return attachHiddenMessage(updated, "systemMessage", message);
   }
 }
 
 export class PinPollHandler extends PollManagerBase {
   async execute(command: PollActionCommand): Promise<Poll> {
-    await this.assertManager(command.pollId, command.userId);
+    const poll = await this.assertManager(command.pollId, command.userId);
     await this.pollCommandRepo.update(command.pollId, {
       pinned: true,
       pinnedAt: new Date(),
       pinnedBy: command.userId,
     });
-    return this.reload(command.pollId);
+    if (poll.messageId) {
+      await this.messageCommandRepo.update(poll.messageId, {
+        pinned: true,
+        pinnedAt: new Date(),
+      });
+    }
+    const updated = await this.reload(command.pollId);
+    const message = await createConversationActivityMessage({
+      messageCommandRepo: this.messageCommandRepo,
+      conversationCommandRepo: this.conversationCommandRepo,
+      conversationMemberCommandRepo: this.conversationMemberCommandRepo,
+      conversationId: poll.conversationId,
+      senderId: command.userId,
+      type: MessageType.SYSTEM,
+      text: `Đã ghim bình chọn "${poll.question}"`,
+      systemAction: "poll_pinned",
+      systemRefId: poll.id,
+      pollId: poll.id,
+      incrementUnread: false,
+    });
+    return attachHiddenMessage(updated, "systemMessage", message);
   }
 }
 
 export class UnpinPollHandler extends PollManagerBase {
   async execute(command: PollActionCommand): Promise<Poll> {
-    await this.assertManager(command.pollId, command.userId);
+    const poll = await this.assertManager(command.pollId, command.userId);
     await this.pollCommandRepo.update(command.pollId, {
       pinned: false,
       pinnedAt: null as any,
       pinnedBy: null as any,
     });
-    return this.reload(command.pollId);
+    if (poll.messageId) {
+      await this.messageCommandRepo.update(poll.messageId, {
+        pinned: false,
+        pinnedAt: null as any,
+      });
+    }
+    const updated = await this.reload(command.pollId);
+    const message = await createConversationActivityMessage({
+      messageCommandRepo: this.messageCommandRepo,
+      conversationCommandRepo: this.conversationCommandRepo,
+      conversationMemberCommandRepo: this.conversationMemberCommandRepo,
+      conversationId: poll.conversationId,
+      senderId: command.userId,
+      type: MessageType.SYSTEM,
+      text: `Đã bỏ ghim bình chọn "${poll.question}"`,
+      systemAction: "poll_unpinned",
+      systemRefId: poll.id,
+      pollId: poll.id,
+      incrementUnread: false,
+    });
+    return attachHiddenMessage(updated, "systemMessage", message);
   }
 }

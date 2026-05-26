@@ -2,12 +2,16 @@ import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { v7 } from "uuid";
 import {
+  IConversationCommandRepository,
+  IConversationMemberCommandRepository,
   IConversationQueryRepository,
   IConversationMemberQueryRepository,
+  IMessageCommandRepository,
 } from "../interface";
 import {
   ConversationMemberStatus,
   ConversationType,
+  MessageType,
   PollOption,
   Poll,
   PollStatus,
@@ -15,16 +19,30 @@ import {
 import { CreatePollCommand } from "../model/dto";
 import { IPollCommandRepository } from "../interface";
 import { canUseGroupUtility, normalizeGroupSettings } from "./group-permissions";
+import { attachHiddenMessage, createConversationActivityMessage } from "./utility-messages";
 
 export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Poll> {
   constructor(
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly pollCommandRepo: IPollCommandRepository,
+    private readonly messageCommandRepo: IMessageCommandRepository,
+    private readonly conversationCommandRepo: IConversationCommandRepository,
+    private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
   ) {}
 
   async execute(command: CreatePollCommand): Promise<Poll> {
-    const { conversationId, creatorId, question, options, isMultipleChoice, allowAddOption, showResultsBeforeClose, expiresAt } = command;
+    const {
+      conversationId,
+      creatorId,
+      question,
+      options,
+      isMultipleChoice,
+      allowAddOption,
+      showResultsBeforeClose,
+      hideVoters,
+      expiresAt,
+    } = command;
 
     const conversation = await this.conversationQueryRepo.get(conversationId);
     if (!conversation) {
@@ -66,16 +84,31 @@ export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Pol
       isMultipleChoice: isMultipleChoice || false,
       allowAddOption: allowAddOption || false,
       showResultsBeforeClose: showResultsBeforeClose ?? true,
+      hideVoters: hideVoters || false,
       status: PollStatus.ACTIVE,
       expiresAt: expiresAt ? new Date(expiresAt) : undefined,
       pinned: false,
       totalVotes: 0,
+      voteActivityCount: 0,
       createdAt: now,
       updatedAt: now,
     };
 
+    const message = await createConversationActivityMessage({
+      messageCommandRepo: this.messageCommandRepo,
+      conversationCommandRepo: this.conversationCommandRepo,
+      conversationMemberCommandRepo: this.conversationMemberCommandRepo,
+      conversationId,
+      senderId: creatorId,
+      type: MessageType.POLL,
+      text: `Bình chọn: ${question}`,
+      pollId: poll.id,
+      createdAt: now,
+    });
+    poll.messageId = message.id;
+
     await this.pollCommandRepo.insert(poll);
 
-    return poll;
+    return attachHiddenMessage(poll, "timelineMessage", message);
   }
 }

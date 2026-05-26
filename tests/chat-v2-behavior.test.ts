@@ -813,6 +813,15 @@ describe("canonical chat business behavior", () => {
       {
         get: jest.fn(),
       } as any,
+      {
+        get: jest.fn().mockResolvedValue(null),
+      } as any,
+      {
+        get: jest.fn().mockResolvedValue(null),
+      } as any,
+      {
+        get: jest.fn().mockResolvedValue({ id: conversationId }),
+      } as any,
     );
 
     const result = await handler.query({ conversationId, userId, limit: 20 });

@@ -1,13 +1,28 @@
 import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
-import { IConversationMemberQueryRepository, IPollQueryRepository, IPollCommandRepository } from "../interface";
-import { ConversationMemberStatus, Poll, PollStatus } from "../model/model";
+import {
+  IConversationCommandRepository,
+  IConversationMemberCommandRepository,
+  IConversationMemberQueryRepository,
+  IMessageCommandRepository,
+  IMessageQueryRepository,
+  IPollQueryRepository,
+  IPollCommandRepository,
+} from "../interface";
+import { ConversationMemberStatus, Message, MessageType, Poll, PollStatus } from "../model/model";
+import { attachHiddenMessage, createConversationActivityMessage } from "./utility-messages";
+
+const POLL_VOTE_ACTIVITY_WINDOW_MS = 5 * 60 * 1000;
 
 export class VotePollHandler implements ICommandHandler<{ pollId: string; userId: string; optionIds: string[] }, Poll> {
   constructor(
     private readonly pollQueryRepo: IPollQueryRepository,
     private readonly pollCommandRepo: IPollCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly messageQueryRepo: IMessageQueryRepository,
+    private readonly messageCommandRepo: IMessageCommandRepository,
+    private readonly conversationCommandRepo: IConversationCommandRepository,
+    private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
   ) {}
 
   async execute(command: { pollId: string; userId: string; optionIds: string[] }): Promise<Poll> {
@@ -70,9 +85,16 @@ export class VotePollHandler implements ICommandHandler<{ pollId: string; userId
       }
     }
 
+    const activity = await this.writeVoteActivity(poll, userId);
+
     await this.pollCommandRepo.update(pollId, {
       options: updatedOptions,
       totalVotes: uniqueVoters.size,
+      ...(activity?.message && {
+        lastVoteActivityAt: activity.message.createdAt,
+        lastVoteActivityMessageId: activity.message.id,
+        voteActivityCount: activity.count,
+      }),
     });
 
     const updatedPoll = await this.pollQueryRepo.get(pollId);
@@ -80,6 +102,60 @@ export class VotePollHandler implements ICommandHandler<{ pollId: string; userId
       throw AppError.from(new Error("Failed to get updated poll"), 500);
     }
 
+    if (activity?.message) {
+      attachHiddenMessage(updatedPoll, "activityMessage", activity.message);
+      Object.defineProperty(updatedPoll, "activityMessageUpdated", {
+        value: activity.updated,
+        enumerable: false,
+        configurable: true,
+      });
+    }
+
     return updatedPoll;
+  }
+
+  private async writeVoteActivity(
+    poll: Poll,
+    userId: string,
+  ): Promise<{ message: Message; updated: boolean; count: number } | undefined> {
+    const now = new Date();
+    const lastActivityAt = poll.lastVoteActivityAt ? new Date(poll.lastVoteActivityAt) : undefined;
+    const canMerge =
+      !!lastActivityAt &&
+      !!poll.lastVoteActivityMessageId &&
+      now.getTime() - lastActivityAt.getTime() <= POLL_VOTE_ACTIVITY_WINDOW_MS;
+
+    if (canMerge) {
+      const existing = await this.messageQueryRepo.get(poll.lastVoteActivityMessageId as string);
+      if (existing) {
+        const count = Math.max(1, (poll.voteActivityCount || 1) + 1);
+        const text = `${count} thành viên vừa bình chọn trong "${poll.question}"`;
+        await this.messageCommandRepo.update(existing.id, { text });
+        return {
+          message: {
+            ...existing,
+            text,
+          },
+          updated: true,
+          count,
+        };
+      }
+    }
+
+    const message = await createConversationActivityMessage({
+      messageCommandRepo: this.messageCommandRepo,
+      conversationCommandRepo: this.conversationCommandRepo,
+      conversationMemberCommandRepo: this.conversationMemberCommandRepo,
+      conversationId: poll.conversationId,
+      senderId: userId,
+      type: MessageType.SYSTEM,
+      text: `1 thành viên vừa bình chọn trong "${poll.question}"`,
+      systemAction: "poll_vote_activity",
+      systemRefId: poll.id,
+      pollId: poll.id,
+      createdAt: now,
+    });
+
+    return { message, updated: false, count: 1 };
   }
 }

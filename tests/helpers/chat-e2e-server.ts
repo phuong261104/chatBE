@@ -141,6 +141,7 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
   v1Router.post("/groups/:groupId/polls", auth, httpService.createPollAPI.bind(httpService));
   v1Router.get("/groups/:groupId/polls", auth, httpService.getPollsAPI.bind(httpService));
   v1Router.post("/groups/:groupId/polls/:pollId/vote", auth, httpService.votePollAPI.bind(httpService));
+  v1Router.post("/groups/:groupId/polls/:pollId/options", auth, httpService.addPollOptionAPI.bind(httpService));
   v1Router.get("/groups/:groupId/polls/:pollId/results", auth, httpService.getPollResultsAPI.bind(httpService));
   v1Router.post("/groups/:groupId/polls/:pollId/lock", auth, httpService.closePollAPI.bind(httpService));
   v1Router.post("/groups/:groupId/polls/:pollId/pin", auth, httpService.pinPollAPI.bind(httpService));
@@ -149,6 +150,8 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
   v1Router.post("/groups/:groupId/reminders", auth, httpService.createGroupReminderAPI.bind(httpService));
   v1Router.put("/groups/:groupId/reminders/:reminderId", auth, httpService.updateGroupReminderAPI.bind(httpService));
   v1Router.delete("/groups/:groupId/reminders/:reminderId", auth, httpService.deleteGroupReminderAPI.bind(httpService));
+  v1Router.post("/groups/:groupId/reminders/:reminderId/pin", auth, httpService.pinGroupReminderAPI.bind(httpService));
+  v1Router.delete("/groups/:groupId/reminders/:reminderId/pin", auth, httpService.unpinGroupReminderAPI.bind(httpService));
   v1Router.get("/groups/:groupId/notes", auth, httpService.listGroupNotesAPI.bind(httpService));
   v1Router.post("/groups/:groupId/notes", auth, httpService.createGroupNoteAPI.bind(httpService));
   v1Router.put("/groups/:groupId/notes/:noteId", auth, httpService.updateGroupNoteAPI.bind(httpService));

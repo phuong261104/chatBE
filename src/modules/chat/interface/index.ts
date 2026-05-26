@@ -192,11 +192,13 @@ export interface IPollQueryRepository {
   get(id: string): Promise<Poll | null>;
   findByConversationId(conversationId: string): Promise<Poll[]>;
   findActivePolls(conversationId: string): Promise<Poll[]>;
+  findExpiredActivePolls?(now: Date, limit?: number): Promise<Poll[]>;
 }
 
 export interface IPollCommandRepository {
   insert(poll: Poll): Promise<boolean>;
   update(id: string, data: Partial<Poll>): Promise<boolean>;
+  closeExpired?(id: string, now: Date): Promise<boolean>;
   delete(id: string): Promise<boolean>;
   deleteByConversationId(conversationId: string): Promise<void>;
 }
@@ -204,11 +206,13 @@ export interface IPollCommandRepository {
 export interface IGroupReminderQueryRepository {
   get(id: string): Promise<GroupReminder | null>;
   findByConversationId(conversationId: string): Promise<GroupReminder[]>;
+  findDueReminders?(now: Date, limit?: number): Promise<GroupReminder[]>;
 }
 
 export interface IGroupReminderCommandRepository {
   insert(reminder: GroupReminder): Promise<boolean>;
   update(id: string, data: Partial<GroupReminder>): Promise<boolean>;
+  updateDueReminder?(id: string, expectedNextNotifyAt: Date, data: Partial<GroupReminder>): Promise<boolean>;
   delete(id: string): Promise<boolean>;
   deleteByConversationId(conversationId: string): Promise<void>;
 }
@@ -452,11 +456,14 @@ export interface IMessagingUseCase {
     allowAddOption?: boolean,
     showResultsBeforeClose?: boolean,
     expiresAt?: string,
+    hideVoters?: boolean,
   ): Promise<Poll>;
 
   getPolls(conversationId: string, userId: string): Promise<Poll[]>;
 
   votePoll(pollId: string, userId: string, optionIds: string[]): Promise<Poll>;
+
+  addPollOption(pollId: string, userId: string, text: string): Promise<Poll>;
 
   getPollResults(pollId: string, userId: string): Promise<Poll>;
 
@@ -572,6 +579,8 @@ export interface IMessagingUseCase {
     title: string,
     description: string | undefined,
     remindAt: string,
+    repeatRule?: GroupReminder["repeatRule"],
+    notifyBeforeMinutes?: number,
   ): Promise<GroupReminder>;
 
   listGroupReminders(conversationId: string, userId: string): Promise<GroupReminder[]>;
@@ -579,10 +588,21 @@ export interface IMessagingUseCase {
   updateGroupReminder(
     reminderId: string,
     userId: string,
-    data: { title?: string; description?: string | null; remindAt?: string; status?: GroupReminder["status"] },
+    data: {
+      title?: string;
+      description?: string | null;
+      remindAt?: string;
+      repeatRule?: GroupReminder["repeatRule"];
+      notifyBeforeMinutes?: number;
+      status?: GroupReminder["status"];
+    },
   ): Promise<GroupReminder>;
 
-  deleteGroupReminder(reminderId: string, userId: string): Promise<void>;
+  deleteGroupReminder(reminderId: string, userId: string): Promise<GroupReminder>;
+
+  pinGroupReminder(reminderId: string, userId: string): Promise<GroupReminder>;
+
+  unpinGroupReminder(reminderId: string, userId: string): Promise<GroupReminder>;
 
   createGroupNote(conversationId: string, userId: string, title: string, content: string): Promise<GroupNote>;
 

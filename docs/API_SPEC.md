@@ -230,11 +230,13 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | PATCH | `/v1/groups/{groupId}/settings` | Cập nhật group settings |
 | GET/POST | `/v1/groups/{groupId}/polls` | List/tạo poll |
 | POST | `/v1/groups/{groupId}/polls/{pollId}/vote` | Vote poll |
+| POST | `/v1/groups/{groupId}/polls/{pollId}/options` | Thêm phương án poll khi `allowAddOption=true` |
 | POST | `/v1/groups/{groupId}/polls/{pollId}/lock` | Close poll |
 | POST/DELETE | `/v1/groups/{groupId}/polls/{pollId}/pin` | Pin/unpin poll |
 | GET | `/v1/groups/{groupId}/polls/{pollId}/results` | Poll results |
 | GET/POST | `/v1/groups/{groupId}/reminders` | List/tạo reminder |
 | PUT/DELETE | `/v1/groups/{groupId}/reminders/{reminderId}` | Update/delete reminder |
+| POST/DELETE | `/v1/groups/{groupId}/reminders/{reminderId}/pin` | Pin/unpin reminder |
 | GET/POST | `/v1/groups/{groupId}/notes` | List/tạo note |
 | PUT/DELETE | `/v1/groups/{groupId}/notes/{noteId}` | Update/delete note |
 
@@ -379,10 +381,14 @@ Tất cả route AI nằm dưới `/v1/ai` và được bảo vệ bằng auth m
 - Group owner/admin/member được kiểm tra qua `conversation_members`.
 - Settings điều khiển invite, require approval, link sending, who can send messages và permission cho poll/reminder/note.
 - Group actions phát Socket.IO event tương ứng cho member liên quan.
+- Poll hỗ trợ `hideVoters`, `showResultsBeforeClose`, `isMultipleChoice`, `allowAddOption`, `expiresAt`, pin/unpin và close. Vote cập nhật poll gốc, emit `poll:vote`, không di chuyển card gốc; activity vote được gom trong cửa sổ 5 phút bằng system message để tránh spam.
+- Reminder hỗ trợ `repeatRule` (`none`, `daily`, `weekly`, `monthly`), `notifyBeforeMinutes`, `nextNotifyAt`, pin/unpin và soft delete bằng `status=cancelled`. Worker nội bộ phát system message khi đến giờ; reminder không lặp chuyển `done`, reminder lặp được tính lần kế tiếp.
 
 ### Message lifecycle
 
 - Send message tạo item trong `messages`, cập nhật `lastMessage` trong conversation và unread/activity trong member rows.
+- Poll/reminder là message card trong timeline: khi tạo poll hoặc reminder, backend tạo record utility và một message `type=poll` hoặc `type=reminder`, cập nhật `lastMessage`, tăng unread như message thường, rồi emit `receiveMessage`.
+- `loadMessages` và `pinned-messages` hydrate message card bằng field `poll` hoặc `reminder`; message cũng có metadata `pollId`, `reminderId`, `systemAction`, `systemRefId` khi cần tham chiếu activity.
 - Edit chỉ áp dụng message hợp lệ theo rule trong usecase.
 - Delete for me cập nhật `deletedForUserIds`.
 - Delete for everyone/revoke cập nhật lifecycle state và phát realtime event.
@@ -428,8 +434,8 @@ Chat event chính:
 
 Group/poll/utility event chính:
 
-- Client to server: `joinGroup`, `leaveGroup`, `addMembers`, `removeMember`, `setAdmin`, `transferOwner`, `createPoll`, `votePoll`, `createReminder`, `createNote`.
-- Server to client: `conversation:members_added`, `group:member_left`, `group:settings_updated`, `poll:new`, `poll:vote`, `group:reminder_created`, `group:note_created`.
+- Client to server: `joinGroup`, `leaveGroup`, `addMembers`, `removeMember`, `setAdmin`, `transferOwner`, `createPoll`, `votePoll`, `addPollOption`, `pinPoll`, `unpinPoll`, `createReminder`, `updateReminder`, `deleteReminder`, `pinReminder`, `unpinReminder`, `createNote`.
+- Server to client: `conversation:members_added`, `group:member_left`, `group:settings_updated`, `poll:new`, `poll:vote`, `poll:option_added`, `poll:closed`, `poll:pinned`, `poll:unpinned`, `group:reminder_created`, `group:reminder_updated`, `group:reminder_deleted`, `group:reminder_pinned`, `group:reminder_unpinned`, `group:reminder_due`, `group:note_created`.
 
 Call socket namespaces/services emit các event `call:incoming`, `call:ringing`, `call:answered`, `call:rejected`, `call:ended`, `call:missed`, và nhận `call:join`, `call:leave`.
 

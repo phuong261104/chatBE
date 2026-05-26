@@ -104,7 +104,7 @@ components:
           description: Avatar URL of the sender
         type:
           type: string
-          enum: [text, image, file, link, video, voice, sticker, gif, system]
+          enum: [text, image, file, link, video, voice, sticker, gif, call, system, profile_card, poll, reminder]
         text:
           type: string
           nullable: true
@@ -118,6 +118,30 @@ components:
           nullable: true
           items:
             type: string
+        pollId:
+          type: string
+          nullable: true
+          description: Present when type is poll or when a system message references a poll.
+        reminderId:
+          type: string
+          nullable: true
+          description: Present when type is reminder or when a system message references a reminder.
+        systemAction:
+          type: string
+          nullable: true
+          description: System activity action, such as poll_vote_activity or reminder_due.
+        systemRefId:
+          type: string
+          nullable: true
+          description: Referenced business entity id for a system activity message.
+        poll:
+          type: object
+          nullable: true
+          description: Hydrated poll card data when loading messages or pinned messages.
+        reminder:
+          type: object
+          nullable: true
+          description: Hydrated reminder card data when loading messages or pinned messages.
         mentions:
           type: array
           nullable: true

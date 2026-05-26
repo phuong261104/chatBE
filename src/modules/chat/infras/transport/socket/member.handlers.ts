@@ -1,5 +1,6 @@
 import { SocketEvent } from "../../../constants/socket-events";
 import { AuthenticatedSocket, SocketHandlerContext } from "./types";
+import { getAttachedMessage } from "../../../usecase/utility-messages";
 
 export const memberSocketHandlers = {
   async handleAddMembers(this: SocketHandlerContext, 
@@ -260,6 +261,7 @@ export const memberSocketHandlers = {
       isMultipleChoice?: boolean;
       allowAddOption?: boolean;
       showResultsBeforeClose?: boolean;
+      hideVoters?: boolean;
       expiresAt?: string;
     },
     callback?: (response: any) => void,
@@ -272,7 +274,7 @@ export const memberSocketHandlers = {
         return;
       }
 
-      const { conversationId, question, options, isMultipleChoice, allowAddOption, showResultsBeforeClose, expiresAt } = payload;
+      const { conversationId, question, options, isMultipleChoice, allowAddOption, showResultsBeforeClose, hideVoters, expiresAt } = payload;
 
       if (!conversationId || !question || !options || options.length < 2) {
         if (callback) callback({ success: false, error: "conversationId, question, and at least 2 options are required" });
@@ -288,12 +290,22 @@ export const memberSocketHandlers = {
         allowAddOption,
         showResultsBeforeClose,
         expiresAt,
+        hideVoters,
       );
+
+      const message = getAttachedMessage(poll, "timelineMessage");
+      if (message) {
+        const memberUserIds = await this.getMemberUserIds(conversationId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, { conversationId, message });
+        }
+      }
 
       this.emitToGroupRoom(conversationId, SocketEvent.POLL_NEW, {
         conversationId,
         poll,
         createdBy: userId,
+        message,
       });
 
       if (callback) {
@@ -328,15 +340,31 @@ export const memberSocketHandlers = {
       }
 
       const poll = await this.useCase.votePoll(pollId, userId, optionIds);
+      const activityMessage = getAttachedMessage(poll, "activityMessage");
+      const activityMessageUpdated = (poll as any).activityMessageUpdated === true;
 
       // Get conversationId from poll for room emission
       const conversationId = (poll as any).conversationId;
       if (conversationId) {
+        if (activityMessage) {
+          if (activityMessageUpdated) {
+            this.emitToGroupRoom(conversationId, SocketEvent.MESSAGE_EDITED, {
+              conversationId,
+              message: activityMessage,
+            });
+          } else {
+            const memberUserIds = await this.getMemberUserIds(conversationId);
+            for (const memberId of memberUserIds) {
+              this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, { conversationId, message: activityMessage });
+            }
+          }
+        }
         this.emitToGroupRoom(conversationId, SocketEvent.POLL_VOTE, {
           conversationId,
           pollId,
           poll,
           votedBy: userId,
+          activityMessage,
         });
       }
 
@@ -348,6 +376,31 @@ export const memberSocketHandlers = {
       if (callback) {
         callback({ success: false, error: (error as Error).message });
       }
+    }
+  },
+
+  async handleAddPollOption(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { pollId: string; text: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const poll = await this.useCase.addPollOption(payload.pollId, userId, payload.text);
+      this.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_OPTION_ADDED, {
+        conversationId: poll.conversationId,
+        pollId: poll.id,
+        poll,
+        addedBy: userId,
+      });
+      if (callback) callback({ success: true, poll });
+    } catch (error) {
+      console.error("Error handling addPollOption:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
     }
   },
 
@@ -363,11 +416,22 @@ export const memberSocketHandlers = {
         return;
       }
       const poll = await this.useCase.closePoll(payload.pollId, userId);
+      const systemMessage = getAttachedMessage(poll, "systemMessage");
+      if (systemMessage) {
+        const memberUserIds = await this.getMemberUserIds(poll.conversationId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId: poll.conversationId,
+            message: systemMessage,
+          });
+        }
+      }
       this.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_CLOSED, {
         conversationId: poll.conversationId,
         pollId: poll.id,
         poll,
         closedBy: userId,
+        systemMessage,
       });
       if (callback) callback({ success: true, poll });
     } catch (error) {
@@ -388,11 +452,22 @@ export const memberSocketHandlers = {
         return;
       }
       const poll = await this.useCase.pinPoll(payload.pollId, userId);
+      const systemMessage = getAttachedMessage(poll, "systemMessage");
+      if (systemMessage) {
+        const memberUserIds = await this.getMemberUserIds(poll.conversationId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId: poll.conversationId,
+            message: systemMessage,
+          });
+        }
+      }
       this.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_PINNED, {
         conversationId: poll.conversationId,
         pollId: poll.id,
         poll,
         pinnedBy: userId,
+        systemMessage,
       });
       if (callback) callback({ success: true, poll });
     } catch (error) {
@@ -413,11 +488,22 @@ export const memberSocketHandlers = {
         return;
       }
       const poll = await this.useCase.unpinPoll(payload.pollId, userId);
+      const systemMessage = getAttachedMessage(poll, "systemMessage");
+      if (systemMessage) {
+        const memberUserIds = await this.getMemberUserIds(poll.conversationId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId: poll.conversationId,
+            message: systemMessage,
+          });
+        }
+      }
       this.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_UNPINNED, {
         conversationId: poll.conversationId,
         pollId: poll.id,
         poll,
         unpinnedBy: userId,
+        systemMessage,
       });
       if (callback) callback({ success: true, poll });
     } catch (error) {
@@ -428,7 +514,14 @@ export const memberSocketHandlers = {
 
   async handleCreateReminder(this: SocketHandlerContext,
     socket: AuthenticatedSocket,
-    payload: { conversationId: string; title: string; description?: string; remindAt: string },
+    payload: {
+      conversationId: string;
+      title: string;
+      description?: string;
+      remindAt: string;
+      repeatRule?: any;
+      notifyBeforeMinutes?: number;
+    },
     callback?: (response: any) => void,
   ) {
     try {
@@ -443,11 +536,24 @@ export const memberSocketHandlers = {
         payload.title,
         payload.description,
         payload.remindAt,
+        payload.repeatRule,
+        payload.notifyBeforeMinutes,
       );
+      const message = getAttachedMessage(reminder, "timelineMessage");
+      if (message) {
+        const memberUserIds = await this.getMemberUserIds(payload.conversationId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId: payload.conversationId,
+            message,
+          });
+        }
+      }
       this.emitToGroupRoom(payload.conversationId, SocketEvent.GROUP_REMINDER_CREATED, {
         conversationId: payload.conversationId,
         reminder,
         createdBy: userId,
+        message,
       });
       if (callback) callback({ success: true, reminder });
     } catch (error) {
@@ -458,7 +564,15 @@ export const memberSocketHandlers = {
 
   async handleUpdateReminder(this: SocketHandlerContext,
     socket: AuthenticatedSocket,
-    payload: { reminderId: string; title?: string; description?: string | null; remindAt?: string; status?: any },
+    payload: {
+      reminderId: string;
+      title?: string;
+      description?: string | null;
+      remindAt?: string;
+      repeatRule?: any;
+      notifyBeforeMinutes?: number;
+      status?: any;
+    },
     callback?: (response: any) => void,
   ) {
     try {
@@ -469,10 +583,21 @@ export const memberSocketHandlers = {
       }
       const { reminderId, ...data } = payload;
       const reminder = await this.useCase.updateGroupReminder(reminderId, userId, data);
+      const systemMessage = getAttachedMessage(reminder, "systemMessage");
+      if (systemMessage) {
+        const memberUserIds = await this.getMemberUserIds(reminder.conversationId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId: reminder.conversationId,
+            message: systemMessage,
+          });
+        }
+      }
       this.emitToGroupRoom(reminder.conversationId, SocketEvent.GROUP_REMINDER_UPDATED, {
         conversationId: reminder.conversationId,
         reminder,
         updatedBy: userId,
+        systemMessage,
       });
       if (callback) callback({ success: true, reminder });
     } catch (error) {
@@ -492,17 +617,102 @@ export const memberSocketHandlers = {
         if (callback) callback({ success: false, error: "Unauthorized" });
         return;
       }
-      await this.useCase.deleteGroupReminder(payload.reminderId, userId);
-      if (payload.conversationId) {
-        this.emitToGroupRoom(payload.conversationId, SocketEvent.GROUP_REMINDER_DELETED, {
-          conversationId: payload.conversationId,
+      const reminder = await this.useCase.deleteGroupReminder(payload.reminderId, userId);
+      const conversationId = payload.conversationId || reminder.conversationId;
+      const systemMessage = getAttachedMessage(reminder, "systemMessage");
+      if (systemMessage) {
+        const memberUserIds = await this.getMemberUserIds(conversationId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId,
+            message: systemMessage,
+          });
+        }
+      }
+      if (conversationId) {
+        this.emitToGroupRoom(conversationId, SocketEvent.GROUP_REMINDER_DELETED, {
+          conversationId,
           reminderId: payload.reminderId,
+          reminder,
           deletedBy: userId,
+          systemMessage,
         });
       }
       if (callback) callback({ success: true });
     } catch (error) {
       console.error("Error handling deleteReminder:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handlePinReminder(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { reminderId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const reminder = await this.useCase.pinGroupReminder(payload.reminderId, userId);
+      const systemMessage = getAttachedMessage(reminder, "systemMessage");
+      if (systemMessage) {
+        const memberUserIds = await this.getMemberUserIds(reminder.conversationId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId: reminder.conversationId,
+            message: systemMessage,
+          });
+        }
+      }
+      this.emitToGroupRoom(reminder.conversationId, SocketEvent.GROUP_REMINDER_PINNED, {
+        conversationId: reminder.conversationId,
+        reminderId: reminder.id,
+        reminder,
+        pinnedBy: userId,
+        systemMessage,
+      });
+      if (callback) callback({ success: true, reminder });
+    } catch (error) {
+      console.error("Error handling pinReminder:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handleUnpinReminder(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { reminderId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const reminder = await this.useCase.unpinGroupReminder(payload.reminderId, userId);
+      const systemMessage = getAttachedMessage(reminder, "systemMessage");
+      if (systemMessage) {
+        const memberUserIds = await this.getMemberUserIds(reminder.conversationId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId: reminder.conversationId,
+            message: systemMessage,
+          });
+        }
+      }
+      this.emitToGroupRoom(reminder.conversationId, SocketEvent.GROUP_REMINDER_UNPINNED, {
+        conversationId: reminder.conversationId,
+        reminderId: reminder.id,
+        reminder,
+        unpinnedBy: userId,
+        systemMessage,
+      });
+      if (callback) callback({ success: true, reminder });
+    } catch (error) {
+      console.error("Error handling unpinReminder:", error);
       if (callback) callback({ success: false, error: (error as Error).message });
     }
   },

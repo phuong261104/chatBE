@@ -33,11 +33,11 @@ Các table đang được khởi tạo bởi `ALL_TABLES`:
 | `user_avatar_history` | User | `userId`, `createdAt` | `id-index` | Lịch sử avatar theo user |
 | `conversations` | Chat | `id` | `pairKey-index` | Metadata private/group conversation |
 | `conversation_members` | Chat | `pk`, `sk` | `userId-index`, `id-index`, `userId-lastActivityAt-index` | Inbox state và role member |
-| `messages` | Chat | `pk`, `sk` | `id-index` | Message append/query theo conversation, có TTL |
+| `messages` | Chat | `pk`, `sk` | `id-index`, `clientMessageKey-index` | Message append/query theo conversation, có TTL |
 | `message_reactions` | Chat | `pk`, `sk` | Không | Reaction theo message/user/emoji |
 | `message_classifications` | Chat/Search | `pk`, `sk` | `GSI1`, `messageId-index` | Media/link classification để tìm kiếm |
-| `polls` | Chat | `id` | `conversation-index` | Poll trong group |
-| `group_reminders` | Chat | `id` | `conversation-index` | Reminder trong group |
+| `polls` | Chat | `id` | `conversation-index`, `status-expiresAt-index` | Poll trong group |
+| `group_reminders` | Chat | `id` | `conversation-index`, `status-nextNotifyAt-index` | Reminder trong group |
 | `group_notes` | Chat | `id` | `conversation-index` | Note trong group |
 | `friendships` | Social | `userA`, `userB` | `userA-createdAt-index`, `userB-index` | Một record cho mỗi cặp bạn bè |
 | `friend_requests` | Social | `id` | `senderId-index`, `receiverId-index`, `senderId-createdAt-index`, `receiverId-createdAt-index` | Lời mời kết bạn |
@@ -181,6 +181,7 @@ Fields chính:
 
 - Identity: `id`, `conversationId`, `senderId`, `clientMessageId`.
 - Content: `type`, `text`, `media`, `links`, `call`, `profileCardUserId`.
+- Utility card metadata: `pollId`, `reminderId`, `systemAction`, `systemRefId`. Message `type=poll` và `type=reminder` là card trong timeline, được hydrate bằng record utility khi load.
 - Lifecycle: `messageStatus`, `deletedBy`, `revokedAt`, `deletedForUserIds`, `editedAt`, `deletedAt`, `expiresAt`, `expireAtEpoch`.
 - Interaction: `quotedMessageId`, `quotedMessagePreview`, `forwardedFrom`, `forwardedFromMessageId`, `mentions`, `pinned`, `pinnedAt`, `readBy`, `reactions`.
 - Audit: `createdAt`.
@@ -246,13 +247,14 @@ Primary key:
 Indexes:
 
 - `conversation-index`: list poll theo group.
+- `status-expiresAt-index`: worker query poll `active` đã quá hạn để đóng tự động.
 
 Fields chính:
 
-- `id`, `conversationId`, `question`, `options`, `createdBy`.
-- Settings: `isMultipleChoice`, `allowAddOption`, `showResultsBeforeClose`.
+- `id`, `conversationId`, `messageId`, `question`, `options`, `createdBy`.
+- Settings: `isMultipleChoice`, `allowAddOption`, `showResultsBeforeClose`, `hideVoters`.
 - Lifecycle: `status`, `expiresAt`, `closedAt`, `closedBy`.
-- Pin/vote: `pinned`, `pinnedAt`, `pinnedBy`, `totalVotes`.
+- Pin/vote: `pinned`, `pinnedAt`, `pinnedBy`, `totalVotes`, `lastVoteActivityAt`, `lastVoteActivityMessageId`, `voteActivityCount`.
 - Audit: `createdAt`, `updatedAt`.
 
 ### `group_reminders`
@@ -266,10 +268,14 @@ Primary key:
 Indexes:
 
 - `conversation-index`.
+- `status-nextNotifyAt-index`: worker query reminder `active` cần phát thông báo.
 
 Fields chính:
 
-- `id`, `conversationId`, `title`, `description`, `remindAt`, `status`, `createdBy`, `createdAt`, `updatedAt`.
+- `id`, `conversationId`, `messageId`, `title`, `description`, `remindAt`, `status`, `createdBy`.
+- Scheduling: `repeatRule`, `notifyBeforeMinutes`, `nextNotifyAt`, `lastNotifiedAt`.
+- Pin: `pinned`, `pinnedAt`, `pinnedBy`.
+- Audit: `createdAt`, `updatedAt`.
 
 ### `group_notes`
 

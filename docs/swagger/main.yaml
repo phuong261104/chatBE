@@ -164,6 +164,8 @@ paths:
     $ref: "./paths/chat-polls.yaml#/paths/~1v1~1groups~1{groupId}~1polls"
   /v1/groups/{groupId}/polls/{pollId}/vote:
     $ref: "./paths/chat-polls.yaml#/paths/~1v1~1groups~1{groupId}~1polls~1{pollId}~1vote"
+  /v1/groups/{groupId}/polls/{pollId}/options:
+    $ref: "./paths/chat-polls.yaml#/paths/~1v1~1groups~1{groupId}~1polls~1{pollId}~1options"
   /v1/groups/{groupId}/polls/{pollId}/lock:
     $ref: "./paths/chat-polls.yaml#/paths/~1v1~1groups~1{groupId}~1polls~1{pollId}~1lock"
   /v1/groups/{groupId}/polls/{pollId}/pin:
@@ -174,6 +176,8 @@ paths:
     $ref: "./paths/chat-groups-utilities.yaml#/paths/~1v1~1groups~1{groupId}~1reminders"
   /v1/groups/{groupId}/reminders/{reminderId}:
     $ref: "./paths/chat-groups-utilities.yaml#/paths/~1v1~1groups~1{groupId}~1reminders~1{reminderId}"
+  /v1/groups/{groupId}/reminders/{reminderId}/pin:
+    $ref: "./paths/chat-groups-utilities.yaml#/paths/~1v1~1groups~1{groupId}~1reminders~1{reminderId}~1pin"
   /v1/groups/{groupId}/notes:
     $ref: "./paths/chat-groups-utilities.yaml#/paths/~1v1~1groups~1{groupId}~1notes"
   /v1/groups/{groupId}/notes/{noteId}:

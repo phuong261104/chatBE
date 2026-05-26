@@ -9,6 +9,7 @@ export {
   UserStatus,
   PollStatus,
   GroupReminderStatus,
+  GroupReminderRepeatRule,
   LastMessageSchema,
   ConversationSchema,
   ConversationMemberSchema,

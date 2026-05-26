@@ -218,6 +218,10 @@ export class MessagingHttpService {
     return this.pollController.votePollAPI(req, res);
   }
 
+  async addPollOptionAPI(req: Request, res: Response) {
+    return this.pollController.addPollOptionAPI(req, res);
+  }
+
   async getPollResultsAPI(req: Request, res: Response) {
     return this.pollController.getPollResultsAPI(req, res);
   }
@@ -248,6 +252,14 @@ export class MessagingHttpService {
 
   async deleteGroupReminderAPI(req: Request, res: Response) {
     return this.groupUtilityController.deleteGroupReminderAPI(req, res);
+  }
+
+  async pinGroupReminderAPI(req: Request, res: Response) {
+    return this.groupUtilityController.pinGroupReminderAPI(req, res);
+  }
+
+  async unpinGroupReminderAPI(req: Request, res: Response) {
+    return this.groupUtilityController.unpinGroupReminderAPI(req, res);
   }
 
   async createGroupNoteAPI(req: Request, res: Response) {

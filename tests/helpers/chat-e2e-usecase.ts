@@ -1,5 +1,6 @@
 import {
   AddMembersToGroupHandler,
+  AddPollOptionHandler,
   AddReactionHandler,
   ApproveMemberHandler,
   ClosePollHandler,
@@ -31,6 +32,7 @@ import {
   MarkAsSeenHandler,
   PinMessageHandler,
   PinConversationHandler,
+  PinGroupReminderHandler,
   PinPollHandler,
   QuoteMessageHandler,
   RejectMemberHandler,
@@ -45,6 +47,7 @@ import {
   TransferOwnerHandler,
   UnpinMessageHandler,
   UnpinConversationHandler,
+  UnpinGroupReminderHandler,
   UnpinPollHandler,
   UpdateGroupInfoHandler,
   UpdateGroupNoteHandler,
@@ -210,6 +213,9 @@ export function buildUseCase(store: ChatE2EStore) {
     messageRepo as any,
     reactionRepo as any,
     userRepo as any,
+    pollRepo as any,
+    reminderRepo as any,
+    conversationRepo as any,
   );
   const markAsSeen = new MarkAsSeenHandler(memberRepo as any, memberRepo as any, messageRepo as any);
   const markAsDelivered = new MarkAsDeliveredHandler(memberRepo as any, memberRepo as any, messageRepo as any);
@@ -267,7 +273,13 @@ export function buildUseCase(store: ChatE2EStore) {
     conversationRepo as any,
     userRepo as any,
   );
-  const getPinnedMessages = new GetPinnedMessagesHandler(messageRepo as any, memberRepo as any);
+  const getPinnedMessages = new GetPinnedMessagesHandler(
+    messageRepo as any,
+    memberRepo as any,
+    pollRepo as any,
+    reminderRepo as any,
+    conversationRepo as any,
+  );
   const getConversationMedia = new GetConversationMediaQueryHandler(
     memberRepo as any,
     classificationRepo as any,
@@ -296,26 +308,97 @@ export function buildUseCase(store: ChatE2EStore) {
     conversationRepo as any,
     classificationRepo as any,
   );
-  const createPoll = new CreatePollHandler(conversationRepo as any, memberRepo as any, pollRepo as any);
+  const createPoll = new CreatePollHandler(
+    conversationRepo as any,
+    memberRepo as any,
+    pollRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+  );
   const getPolls = new GetPollsHandler(pollRepo as any, conversationRepo as any, memberRepo as any);
-  const votePoll = new VotePollHandler(pollRepo as any, pollRepo as any, memberRepo as any);
+  const votePoll = new VotePollHandler(
+    pollRepo as any,
+    pollRepo as any,
+    memberRepo as any,
+    messageRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+  );
+  const addPollOption = new AddPollOptionHandler(pollRepo as any, pollRepo as any, memberRepo as any);
   const getPollResults = new GetPollResultsHandler(pollRepo as any, memberRepo as any, conversationRepo as any);
-  const closePoll = new ClosePollHandler(pollRepo as any, pollRepo as any, memberRepo as any, conversationRepo as any);
-  const pinPoll = new PinPollHandler(pollRepo as any, pollRepo as any, memberRepo as any, conversationRepo as any);
-  const unpinPoll = new UnpinPollHandler(pollRepo as any, pollRepo as any, memberRepo as any, conversationRepo as any);
-  const createGroupReminder = new CreateGroupReminderHandler(conversationRepo as any, memberRepo as any, reminderRepo as any);
+  const closePoll = new ClosePollHandler(
+    pollRepo as any,
+    pollRepo as any,
+    memberRepo as any,
+    conversationRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+  );
+  const pinPoll = new PinPollHandler(
+    pollRepo as any,
+    pollRepo as any,
+    memberRepo as any,
+    conversationRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+  );
+  const unpinPoll = new UnpinPollHandler(
+    pollRepo as any,
+    pollRepo as any,
+    memberRepo as any,
+    conversationRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+  );
+  const createGroupReminder = new CreateGroupReminderHandler(
+    conversationRepo as any,
+    memberRepo as any,
+    reminderRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+  );
   const listGroupReminders = new ListGroupRemindersHandler(conversationRepo as any, memberRepo as any, reminderRepo as any);
   const updateGroupReminder = new UpdateGroupReminderHandler(
     conversationRepo as any,
     memberRepo as any,
     reminderRepo as any,
     reminderRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
   );
   const deleteGroupReminder = new DeleteGroupReminderHandler(
     conversationRepo as any,
     memberRepo as any,
     reminderRepo as any,
     reminderRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+  );
+  const pinGroupReminder = new PinGroupReminderHandler(
+    conversationRepo as any,
+    memberRepo as any,
+    reminderRepo as any,
+    reminderRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
+  );
+  const unpinGroupReminder = new UnpinGroupReminderHandler(
+    conversationRepo as any,
+    memberRepo as any,
+    reminderRepo as any,
+    reminderRepo as any,
+    messageRepo as any,
+    conversationRepo as any,
+    memberRepo as any,
   );
   const createGroupNote = new CreateGroupNoteHandler(conversationRepo as any, memberRepo as any, noteRepo as any);
   const listGroupNotes = new ListGroupNotesHandler(conversationRepo as any, memberRepo as any, noteRepo as any);
@@ -451,6 +534,7 @@ export function buildUseCase(store: ChatE2EStore) {
         allowAddOption?: boolean,
         showResultsBeforeClose?: boolean,
         expiresAt?: string,
+        hideVoters?: boolean,
       ) =>
         createPoll.execute({
           conversationId,
@@ -461,10 +545,13 @@ export function buildUseCase(store: ChatE2EStore) {
           allowAddOption,
           showResultsBeforeClose,
           expiresAt,
+          hideVoters,
         }),
       getPolls: (conversationId: string, userId: string) => getPolls.query({ conversationId, userId }),
       votePoll: (pollId: string, userId: string, optionIds: string[]) =>
         votePoll.execute({ pollId, userId, optionIds }),
+      addPollOption: (pollId: string, userId: string, text: string) =>
+        addPollOption.execute({ pollId, userId, text }),
       getPollResults: (pollId: string, userId: string) => getPollResults.query({ pollId, userId }),
       closePoll: (pollId: string, userId: string) => closePoll.execute({ pollId, userId }),
       pinPoll: (pollId: string, userId: string) => pinPoll.execute({ pollId, userId }),
@@ -475,16 +562,29 @@ export function buildUseCase(store: ChatE2EStore) {
         title: string,
         description: string | undefined,
         remindAt: string,
-      ) => createGroupReminder.execute({ conversationId, userId, title, description, remindAt }),
+        repeatRule?: any,
+        notifyBeforeMinutes?: number,
+      ) => createGroupReminder.execute({ conversationId, userId, title, description, remindAt, repeatRule, notifyBeforeMinutes }),
       listGroupReminders: (conversationId: string, userId: string) =>
         listGroupReminders.query({ conversationId, userId }),
       updateGroupReminder: (
         reminderId: string,
         userId: string,
-        data: { title?: string; description?: string | null; remindAt?: string; status?: any },
+        data: {
+          title?: string;
+          description?: string | null;
+          remindAt?: string;
+          repeatRule?: any;
+          notifyBeforeMinutes?: number;
+          status?: any;
+        },
       ) => updateGroupReminder.execute({ reminderId, userId, ...data }),
       deleteGroupReminder: (reminderId: string, userId: string) =>
         deleteGroupReminder.execute({ reminderId, userId }),
+      pinGroupReminder: (reminderId: string, userId: string) =>
+        pinGroupReminder.execute({ reminderId, userId }),
+      unpinGroupReminder: (reminderId: string, userId: string) =>
+        unpinGroupReminder.execute({ reminderId, userId }),
       createGroupNote: (conversationId: string, userId: string, title: string, content: string) =>
         createGroupNote.execute({ conversationId, userId, title, content }),
       listGroupNotes: (conversationId: string, userId: string) => listGroupNotes.query({ conversationId, userId }),

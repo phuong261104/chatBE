@@ -67,8 +67,16 @@ export function sanitizePollForViewer(
   viewer: ConversationMember,
   conversation?: Conversation | null,
 ): Poll {
+  const canSeeVoters = !poll.hideVoters || poll.createdBy === viewer.userId || isGroupManager(viewer, conversation);
   if (poll.showResultsBeforeClose || isPollClosed(poll) || poll.createdBy === viewer.userId || isGroupManager(viewer, conversation)) {
-    return poll;
+    if (canSeeVoters) return poll;
+    return {
+      ...poll,
+      options: poll.options.map((option) => ({
+        ...option,
+        votedUserIds: option.votedUserIds.includes(viewer.userId) ? [viewer.userId] : [],
+      })),
+    };
   }
 
   return {

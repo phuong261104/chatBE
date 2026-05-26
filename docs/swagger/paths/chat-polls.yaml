@@ -22,6 +22,7 @@ paths:
                   polls:
                     - _id: "poll_001"
                       conversationId: "conv_group_001"
+                      messageId: "0192a3bc-def0-7abc-8901-23456789abce"
                       question: "Chọn ngày họp?"
                       options:
                         - _id: "opt_001"
@@ -32,6 +33,8 @@ paths:
                           voteCount: 3
                       isMultipleChoice: false
                       allowAddOption: true
+                      showResultsBeforeClose: true
+                      hideVoters: false
                       createdBy: "user_123"
                       createdAt: "2024-01-15T10:00:00Z"
                       expiresAt: "2024-01-20T10:00:00Z"
@@ -82,6 +85,16 @@ paths:
                   default: true
                   description: Allow members to add new options
                   example: true
+                showResultsBeforeClose:
+                  type: boolean
+                  default: true
+                  description: Show poll results before the poll is closed
+                  example: true
+                hideVoters:
+                  type: boolean
+                  default: false
+                  description: Hide voter identities from normal members
+                  example: false
                 expiresAt:
                   type: string
                   format: date-time
@@ -96,8 +109,10 @@ paths:
                 data:
                   _id: "poll_001"
                   conversationId: "conv_group_001"
+                  messageId: "0192a3bc-def0-7abc-8901-23456789abce"
                   question: "Chọn ngày họp?"
                   options: [...]
+                  hideVoters: false
                   createdAt: "2024-01-15T10:00:00Z"
         "401":
           description: Unauthorized
@@ -155,6 +170,64 @@ paths:
         "422":
           description: Invalid option IDs
 
+  /v1/groups/{groupId}/polls/{pollId}/options:
+    post:
+      summary: Add an option to a poll
+      description: Adds a new option when the poll is active, not expired, and allowAddOption is true.
+      tags: [Chat - Polls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+            example: "conv_group_001"
+          required: true
+        - in: path
+          name: pollId
+          schema:
+            type: string
+            example: "poll_001"
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  example: "Thứ 5"
+      responses:
+        "200":
+          description: Option added
+          content:
+            application/json:
+              example:
+                data:
+                  _id: "poll_001"
+                  options:
+                    - _id: "opt_001"
+                      text: "Thứ 2"
+                      voteCount: 5
+                    - _id: "opt_003"
+                      text: "Thứ 5"
+                      voteCount: 0
+        "400":
+          description: Poll is closed, expired, or does not allow new options
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a group member
+        "404":
+          description: Poll not found
+
   /v1/groups/{groupId}/polls/{pollId}/lock:
     post:
       summary: Close or lock a poll
@@ -193,6 +266,7 @@ paths:
   /v1/groups/{groupId}/polls/{pollId}/pin:
     post:
       summary: Pin a poll
+      description: Pins the poll and its linked poll message card so pinned-message APIs can return the card.
       tags: [Chat - Polls]
       security:
         - BearerAuth: []
@@ -224,6 +298,7 @@ paths:
           description: Poll not found
     delete:
       summary: Unpin a poll
+      description: Unpins the poll and its linked poll message card.
       tags: [Chat - Polls]
       security:
         - BearerAuth: []

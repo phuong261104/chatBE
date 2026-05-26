@@ -9,6 +9,7 @@ import {
   updateGroupReminderDTOSchema,
 } from "../../../model/dto/group-utility-dto";
 import { MessagingSocketService } from "../socket-service";
+import { getAttachedMessage } from "../../../usecase/utility-messages";
 
 export class GroupUtilityController {
   private socketService?: MessagingSocketService;
@@ -32,11 +33,16 @@ export class GroupUtilityController {
         data.title,
         data.description,
         data.remindAt,
+        data.repeatRule,
+        data.notifyBeforeMinutes,
       );
+      const message = getAttachedMessage(reminder, "timelineMessage");
+      if (message) await this.emitMessageToMembers(groupId, message);
       this.socketService?.emitToGroupRoom(groupId, SocketEvent.GROUP_REMINDER_CREATED, {
         conversationId: groupId,
         reminder,
         createdBy: currentUserId,
+        message,
       });
       res.status(201).json({ data: reminder });
     } catch (error) {
@@ -68,12 +74,17 @@ export class GroupUtilityController {
         title: data.title,
         description: data.description,
         remindAt: data.remindAt,
+        repeatRule: data.repeatRule,
+        notifyBeforeMinutes: data.notifyBeforeMinutes,
         status: data.status,
       });
+      const systemMessage = getAttachedMessage(reminder, "systemMessage");
+      if (systemMessage) await this.emitMessageToMembers(reminder.conversationId, systemMessage);
       this.socketService?.emitToGroupRoom(reminder.conversationId, SocketEvent.GROUP_REMINDER_UPDATED, {
         conversationId: reminder.conversationId,
         reminder,
         updatedBy: currentUserId,
+        systemMessage,
       });
       res.status(200).json({ data: reminder });
     } catch (error) {
@@ -88,13 +99,61 @@ export class GroupUtilityController {
       const currentUserId = this.getCurrentUserId(res);
       if (!currentUserId) return this.unauthorized(res);
 
-      await this.useCase.deleteGroupReminder(reminderId, currentUserId);
+      const reminder = await this.useCase.deleteGroupReminder(reminderId, currentUserId);
+      const systemMessage = getAttachedMessage(reminder, "systemMessage");
+      if (systemMessage) await this.emitMessageToMembers(reminder.conversationId, systemMessage);
       this.socketService?.emitToGroupRoom(groupId, SocketEvent.GROUP_REMINDER_DELETED, {
         conversationId: groupId,
         reminderId,
+        reminder,
         deletedBy: currentUserId,
+        systemMessage,
       });
       res.status(200).json({ success: true });
+    } catch (error) {
+      this.sendError(res, error);
+    }
+  }
+
+  async pinGroupReminderAPI(req: Request, res: Response) {
+    try {
+      const reminderId = this.getParam(req, "reminderId");
+      const currentUserId = this.getCurrentUserId(res);
+      if (!currentUserId) return this.unauthorized(res);
+
+      const reminder = await this.useCase.pinGroupReminder(reminderId, currentUserId);
+      const systemMessage = getAttachedMessage(reminder, "systemMessage");
+      if (systemMessage) await this.emitMessageToMembers(reminder.conversationId, systemMessage);
+      this.socketService?.emitToGroupRoom(reminder.conversationId, SocketEvent.GROUP_REMINDER_PINNED, {
+        conversationId: reminder.conversationId,
+        reminderId,
+        reminder,
+        pinnedBy: currentUserId,
+        systemMessage,
+      });
+      res.status(200).json({ data: reminder });
+    } catch (error) {
+      this.sendError(res, error);
+    }
+  }
+
+  async unpinGroupReminderAPI(req: Request, res: Response) {
+    try {
+      const reminderId = this.getParam(req, "reminderId");
+      const currentUserId = this.getCurrentUserId(res);
+      if (!currentUserId) return this.unauthorized(res);
+
+      const reminder = await this.useCase.unpinGroupReminder(reminderId, currentUserId);
+      const systemMessage = getAttachedMessage(reminder, "systemMessage");
+      if (systemMessage) await this.emitMessageToMembers(reminder.conversationId, systemMessage);
+      this.socketService?.emitToGroupRoom(reminder.conversationId, SocketEvent.GROUP_REMINDER_UNPINNED, {
+        conversationId: reminder.conversationId,
+        reminderId,
+        reminder,
+        unpinnedBy: currentUserId,
+        systemMessage,
+      });
+      res.status(200).json({ data: reminder });
     } catch (error) {
       this.sendError(res, error);
     }
@@ -184,6 +243,17 @@ export class GroupUtilityController {
 
   private unauthorized(res: Response) {
     res.status(401).json({ error: "Unauthorized" });
+  }
+
+  private async emitMessageToMembers(conversationId: string, message: unknown) {
+    if (!this.socketService || !message) return;
+    const memberUserIds = await this.useCase.getConversationMembers(conversationId);
+    for (const userId of memberUserIds) {
+      this.socketService.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
+        conversationId,
+        message,
+      });
+    }
   }
 
   private sendError(res: Response, error: unknown) {

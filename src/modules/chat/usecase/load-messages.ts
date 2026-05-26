@@ -1,13 +1,17 @@
 import { IQueryHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import {
+  IConversationQueryRepository,
+  IGroupReminderQueryRepository,
   IConversationMemberQueryRepository,
   IMessageQueryRepository,
   IMessageReactionQueryRepository,
+  IPollQueryRepository,
   IUserQueryRepository,
 } from "../interface";
 import { ConversationMemberStatus, Message } from "../model/model";
 import { loadMessagesDTOSchema, LoadMessagesQuery, LoadMessagesResult } from "../model/dto";
+import { hydrateUtilityMessages } from "./hydrate-utility-messages";
 
 export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery, LoadMessagesResult> {
   constructor(
@@ -15,6 +19,9 @@ export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery
     private readonly messageQueryRepo: IMessageQueryRepository,
     private readonly messageReactionQueryRepo: IMessageReactionQueryRepository,
     private readonly userQueryRepo: IUserQueryRepository,
+    private readonly pollQueryRepo: IPollQueryRepository,
+    private readonly reminderQueryRepo: IGroupReminderQueryRepository,
+    private readonly conversationQueryRepo: IConversationQueryRepository,
   ) {}
 
   async query(query: LoadMessagesQuery): Promise<LoadMessagesResult> {
@@ -106,6 +113,14 @@ export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery
     );
 
     const nextCursor = hasMore && returnMessages.length > 0 ? returnMessages[returnMessages.length - 1].id : "";
+
+    const conversation = await this.conversationQueryRepo.get(validatedInput.conversationId);
+    await hydrateUtilityMessages(returnMessages, {
+      pollQueryRepo: this.pollQueryRepo,
+      reminderQueryRepo: this.reminderQueryRepo,
+      viewer: member,
+      conversation,
+    });
 
     const allMembers = await this.conversationMemberQueryRepo.list(
       { conversationId: validatedInput.conversationId },

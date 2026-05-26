@@ -54,6 +54,7 @@ import { QuoteMessageHandler } from "./quote-message";
 import { SetAdminHandler } from "./set-admin";
 import { TransferOwnerHandler } from "./transfer-owner";
 import { CreatePollHandler } from "./create-poll";
+import { AddPollOptionHandler } from "./add-poll-option";
 import { GetPollsHandler } from "./get-polls";
 import { VotePollHandler } from "./vote-poll";
 import { GetPollResultsHandler } from "./get-poll-results";
@@ -78,6 +79,8 @@ import {
   ListGroupRemindersHandler,
   UpdateGroupReminderHandler,
   DeleteGroupReminderHandler,
+  PinGroupReminderHandler,
+  UnpinGroupReminderHandler,
   CreateGroupNoteHandler,
   ListGroupNotesHandler,
   UpdateGroupNoteHandler,
@@ -127,6 +130,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly createPollHandler: CreatePollHandler,
     private readonly getPollsHandler: GetPollsHandler,
     private readonly votePollHandler: VotePollHandler,
+    private readonly addPollOptionHandler: AddPollOptionHandler,
     private readonly getPollResultsHandler: GetPollResultsHandler,
     private readonly closePollHandler: ClosePollHandler,
     private readonly pinPollHandler: PinPollHandler,
@@ -151,6 +155,8 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly listGroupRemindersHandler: ListGroupRemindersHandler,
     private readonly updateGroupReminderHandler: UpdateGroupReminderHandler,
     private readonly deleteGroupReminderHandler: DeleteGroupReminderHandler,
+    private readonly pinGroupReminderHandler: PinGroupReminderHandler,
+    private readonly unpinGroupReminderHandler: UnpinGroupReminderHandler,
     private readonly createGroupNoteHandler: CreateGroupNoteHandler,
     private readonly listGroupNotesHandler: ListGroupNotesHandler,
     private readonly updateGroupNoteHandler: UpdateGroupNoteHandler,
@@ -474,6 +480,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     allowAddOption?: boolean,
     showResultsBeforeClose?: boolean,
     expiresAt?: string,
+    hideVoters?: boolean,
   ): Promise<Poll> {
     return this.createPollHandler.execute({
       conversationId,
@@ -484,6 +491,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       allowAddOption,
       showResultsBeforeClose,
       expiresAt,
+      hideVoters,
     });
   }
 
@@ -493,6 +501,10 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
 
   async votePoll(pollId: string, userId: string, optionIds: string[]): Promise<Poll> {
     return this.votePollHandler.execute({ pollId, userId, optionIds });
+  }
+
+  async addPollOption(pollId: string, userId: string, text: string): Promise<Poll> {
+    return this.addPollOptionHandler.execute({ pollId, userId, text });
   }
 
   async getPollResults(pollId: string, userId: string): Promise<Poll> {
@@ -686,8 +698,18 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     title: string,
     description: string | undefined,
     remindAt: string,
+    repeatRule?: GroupReminder["repeatRule"],
+    notifyBeforeMinutes?: number,
   ): Promise<GroupReminder> {
-    return this.createGroupReminderHandler.execute({ conversationId, userId, title, description, remindAt });
+    return this.createGroupReminderHandler.execute({
+      conversationId,
+      userId,
+      title,
+      description,
+      remindAt,
+      repeatRule,
+      notifyBeforeMinutes,
+    });
   }
 
   async listGroupReminders(conversationId: string, userId: string): Promise<GroupReminder[]> {
@@ -697,13 +719,28 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
   async updateGroupReminder(
     reminderId: string,
     userId: string,
-    data: { title?: string; description?: string | null; remindAt?: string; status?: GroupReminder["status"] },
+    data: {
+      title?: string;
+      description?: string | null;
+      remindAt?: string;
+      repeatRule?: GroupReminder["repeatRule"];
+      notifyBeforeMinutes?: number;
+      status?: GroupReminder["status"];
+    },
   ): Promise<GroupReminder> {
     return this.updateGroupReminderHandler.execute({ reminderId, userId, ...data });
   }
 
-  async deleteGroupReminder(reminderId: string, userId: string): Promise<void> {
+  async deleteGroupReminder(reminderId: string, userId: string): Promise<GroupReminder> {
     return this.deleteGroupReminderHandler.execute({ reminderId, userId });
+  }
+
+  async pinGroupReminder(reminderId: string, userId: string): Promise<GroupReminder> {
+    return this.pinGroupReminderHandler.execute({ reminderId, userId });
+  }
+
+  async unpinGroupReminder(reminderId: string, userId: string): Promise<GroupReminder> {
+    return this.unpinGroupReminderHandler.execute({ reminderId, userId });
   }
 
   async createGroupNote(

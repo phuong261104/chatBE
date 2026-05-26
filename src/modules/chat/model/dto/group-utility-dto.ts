@@ -1,12 +1,14 @@
 import { z } from "zod";
 import { uuidV7 } from "@share/utils/zod-validators";
-import { GroupReminderStatus } from "../model";
+import { GroupReminderRepeatRule, GroupReminderStatus } from "../model";
 
 export const createGroupReminderDTOSchema = z.object({
   conversationId: uuidV7("Invalid group ID"),
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
   remindAt: z.string().datetime(),
+  repeatRule: z.nativeEnum(GroupReminderRepeatRule).default(GroupReminderRepeatRule.NONE),
+  notifyBeforeMinutes: z.number().int().min(0).max(525600).default(0),
 });
 
 export type CreateGroupReminderDTO = z.infer<typeof createGroupReminderDTOSchema>;
@@ -17,6 +19,8 @@ export const updateGroupReminderDTOSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).nullable().optional(),
   remindAt: z.string().datetime().optional(),
+  repeatRule: z.nativeEnum(GroupReminderRepeatRule).optional(),
+  notifyBeforeMinutes: z.number().int().min(0).max(525600).optional(),
   status: z.nativeEnum(GroupReminderStatus).optional(),
 });
 
@@ -45,6 +49,8 @@ export interface CreateGroupReminderCommand {
   title: string;
   description?: string;
   remindAt: string;
+  repeatRule?: GroupReminderRepeatRule;
+  notifyBeforeMinutes?: number;
 }
 
 export interface UpdateGroupReminderCommand {
@@ -53,6 +59,8 @@ export interface UpdateGroupReminderCommand {
   title?: string;
   description?: string | null;
   remindAt?: string;
+  repeatRule?: GroupReminderRepeatRule;
+  notifyBeforeMinutes?: number;
   status?: GroupReminderStatus;
 }
 

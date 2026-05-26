@@ -1,7 +1,7 @@
 import { BatchWriteCommand, DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { getDocClient, getTableName } from "@share/repository/dynamodb/client";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
-import { GroupNote, GroupReminder, GroupReminderStatus } from "../../../model";
+import { GroupNote, GroupReminder, GroupReminderRepeatRule, GroupReminderStatus } from "../../../model";
 
 function definedEntries(data: Record<string, any>) {
   return Object.entries(data).filter(([, value]) => value !== undefined);
@@ -58,6 +58,40 @@ abstract class ConversationIndexedRepository<T extends { id: string; conversatio
     return true;
   }
 
+  protected async conditionalUpdate(
+    id: string,
+    data: Partial<T>,
+    conditionExpression: string,
+    conditionNames: Record<string, string>,
+    conditionValues: Record<string, any>,
+  ): Promise<boolean> {
+    const entries = definedEntries({ ...this.toUpdate(data), updatedAt: new Date().toISOString() });
+    try {
+      await this.docClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { id },
+          UpdateExpression: `SET ${entries.map(([key]) => `#${key} = :${key}`).join(", ")}`,
+          ConditionExpression: conditionExpression,
+          ExpressionAttributeNames: {
+            ...Object.fromEntries(entries.map(([key]) => [`#${key}`, key])),
+            ...conditionNames,
+          },
+          ExpressionAttributeValues: {
+            ...Object.fromEntries(entries.map(([key, value]) => [`:${key}`, value])),
+            ...conditionValues,
+          },
+        }),
+      );
+      return true;
+    } catch (error) {
+      if ((error as { name?: string }).name === "ConditionalCheckFailedException") {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   async delete(id: string): Promise<boolean> {
     await this.docClient.send(new DeleteCommand({ TableName: this.tableName, Key: { id } }));
     return true;
@@ -88,7 +122,13 @@ class GroupReminderBaseRepository extends ConversationIndexedRepository<GroupRem
     return {
       ...doc,
       remindAt: doc.remindAt ? new Date(doc.remindAt) : new Date(),
+      repeatRule: doc.repeatRule || GroupReminderRepeatRule.NONE,
+      notifyBeforeMinutes: doc.notifyBeforeMinutes || 0,
+      nextNotifyAt: doc.nextNotifyAt ? new Date(doc.nextNotifyAt) : undefined,
+      lastNotifiedAt: doc.lastNotifiedAt ? new Date(doc.lastNotifiedAt) : undefined,
       status: doc.status || GroupReminderStatus.ACTIVE,
+      pinned: doc.pinned || false,
+      pinnedAt: doc.pinnedAt ? new Date(doc.pinnedAt) : undefined,
       createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(),
       updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : new Date(),
     } as GroupReminder;
@@ -98,6 +138,12 @@ class GroupReminderBaseRepository extends ConversationIndexedRepository<GroupRem
     return {
       ...reminder,
       remindAt: reminder.remindAt.toISOString(),
+      repeatRule: reminder.repeatRule || GroupReminderRepeatRule.NONE,
+      notifyBeforeMinutes: reminder.notifyBeforeMinutes || 0,
+      nextNotifyAt: reminder.nextNotifyAt ? reminder.nextNotifyAt.toISOString() : reminder.remindAt.toISOString(),
+      lastNotifiedAt: reminder.lastNotifiedAt ? reminder.lastNotifiedAt.toISOString() : undefined,
+      pinned: reminder.pinned || false,
+      pinnedAt: reminder.pinnedAt ? reminder.pinnedAt.toISOString() : undefined,
       createdAt: reminder.createdAt.toISOString(),
       updatedAt: reminder.updatedAt.toISOString(),
     };
@@ -108,8 +154,49 @@ class GroupReminderBaseRepository extends ConversationIndexedRepository<GroupRem
       title: data.title,
       description: data.description ?? undefined,
       remindAt: data.remindAt ? data.remindAt.toISOString() : undefined,
+      repeatRule: data.repeatRule,
+      notifyBeforeMinutes: data.notifyBeforeMinutes,
+      nextNotifyAt: data.nextNotifyAt ? data.nextNotifyAt.toISOString() : undefined,
+      lastNotifiedAt: data.lastNotifiedAt ? data.lastNotifiedAt.toISOString() : undefined,
       status: data.status,
+      pinned: data.pinned,
+      pinnedAt: data.pinnedAt === null ? null : data.pinnedAt ? data.pinnedAt.toISOString() : undefined,
+      pinnedBy: data.pinnedBy === null ? null : data.pinnedBy,
     };
+  }
+
+  async findDueReminders(nowDate: Date, limit = 100): Promise<GroupReminder[]> {
+    const result = await this.docClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: "status-nextNotifyAt-index",
+        KeyConditionExpression: "#status = :status AND nextNotifyAt <= :now",
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: {
+          ":status": GroupReminderStatus.ACTIVE,
+          ":now": nowDate.toISOString(),
+        },
+        Limit: limit,
+      }),
+    );
+    return (result.Items || []).map((item) => this.toEntity(item));
+  }
+
+  async updateDueReminder(
+    id: string,
+    expectedNextNotifyAt: Date,
+    data: Partial<GroupReminder>,
+  ): Promise<boolean> {
+    return this.conditionalUpdate(
+      id,
+      data,
+      "#status = :active AND nextNotifyAt = :expectedNextNotifyAt",
+      { "#status": "status" },
+      {
+        ":active": GroupReminderStatus.ACTIVE,
+        ":expectedNextNotifyAt": expectedNextNotifyAt.toISOString(),
+      },
+    );
   }
 }
 

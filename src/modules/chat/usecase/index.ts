@@ -35,6 +35,7 @@ export { QuoteMessageHandler } from "./quote-message";
 export { SetAdminHandler } from "./set-admin";
 export { TransferOwnerHandler } from "./transfer-owner";
 export { CreatePollHandler } from "./create-poll";
+export { AddPollOptionHandler } from "./add-poll-option";
 export { GetPollsHandler } from "./get-polls";
 export { VotePollHandler } from "./vote-poll";
 export { GetPollResultsHandler } from "./get-poll-results";
@@ -63,6 +64,8 @@ export {
   ListGroupRemindersHandler,
   UpdateGroupReminderHandler,
   DeleteGroupReminderHandler,
+  PinGroupReminderHandler,
+  UnpinGroupReminderHandler,
   CreateGroupNoteHandler,
   ListGroupNotesHandler,
   UpdateGroupNoteHandler,

@@ -2,6 +2,7 @@ import { SocketEvent } from "@modules/chat/constants/socket-events";
 import {
   ConversationMemberRole,
   ConversationMemberStatus,
+  MessageType,
   GroupReminderStatus,
   PollStatus,
 } from "@modules/chat/model";
@@ -179,6 +180,7 @@ describe("group utilities, owner role, and permissions E2E", () => {
     const ownerSocket = await joinGroupSocket(harness, owner.id, conversation.id);
     const memberSocket = await joinGroupSocket(harness, member.id, conversation.id);
 
+    const pollCardCreated = waitForSocketEvent<any>(memberSocket, SocketEvent.RECEIVE_MESSAGE);
     const pollCreated = waitForSocketEvent<any>(memberSocket, SocketEvent.POLL_NEW);
     const createPollAck = await emitWithAck<any>(ownerSocket, SocketEvent.CREATE_POLL, {
       conversationId: conversation.id,
@@ -187,22 +189,41 @@ describe("group utilities, owner role, and permissions E2E", () => {
       showResultsBeforeClose: false,
     });
     expect(createPollAck.success).toBe(true);
+    const pollCard = await pollCardCreated;
     await expect(pollCreated).resolves.toEqual(expect.objectContaining({ conversationId: conversation.id }));
 
     const poll = createPollAck.poll;
+    expect(poll.messageId).toBe(pollCard.message.id);
+    expect(pollCard.message).toEqual(
+      expect.objectContaining({ type: MessageType.POLL, pollId: poll.id, conversationId: conversation.id }),
+    );
+    expect(harness.store.conversations.get(conversation.id)?.lastMessage?.messageId).toBe(poll.messageId);
+
+    const firstVoteActivity = waitForSocketEvent<any>(memberSocket, SocketEvent.RECEIVE_MESSAGE);
     const ownerVote = await harness.api.post(
       `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
       { optionIds: [poll.options[1].id] },
       { headers: authHeader(owner.id) },
     );
     expect(ownerVote.status).toBe(200);
+    await expect(firstVoteActivity).resolves.toEqual(
+      expect.objectContaining({
+        message: expect.objectContaining({ type: MessageType.SYSTEM, systemAction: "poll_vote_activity", pollId: poll.id }),
+      }),
+    );
 
+    const voteActivity = waitForSocketEvent<any>(memberSocket, SocketEvent.MESSAGE_EDITED);
     const memberVote = await harness.api.post(
       `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
       { optionIds: [poll.options[0].id] },
       { headers: authHeader(member.id) },
     );
     expect(memberVote.status).toBe(200);
+    await expect(voteActivity).resolves.toEqual(
+      expect.objectContaining({
+        message: expect.objectContaining({ type: MessageType.SYSTEM, systemAction: "poll_vote_activity", pollId: poll.id }),
+      }),
+    );
 
     const memberResults = await harness.api.get(
       `/v1/groups/${conversation.id}/polls/${poll.id}/results`,
@@ -248,16 +269,32 @@ describe("group utilities, owner role, and permissions E2E", () => {
     );
     expect(multiVote.status).toBe(200);
 
+    const addOptionPoll = await harness.api.post(
+      `/v1/groups/${conversation.id}/polls`,
+      { question: "Add option", options: ["X", "Y"], allowAddOption: true },
+      { headers: authHeader(owner.id) },
+    );
+    expect(addOptionPoll.status).toBe(201);
+    const addedOption = await harness.api.post(
+      `/v1/groups/${conversation.id}/polls/${addOptionPoll.data.data.id}/options`,
+      { text: "Z" },
+      { headers: authHeader(member.id) },
+    );
+    expect(addedOption.status).toBe(200);
+    expect(addedOption.data.data.options.map((option: any) => option.text)).toContain("Z");
+
     const pinned = waitForSocketEvent<any>(memberSocket, SocketEvent.POLL_PINNED);
     const pinAck = await emitWithAck<any>(ownerSocket, SocketEvent.PIN_POLL, { pollId: poll.id });
     expect(pinAck.success).toBe(true);
     expect(pinAck.poll.pinned).toBe(true);
+    expect(harness.store.getMessage(poll.messageId)).toEqual(expect.objectContaining({ pinned: true }));
     await expect(pinned).resolves.toEqual(expect.objectContaining({ pollId: poll.id, pinnedBy: owner.id }));
 
     const unpinned = waitForSocketEvent<any>(memberSocket, SocketEvent.POLL_UNPINNED);
     const unpinAck = await emitWithAck<any>(ownerSocket, SocketEvent.UNPIN_POLL, { pollId: poll.id });
     expect(unpinAck.success).toBe(true);
     expect(unpinAck.poll.pinned).toBe(false);
+    expect(harness.store.getMessage(poll.messageId)).toEqual(expect.objectContaining({ pinned: false }));
     await expect(unpinned).resolves.toEqual(expect.objectContaining({ pollId: poll.id, unpinnedBy: owner.id }));
 
     const closed = waitForSocketEvent<any>(memberSocket, SocketEvent.POLL_CLOSED);
@@ -324,12 +361,24 @@ describe("group utilities, owner role, and permissions E2E", () => {
     const memberSocket = await joinGroupSocket(harness, member.id, conversation.id);
     const remindAt = new Date(Date.now() + 60_000).toISOString();
 
+    const reminderCardCreated = waitForSocketEvent<any>(memberSocket, SocketEvent.RECEIVE_MESSAGE);
     const memberReminder = await harness.api.post(
       `/v1/groups/${conversation.id}/reminders`,
-      { title: "Member reminder", description: "Visible", remindAt },
+      { title: "Member reminder", description: "Visible", remindAt, repeatRule: "weekly", notifyBeforeMinutes: 10 },
       { headers: authHeader(member.id) },
     );
     expect(memberReminder.status).toBe(201);
+    const reminderCard = await reminderCardCreated;
+    expect(memberReminder.data.data.messageId).toBe(reminderCard.message.id);
+    expect(reminderCard.message).toEqual(
+      expect.objectContaining({
+        type: MessageType.REMINDER,
+        reminderId: memberReminder.data.data.id,
+        conversationId: conversation.id,
+      }),
+    );
+    expect(memberReminder.data.data.repeatRule).toBe("weekly");
+    expect(memberReminder.data.data.notifyBeforeMinutes).toBe(10);
 
     const reminders = await harness.api.get(
       `/v1/groups/${conversation.id}/reminders`,
@@ -338,19 +387,30 @@ describe("group utilities, owner role, and permissions E2E", () => {
     expect(reminders.status).toBe(200);
     expect(reminders.data.data.map((item: any) => item.id)).toContain(memberReminder.data.data.id);
 
+    const pinnedReminder = await harness.api.post(
+      `/v1/groups/${conversation.id}/reminders/${memberReminder.data.data.id}/pin`,
+      {},
+      { headers: authHeader(owner.id) },
+    );
+    expect(pinnedReminder.status).toBe(200);
+    expect(pinnedReminder.data.data.pinned).toBe(true);
+    expect(harness.store.getMessage(memberReminder.data.data.messageId)).toEqual(expect.objectContaining({ pinned: true }));
+
     const updatedReminder = await harness.api.put(
       `/v1/groups/${conversation.id}/reminders/${memberReminder.data.data.id}`,
-      { title: "Owner updated", status: GroupReminderStatus.DONE },
+      { title: "Owner updated", status: GroupReminderStatus.DONE, repeatRule: "none", notifyBeforeMinutes: 0 },
       { headers: authHeader(owner.id) },
     );
     expect(updatedReminder.status).toBe(200);
     expect(updatedReminder.data.data.title).toBe("Owner updated");
+    expect(updatedReminder.data.data.repeatRule).toBe("none");
 
     const deletedReminder = await harness.api.delete(
       `/v1/groups/${conversation.id}/reminders/${memberReminder.data.data.id}`,
       { headers: authHeader(owner.id) },
     );
     expect(deletedReminder.status).toBe(200);
+    expect(harness.store.reminders.get(memberReminder.data.data.id)?.status).toBe(GroupReminderStatus.CANCELLED);
 
     const memberNote = await harness.api.post(
       `/v1/groups/${conversation.id}/notes`,

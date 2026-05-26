@@ -8,6 +8,7 @@ export const createPollDTOSchema = z.object({
   isMultipleChoice: z.boolean().default(false),
   allowAddOption: z.boolean().default(false),
   showResultsBeforeClose: z.boolean().default(true),
+  hideVoters: z.boolean().default(false),
   expiresAt: z.string().datetime().optional(),
 });
 
@@ -28,6 +29,7 @@ export interface CreatePollCommand {
   isMultipleChoice?: boolean;
   allowAddOption?: boolean;
   showResultsBeforeClose?: boolean;
+  hideVoters?: boolean;
   expiresAt?: string;
 }
 
@@ -47,4 +49,18 @@ export type PollActionDTO = z.infer<typeof pollActionDTOSchema>;
 export interface PollActionCommand {
   pollId: string;
   userId: string;
+}
+
+export const addPollOptionDTOSchema = z.object({
+  pollId: uuidV7("Invalid poll ID"),
+  userId: uuidV7("Invalid user ID"),
+  text: z.string().min(1, "Option text is required").max(200),
+});
+
+export type AddPollOptionDTO = z.infer<typeof addPollOptionDTOSchema>;
+
+export interface AddPollOptionCommand {
+  pollId: string;
+  userId: string;
+  text: string;
 }

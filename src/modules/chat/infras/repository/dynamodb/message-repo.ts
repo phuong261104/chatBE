@@ -287,6 +287,10 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
       links: data.links || [],
       call: data.call ? this.toCallDocument(data.call) : undefined,
       profileCardUserId: (data as any).profileCardUserId,
+      pollId: (data as any).pollId,
+      reminderId: (data as any).reminderId,
+      systemAction: (data as any).systemAction,
+      systemRefId: (data as any).systemRefId,
       messageStatus: data.messageStatus || MessageStatus.ACTIVE,
       deletedBy: data.deletedBy,
       revokedAt: data.revokedAt ? data.revokedAt.toISOString() : null,
@@ -346,6 +350,10 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     if (data.links !== undefined) updateData.links = data.links;
     if (data.call !== undefined) updateData.call = this.toCallDocument(data.call);
     if ((data as any).profileCardUserId !== undefined) updateData.profileCardUserId = (data as any).profileCardUserId;
+    if ((data as any).pollId !== undefined) updateData.pollId = (data as any).pollId;
+    if ((data as any).reminderId !== undefined) updateData.reminderId = (data as any).reminderId;
+    if ((data as any).systemAction !== undefined) updateData.systemAction = (data as any).systemAction;
+    if ((data as any).systemRefId !== undefined) updateData.systemRefId = (data as any).systemRefId;
     if (data.messageStatus !== undefined) updateData.messageStatus = data.messageStatus;
     if (data.deletedBy !== undefined) updateData.deletedBy = data.deletedBy;
     if (data.revokedAt !== undefined && data.revokedAt !== null) updateData.revokedAt = (data.revokedAt as Date).toISOString();
@@ -359,7 +367,7 @@ class DynamoMessageCommandRepository extends BaseCommandRepositoryDynamoDB<
     if ((data as any).expiresAt !== undefined && (data as any).expiresAt !== null) updateData.expiresAt = ((data as any).expiresAt as Date).toISOString();
     if ((data as any).expireAtEpoch !== undefined) updateData.expireAtEpoch = (data as any).expireAtEpoch;
     if (data.pinned !== undefined) updateData.pinned = data.pinned;
-    if (data.pinnedAt !== undefined && data.pinnedAt !== null) updateData.pinnedAt = (data.pinnedAt as Date).toISOString();
+    if (data.pinnedAt !== undefined) updateData.pinnedAt = data.pinnedAt ? (data.pinnedAt as Date).toISOString() : null;
     return updateData;
   }
 

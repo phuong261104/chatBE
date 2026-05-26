@@ -8,6 +8,7 @@ import {
   ConversationType,
   GroupNote,
   GroupReminder,
+  GroupReminderStatus,
   Message,
   MessageReaction,
   MessageStatus,
@@ -520,6 +521,15 @@ export class InMemoryPollRepository {
       .map(clonePoll);
   }
 
+  async findExpiredActivePolls(nowDate: Date, limit = 100): Promise<Poll[]> {
+    return Array.from(this.store.polls.values())
+      .filter((poll) => (poll.status || PollStatus.ACTIVE) === PollStatus.ACTIVE)
+      .filter((poll) => !!poll.expiresAt && poll.expiresAt <= nowDate)
+      .sort((a, b) => (a.expiresAt?.getTime() || 0) - (b.expiresAt?.getTime() || 0))
+      .slice(0, limit)
+      .map(clonePoll);
+  }
+
   async insert(poll: Poll): Promise<boolean> {
     this.store.polls.set(poll.id, clonePoll(poll));
     return true;
@@ -529,7 +539,7 @@ export class InMemoryPollRepository {
     const poll = this.store.polls.get(id);
     if (!poll) return false;
     const normalized = { ...data } as Record<string, any>;
-    for (const key of ["closedAt", "closedBy", "pinnedAt", "pinnedBy"] as const) {
+    for (const key of ["closedAt", "closedBy", "pinnedAt", "pinnedBy", "lastVoteActivityAt", "lastVoteActivityMessageId"] as const) {
       if (normalized[key] === null) normalized[key] = undefined;
     }
     Object.assign(poll, normalized, { updatedAt: new Date() });
@@ -562,6 +572,15 @@ export class InMemoryGroupReminderRepository {
       .map(cloneGroupReminder);
   }
 
+  async findDueReminders(nowDate: Date, limit = 100): Promise<GroupReminder[]> {
+    return Array.from(this.store.reminders.values())
+      .filter((reminder) => reminder.status === GroupReminderStatus.ACTIVE)
+      .filter((reminder) => !!reminder.nextNotifyAt && reminder.nextNotifyAt <= nowDate)
+      .sort((a, b) => (a.nextNotifyAt?.getTime() || 0) - (b.nextNotifyAt?.getTime() || 0))
+      .slice(0, limit)
+      .map(cloneGroupReminder);
+  }
+
   async insert(reminder: GroupReminder): Promise<boolean> {
     this.store.reminders.set(reminder.id, cloneGroupReminder(reminder));
     return true;
@@ -571,7 +590,9 @@ export class InMemoryGroupReminderRepository {
     const reminder = this.store.reminders.get(id);
     if (!reminder) return false;
     const normalized = { ...data } as Record<string, any>;
-    if (normalized.description === null) normalized.description = undefined;
+    for (const key of ["description", "pinnedAt", "pinnedBy"] as const) {
+      if (normalized[key] === null) normalized[key] = undefined;
+    }
     Object.assign(reminder, normalized, { updatedAt: new Date() });
     return true;
   }

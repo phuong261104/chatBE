@@ -115,6 +115,7 @@ export function clonePoll(poll: Poll): Poll {
     expiresAt: cloneDate(poll.expiresAt) as Date | undefined,
     closedAt: cloneDate(poll.closedAt) as Date | undefined,
     pinnedAt: cloneDate(poll.pinnedAt) as Date | undefined,
+    lastVoteActivityAt: cloneDate(poll.lastVoteActivityAt) as Date | undefined,
     createdAt: new Date(poll.createdAt),
     updatedAt: new Date(poll.updatedAt),
   };
@@ -124,6 +125,9 @@ export function cloneGroupReminder(reminder: GroupReminder): GroupReminder {
   return {
     ...reminder,
     remindAt: new Date(reminder.remindAt),
+    nextNotifyAt: cloneDate(reminder.nextNotifyAt) as Date | undefined,
+    lastNotifiedAt: cloneDate(reminder.lastNotifiedAt) as Date | undefined,
+    pinnedAt: cloneDate(reminder.pinnedAt) as Date | undefined,
     createdAt: new Date(reminder.createdAt),
     updatedAt: new Date(reminder.updatedAt),
   };

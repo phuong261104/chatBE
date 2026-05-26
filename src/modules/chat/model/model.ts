@@ -29,6 +29,8 @@ export enum MessageType {
   CALL = "call",
   SYSTEM = "system",
   PROFILE_CARD = "profile_card",
+  POLL = "poll",
+  REMINDER = "reminder",
 }
 
 export enum MessageStatus {
@@ -240,6 +242,12 @@ export const MessageSchema = z.object({
   links: z.array(z.string()).optional(),
   call: CallMessageMetadataSchema.optional(),
   profileCardUserId: z.string().optional(),
+  pollId: z.string().optional(),
+  reminderId: z.string().optional(),
+  systemAction: z.string().optional(),
+  systemRefId: z.string().optional(),
+  poll: z.any().optional(),
+  reminder: z.any().optional(),
   messageStatus: z.nativeEnum(MessageStatus).default(MessageStatus.ACTIVE).optional(),
   deletedBy: z.string().optional(),
   revokedAt: z.date().optional(),
@@ -306,12 +314,14 @@ export type PollOption = z.infer<typeof PollOptionSchema>;
 export const PollSchema = z.object({
   id: z.string(),
   conversationId: z.string(),
+  messageId: z.string().optional(),
   question: z.string(),
   options: z.array(PollOptionSchema),
   createdBy: z.string(),
   isMultipleChoice: z.boolean().default(false),
   allowAddOption: z.boolean().default(false),
   showResultsBeforeClose: z.boolean().default(true),
+  hideVoters: z.boolean().default(false),
   status: z.nativeEnum(PollStatus).default(PollStatus.ACTIVE),
   expiresAt: z.date().optional(),
   closedAt: z.date().optional(),
@@ -320,19 +330,37 @@ export const PollSchema = z.object({
   pinnedAt: z.date().optional(),
   pinnedBy: z.string().optional(),
   totalVotes: z.number().default(0),
+  lastVoteActivityAt: z.date().optional(),
+  lastVoteActivityMessageId: z.string().optional(),
+  voteActivityCount: z.number().default(0).optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
 
 export type Poll = z.infer<typeof PollSchema>;
 
+export enum GroupReminderRepeatRule {
+  NONE = "none",
+  DAILY = "daily",
+  WEEKLY = "weekly",
+  MONTHLY = "monthly",
+}
+
 export const GroupReminderSchema = z.object({
   id: z.string(),
   conversationId: z.string(),
+  messageId: z.string().optional(),
   title: z.string(),
   description: z.string().optional(),
   remindAt: z.date(),
+  repeatRule: z.nativeEnum(GroupReminderRepeatRule).default(GroupReminderRepeatRule.NONE),
+  notifyBeforeMinutes: z.number().int().min(0).default(0),
+  nextNotifyAt: z.date().optional(),
+  lastNotifiedAt: z.date().optional(),
   status: z.nativeEnum(GroupReminderStatus).default(GroupReminderStatus.ACTIVE),
+  pinned: z.boolean().default(false),
+  pinnedAt: z.date().optional(),
+  pinnedBy: z.string().optional(),
   createdBy: z.string(),
   createdAt: z.date(),
   updatedAt: z.date(),
