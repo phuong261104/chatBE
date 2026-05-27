@@ -112,6 +112,7 @@ export class GroupController extends BaseController {
   async leaveGroupAPI(req: Request, res: Response) {
     try {
       const groupId = this.parseIdParam(req, "groupId");
+      const { newOwnerId } = req.body;
       const currentUserId = this.getCurrentUserId(req, res);
 
       if (!currentUserId) {
@@ -119,14 +120,11 @@ export class GroupController extends BaseController {
         return;
       }
 
-      const validatedData = leaveGroupDTOSchema.parse({
-        conversationId: groupId,
-        userId: currentUserId,
-      });
-
       await this.useCase.leaveGroup(
-        validatedData.conversationId,
-        validatedData.userId,
+        groupId,
+        currentUserId,
+        true,
+        newOwnerId,
       );
 
       if (this.socketService) {
@@ -163,7 +161,17 @@ export class GroupController extends BaseController {
   async updateGroupSettingsAPI(req: Request, res: Response) {
     try {
       const groupId = this.parseIdParam(req, "groupId");
-      const { allowSendLink, requireApproval, allowMemberInvite, whoCanSendMessages, whoCanAddMembers, utilityPermissions } = req.body;
+      const {
+        allowSendLink,
+        requireApproval,
+        allowMemberInvite,
+        whoCanSendMessages,
+        whoCanAddMembers,
+        whoCanUpdateGroupInfo,
+        whoCanPinMessages,
+        newMemberCanViewHistory,
+        utilityPermissions,
+      } = req.body;
       const currentUserId = this.getCurrentUserId(req, res);
 
       if (!currentUserId) {
@@ -174,7 +182,17 @@ export class GroupController extends BaseController {
       const updatedConversation = await this.useCase.updateGroupSettings(
         groupId,
         currentUserId,
-        { allowSendLink, requireApproval, allowMemberInvite, whoCanSendMessages, whoCanAddMembers, utilityPermissions },
+        {
+          allowSendLink,
+          requireApproval,
+          allowMemberInvite,
+          whoCanSendMessages,
+          whoCanAddMembers,
+          whoCanUpdateGroupInfo,
+          whoCanPinMessages,
+          newMemberCanViewHistory,
+          utilityPermissions,
+        },
       );
 
       if (this.socketService) {

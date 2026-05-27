@@ -7,7 +7,7 @@ export const createPollDTOSchema = z.object({
   options: z.array(z.string().min(1).max(200)).min(2, "At least 2 options required").max(10),
   isMultipleChoice: z.boolean().default(false),
   allowAddOption: z.boolean().default(false),
-  showResultsBeforeClose: z.boolean().default(true),
+  showResultsBeforeClose: z.boolean().default(false),
   hideVoters: z.boolean().default(false),
   expiresAt: z.string().datetime().optional(),
 });

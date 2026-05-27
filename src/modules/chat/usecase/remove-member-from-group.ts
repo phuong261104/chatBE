@@ -6,6 +6,8 @@ import {
   IConversationCommandRepository,
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
+  IGroupBlockQueryRepository,
+  IGroupBlockCommandRepository,
   IMessageCommandRepository,
   IUserQueryRepository
 } from '../interface';
@@ -14,6 +16,7 @@ import {
   ConversationMemberStatus,
   Message,
   MessageType,
+  GroupBlock,
 } from '../model/model';
 import { removeMemberFromGroupDTOSchema, RemoveMemberFromGroupCommand } from '../model/dto';
 import { isGroupManager, isOwnerMember } from "./group-permissions";
@@ -24,6 +27,8 @@ export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMembe
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
+    private readonly groupBlockQueryRepo: IGroupBlockQueryRepository,
+    private readonly groupBlockCommandRepo: IGroupBlockCommandRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly userQueryRepo: IUserQueryRepository
   ) {}
@@ -126,5 +131,20 @@ export class RemoveMemberFromGroupHandler implements ICommandHandler<RemoveMembe
     });
 
     await this.conversationMemberCommandRepo.touchActivityForConversation(validatedInput.conversationId, now);
+
+    if (validatedInput.block) {
+      const isBlocked = await this.groupBlockQueryRepo.isUserBlocked(validatedInput.conversationId, validatedInput.targetUserId);
+      if (!isBlocked) {
+        const block: GroupBlock = {
+          pk: `GROUP#${validatedInput.conversationId}`,
+          sk: `USER#${validatedInput.targetUserId}`,
+          conversationId: validatedInput.conversationId,
+          userId: validatedInput.targetUserId,
+          blockedBy: validatedInput.requesterId,
+          createdAt: new Date(),
+        };
+        await this.groupBlockCommandRepo.insert(block);
+      }
+    }
   }
 }

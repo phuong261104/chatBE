@@ -72,6 +72,9 @@ describe("group permission helpers", () => {
       allowMemberInvite: true,
       whoCanSendMessages: "all",
       whoCanAddMembers: "all",
+      whoCanUpdateGroupInfo: "admins",
+      whoCanPinMessages: "admins",
+      newMemberCanViewHistory: true,
       utilityPermissions: {
         poll: "admins",
         reminder: "all",

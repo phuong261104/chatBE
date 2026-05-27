@@ -40,6 +40,11 @@ export {
   GroupReminder,
   GroupNoteSchema,
   GroupNote,
+  GroupInviteLinkStatus,
+  GroupInviteLinkSchema,
+  GroupInviteLink,
+  GroupBlockSchema,
+  GroupBlock,
 } from "./model";
 
 export * from "./dto";

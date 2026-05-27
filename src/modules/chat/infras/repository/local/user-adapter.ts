@@ -1,8 +1,8 @@
 import { IUserQueryRepository } from "../../../interface";
 import { UserInfo, UserStatus } from "../../../model";
 import { UserCondDTO } from "../../../model/dto";
-
 import { IUserUseCase } from '@modules/user/interface';
+import { DynamoUserRepository } from "@modules/user/infras/repository/dynamodb/dynamodb-repo";
 
 export class UserRepositoryAdapter implements IUserQueryRepository {
   constructor(private readonly userUseCase: IUserUseCase) {}
@@ -11,7 +11,6 @@ export class UserRepositoryAdapter implements IUserQueryRepository {
     try {
       const user = await this.userUseCase.profile(id);
       if (!user) return null;
-
       return this.mapToUserInfo(user);
     } catch (error) {
       return null;
@@ -20,7 +19,6 @@ export class UserRepositoryAdapter implements IUserQueryRepository {
 
   async findByCond(cond: UserCondDTO): Promise<UserInfo | null> {
     try {
-
       return null;
     } catch (error) {
       return null;
@@ -49,27 +47,69 @@ export class UserRepositoryAdapter implements IUserQueryRepository {
   }
 
   private mapToUserInfo(user: any): UserInfo {
-
     let displayName = user.displayName;
-
     if (!displayName) {
-
       displayName = user.username;
     }
-
     if (!displayName && user.email) {
-
       displayName = user.email.split('@')[0];
     }
-
     if (!displayName) {
-
       displayName = 'Unknown User';
     }
-
     return {
       id: user.id,
       displayName: displayName,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      coverUrl: user.coverUrl,
+      birthday: user.birthday,
+      gender: user.gender,
+      bio: user.bio,
+      phone: user.phone,
+      verified: user.verified,
+      privacy: user.privacy,
+      status: user.status as UserStatus,
+    } as UserInfo;
+  }
+}
+
+export class UserRepositoryAdapterDirect implements IUserQueryRepository {
+  constructor(private readonly userRepo: DynamoUserRepository) {}
+
+  async get(id: string): Promise<UserInfo | null> {
+    try {
+      const user = await this.userRepo.get(id);
+      if (!user) return null;
+      return this.mapToUserInfo(user);
+    } catch {
+      return null;
+    }
+  }
+
+  async findByCond(cond: UserCondDTO): Promise<UserInfo | null> {
+    try {
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  async findByIds(ids: string[]): Promise<UserInfo[]> {
+    if (ids.length === 0) return [];
+    const results = await Promise.all(ids.map((id) => this.get(id)));
+    return results.filter((u): u is UserInfo => u !== null);
+  }
+
+  private mapToUserInfo(user: any): UserInfo {
+    let displayName = user.displayName;
+    if (!displayName) displayName = user.username;
+    if (!displayName && user.email) displayName = user.email.split('@')[0];
+    if (!displayName) displayName = 'Unknown User';
+
+    return {
+      id: user.id,
+      displayName,
       username: user.username,
       avatarUrl: user.avatarUrl,
       coverUrl: user.coverUrl,

@@ -11,10 +11,32 @@ import { registerMessagingSocketHandlers } from "./socket/register-handlers";
 import { SocketRateLimiter } from "./socket/rate-limiter";
 import { AuthenticatedSocket, SocketHandlerContext } from "./socket/types";
 import { socketNotifiers, SocketNotifierMethods } from "./socket/notifiers";
+import { inviteBlockSocketHandlers } from "./socket/invite-block.handlers";
+import {
+  GetGroupInviteLinkHandler,
+  RegenerateGroupInviteLinkHandler,
+  RevokeGroupInviteLinkHandler,
+  PreviewInviteHandler,
+} from "../../usecase/get-group-invite-link";
+import { JoinGroupByInviteHandler } from "../../usecase/join-group-by-invite";
+import {
+  GetGroupBlocksHandler,
+  BlockGroupMemberHandler,
+  UnblockGroupMemberHandler,
+} from "../../usecase/group-block";
 
 export class MessagingSocketService implements SocketHandlerContext {
   public readonly namespace: Namespace;
   private readonly rateLimiter = new SocketRateLimiter();
+
+  public getGroupInviteLinkHandler?: GetGroupInviteLinkHandler;
+  public regenerateGroupInviteLinkHandler?: RegenerateGroupInviteLinkHandler;
+  public revokeGroupInviteLinkHandler?: RevokeGroupInviteLinkHandler;
+  public previewInviteHandler?: PreviewInviteHandler;
+  public joinGroupByInviteHandler?: JoinGroupByInviteHandler;
+  public getGroupBlocksHandler?: GetGroupBlocksHandler;
+  public blockGroupMemberHandler?: BlockGroupMemberHandler;
+  public unblockGroupMemberHandler?: UnblockGroupMemberHandler;
 
   constructor(
     io: SocketIOServer,
@@ -62,4 +84,5 @@ Object.assign(
   conversationSocketHandlers,
   memberSocketHandlers,
   socketNotifiers,
+  inviteBlockSocketHandlers,
 );

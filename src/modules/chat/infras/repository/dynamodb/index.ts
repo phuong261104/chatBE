@@ -5,3 +5,5 @@ export * from "./message-classification-repo";
 export * from "./reaction-repo";
 export * from "./poll-repo";
 export * from "./group-utility-repo";
+export * from "./group-invite-link-repo";
+export * from "./group-block-repo";

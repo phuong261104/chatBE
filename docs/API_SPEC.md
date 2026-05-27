@@ -240,6 +240,30 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | GET/POST | `/v1/groups/{groupId}/notes` | List/tạo note |
 | PUT/DELETE | `/v1/groups/{groupId}/notes/{noteId}` | Update/delete note |
 
+### Chat v1 - Group Invite Links
+
+Group invite links cho phép thành viên chia sẻ link để người khác tham gia nhóm. Owner/admin kiểm soát qua `allowMemberInvite` và `whoCanAddMembers` trong group settings.
+
+Link auto-create khi lần đầu GET. Link cũ vẫn hoạt động cho tới khi revoke/regenerate.
+
+| Method | Path | Mục đích |
+| --- | --- | --- |
+| GET | `/v1/groups/{groupId}/invite-link` | Lấy invite link (auto-create nếu chưa có) |
+| POST | `/v1/groups/{groupId}/invite-link/regenerate` | Tạo link mới, revoke link cũ |
+| DELETE | `/v1/groups/{groupId}/invite-link` | Revoke invite link |
+| GET | `/v1/invites/{token}/preview` | Preview thông tin group trước khi join |
+| POST | `/v1/invites/{token}/join` | Tham gia group bằng invite link |
+
+### Chat v1 - Group Blocks
+
+Chặn member khỏi group mà không xóa conversation. Khi bị chặn, member vẫn trong DB nhưng không thể join lại bằng invite link. Owner không thể bị chặn.
+
+| Method | Path | Mục đích |
+| --- | --- | --- |
+| GET | `/v1/groups/{groupId}/blocks` | List blocked members |
+| POST | `/v1/groups/{groupId}/blocks` | Block một member |
+| DELETE | `/v1/groups/{groupId}/blocks/{userId}` | Unblock một member |
+
 ### Chat canonical additions
 
 | Method | Path | Mục đích |
@@ -434,8 +458,8 @@ Chat event chính:
 
 Group/poll/utility event chính:
 
-- Client to server: `joinGroup`, `leaveGroup`, `addMembers`, `removeMember`, `setAdmin`, `transferOwner`, `createPoll`, `votePoll`, `addPollOption`, `pinPoll`, `unpinPoll`, `createReminder`, `updateReminder`, `deleteReminder`, `pinReminder`, `unpinReminder`, `createNote`.
-- Server to client: `conversation:members_added`, `group:member_left`, `group:settings_updated`, `poll:new`, `poll:vote`, `poll:option_added`, `poll:closed`, `poll:pinned`, `poll:unpinned`, `group:reminder_created`, `group:reminder_updated`, `group:reminder_deleted`, `group:reminder_pinned`, `group:reminder_unpinned`, `group:reminder_due`, `group:note_created`.
+- Client to server: `joinGroup`, `leaveGroup`, `addMembers`, `removeMember`, `setAdmin`, `transferOwner`, `createPoll`, `votePoll`, `addPollOption`, `pinPoll`, `unpinPoll`, `createReminder`, `updateReminder`, `deleteReminder`, `pinReminder`, `unpinReminder`, `createNote`, `getGroupInviteLink`, `regenerateGroupInviteLink`, `revokeGroupInviteLink`, `joinGroupByInvite`, `blockGroupMember`, `unblockGroupMember`.
+- Server to client: `conversation:members_added`, `group:member_left`, `group:settings_updated`, `poll:new`, `poll:vote`, `poll:option_added`, `poll:closed`, `poll:pinned`, `poll:unpinned`, `group:reminder_created`, `group:reminder_updated`, `group:reminder_deleted`, `group:reminder_pinned`, `group:reminder_unpinned`, `group:reminder_due`, `group:note_created`, `group:member_joined`, `group:member_join_requested`, `group:invite_link_updated`, `group:invite_link_revoked`, `group:member_blocked`, `group:member_unblocked`.
 
 Call socket namespaces/services emit các event `call:incoming`, `call:ringing`, `call:answered`, `call:rejected`, `call:ended`, `call:missed`, và nhận `call:join`, `call:leave`.
 

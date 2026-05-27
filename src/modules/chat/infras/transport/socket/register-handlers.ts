@@ -86,6 +86,13 @@ export function registerMessagingSocketHandlers(service: SocketServiceWithHandle
     socket.on(SocketEvent.VOICE_MESSAGE, async (payload: any, callback) => service.handleVoiceMessage(socket, payload, callback));
     socket.on(SocketEvent.LOCATION_SHARE, async (payload: any, callback) => service.handleLocationShare(socket, payload, callback));
 
+    socket.on(SocketEvent.GET_GROUP_INVITE_LINK, async (payload: any, callback) => service.handleGetGroupInviteLink(socket, payload, callback));
+    socket.on(SocketEvent.REGENERATE_GROUP_INVITE_LINK, async (payload: any, callback) => service.handleRegenerateGroupInviteLink(socket, payload, callback));
+    socket.on(SocketEvent.REVOKE_GROUP_INVITE_LINK, async (payload: any, callback) => service.handleRevokeGroupInviteLink(socket, payload, callback));
+    socket.on(SocketEvent.JOIN_GROUP_BY_INVITE, async (payload: any, callback) => service.handleJoinGroupByInvite(socket, payload, callback));
+    socket.on(SocketEvent.BLOCK_GROUP_MEMBER, async (payload: any, callback) => service.handleBlockGroupMember(socket, payload, callback));
+    socket.on(SocketEvent.UNBLOCK_GROUP_MEMBER, async (payload: any, callback) => service.handleUnblockGroupMember(socket, payload, callback));
+
     socket.on("disconnect", async () => {
       if (!socket.userId) return;
       const state = await service.presenceUseCase?.unregisterSocket(

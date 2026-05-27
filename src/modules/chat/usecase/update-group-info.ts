@@ -17,7 +17,7 @@ import {
 } from '../model/model';
 import { updateGroupInfoDTOSchema, ConversationUpdateDTO, UpdateGroupInfoCommand } from '../model/dto';
 import { SystemMessageTemplate } from '../constants/system-messages';
-import { isActiveMember, isGroupManager } from "./group-permissions";
+import { isActiveMember, canUpdateGroupInfo, normalizeGroupSettings } from "./group-permissions";
 
 export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCommand, Conversation> {
   constructor(
@@ -51,8 +51,13 @@ export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCo
       userId: validatedInput.requesterId
     });
 
-    if (!isActiveMember(requesterMember) || !isGroupManager(requesterMember, conversation)) {
-      throw AppError.from(new Error('Unauthorized: Only owner or admins can update group info'), 403);
+    if (!isActiveMember(requesterMember)) {
+      throw AppError.from(new Error('Unauthorized: You are not a member of this group'), 403);
+    }
+
+    const settings = normalizeGroupSettings(conversation.settings);
+    if (!canUpdateGroupInfo(settings, requesterMember, conversation)) {
+      throw AppError.from(new Error('Unauthorized: You do not have permission to update group info'), 403);
     }
 
     const updateData: ConversationUpdateDTO = {};

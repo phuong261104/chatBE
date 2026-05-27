@@ -19,6 +19,7 @@ import {
 } from '../model/model';
 import { leaveGroupDTOSchema, LeaveGroupCommand } from '../model/dto';
 import { isOwnerMember } from "./group-permissions";
+import { SystemMessageTemplate } from "../constants/system-messages";
 
 export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, void> {
   constructor(
@@ -62,33 +63,40 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
     let nextMembersCount = Math.max(0, (conversation.membersCount || 1) - 1);
 
     if (isOwnerLeaving) {
-      if (!validatedInput.autoTransferOwner) {
-        throw AppError.from(new Error("Owner cannot leave. Transfer ownership first."), 400);
-      }
-
-      const activeMembers = (await this.conversationMemberQueryRepo.listByConversationId(
-        validatedInput.conversationId,
-      ))
-        .filter((m) =>
-          m.userId !== member.userId &&
-          !m.leftAt &&
-          m.status === ConversationMemberStatus.ACTIVE,
-        )
-        .sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime());
-
-      const replacement =
-        activeMembers.find((m) => m.role === ConversationMemberRole.ADMIN) ||
-        activeMembers[0];
-
-      if (replacement) {
-        nextOwnerId = replacement.userId;
-        nextAdmins = nextAdmins.filter((id) => id !== replacement.userId);
-        await this.conversationMemberCommandRepo.update(replacement.id, {
+      if (validatedInput.newOwnerId) {
+        const newOwnerMember = await this.conversationMemberQueryRepo.findByCond({
+          conversationId: validatedInput.conversationId,
+          userId: validatedInput.newOwnerId,
+        });
+        if (!newOwnerMember || newOwnerMember.leftAt || newOwnerMember.status !== ConversationMemberStatus.ACTIVE) {
+          throw AppError.from(new Error("Invalid new owner: user not found or not an active member"), 400);
+        }
+        if (newOwnerMember.role === ConversationMemberRole.ADMIN) {
+          nextAdmins = nextAdmins.filter(id => id !== newOwnerMember.userId);
+        }
+        await this.conversationMemberCommandRepo.update(newOwnerMember.id, {
           role: ConversationMemberRole.OWNER,
         });
+        nextOwnerId = newOwnerMember.userId;
+      } else if (validatedInput.autoTransferOwner) {
+        const activeAdmins = await this.conversationMemberQueryRepo.findByCond({
+          conversationId: validatedInput.conversationId,
+          role: ConversationMemberRole.ADMIN,
+          status: ConversationMemberStatus.ACTIVE,
+        });
+
+        if (activeAdmins && !activeAdmins.leftAt) {
+          const newOwnerMember = activeAdmins;
+          nextAdmins = nextAdmins.filter(id => id !== newOwnerMember.userId);
+          await this.conversationMemberCommandRepo.update(newOwnerMember.id, {
+            role: ConversationMemberRole.OWNER,
+          });
+          nextOwnerId = newOwnerMember.userId;
+        } else {
+          throw AppError.from(new Error("Cannot auto-transfer ownership: no active admin available"), 400);
+        }
       } else {
-        nextAdmins = [];
-        nextMembersCount = 0;
+        throw AppError.from(new Error("Owner must specify newOwnerId when leaving the group"), 400);
       }
     }
 
@@ -109,7 +117,14 @@ export class LeaveGroupHandler implements ICommandHandler<LeaveGroupCommand, voi
     const user = await this.userQueryRepo.get(validatedInput.userId);
     const userDisplayName = user?.displayName || 'Unknown User';
 
-    const systemMessageText = `${userDisplayName} đã rời khỏi nhóm`;
+    let systemMessageText: string;
+    if (isOwnerLeaving && nextOwnerId) {
+      const newOwnerUser = await this.userQueryRepo.get(nextOwnerId);
+      const newOwnerDisplayName = newOwnerUser?.displayName || 'Unknown User';
+      systemMessageText = SystemMessageTemplate.OWNER_LEFT_WITH_TRANSFER(userDisplayName, newOwnerDisplayName);
+    } else {
+      systemMessageText = SystemMessageTemplate.LEAVE_GROUP(userDisplayName);
+    }
 
     const systemMessage: Message = {
       id: messageId,

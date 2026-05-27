@@ -75,6 +75,8 @@ export const TABLE_NAMES = {
   CLOUD_ITEMS: "cloud_items",
   COLLECTIONS: "collections",
   COLLECTION_ITEMS: "collection_items",
+  GROUP_INVITE_LINKS: "group_invite_links",
+  GROUP_BLOCKS: "group_blocks",
 } as const;
 
 export const MESSAGE_CLASSIFICATIONS_TABLE: TableDefinition = {
@@ -540,6 +542,54 @@ export const COLLECTION_ITEMS_TABLE: TableDefinition = {
   BillingMode: "PAY_PER_REQUEST",
 };
 
+export const GROUP_INVITE_LINKS_TABLE: TableDefinition = {
+  TableName: TABLE_NAMES.GROUP_INVITE_LINKS,
+  KeySchema: [{ AttributeName: "token", KeyType: "HASH" }],
+  AttributeDefinitions: [
+    { AttributeName: "token", AttributeType: "S" },
+    { AttributeName: "conversationId", AttributeType: "S" },
+    { AttributeName: "status", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "conversationId-status-index",
+      KeySchema: [
+        { AttributeName: "conversationId", KeyType: "HASH" },
+        { AttributeName: "status", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+  BillingMode: "PAY_PER_REQUEST",
+};
+
+export const GROUP_BLOCKS_TABLE: TableDefinition = {
+  TableName: TABLE_NAMES.GROUP_BLOCKS,
+  KeySchema: [
+    { AttributeName: "pk", KeyType: "HASH" },
+    { AttributeName: "sk", KeyType: "RANGE" },
+  ],
+  AttributeDefinitions: [
+    { AttributeName: "pk", AttributeType: "S" },
+    { AttributeName: "sk", AttributeType: "S" },
+    { AttributeName: "userId", AttributeType: "S" },
+    { AttributeName: "blockedBy", AttributeType: "S" },
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "userId-index",
+      KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+    {
+      IndexName: "blockedBy-index",
+      KeySchema: [{ AttributeName: "blockedBy", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+  BillingMode: "PAY_PER_REQUEST",
+};
+
 export const ALL_TABLES: TableDefinition[] = [
   USERS_TABLE,
   USER_AVATAR_HISTORY_TABLE,
@@ -557,4 +607,6 @@ export const ALL_TABLES: TableDefinition[] = [
   CLOUD_ITEMS_TABLE,
   COLLECTIONS_TABLE,
   COLLECTION_ITEMS_TABLE,
+  GROUP_INVITE_LINKS_TABLE,
+  GROUP_BLOCKS_TABLE,
 ];

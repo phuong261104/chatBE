@@ -14,6 +14,9 @@ export const DEFAULT_GROUP_SETTINGS: GroupSettings = {
   allowMemberInvite: true,
   whoCanSendMessages: "all",
   whoCanAddMembers: "all",
+  whoCanUpdateGroupInfo: "admins",
+  whoCanPinMessages: "admins",
+  newMemberCanViewHistory: true,
   utilityPermissions: {
     poll: "all",
     reminder: "all",
@@ -30,6 +33,30 @@ export function normalizeGroupSettings(settings?: Partial<GroupSettings>): Group
       ...(settings?.utilityPermissions || {}),
     },
   };
+}
+
+export function canUpdateGroupInfo(
+  settings: GroupSettings,
+  member: ConversationMember,
+  conversation?: Conversation | null,
+): boolean {
+  return settings.whoCanUpdateGroupInfo === "all" || isGroupManager(member, conversation);
+}
+
+export function canPinMessages(
+  settings: GroupSettings,
+  member: ConversationMember,
+  conversation?: Conversation | null,
+): boolean {
+  return settings.whoCanPinMessages === "all" || isGroupManager(member, conversation);
+}
+
+export function canAddMembers(
+  settings: GroupSettings,
+  member: ConversationMember,
+  conversation?: Conversation | null,
+): boolean {
+  return settings.allowMemberInvite && (settings.whoCanAddMembers === "all" || isGroupManager(member, conversation));
 }
 
 export function isActiveMember(member?: ConversationMember | null): member is ConversationMember {

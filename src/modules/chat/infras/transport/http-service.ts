@@ -11,6 +11,13 @@ import { MessageController } from "./http/message-controller";
 import { MessageToolsController } from "./http/message-tools-controller";
 import { PollController } from "./http/poll-controller";
 import { ReactionController } from "./http/reaction-controller";
+import { GroupInviteController } from "./http/group-invite-controller";
+import { GroupBlockController } from "./http/group-block-controller";
+
+export interface MessagingHttpServiceDeps {
+  groupInviteController: GroupInviteController;
+  groupBlockController: GroupBlockController;
+}
 
 export class MessagingHttpService {
   private readonly conversationActionsController: ConversationActionsController;
@@ -23,8 +30,10 @@ export class MessagingHttpService {
   private readonly messageToolsController: MessageToolsController;
   private readonly pollController: PollController;
   private readonly reactionController: ReactionController;
+  private readonly groupInviteController: GroupInviteController;
+  private readonly groupBlockController: GroupBlockController;
 
-  constructor(useCase: IMessagingUseCase) {
+  constructor(useCase: IMessagingUseCase, deps?: MessagingHttpServiceDeps) {
     this.conversationActionsController = new ConversationActionsController(useCase);
     this.conversationController = new ConversationController(useCase);
     this.conversationQueryController = new ConversationQueryController(useCase);
@@ -35,6 +44,12 @@ export class MessagingHttpService {
     this.messageToolsController = new MessageToolsController(useCase);
     this.pollController = new PollController(useCase);
     this.reactionController = new ReactionController(useCase);
+
+    if (!deps?.groupInviteController || !deps?.groupBlockController) {
+      throw new Error("MessagingHttpService requires groupInviteController and groupBlockController deps");
+    }
+    this.groupInviteController = deps.groupInviteController;
+    this.groupBlockController = deps.groupBlockController;
   }
 
   setSocketService(socketService: MessagingSocketService) {
@@ -48,6 +63,8 @@ export class MessagingHttpService {
     this.messageToolsController.setSocketService(socketService);
     this.pollController.setSocketService(socketService);
     this.reactionController.setSocketService(socketService);
+    this.groupInviteController.setSocketService(socketService);
+    this.groupBlockController.setSocketService(socketService);
   }
 
   async getPrivateConversationAPI(req: Request, res: Response) {
@@ -328,5 +345,37 @@ export class MessagingHttpService {
 
   async copyConversationAPI(req: Request, res: Response) {
     return this.conversationActionsController.copyConversationAPI(req, res);
+  }
+
+  async getGroupInviteLinkAPI(req: Request, res: Response) {
+    return this.groupInviteController.getGroupInviteLinkAPI(req, res);
+  }
+
+  async regenerateGroupInviteLinkAPI(req: Request, res: Response) {
+    return this.groupInviteController.regenerateGroupInviteLinkAPI(req, res);
+  }
+
+  async revokeGroupInviteLinkAPI(req: Request, res: Response) {
+    return this.groupInviteController.revokeGroupInviteLinkAPI(req, res);
+  }
+
+  async previewInviteAPI(req: Request, res: Response) {
+    return this.groupInviteController.previewInviteAPI(req, res);
+  }
+
+  async joinGroupByInviteAPI(req: Request, res: Response) {
+    return this.groupInviteController.joinGroupByInviteAPI(req, res);
+  }
+
+  async getGroupBlocksAPI(req: Request, res: Response) {
+    return this.groupBlockController.getGroupBlocksAPI(req, res);
+  }
+
+  async blockGroupMemberAPI(req: Request, res: Response) {
+    return this.groupBlockController.blockGroupMemberAPI(req, res);
+  }
+
+  async unblockGroupMemberAPI(req: Request, res: Response) {
+    return this.groupBlockController.unblockGroupMemberAPI(req, res);
   }
 }

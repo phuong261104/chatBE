@@ -45,6 +45,8 @@ Các table đang được khởi tạo bởi `ALL_TABLES`:
 | `cloud_items` | My Cloud | `id` | `userId-index`, `userId-type-index`, `userId-isDeleted-index`, `userId-isPinned-index`, `userId-collectionId-index`, `shareToken-index` | File/note/link lưu cá nhân |
 | `collections` | My Cloud | `id` | `userId-index`, `userId-parentId-index`, `userId-isDefault-index` | Thư mục/collection |
 | `collection_items` | My Cloud | `pk`, `sk` | `collectionId-index`, `itemId-index` | Mapping collection-item |
+| `group_invite_links` | Chat | `token` | `conversationId-status-index` | Invite link/token cho group |
+| `group_blocks` | Chat | `pk`, `sk` | `userId-index`, `blockedBy-index` | User bị chặn khỏi group |
 
 `stories` và `story_views` đang có trong `TABLE_NAMES`, nhưng chưa có table definition trong `ALL_TABLES`; hiện chưa được auto-init bởi backend.
 
@@ -147,7 +149,7 @@ Fields chính:
 
 - Identity: `id`, `conversationId`, `userId`.
 - Role/status: `role` (`owner`, `admin`, `member`), `status` (`active`, `pending`, `rejected`).
-- Timeline: `joinedAt`, `leftAt`, `updatedAt`, `lastActivityAt`.
+- Timeline: `joinedAt`, `leftAt`, `historyVisibleFrom`, `updatedAt`, `lastActivityAt`.
 - Read state: `unreadCount`, `lastReadMessageId`, `lastReadAt`, `lastReadMessageCreatedAt`, `lastSeenMessageId`, `lastSeenAt`, `lastSeenMessageCreatedAt`, `lastDeliveredMessageId`, `lastDeliveredAt`, `lastDeliveredMessageCreatedAt`.
 - User inbox flags: `muteUntil`, `pinned`, `pinnedAt`, `archived`.
 - Hidden chat: `hiddenUserIds`, `hidden`, `hiddenAt`, `hiddenPinHash`.
@@ -292,6 +294,58 @@ Indexes:
 Fields chính:
 
 - `id`, `conversationId`, `title`, `content`, `createdBy`, `updatedBy`, `createdAt`, `updatedAt`.
+
+### `group_invite_links`
+
+Mục đích: lưu invite link/token cho group, hỗ trợ join group không cần admin add.
+
+Primary key:
+
+- `token` (UUID v4).
+
+Indexes:
+
+- `conversationId-status-index`: tìm active token theo group.
+
+Fields chính:
+
+- `token`, `conversationId`, `status` (`active` | `revoked`), `createdBy`, `revokedBy`, `createdAt`, `revokedAt`, `expiresAt`.
+
+Access patterns:
+
+- Get/create invite link by `token`.
+- Query active token by `conversationId`.
+- Revoke/regenerate: update status từ `active` sang `revoked` và tạo token mới.
+- Token không có trong table = revoked (không query theo `status=revoked` khi tìm active link).
+
+### `group_blocks`
+
+Mục đích: lưu user bị chặn khỏi group, không cho tham gia bằng link hoặc được add lại.
+
+Primary key:
+
+- `pk = GROUP#{conversationId}`.
+- `sk = USER#{userId}`.
+
+Indexes:
+
+- `userId-index`: kiểm tra user có bị chặn khỏi group nào không.
+- `blockedBy-index`: list user bị chặn bởi một người quản lý.
+
+Fields chính:
+
+- `pk`, `sk`, `conversationId`, `userId`, `blockedBy`, `createdAt`.
+
+Access patterns:
+
+- Check if user is blocked from a group.
+- List blocked users in a group (owner/admin).
+- Block/unblock a user from group.
+
+Ghi chú:
+
+- Block dùng table riêng, không dùng `conversation_members.status=rejected`.
+- Unblock không tự động thêm user lại vào group.
 
 ## Social Domain
 
@@ -479,6 +533,11 @@ Redis chạy trong Docker cùng backend với service name `redis`; host dev có
 | `collections.userId` | `users.id` | Many-to-one |
 | `collection_items.collectionId` | `collections.id` | Many-to-one |
 | `collection_items.itemId` | `cloud_items.id` | Many-to-one |
+| `group_invite_links.conversationId` | `conversations.id` | Many-to-one |
+| `group_invite_links.createdBy` | `users.id` | Many-to-one |
+| `group_blocks.conversationId` | `conversations.id` | Many-to-one |
+| `group_blocks.userId` | `users.id` | Many-to-one |
+| `group_blocks.blockedBy` | `users.id` | Many-to-one |
 
 ## Migration and Maintenance Rules
 

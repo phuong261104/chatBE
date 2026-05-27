@@ -29,6 +29,9 @@ export class UpdateGroupSettingsHandler implements ICommandHandler<UpdateGroupSe
       allowMemberInvite,
       whoCanSendMessages,
       whoCanAddMembers,
+      whoCanUpdateGroupInfo,
+      whoCanPinMessages,
+      newMemberCanViewHistory,
       utilityPermissions,
     } = command;
 
@@ -64,6 +67,9 @@ export class UpdateGroupSettingsHandler implements ICommandHandler<UpdateGroupSe
         ...(allowMemberInvite !== undefined && { allowMemberInvite }),
         ...(whoCanSendMessages !== undefined && { whoCanSendMessages }),
         ...(whoCanAddMembers !== undefined && { whoCanAddMembers }),
+        ...(whoCanUpdateGroupInfo !== undefined && { whoCanUpdateGroupInfo }),
+        ...(whoCanPinMessages !== undefined && { whoCanPinMessages }),
+        ...(newMemberCanViewHistory !== undefined && { newMemberCanViewHistory }),
         ...(utilityPermissions !== undefined && {
           utilityPermissions: {
             ...currentSettings.utilityPermissions,

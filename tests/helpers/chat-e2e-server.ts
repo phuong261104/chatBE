@@ -9,8 +9,23 @@ import { io as createSocketClient, Socket as ClientSocket } from "socket.io-clie
 
 import { jwtProvider } from "@share/component/jwt";
 import { responseFormatMiddleware } from "@share/middleware";
-import { MessagingHttpService, MessagingSocketService } from "@modules/chat/infras";
+import { MessagingHttpService, MessagingSocketService, MessagingHttpServiceDeps } from "@modules/chat/infras";
 import { ChatV2Controller } from "@modules/chat/infras/transport/http/v2-chat-controller";
+import { GroupInviteController } from "@modules/chat/infras/transport/http/group-invite-controller";
+import { GroupBlockController } from "@modules/chat/infras/transport/http/group-block-controller";
+import {
+  GetGroupInviteLinkHandler,
+  RegenerateGroupInviteLinkHandler,
+  RevokeGroupInviteLinkHandler,
+  PreviewInviteHandler,
+} from "@modules/chat/usecase/get-group-invite-link";
+import { JoinGroupByInviteHandler } from "@modules/chat/usecase/join-group-by-invite";
+import {
+  GetGroupBlocksHandler,
+  BlockGroupMemberHandler,
+  UnblockGroupMemberHandler,
+} from "@modules/chat/usecase/group-block";
+import { UserRepositoryAdapter } from "@modules/chat/infras/repository/local/user-adapter";
 import { setupChatV2Routes } from "@modules/chat/infras/transport/http/v2-chat.routes";
 import { SearchHTTPService } from "@modules/search/infras/transport";
 import { SearchUseCase } from "@modules/search/usecase";
@@ -65,7 +80,76 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
   const io = new SocketIOServer(httpServer, { cors: { origin: "*" } });
   const presenceUseCase = new TestPresenceUseCase();
   const socketService = new RecordingMessagingSocketService(io, useCase as any, presenceUseCase as any);
-  const httpService = new MessagingHttpService(useCase as any);
+
+  const userAdapter = new UserRepositoryAdapter(useCase as any);
+
+  const groupInviteController = new GroupInviteController(
+    new GetGroupInviteLinkHandler(
+      repos.conversationRepo as any,
+      repos.groupInviteLinkRepo.query as any,
+      repos.groupInviteLinkRepo.command as any,
+      repos.memberRepo as any,
+    ),
+    new RegenerateGroupInviteLinkHandler(
+      repos.conversationRepo as any,
+      repos.groupInviteLinkRepo.query as any,
+      repos.groupInviteLinkRepo.command as any,
+      repos.memberRepo as any,
+    ),
+    new RevokeGroupInviteLinkHandler(
+      repos.conversationRepo as any,
+      repos.groupInviteLinkRepo.query as any,
+      repos.groupInviteLinkRepo.command as any,
+      repos.memberRepo as any,
+    ),
+    new PreviewInviteHandler(
+      repos.groupInviteLinkRepo.query as any,
+      repos.conversationRepo as any,
+      userAdapter,
+    ),
+    new JoinGroupByInviteHandler(
+      repos.conversationRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.memberRepo as any,
+      repos.groupInviteLinkRepo.query as any,
+      repos.groupInviteLinkRepo.command as any,
+      repos.groupBlockRepo.query as any,
+      repos.messageRepo as any,
+      userAdapter,
+    ),
+  );
+
+  const groupBlockController = new GroupBlockController(
+    new GetGroupBlocksHandler(
+      repos.conversationRepo as any,
+      repos.groupBlockRepo.query as any,
+      repos.memberRepo as any,
+      userAdapter,
+    ),
+    new BlockGroupMemberHandler(
+      repos.conversationRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.memberRepo as any,
+      repos.groupBlockRepo.query as any,
+      repos.groupBlockRepo.command as any,
+      repos.messageRepo as any,
+      userAdapter,
+    ),
+    new UnblockGroupMemberHandler(
+      repos.conversationRepo as any,
+      repos.groupBlockRepo.query as any,
+      repos.groupBlockRepo.command as any,
+      repos.memberRepo as any,
+      userAdapter,
+    ),
+  );
+
+  const httpService = new MessagingHttpService(useCase as any, {
+    groupInviteController,
+    groupBlockController,
+  });
   httpService.setSocketService(socketService);
   const searchUseCase = new SearchUseCase({
     userRepo: repos.userRepo as any,
@@ -156,6 +240,15 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
   v1Router.post("/groups/:groupId/notes", auth, httpService.createGroupNoteAPI.bind(httpService));
   v1Router.put("/groups/:groupId/notes/:noteId", auth, httpService.updateGroupNoteAPI.bind(httpService));
   v1Router.delete("/groups/:groupId/notes/:noteId", auth, httpService.deleteGroupNoteAPI.bind(httpService));
+
+  v1Router.get("/groups/:groupId/invite-link", auth, httpService.getGroupInviteLinkAPI.bind(httpService));
+  v1Router.post("/groups/:groupId/invite-link/regenerate", auth, httpService.regenerateGroupInviteLinkAPI.bind(httpService));
+  v1Router.delete("/groups/:groupId/invite-link", auth, httpService.revokeGroupInviteLinkAPI.bind(httpService));
+  v1Router.get("/invites/:token/preview", httpService.previewInviteAPI.bind(httpService));
+  v1Router.post("/invites/:token/join", auth, httpService.joinGroupByInviteAPI.bind(httpService));
+  v1Router.get("/groups/:groupId/blocks", auth, httpService.getGroupBlocksAPI.bind(httpService));
+  v1Router.post("/groups/:groupId/blocks", auth, httpService.blockGroupMemberAPI.bind(httpService));
+  v1Router.delete("/groups/:groupId/blocks/:userId", auth, httpService.unblockGroupMemberAPI.bind(httpService));
 
   app.use("/v1", setupChatV2Routes(v2Controller, mdlFactory as any));
   app.use("/v1", v1Router);

@@ -30,6 +30,7 @@ function toConversationMemberEntity(doc: Record<string, any>): ConversationMembe
     sk,
     joinedAt,
     leftAt,
+    historyVisibleFrom,
     lastReadAt,
     lastSeenAt,
     lastDeliveredAt,
@@ -49,6 +50,7 @@ function toConversationMemberEntity(doc: Record<string, any>): ConversationMembe
     conversationId: doc.conversationId || doc.pk?.replace("CONV#", ""),
     joinedAt: joinedAt ? new Date(joinedAt) : new Date(),
     leftAt: leftAt ? new Date(leftAt) : undefined,
+    historyVisibleFrom: historyVisibleFrom ? new Date(historyVisibleFrom) : undefined,
     lastReadAt: lastReadAt ? new Date(lastReadAt) : null,
     lastSeenAt: lastSeenAt ? new Date(lastSeenAt) : undefined,
     lastDeliveredAt: lastDeliveredAt ? new Date(lastDeliveredAt) : undefined,
@@ -688,6 +690,11 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     if ((data as any).hidden !== undefined) updateData.hidden = (data as any).hidden;
     if ((data as any).hiddenAt !== undefined) updateData.hiddenAt = (data as any).hiddenAt ? ((data as any).hiddenAt as Date).toISOString() : null;
     if ((data as any).hiddenPinHash !== undefined) updateData.hiddenPinHash = (data as any).hiddenPinHash;
+    if ((data as any).historyVisibleFrom !== undefined) {
+      updateData.historyVisibleFrom = (data as any).historyVisibleFrom === null
+        ? null
+        : ((data as any).historyVisibleFrom as Date).toISOString();
+    }
     return updateData;
   }
 }

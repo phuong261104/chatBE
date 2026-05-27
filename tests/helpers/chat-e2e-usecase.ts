@@ -63,6 +63,10 @@ import {
   InMemoryConversationMemberRepository,
   InMemoryConversationRepository,
   InMemoryFriendshipRepository,
+  InMemoryGroupBlockCommandRepository,
+  InMemoryGroupBlockQueryRepository,
+  InMemoryGroupInviteLinkCommandRepository,
+  InMemoryGroupInviteLinkQueryRepository,
   InMemoryGroupNoteRepository,
   InMemoryGroupReminderRepository,
   InMemoryMessageRepository,
@@ -99,6 +103,10 @@ export function buildUseCase(store: ChatE2EStore) {
   const classificationRepo = new InMemoryClassificationRepository(store);
   const friendshipRepo = new InMemoryFriendshipRepository(store);
   const blockRepo = new InMemoryBlockRepository(store);
+  const groupInviteLinkQueryRepo = new InMemoryGroupInviteLinkQueryRepository(store);
+  const groupInviteLinkCommandRepo = new InMemoryGroupInviteLinkCommandRepository(store);
+  const groupBlockQueryRepo = new InMemoryGroupBlockQueryRepository(store);
+  const groupBlockCommandRepo = new InMemoryGroupBlockCommandRepository(store);
   const accessPolicy = new ChatAccessPolicy(userRepo as any, blockRepo as any, conversationRepo as any, memberRepo as any);
 
   const getConversationDetail = new GetConversationDetailQueryHandler(conversationRepo as any, memberRepo as any);
@@ -428,6 +436,8 @@ export function buildUseCase(store: ChatE2EStore) {
       noteRepo,
       friendshipRepo,
       blockRepo,
+      groupInviteLinkRepo: { query: groupInviteLinkQueryRepo, command: groupInviteLinkCommandRepo },
+      groupBlockRepo: { query: groupBlockQueryRepo, command: groupBlockCommandRepo },
     },
     useCase: {
       getConversations: (userId: string, page?: number, limit?: number) =>

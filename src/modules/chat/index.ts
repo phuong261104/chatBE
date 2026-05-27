@@ -25,7 +25,9 @@ import { setupChatV2Routes } from "./infras/transport/http/v2-chat.routes";
 
 // ==================== Chat Module Components (using barrel exports) ====================
 // Infrastructure: Repositories & Transport
-import { UserRepositoryAdapter, MessagingHttpService, MessagingSocketService } from "./infras";
+import { UserRepositoryAdapter, MessagingHttpService, MessagingSocketService, MessagingHttpServiceDeps } from "./infras";
+import { GroupInviteController } from "./infras/transport/http/group-invite-controller";
+import { GroupBlockController } from "./infras/transport/http/group-block-controller";
 
 // ==================== DynamoDB Repositories ====================
 import {
@@ -40,6 +42,8 @@ import {
   DynamoGroupReminderRepository,
   DynamoGroupNoteRepository,
   DynamoMessageClassificationRepository,
+  DynamoGroupInviteLinkRepository,
+  DynamoGroupBlockRepository,
 } from "./infras/repository/dynamodb";
 
 // Use Cases: All handlers and facade
@@ -118,6 +122,14 @@ import {
   UpdateGroupNoteHandler,
   DeleteGroupNoteHandler,
   ChatAccessPolicy,
+  GetGroupInviteLinkHandler,
+  RegenerateGroupInviteLinkHandler,
+  RevokeGroupInviteLinkHandler,
+  PreviewInviteHandler,
+  JoinGroupByInviteHandler,
+  GetGroupBlocksHandler,
+  BlockGroupMemberHandler,
+  UnblockGroupMemberHandler,
 } from "./usecase";
 import { GroupUtilityWorker } from "./usecase/group-utility-worker";
 
@@ -139,6 +151,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const presenceUseCase = new PresenceUseCase(new RedisPresenceRepository());
 
   const classificationRepo = new DynamoMessageClassificationRepository();
+  const groupInviteLinkRepo = new DynamoGroupInviteLinkRepository();
+  const groupBlockRepo = new DynamoGroupBlockRepository();
 
   const userRepo = new DynamoUserRepository();
   const userUseCase = new UserUseCase(userRepo);
@@ -202,6 +216,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationRepo,
     conversationMemberRepo,
     conversationMemberRepo,
+    groupBlockRepo,
+    groupBlockRepo,
     messageRepo,
     userAdapter,
   );
@@ -579,6 +595,64 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const updateGroupNoteHandler = new UpdateGroupNoteHandler(conversationRepo, conversationMemberRepo, groupNoteRepo, groupNoteRepo);
   const deleteGroupNoteHandler = new DeleteGroupNoteHandler(conversationRepo, conversationMemberRepo, groupNoteRepo, groupNoteRepo);
 
+  const getGroupInviteLinkHandler = new GetGroupInviteLinkHandler(
+    conversationRepo,
+    groupInviteLinkRepo,
+    groupInviteLinkRepo,
+    conversationMemberRepo,
+  );
+  const regenerateGroupInviteLinkHandler = new RegenerateGroupInviteLinkHandler(
+    conversationRepo,
+    groupInviteLinkRepo,
+    groupInviteLinkRepo,
+    conversationMemberRepo,
+  );
+  const revokeGroupInviteLinkHandler = new RevokeGroupInviteLinkHandler(
+    conversationRepo,
+    groupInviteLinkRepo,
+    groupInviteLinkRepo,
+    conversationMemberRepo,
+  );
+  const previewInviteHandler = new PreviewInviteHandler(
+    groupInviteLinkRepo,
+    conversationRepo,
+    userAdapter,
+  );
+  const joinGroupByInviteHandler = new JoinGroupByInviteHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+    groupInviteLinkRepo,
+    groupInviteLinkRepo,
+    groupBlockRepo,
+    messageRepo,
+    userAdapter,
+  );
+  const getGroupBlocksHandler = new GetGroupBlocksHandler(
+    conversationRepo,
+    groupBlockRepo,
+    conversationMemberRepo,
+    userAdapter,
+  );
+  const blockGroupMemberHandler = new BlockGroupMemberHandler(
+    conversationRepo,
+    conversationRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+    groupBlockRepo,
+    groupBlockRepo,
+    messageRepo,
+    userAdapter,
+  );
+  const unblockGroupMemberHandler = new UnblockGroupMemberHandler(
+    conversationRepo,
+    groupBlockRepo,
+    groupBlockRepo,
+    conversationMemberRepo,
+    userAdapter,
+  );
+
   const useCase = new MessagingUseCaseFacade(
     getOrCreatePrivateConversationHandler,
     sendMessageHandler,
@@ -654,8 +728,29 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     deleteGroupNoteHandler,
   );
 
-  const httpService = new MessagingHttpService(useCase);
+  const httpService = new MessagingHttpService(useCase, {
+    groupInviteController: new GroupInviteController(
+      getGroupInviteLinkHandler,
+      regenerateGroupInviteLinkHandler,
+      revokeGroupInviteLinkHandler,
+      previewInviteHandler,
+      joinGroupByInviteHandler,
+    ),
+    groupBlockController: new GroupBlockController(
+      getGroupBlocksHandler,
+      blockGroupMemberHandler,
+      unblockGroupMemberHandler,
+    ),
+  });
   const socketService = new MessagingSocketService(io, useCase, presenceUseCase);
+  socketService.getGroupInviteLinkHandler = getGroupInviteLinkHandler;
+  socketService.regenerateGroupInviteLinkHandler = regenerateGroupInviteLinkHandler;
+  socketService.revokeGroupInviteLinkHandler = revokeGroupInviteLinkHandler;
+  socketService.previewInviteHandler = previewInviteHandler;
+  socketService.joinGroupByInviteHandler = joinGroupByInviteHandler;
+  socketService.getGroupBlocksHandler = getGroupBlocksHandler;
+  socketService.blockGroupMemberHandler = blockGroupMemberHandler;
+  socketService.unblockGroupMemberHandler = unblockGroupMemberHandler;
   if (process.env.CHAT_UTILITY_WORKER_ENABLED !== "false") {
     new GroupUtilityWorker({
       pollQueryRepo,
@@ -842,6 +937,16 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   router.post("/conversations/:conversationId/copy", mdlFactory.auth, httpService.copyConversationAPI.bind(httpService));
 
+  router.get("/groups/:groupId/invite-link", mdlFactory.auth, httpService.getGroupInviteLinkAPI.bind(httpService));
+  router.post("/groups/:groupId/invite-link/regenerate", mdlFactory.auth, httpService.regenerateGroupInviteLinkAPI.bind(httpService));
+  router.delete("/groups/:groupId/invite-link", mdlFactory.auth, httpService.revokeGroupInviteLinkAPI.bind(httpService));
+  router.get("/invites/:token/preview", httpService.previewInviteAPI.bind(httpService));
+  router.post("/invites/:token/join", mdlFactory.auth, httpService.joinGroupByInviteAPI.bind(httpService));
+
+  router.get("/groups/:groupId/blocks", mdlFactory.auth, httpService.getGroupBlocksAPI.bind(httpService));
+  router.post("/groups/:groupId/blocks", mdlFactory.auth, httpService.blockGroupMemberAPI.bind(httpService));
+  router.delete("/groups/:groupId/blocks/:userId", mdlFactory.auth, httpService.unblockGroupMemberAPI.bind(httpService));
+
   return {
     router,
     v2Router,
@@ -868,4 +973,6 @@ export {
   DynamoPollQueryRepository,
   DynamoPollCommandRepository,
   MessagingSocketService,
+  DynamoGroupInviteLinkRepository,
+  DynamoGroupBlockRepository,
 } from "./infras";

@@ -246,11 +246,13 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     conversationId: string,
     requesterId: string,
     targetUserId: string,
+    block?: boolean,
   ): Promise<void> {
     return this.removeMemberFromGroupHandler.execute({
       conversationId,
       requesterId,
       targetUserId,
+      block,
     });
   }
 
@@ -337,8 +339,18 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.getTotalUnreadCountQueryHandler.query({ userId });
   }
 
-  async leaveGroup(conversationId: string, userId: string, autoTransferOwner?: boolean): Promise<void> {
-    return this.leaveGroupHandler.execute({ conversationId, userId, autoTransferOwner } as any);
+  async leaveGroup(
+    conversationId: string,
+    userId: string,
+    autoTransferOwner?: boolean,
+    newOwnerId?: string,
+  ): Promise<void> {
+    return this.leaveGroupHandler.execute({
+      conversationId,
+      userId,
+      autoTransferOwner,
+      newOwnerId,
+    });
   }
 
   async getGroupMembers(
@@ -549,6 +561,8 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
         reminder?: "all" | "admins";
         note?: "all" | "admins";
       };
+      whoCanUpdateGroupInfo?: "all" | "admins";
+      whoCanPinMessages?: "all" | "admins";
     },
   ): Promise<Conversation> {
     return this.updateGroupSettingsHandler.execute({

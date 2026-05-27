@@ -22,4 +22,12 @@ export {
   DynamoPollCommandRepository,
 } from './dynamodb/poll-repo';
 
-export { UserRepositoryAdapter } from './local/user-adapter';
+export {
+  DynamoGroupInviteLinkRepository,
+} from './dynamodb/group-invite-link-repo';
+
+export {
+  DynamoGroupBlockRepository,
+} from './dynamodb/group-block-repo';
+
+export { UserRepositoryAdapter, UserRepositoryAdapterDirect } from './local/user-adapter';

@@ -422,7 +422,11 @@ describe("canonical chat business behavior", () => {
       updatedAt: new Date(),
     };
     const memberRepo = {
-      findByCond: jest.fn().mockResolvedValue(ownerMember),
+      findByCond: jest.fn().mockImplementation(async (cond: any) => {
+        if (cond.userId === ownerId) return ownerMember;
+        if (cond.role === ConversationMemberRole.ADMIN && cond.status === ConversationMemberStatus.ACTIVE) return adminMember;
+        return null;
+      }),
       listByConversationId: jest.fn().mockResolvedValue([ownerMember, adminMember, regularMember]),
       update: jest.fn(),
       touchActivityForConversation: jest.fn(),

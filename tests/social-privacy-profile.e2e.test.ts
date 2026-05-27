@@ -12,7 +12,22 @@ import { BlockHTTPService, BlockNotificationSocketService } from "@modules/block
 import { BlockUseCase } from "@modules/blocks/usecase";
 import { ChatV2Controller } from "@modules/chat/infras/transport/http/v2-chat-controller";
 import { setupChatV2Routes } from "@modules/chat/infras/transport/http/v2-chat.routes";
-import { MessagingHttpService, MessagingSocketService } from "@modules/chat/infras";
+import { MessagingHttpService, MessagingSocketService, MessagingHttpServiceDeps } from "@modules/chat/infras";
+import { GroupInviteController } from "@modules/chat/infras/transport/http/group-invite-controller";
+import { GroupBlockController } from "@modules/chat/infras/transport/http/group-block-controller";
+import {
+  GetGroupInviteLinkHandler,
+  RegenerateGroupInviteLinkHandler,
+  RevokeGroupInviteLinkHandler,
+  PreviewInviteHandler,
+} from "@modules/chat/usecase/get-group-invite-link";
+import { JoinGroupByInviteHandler } from "@modules/chat/usecase/join-group-by-invite";
+import {
+  GetGroupBlocksHandler,
+  BlockGroupMemberHandler,
+  UnblockGroupMemberHandler,
+} from "@modules/chat/usecase/group-block";
+import { UserRepositoryAdapter } from "@modules/chat/infras/repository/local/user-adapter";
 import { ConversationMemberRole, ConversationType, MessageType } from "@modules/chat/model";
 import { FriendRequestHTTPService, FriendNotificationSocketService } from "@modules/friend-requests/infras";
 import { FriendRequestStatus } from "@modules/friend-requests/model";
@@ -157,7 +172,73 @@ async function createHarness(): Promise<Harness> {
   const io = new SocketIOServer(httpServer, { cors: { origin: "*" } });
   const presenceUseCase = new TestPresenceUseCase();
   const messagingSocket = new RecordingMessagingSocketService(io, useCase as any, presenceUseCase as any);
-  const messagingHttp = new MessagingHttpService(useCase as any);
+
+  const userAdapter = new UserRepositoryAdapter(useCase as any);
+  const groupInviteController = new GroupInviteController(
+    new GetGroupInviteLinkHandler(
+      repos.conversationRepo as any,
+      repos.groupInviteLinkRepo as any,
+      repos.groupInviteLinkRepo as any,
+      repos.memberRepo as any,
+    ),
+    new RegenerateGroupInviteLinkHandler(
+      repos.conversationRepo as any,
+      repos.groupInviteLinkRepo as any,
+      repos.groupInviteLinkRepo as any,
+      repos.memberRepo as any,
+    ),
+    new RevokeGroupInviteLinkHandler(
+      repos.conversationRepo as any,
+      repos.groupInviteLinkRepo as any,
+      repos.groupInviteLinkRepo as any,
+      repos.memberRepo as any,
+    ),
+    new PreviewInviteHandler(
+      repos.groupInviteLinkRepo as any,
+      repos.conversationRepo as any,
+      userAdapter,
+    ),
+    new JoinGroupByInviteHandler(
+      repos.conversationRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.memberRepo as any,
+      repos.groupInviteLinkRepo as any,
+      repos.groupInviteLinkRepo as any,
+      repos.groupBlockRepo as any,
+      repos.messageRepo as any,
+      userAdapter,
+    ),
+  );
+  const groupBlockController = new GroupBlockController(
+    new GetGroupBlocksHandler(
+      repos.conversationRepo as any,
+      repos.groupBlockRepo as any,
+      repos.memberRepo as any,
+      userAdapter,
+    ),
+    new BlockGroupMemberHandler(
+      repos.conversationRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.memberRepo as any,
+      repos.groupBlockRepo as any,
+      repos.groupBlockRepo as any,
+      repos.messageRepo as any,
+      userAdapter,
+    ),
+    new UnblockGroupMemberHandler(
+      repos.conversationRepo as any,
+      repos.groupBlockRepo as any,
+      repos.groupBlockRepo as any,
+      repos.memberRepo as any,
+      userAdapter,
+    ),
+  );
+  const messagingHttp = new MessagingHttpService(useCase as any, {
+    groupInviteController,
+    groupBlockController,
+  });
   messagingHttp.setSocketService(messagingSocket);
 
   const friendSocket = new FriendNotificationSocketService(io);

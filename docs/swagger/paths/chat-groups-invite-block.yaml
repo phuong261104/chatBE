@@ -1,0 +1,274 @@
+paths:
+  # =============== INVITE LINK ===============
+  /v1/groups/{groupId}/invite-link:
+    get:
+      summary: Get group invite link
+      tags: [Chat - Groups - Invite Link]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+          description: Group conversation ID
+      responses:
+        "200":
+          description: Invite link retrieved
+          content:
+            application/json:
+              example:
+                data:
+                  conversationId: "conv_group_001"
+                  token: "abc123token"
+                  joinUrl: "https://app.example.com/invite/abc123token"
+                  qrPayload: "https://app.example.com/invite/abc123token"
+                  status: "active"
+                  createdAt: "2024-01-15T10:00:00Z"
+                  expiresAt: null
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a member or no permission to view invite link
+        "404":
+          description: Group not found
+
+    delete:
+      summary: Revoke group invite link
+      tags: [Chat - Groups - Invite Link]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+          description: Group conversation ID
+      responses:
+        "200":
+          description: Invite link revoked
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner or admins can revoke invite link
+        "404":
+          description: No active invite link found
+
+  /v1/groups/{groupId}/invite-link/regenerate:
+    post:
+      summary: Regenerate group invite link
+      tags: [Chat - Groups - Invite Link]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+          description: Group conversation ID
+      responses:
+        "200":
+          description: Invite link regenerated
+          content:
+            application/json:
+              example:
+                data:
+                  conversationId: "conv_group_001"
+                  token: "newtoken456"
+                  joinUrl: "https://app.example.com/invite/newtoken456"
+                  qrPayload: "https://app.example.com/invite/newtoken456"
+                  status: "active"
+                  createdAt: "2024-01-15T12:00:00Z"
+                  expiresAt: null
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner or admins can regenerate invite link
+        "404":
+          description: Group not found
+
+  /v1/invites/{token}/preview:
+    get:
+      summary: Preview invite link (public, no auth)
+      tags: [Chat - Groups - Invite Link]
+      parameters:
+        - in: path
+          name: token
+          schema:
+            type: string
+          required: true
+          description: Invite link token
+      responses:
+        "200":
+          description: Invite preview
+          content:
+            application/json:
+              example:
+                data:
+                  conversationId: "conv_group_001"
+                  name: "Dev Team"
+                  avatarUrl: "https://cdn.example.com/groups/avatar.png"
+                  membersCount: 15
+                  createdBy: "Nguyễn Văn A"
+        "404":
+          description: Invite link not found or expired
+        "410":
+          description: Invite link revoked or expired
+
+  /v1/invites/{token}/join:
+    post:
+      summary: Join group via invite link
+      tags: [Chat - Groups - Invite Link]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: token
+          schema:
+            type: string
+          required: true
+          description: Invite link token
+      responses:
+        "200":
+          description: Joined group successfully or pending approval
+          content:
+            application/json:
+              example:
+                data:
+                  conversationId: "conv_group_001"
+                  member:
+                    id: "mem_001"
+                    userId: "user_123"
+                    role: "member"
+                    status: "active"
+                  isPending: false
+                  systemMessage:
+                    id: "sys_002"
+                    type: "SYSTEM"
+                    text: "Nguyễn Văn B đã tham gia nhóm"
+        "401":
+          description: Unauthorized
+        "403":
+          description: You are blocked from joining this group or invites are disabled
+        "404":
+          description: Invite link not found
+        "410":
+          description: Invite link expired or revoked
+
+  # =============== GROUP BLOCKS ===============
+  /v1/groups/{groupId}/blocks:
+    get:
+      summary: List blocked members in group
+      tags: [Chat - Groups - Blocks]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+          description: Group conversation ID
+      responses:
+        "200":
+          description: Blocked members list
+          content:
+            application/json:
+              example:
+                data:
+                  - block:
+                      conversationId: "conv_group_001"
+                      userId: "user_001"
+                      blockedBy: "user_123"
+                      createdAt: "2024-01-15T10:00:00Z"
+                    userDisplayName: "Người Dùng 1"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner or admins can view blocked members
+        "404":
+          description: Group not found
+
+    post:
+      summary: Block a group member
+      tags: [Chat - Groups - Blocks]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+          description: Group conversation ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetUserId
+              properties:
+                targetUserId:
+                  type: string
+                  description: User ID to block
+      responses:
+        "200":
+          description: Member blocked successfully
+          content:
+            application/json:
+              example:
+                data:
+                  conversationId: "conv_group_001"
+                  userId: "user_001"
+                  blockedBy: "user_123"
+                  createdAt: "2024-01-15T10:00:00Z"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner or admins can block members
+        "404":
+          description: Group or member not found
+        "422":
+          description: Validation error
+
+  /v1/groups/{groupId}/blocks/{userId}:
+    delete:
+      summary: Unblock a previously blocked member
+      tags: [Chat - Groups - Blocks]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+          description: Group conversation ID
+        - in: path
+          name: userId
+          schema:
+            type: string
+          required: true
+          description: User ID to unblock
+      responses:
+        "200":
+          description: Member unblocked successfully
+          content:
+            application/json:
+              example:
+                success: true
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only owner or admins can unblock members
+        "404":
+          description: Block record not found

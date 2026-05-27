@@ -72,4 +72,24 @@ export {
   DeleteGroupNoteHandler,
 } from "./group-utilities";
 
+export {
+  GetGroupInviteLinkHandler,
+  RegenerateGroupInviteLinkHandler,
+  RevokeGroupInviteLinkHandler,
+  PreviewInviteHandler,
+  InvitePreviewResult,
+} from "./get-group-invite-link";
+
+export {
+  JoinGroupByInviteHandler,
+  JoinGroupByInviteResult,
+} from "./join-group-by-invite";
+
+export {
+  GetGroupBlocksHandler,
+  BlockGroupMemberHandler,
+  UnblockGroupMemberHandler,
+  GroupBlockWithUser,
+} from "./group-block";
+
 export { MessagingUseCaseFacade } from "./messaging-usecase-facade";

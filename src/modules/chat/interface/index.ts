@@ -12,6 +12,8 @@ import {
   GroupReminder,
   GroupNote,
   ClassificationType,
+  GroupInviteLink,
+  GroupBlock,
 } from "../model/model";
 import {
   ConversationCondDTO,
@@ -246,6 +248,27 @@ export interface IMessageClassificationRepository {
   ): Promise<{ items: MessageClassification[]; nextCursor: string; hasMore: boolean }>;
 }
 
+export interface IGroupInviteLinkQueryRepository {
+  get(token: string): Promise<GroupInviteLink | null>;
+  findActiveByConversationId(conversationId: string): Promise<GroupInviteLink | null>;
+}
+
+export interface IGroupInviteLinkCommandRepository {
+  insert(link: GroupInviteLink): Promise<boolean>;
+  revoke(token: string, revokedBy: string): Promise<boolean>;
+}
+
+export interface IGroupBlockQueryRepository {
+  findByConversationAndUser(conversationId: string, userId: string): Promise<GroupBlock | null>;
+  listByConversationId(conversationId: string): Promise<GroupBlock[]>;
+  isUserBlocked(conversationId: string, userId: string): Promise<boolean>;
+}
+
+export interface IGroupBlockCommandRepository {
+  insert(block: GroupBlock): Promise<boolean>;
+  deleteByConversationAndUser(conversationId: string, userId: string): Promise<void>;
+}
+
 export interface CreateGroupData {
   name: string;
   memberIds: string[];
@@ -300,6 +323,7 @@ export interface IMessagingUseCase {
     conversationId: string,
     requesterId: string,
     targetUserId: string,
+    block?: boolean,
   ): Promise<void>;
 
   updateGroupInfo(
@@ -350,7 +374,12 @@ export interface IMessagingUseCase {
 
   getTotalUnreadCount(userId: string): Promise<number>;
 
-  leaveGroup(conversationId: string, userId: string, autoTransferOwner?: boolean): Promise<void>;
+  leaveGroup(
+    conversationId: string,
+    userId: string,
+    autoTransferOwner?: boolean,
+    newOwnerId?: string,
+  ): Promise<void>;
 
   getGroupMembers(
     conversationId: string,
@@ -488,11 +517,14 @@ export interface IMessagingUseCase {
       allowMemberInvite?: boolean;
       whoCanSendMessages?: "all" | "admins";
       whoCanAddMembers?: "all" | "admins";
+      newMemberCanViewHistory?: boolean;
       utilityPermissions?: {
         poll?: "all" | "admins";
         reminder?: "all" | "admins";
         note?: "all" | "admins";
       };
+      whoCanUpdateGroupInfo?: "all" | "admins";
+      whoCanPinMessages?: "all" | "admins";
     },
   ): Promise<Conversation>;
 

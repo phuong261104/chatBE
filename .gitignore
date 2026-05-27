@@ -55,6 +55,7 @@ AGENTS.md
 CLAUDE.md
 GEMINI.md
 output
+docs/generated
 
 tasks
 test-*

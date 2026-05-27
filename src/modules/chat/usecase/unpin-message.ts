@@ -23,7 +23,7 @@ import {
 } from "../model/dto";
 import { ErrMessageNotFound, ErrNotMember, ErrMessageNotPinned, ErrNotAdmin } from "../model/errors";
 import { SystemMessageTemplate } from "../constants/system-messages";
-import { isGroupManager } from "./group-permissions";
+import { isGroupManager, canPinMessages, normalizeGroupSettings } from "./group-permissions";
 
 export class UnpinMessageHandler
   implements ICommandHandler<UnpinMessageCommand, Message>
@@ -68,10 +68,12 @@ export class UnpinMessageHandler
 
     const conversation = await this.conversationQueryRepo.get(message.conversationId);
     if (
-      conversation?.type === ConversationType.GROUP &&
-      !isGroupManager(member, conversation)
+      conversation?.type === ConversationType.GROUP
     ) {
-      throw AppError.from(ErrNotAdmin, 403);
+      const settings = normalizeGroupSettings(conversation.settings);
+      if (!canPinMessages(settings, member, conversation)) {
+        throw AppError.from(ErrNotAdmin, 403);
+      }
     }
 
     if (!message.pinned) {

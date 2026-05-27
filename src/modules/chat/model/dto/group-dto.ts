@@ -43,6 +43,7 @@ export const ConversationMemberUpdateDTOSchema = z.object({
   hidden: z.boolean().optional(),
   hiddenAt: z.date().nullable().optional(),
   hiddenPinHash: z.string().nullable().optional(),
+  historyVisibleFrom: z.date().nullable().optional(),
 });
 
 export type ConversationMemberUpdateDTO = z.infer<
@@ -78,6 +79,7 @@ export const removeMemberFromGroupDTOSchema = z.object({
   conversationId: z.string(),
   requesterId: z.string(),
   targetUserId: z.string(),
+  block: z.boolean().optional(),
 });
 
 export type RemoveMemberFromGroupDTO = z.infer<
@@ -106,6 +108,7 @@ export const leaveGroupDTOSchema = z.object({
   conversationId: z.string(),
   userId: z.string(),
   autoTransferOwner: z.boolean().optional(),
+  newOwnerId: z.string().optional(),
 });
 
 export type LeaveGroupDTO = z.infer<typeof leaveGroupDTOSchema>;
@@ -201,6 +204,9 @@ export const updateGroupSettingsDTOSchema = z.object({
   allowMemberInvite: z.boolean().optional(),
   whoCanSendMessages: z.enum(["all", "admins"]).optional(),
   whoCanAddMembers: z.enum(["all", "admins"]).optional(),
+  whoCanUpdateGroupInfo: z.enum(["all", "admins"]).optional(),
+  whoCanPinMessages: z.enum(["all", "admins"]).optional(),
+  newMemberCanViewHistory: z.boolean().optional(),
   utilityPermissions: z.object({
     poll: z.enum(["all", "admins"]).optional(),
     reminder: z.enum(["all", "admins"]).optional(),
@@ -225,6 +231,7 @@ export interface RemoveMemberFromGroupCommand {
   conversationId: string;
   requesterId: string;
   targetUserId: string;
+  block?: boolean;
 }
 
 export interface UpdateGroupInfoCommand {
@@ -250,6 +257,7 @@ export interface LeaveGroupCommand {
   conversationId: string;
   userId: string;
   autoTransferOwner?: boolean;
+  newOwnerId?: string;
 }
 
 export interface GetGroupMembersQuery {
@@ -330,9 +338,106 @@ export interface UpdateGroupSettingsCommand {
   allowMemberInvite?: boolean;
   whoCanSendMessages?: "all" | "admins";
   whoCanAddMembers?: "all" | "admins";
+  whoCanUpdateGroupInfo?: "all" | "admins";
+  whoCanPinMessages?: "all" | "admins";
+  newMemberCanViewHistory?: boolean;
   utilityPermissions?: {
     poll?: "all" | "admins";
     reminder?: "all" | "admins";
     note?: "all" | "admins";
   };
+}
+
+// ==================== Group Invite Link DTOs ====================
+
+export const getGroupInviteLinkDTOSchema = z.object({
+  groupId: z.string(),
+  requesterId: z.string(),
+});
+export type GetGroupInviteLinkDTO = z.infer<typeof getGroupInviteLinkDTOSchema>;
+
+export interface GetGroupInviteLinkQuery {
+  groupId: string;
+  requesterId: string;
+}
+
+export const regenerateGroupInviteLinkDTOSchema = z.object({
+  groupId: z.string(),
+  requesterId: z.string(),
+});
+export type RegenerateGroupInviteLinkDTO = z.infer<typeof regenerateGroupInviteLinkDTOSchema>;
+
+export interface RegenerateGroupInviteLinkCommand {
+  groupId: string;
+  requesterId: string;
+}
+
+export const revokeGroupInviteLinkDTOSchema = z.object({
+  groupId: z.string(),
+  requesterId: z.string(),
+});
+export type RevokeGroupInviteLinkDTO = z.infer<typeof revokeGroupInviteLinkDTOSchema>;
+
+export interface RevokeGroupInviteLinkCommand {
+  groupId: string;
+  requesterId: string;
+}
+
+export const previewInviteDTOSchema = z.object({
+  token: z.string(),
+  requesterId: z.string().optional(),
+});
+export type PreviewInviteDTO = z.infer<typeof previewInviteDTOSchema>;
+
+export interface PreviewInviteQuery {
+  token: string;
+  requesterId?: string;
+}
+
+export const joinGroupByInviteDTOSchema = z.object({
+  token: z.string(),
+  requesterId: z.string(),
+});
+export type JoinGroupByInviteDTO = z.infer<typeof joinGroupByInviteDTOSchema>;
+
+export interface JoinGroupByInviteCommand {
+  token: string;
+  requesterId: string;
+}
+
+// ==================== Group Block DTOs ====================
+
+export const getGroupBlocksDTOSchema = z.object({
+  groupId: z.string(),
+  requesterId: z.string(),
+});
+export type GetGroupBlocksDTO = z.infer<typeof getGroupBlocksDTOSchema>;
+
+export interface GetGroupBlocksQuery {
+  groupId: string;
+  requesterId: string;
+}
+
+export const blockGroupMemberDTOSchema = z.object({
+  targetUserId: z.string(),
+});
+export type BlockGroupMemberDTO = z.infer<typeof blockGroupMemberDTOSchema>;
+
+export interface BlockGroupMemberCommand {
+  groupId: string;
+  requesterId: string;
+  targetUserId: string;
+}
+
+export const unblockGroupMemberDTOSchema = z.object({
+  groupId: z.string(),
+  requesterId: z.string(),
+  targetUserId: z.string(),
+});
+export type UnblockGroupMemberDTO = z.infer<typeof unblockGroupMemberDTOSchema>;
+
+export interface UnblockGroupMemberCommand {
+  groupId: string;
+  requesterId: string;
+  targetUserId: string;
 }

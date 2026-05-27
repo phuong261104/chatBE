@@ -69,6 +69,9 @@ export const GroupSettingsSchema = z.object({
   allowMemberInvite: z.boolean().default(true),
   whoCanSendMessages: z.enum(["all", "admins"]).default("all"),
   whoCanAddMembers: z.enum(["all", "admins"]).default("all"),
+  whoCanUpdateGroupInfo: z.enum(["all", "admins"]).default("admins"),
+  whoCanPinMessages: z.enum(["all", "admins"]).default("admins"),
+  newMemberCanViewHistory: z.boolean().default(true),
   utilityPermissions: z.object({
     poll: z.enum(["all", "admins"]).default("all"),
     reminder: z.enum(["all", "admins"]).default("all"),
@@ -113,7 +116,8 @@ export const ConversationMemberSchema = z.object({
   status: z.nativeEnum(ConversationMemberStatus).default(ConversationMemberStatus.ACTIVE),
 
   joinedAt: z.date(),
-  leftAt: z.date().optional(),
+  leftAt: z.date().nullable().optional(),
+  historyVisibleFrom: z.date().optional(),
 
   unreadCount: z.number().default(0),
   lastReadMessageId: z.string().optional(),
@@ -380,3 +384,33 @@ export const GroupNoteSchema = z.object({
 });
 
 export type GroupNote = z.infer<typeof GroupNoteSchema>;
+
+export const GroupInviteLinkStatus = {
+  ACTIVE: "active",
+  REVOKED: "revoked",
+} as const;
+export type GroupInviteLinkStatus = (typeof GroupInviteLinkStatus)[keyof typeof GroupInviteLinkStatus];
+
+export const GroupInviteLinkSchema = z.object({
+  token: z.string(),
+  conversationId: z.string(),
+  status: z.nativeEnum(GroupInviteLinkStatus).default(GroupInviteLinkStatus.ACTIVE),
+  createdBy: z.string(),
+  revokedBy: z.string().optional(),
+  createdAt: z.date(),
+  revokedAt: z.date().optional(),
+  expiresAt: z.date().optional(),
+});
+
+export type GroupInviteLink = z.infer<typeof GroupInviteLinkSchema>;
+
+export const GroupBlockSchema = z.object({
+  pk: z.string(),
+  sk: z.string(),
+  conversationId: z.string(),
+  userId: z.string(),
+  blockedBy: z.string(),
+  createdAt: z.date(),
+});
+
+export type GroupBlock = z.infer<typeof GroupBlockSchema>;

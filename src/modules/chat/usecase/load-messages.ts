@@ -57,9 +57,11 @@ export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery
     );
 
     const hiddenAt = member.hiddenAt;
+    const historyVisibleFrom = member.historyVisibleFrom;
     const visibleMessages = messages.filter((msg) => {
       if (msg.deletedForUserIds?.includes(validatedInput.userId)) return false;
       if (hiddenAt && msg.createdAt <= hiddenAt) return false;
+      if (historyVisibleFrom && msg.createdAt < historyVisibleFrom) return false;
       return true;
     });
 

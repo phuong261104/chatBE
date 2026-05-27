@@ -6,6 +6,8 @@ import {
   ConversationMemberRole,
   ConversationMemberStatus,
   ConversationType,
+  GroupBlock,
+  GroupInviteLink,
   GroupNote,
   GroupReminder,
   GroupSettings,
@@ -28,6 +30,9 @@ function defaultGroupSettings(): GroupSettings {
     allowMemberInvite: true,
     whoCanSendMessages: "all",
     whoCanAddMembers: "all",
+    whoCanUpdateGroupInfo: "admins",
+    whoCanPinMessages: "admins",
+    newMemberCanViewHistory: true,
     utilityPermissions: {
       poll: "all",
       reminder: "all",
@@ -161,6 +166,8 @@ export class ChatE2EStore {
   readonly classifications: MessageClassification[] = [];
   readonly friendships = new Set<string>();
   readonly blocks = new Set<string>();
+  readonly inviteLinks = new Map<string, GroupInviteLink>();
+  readonly groupBlocks = new Map<string, GroupBlock>();
   readonly avatarHistory: Array<{ id: string; userId: string; avatarUrl: string; createdAt: Date }> = [];
 
   addUser(data: Partial<UserInfo> & Record<string, any> & { id?: string } = {}): UserInfo {

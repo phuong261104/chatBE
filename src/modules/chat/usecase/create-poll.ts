@@ -83,7 +83,7 @@ export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Pol
       createdBy: creatorId,
       isMultipleChoice: isMultipleChoice || false,
       allowAddOption: allowAddOption || false,
-      showResultsBeforeClose: showResultsBeforeClose ?? true,
+      showResultsBeforeClose: showResultsBeforeClose ?? false,
       hideVoters: hideVoters || false,
       status: PollStatus.ACTIVE,
       expiresAt: expiresAt ? new Date(expiresAt) : undefined,

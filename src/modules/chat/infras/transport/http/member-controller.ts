@@ -56,16 +56,20 @@ export class MemberController extends BaseController {
         return;
       }
 
+      const block = req.query.block === "true";
+
       const validatedData = removeMemberFromGroupDTOSchema.parse({
         conversationId: groupId,
         requesterId: currentUserId,
         targetUserId: userId,
+        block,
       });
 
       await this.useCase.removeMemberFromGroup(
         validatedData.conversationId,
         validatedData.requesterId,
         validatedData.targetUserId,
+        validatedData.block,
       );
 
       if (this.socketService) {

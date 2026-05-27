@@ -320,6 +320,18 @@ paths:
     $ref: "./paths/chat-v2.yaml#/paths/~1groups~1{groupId}~1leave"
   /v1/groups/{groupId}/settings:
     $ref: "./paths/chat-v2.yaml#/paths/~1groups~1{groupId}~1settings"
+  /v1/groups/{groupId}/invite-link:
+    $ref: "./paths/chat-groups-invite-block.yaml#/paths/~1v1~1groups~1{groupId}~1invite-link"
+  /v1/groups/{groupId}/invite-link/regenerate:
+    $ref: "./paths/chat-groups-invite-block.yaml#/paths/~1v1~1groups~1{groupId}~1invite-link~1regenerate"
+  /v1/invites/{token}/preview:
+    $ref: "./paths/chat-groups-invite-block.yaml#/paths/~1v1~1invites~1{token}~1preview"
+  /v1/invites/{token}/join:
+    $ref: "./paths/chat-groups-invite-block.yaml#/paths/~1v1~1invites~1{token}~1join"
+  /v1/groups/{groupId}/blocks:
+    $ref: "./paths/chat-groups-invite-block.yaml#/paths/~1v1~1groups~1{groupId}~1blocks"
+  /v1/groups/{groupId}/blocks/{userId}:
+    $ref: "./paths/chat-groups-invite-block.yaml#/paths/~1v1~1groups~1{groupId}~1blocks~1{userId}"
 
   # --- User ---
   /v1/users/me/profile:

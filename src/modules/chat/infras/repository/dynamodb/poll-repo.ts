@@ -27,6 +27,7 @@ export class DynamoPollQueryRepository {
       hideVoters: doc.hideVoters || false,
       status: doc.status || PollStatus.ACTIVE,
       pinned: doc.pinned || false,
+      totalVotes: doc.totalVotes || 0,
       voteActivityCount: doc.voteActivityCount || 0,
     } as Poll;
   }

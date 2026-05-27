@@ -83,6 +83,9 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       ? ConversationMemberStatus.PENDING
       : ConversationMemberStatus.ACTIVE;
 
+    const newMemberCanViewHistory = settings.newMemberCanViewHistory ?? true;
+    const historyVisibleFrom = newMemberCanViewHistory ? undefined : now;
+
     const existingToRestore: ConversationMember[] = [];
     const membersToInsert: ConversationMember[] = [];
     const membersToUpdate: { existing: ConversationMember; updated: ConversationMember }[] = [];
@@ -106,7 +109,8 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
           archived: false,
           hiddenUserIds: [],
           lastActivityAt: now,
-          updatedAt: now
+          updatedAt: now,
+          historyVisibleFrom,
         };
         membersToInsert.push(member);
       } else if (existingMember.leftAt !== undefined) {
@@ -123,6 +127,7 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
           hiddenPinHash: undefined,
           lastActivityAt: now,
           updatedAt: now,
+          historyVisibleFrom,
         };
         existingToRestore.push(existingMember);
         membersToUpdate.push({ existing: existingMember, updated: reJoinedMember });
@@ -156,6 +161,7 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
           hiddenAt: null,
           hiddenPinHash: null,
           lastActivityAt: now,
+          historyVisibleFrom,
         } as any);
         newMembers.push(item.updated);
       }

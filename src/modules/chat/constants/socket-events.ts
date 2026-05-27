@@ -96,6 +96,13 @@ export const SocketEvent = {
   UPDATE_NOTE: "updateNote",
   DELETE_NOTE: "deleteNote",
 
+  // NEW: Invite link
+  GROUP_INVITE_LINK_UPDATED: "group:invite_link_updated",
+  GROUP_INVITE_LINK_REVOKED: "group:invite_link_revoked",
+  GROUP_MEMBER_REQUESTED: "group:member_join_requested",
+  GROUP_MEMBER_BLOCKED: "group:member_blocked",
+  GROUP_MEMBER_UNBLOCKED: "group:member_unblocked",
+
   // NEW: Outgoing server -> client events
   ONLINE_STATUS: "online_status",
   USER_PRESENCE: "user_presence",
@@ -105,4 +112,12 @@ export const SocketEvent = {
   EDIT_MESSAGE_END: "message:edit_end",
   VOICE_MESSAGE: "voice_message",
   LOCATION_SHARE: "location_share",
+
+  // NEW: Incoming socket events for invite link and block
+  GET_GROUP_INVITE_LINK: "getGroupInviteLink",
+  REGENERATE_GROUP_INVITE_LINK: "regenerateGroupInviteLink",
+  REVOKE_GROUP_INVITE_LINK: "revokeGroupInviteLink",
+  JOIN_GROUP_BY_INVITE: "joinGroupByInvite",
+  BLOCK_GROUP_MEMBER: "blockGroupMember",
+  UNBLOCK_GROUP_MEMBER: "unblockGroupMember",
 } as const;

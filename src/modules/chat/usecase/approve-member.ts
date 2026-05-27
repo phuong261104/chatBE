@@ -17,7 +17,7 @@ import {
   MessageType,
 } from "../model/model";
 import { SystemMessageTemplate } from "../constants/system-messages";
-import { isActiveMember, isGroupManager } from "./group-permissions";
+import { isActiveMember, isGroupManager, normalizeGroupSettings } from "./group-permissions";
 
 export class ApproveMemberHandler implements ICommandHandler<{ groupId: string; userId: string; requesterId: string }, ConversationMember> {
   constructor(
@@ -67,8 +67,12 @@ export class ApproveMemberHandler implements ICommandHandler<{ groupId: string; 
       throw AppError.from(new Error("Member was rejected and cannot be approved"), 400);
     }
 
+    const newMemberCanViewHistory = normalizeGroupSettings(conversation.settings).newMemberCanViewHistory ?? true;
+    const historyVisibleFrom = newMemberCanViewHistory ? undefined : new Date();
+
     await this.conversationMemberCommandRepo.update(member.id, {
       status: ConversationMemberStatus.ACTIVE,
+      historyVisibleFrom,
     });
 
     await this.conversationCommandRepo.update(groupId, {

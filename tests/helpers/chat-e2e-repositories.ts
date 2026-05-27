@@ -6,6 +6,8 @@ import {
   ConversationMember,
   ConversationMemberStatus,
   ConversationType,
+  GroupBlock,
+  GroupInviteLink,
   GroupNote,
   GroupReminder,
   GroupReminderStatus,
@@ -792,5 +794,77 @@ export class InMemoryBlockRepository {
 
   async list(cond: { blockerId?: string; blockedUserId?: string }): Promise<Array<{ id: string; blockerId: string; blockedUserId: string; createdAt: Date }>> {
     return this.findAllByCond(cond);
+  }
+}
+
+export class InMemoryGroupInviteLinkQueryRepository {
+  constructor(private readonly store: ChatE2EStore) {}
+
+  async get(token: string): Promise<GroupInviteLink | null> {
+    return this.store.inviteLinks.get(token) ?? null;
+  }
+
+  async findActiveByConversationId(conversationId: string): Promise<GroupInviteLink | null> {
+    for (const link of this.store.inviteLinks.values()) {
+      if (link.conversationId === conversationId) return link;
+    }
+    return null;
+  }
+}
+
+export class InMemoryGroupInviteLinkCommandRepository {
+  constructor(private readonly store: ChatE2EStore) {}
+
+  async insert(link: GroupInviteLink): Promise<boolean> {
+    this.store.inviteLinks.set(link.token, link);
+    return true;
+  }
+
+  async revoke(token: string, _revokedBy: string): Promise<boolean> {
+    const link = this.store.inviteLinks.get(token);
+    if (!link) return false;
+    this.store.inviteLinks.set(token, { ...link, status: "revoked" as any });
+    return true;
+  }
+}
+
+export class InMemoryGroupBlockQueryRepository {
+  constructor(private readonly store: ChatE2EStore) {}
+
+  private key(conversationId: string, userId: string): string {
+    return `${conversationId}#${userId}`;
+  }
+
+  async findByConversationAndUser(conversationId: string, userId: string): Promise<GroupBlock | null> {
+    return this.store.groupBlocks.get(this.key(conversationId, userId)) ?? null;
+  }
+
+  async listByConversationId(conversationId: string): Promise<GroupBlock[]> {
+    const results: GroupBlock[] = [];
+    for (const [key, block] of this.store.groupBlocks) {
+      if (key.startsWith(`${conversationId}#`)) results.push(block);
+    }
+    return results;
+  }
+
+  async isUserBlocked(conversationId: string, userId: string): Promise<boolean> {
+    return this.store.groupBlocks.has(this.key(conversationId, userId));
+  }
+}
+
+export class InMemoryGroupBlockCommandRepository {
+  constructor(private readonly store: ChatE2EStore) {}
+
+  private key(conversationId: string, userId: string): string {
+    return `${conversationId}#${userId}`;
+  }
+
+  async insert(block: GroupBlock): Promise<boolean> {
+    this.store.groupBlocks.set(this.key(block.conversationId, block.userId), block);
+    return true;
+  }
+
+  async deleteByConversationAndUser(conversationId: string, userId: string): Promise<void> {
+    this.store.groupBlocks.delete(this.key(conversationId, userId));
   }
 }
