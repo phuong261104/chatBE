@@ -20,7 +20,6 @@ import { setupMessagingHexagon } from "@modules/chat";
 import { setupBlockHexagon } from "@modules/blocks";
 import { setupFriendRequestHexagon } from "@modules/friend-requests";
 import { setupFriendshipHexagon } from "@modules/friendships";
-import { setupMyCloudHexagon } from "@modules/my-cloud";
 import { setupSearchHexagon } from "@modules/search";
 import { setupAiHexagon } from "@modules/ai";
 import { setupCallHexagon } from "@modules/call";
@@ -173,9 +172,7 @@ config();
   app.use("/v1", friendRequestRouter);
   app.use("/v1", friendshipRouter);
 
-  const myCloudRouter = setupMyCloudHexagon(sctx, io);
   const searchRouter = setupSearchHexagon(sctx);
-  app.use("/v1", myCloudRouter);
   app.use("/v1", searchRouter);
 
   const { router: callRouter } = setupCallHexagon(

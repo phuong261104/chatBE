@@ -63,10 +63,10 @@ Nếu feature nhỏ, có thể gộp ít file hơn, nhưng không được đưa
 
 | Loại | Quy ước | Ví dụ |
 | --- | --- | --- |
-| Folder feature | kebab-case | `friend-requests`, `my-cloud` |
+| Folder feature | kebab-case | `friend-requests` |
 | File TypeScript | kebab-case hoặc tên hiện có của module | `send-message.ts`, `call-v2.service.ts` |
 | Class usecase/handler | PascalCase | `SendMessageHandler`, `AuthUseCase` |
-| DTO schema | PascalCase + `Schema` | `LoginDTOSchema`, `CreateCloudItemDTOSchema` |
+| DTO schema | PascalCase + `Schema` | `LoginDTOSchema` |
 | DTO type | PascalCase + `DTO` | `LoginDTO`, `UserUpdateDTO` |
 | Error const | `Err...` | `ErrInvalidCredentials` |
 | DynamoDB table logical name | UPPER_SNAKE trong `TABLE_NAMES` | `CONVERSATION_MEMBERS` |

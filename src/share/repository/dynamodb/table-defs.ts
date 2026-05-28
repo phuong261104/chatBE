@@ -72,9 +72,6 @@ export const TABLE_NAMES = {
   BLOCKS: "blocks",
   STORIES: "stories",
   STORY_VIEWS: "story_views",
-  CLOUD_ITEMS: "cloud_items",
-  COLLECTIONS: "collections",
-  COLLECTION_ITEMS: "collection_items",
   GROUP_INVITE_LINKS: "group_invite_links",
   GROUP_BLOCKS: "group_blocks",
 } as const;
@@ -421,127 +418,6 @@ export const BLOCKS_TABLE: TableDefinition = {
   BillingMode: "PAY_PER_REQUEST",
 };
 
-export const CLOUD_ITEMS_TABLE: TableDefinition = {
-  TableName: TABLE_NAMES.CLOUD_ITEMS,
-  KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
-  AttributeDefinitions: [
-    { AttributeName: "id", AttributeType: "S" },
-    { AttributeName: "userId", AttributeType: "S" },
-    { AttributeName: "type", AttributeType: "S" },
-    { AttributeName: "isDeleted", AttributeType: "S" },
-    { AttributeName: "isPinned", AttributeType: "S" },
-    { AttributeName: "collectionId", AttributeType: "S" },
-    { AttributeName: "shareToken", AttributeType: "S" },
-  ],
-  GlobalSecondaryIndexes: [
-    {
-      IndexName: "userId-index",
-      KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
-      Projection: { ProjectionType: "ALL" },
-    },
-    {
-      IndexName: "userId-type-index",
-      KeySchema: [
-        { AttributeName: "userId", KeyType: "HASH" },
-        { AttributeName: "type", KeyType: "RANGE" },
-      ],
-      Projection: { ProjectionType: "ALL" },
-    },
-    {
-      IndexName: "userId-isDeleted-index",
-      KeySchema: [
-        { AttributeName: "userId", KeyType: "HASH" },
-        { AttributeName: "isDeleted", KeyType: "RANGE" },
-      ],
-      Projection: { ProjectionType: "ALL" },
-    },
-    {
-      IndexName: "userId-isPinned-index",
-      KeySchema: [
-        { AttributeName: "userId", KeyType: "HASH" },
-        { AttributeName: "isPinned", KeyType: "RANGE" },
-      ],
-      Projection: { ProjectionType: "ALL" },
-    },
-    {
-      IndexName: "userId-collectionId-index",
-      KeySchema: [
-        { AttributeName: "userId", KeyType: "HASH" },
-        { AttributeName: "collectionId", KeyType: "RANGE" },
-      ],
-      Projection: { ProjectionType: "ALL" },
-    },
-    {
-      IndexName: "shareToken-index",
-      KeySchema: [{ AttributeName: "shareToken", KeyType: "HASH" }],
-      Projection: { ProjectionType: "ALL" },
-    },
-  ],
-  BillingMode: "PAY_PER_REQUEST",
-};
-
-export const COLLECTIONS_TABLE: TableDefinition = {
-  TableName: TABLE_NAMES.COLLECTIONS,
-  KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
-  AttributeDefinitions: [
-    { AttributeName: "id", AttributeType: "S" },
-    { AttributeName: "userId", AttributeType: "S" },
-    { AttributeName: "parentId", AttributeType: "S" },
-    { AttributeName: "isDefault", AttributeType: "S" },
-  ],
-  GlobalSecondaryIndexes: [
-    {
-      IndexName: "userId-index",
-      KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
-      Projection: { ProjectionType: "ALL" },
-    },
-    {
-      IndexName: "userId-parentId-index",
-      KeySchema: [
-        { AttributeName: "userId", KeyType: "HASH" },
-        { AttributeName: "parentId", KeyType: "RANGE" },
-      ],
-      Projection: { ProjectionType: "ALL" },
-    },
-    {
-      IndexName: "userId-isDefault-index",
-      KeySchema: [
-        { AttributeName: "userId", KeyType: "HASH" },
-        { AttributeName: "isDefault", KeyType: "RANGE" },
-      ],
-      Projection: { ProjectionType: "ALL" },
-    },
-  ],
-  BillingMode: "PAY_PER_REQUEST",
-};
-
-export const COLLECTION_ITEMS_TABLE: TableDefinition = {
-  TableName: TABLE_NAMES.COLLECTION_ITEMS,
-  KeySchema: [
-    { AttributeName: "pk", KeyType: "HASH" },
-    { AttributeName: "sk", KeyType: "RANGE" },
-  ],
-  AttributeDefinitions: [
-    { AttributeName: "pk", AttributeType: "S" },
-    { AttributeName: "sk", AttributeType: "S" },
-    { AttributeName: "collectionId", AttributeType: "S" },
-    { AttributeName: "itemId", AttributeType: "S" },
-  ],
-  GlobalSecondaryIndexes: [
-    {
-      IndexName: "collectionId-index",
-      KeySchema: [{ AttributeName: "collectionId", KeyType: "HASH" }],
-      Projection: { ProjectionType: "ALL" },
-    },
-    {
-      IndexName: "itemId-index",
-      KeySchema: [{ AttributeName: "itemId", KeyType: "HASH" }],
-      Projection: { ProjectionType: "ALL" },
-    },
-  ],
-  BillingMode: "PAY_PER_REQUEST",
-};
-
 export const GROUP_INVITE_LINKS_TABLE: TableDefinition = {
   TableName: TABLE_NAMES.GROUP_INVITE_LINKS,
   KeySchema: [{ AttributeName: "token", KeyType: "HASH" }],
@@ -603,10 +479,6 @@ export const ALL_TABLES: TableDefinition[] = [
   GROUP_NOTES_TABLE,
   FRIENDSHIPS_TABLE,
   FRIEND_REQUESTS_TABLE,
-  BLOCKS_TABLE,
-  CLOUD_ITEMS_TABLE,
-  COLLECTIONS_TABLE,
-  COLLECTION_ITEMS_TABLE,
   GROUP_INVITE_LINKS_TABLE,
   GROUP_BLOCKS_TABLE,
 ];

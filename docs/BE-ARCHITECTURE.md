@@ -78,7 +78,6 @@ src/
     blocks/
     friend-requests/
     friendships/
-    my-cloud/
     search/
     call/
     ai/
@@ -131,7 +130,6 @@ Ví dụ bootstrap module trong `src/index.ts`:
 - `setupBlockHexagon(...)`
 - `setupFriendRequestHexagon(...)`
 - `setupFriendshipHexagon(...)`
-- `setupMyCloudHexagon(...)`
 - `setupSearchHexagon(...)`
 - `setupCallHexagon(...)`
 - `setupAiHexagon(...)`
@@ -290,7 +288,7 @@ Persistence split:
 
 Realtime side effects phát qua `MessagingSocketService` sau khi usecase cập nhật data.
 
-## Media and My Cloud Architecture
+## Media and Upload Architecture
 
 Media module xử lý:
 
@@ -298,13 +296,6 @@ Media module xử lý:
 - Request presigned URL.
 - Confirm upload.
 - Delete media.
-
-My Cloud module xử lý:
-
-- File/image/video/voice/link/note cá nhân.
-- Trash/restore/permanent delete.
-- Pin/share/forward.
-- Collections và collection-item mapping.
 
 Khi cloud storage bật, env cần có `CLOUD_BUCKET_NAME`, `CLOUD_REGION`, `CLOUD_ACCESS_KEY_ID`, `CLOUD_SECRET_ACCESS_KEY`.
 

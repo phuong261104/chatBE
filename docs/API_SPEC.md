@@ -74,8 +74,6 @@ Hai luồng upload chính:
 - Upload qua backend multipart: `POST /v1/media/upload`, `POST /v1/media/upload-multiple`.
 - Upload cloud/presigned: request URL bằng `POST /v1/media/request-upload-url`, upload trực tiếp lên S3/R2, sau đó confirm bằng `POST /v1/media/confirm-upload`.
 
-My Cloud cũng có endpoint upload riêng dưới `/v1/my-cloud/upload*`.
-
 ## Response Format
 
 `/v1` được gắn `responseFormatMiddleware`, nên response được normalize về envelope hiện tại.
@@ -320,31 +318,6 @@ Không còn social alias version khác; dùng các route `/v1` trong bảng trê
 | GET | `/v1/blocks/{blockedUserId}/check` | Check block status |
 
 Không còn block alias version khác; dùng các route `/v1` trong bảng trên.
-
-### My Cloud
-
-| Method | Path | Mục đích |
-| --- | --- | --- |
-| GET/POST | `/v1/my-cloud` | List/tạo cloud item |
-| GET | `/v1/my-cloud/items` | List items |
-| POST | `/v1/my-cloud/upload` | Upload vào My Cloud |
-| POST | `/v1/my-cloud/upload/presigned` | Request upload presigned cho My Cloud |
-| POST | `/v1/my-cloud/upload/confirm` | Confirm upload |
-| GET/PATCH/DELETE | `/v1/my-cloud/{id}` | Xem/cập nhật/delete item |
-| PATCH | `/v1/my-cloud/{id}/pin` | Pin/unpin item |
-| POST | `/v1/my-cloud/{id}/restore` | Restore item |
-| DELETE | `/v1/my-cloud/{id}/permanent` | Delete permanent |
-| POST | `/v1/my-cloud/{id}/share` | Share item bằng token |
-| POST | `/v1/my-cloud/{id}/forward` | Forward item vào chat |
-| GET | `/v1/my-cloud/shared/{shareToken}` | Xem item shared |
-| GET | `/v1/my-cloud/search` | Search My Cloud |
-| GET | `/v1/my-cloud/stats` | Stats |
-| POST | `/v1/my-cloud/batch-delete` | Batch delete |
-| POST | `/v1/my-cloud/trash/empty` | Empty trash |
-| GET/POST | `/v1/my-cloud/collections` | List/tạo collection |
-| GET/PATCH/DELETE | `/v1/my-cloud/collections/{id}` | Xem/cập nhật/delete collection |
-| GET/POST | `/v1/my-cloud/collections/{id}/items` | List/add item vào collection |
-| DELETE | `/v1/my-cloud/collections/{id}/items/{itemId}` | Remove item khỏi collection |
 
 ### Search
 

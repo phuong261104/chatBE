@@ -13,7 +13,7 @@ Canonical socket handoff for the current source code in `src/index.ts` and the s
 
 | Namespace | Source service | Purpose |
 | --- | --- | --- |
-| `/` | `createSocketIOServer`, `MyCloudSocketService` | Base connection, presence utilities, root my-cloud socket handlers |
+| `/` | `createSocketIOServer` | Base connection, presence utilities |
 | `/messages` | `MessagingSocketService` | Chat, messages, group operations, polls, reminders, notes |
 | `/v1/calls` | `CallV2SocketService` | Current LiveKit cloud call socket |
 | `/friends` | `FriendNotificationSocketService` | Friend request and friendship notifications |
@@ -63,48 +63,6 @@ The root namespace is created by `createSocketIOServer`. It handles base connect
 | `typing:stop` | any | No ack; touches root presence only |
 | `messageSeen` | any | No ack; touches root presence only |
 | `messageDelivered` | any | No ack; touches root presence only |
-
-## Root My Cloud Events
-
-`MyCloudSocketService` registers on the root namespace. It verifies the token itself, joins `user:${userId}`, then emits response events back to that user. Errors are emitted as `error` with `{ message }`.
-
-| Client Event | Payload |
-| --- | --- |
-| `my_cloud:load` | `{ limit?, type?, isDeleted?, isPinned?, cursor? }` |
-| `my_cloud:create` | Cloud item create DTO |
-| `my_cloud:update` | `{ itemId, ...updates }` |
-| `my_cloud:delete` | `{ itemId }` |
-| `my_cloud:restore` | `{ itemId }` |
-| `my_cloud:pin` | `{ itemId, pinned }` |
-| `my_cloud:stats` | ignored |
-| `my_cloud:search` | `{ query, limit? }` |
-| `my_cloud:share` | `{ itemId, expiresInDays? }` |
-| `my_cloud:empty_trash` | ignored |
-| `my_cloud:collection_create` | Collection create DTO |
-| `my_cloud:collection_update` | `{ collectionId, ...updates }` |
-| `my_cloud:collection_delete` | `{ collectionId }` |
-| `my_cloud:collections_list` | ignored |
-| `my_cloud:collection_add_item` | `{ collectionId, itemId }` |
-| `my_cloud:collection_remove_item` | `{ collectionId, itemId }` |
-
-| Server Event | Payload |
-| --- | --- |
-| `my_cloud:items_loaded` | `{ data }` |
-| `my_cloud:item_created` | `{ data }` |
-| `my_cloud:item_updated` | `{ data }` |
-| `my_cloud:item_deleted` | `{ data: { deleted: true } }` |
-| `my_cloud:item_restored` | `{ data }` |
-| `my_cloud:item_pinned` | `{ data }` |
-| `my_cloud:stats_loaded` | `{ data }` |
-| `my_cloud:search_result` | `{ data }` |
-| `my_cloud:item_shared` | `{ data }` |
-| `my_cloud:trash_emptied` | `{ data }` |
-| `my_cloud:collection_created` | `{ data }` |
-| `my_cloud:collection_updated` | `{ data }` |
-| `my_cloud:collection_deleted` | `{ data: { deleted: true, collectionId } }` |
-| `my_cloud:collections_listed` | `{ data }` |
-| `my_cloud:collection_item_added` | `{ data: { success: true, collectionId, itemId } }` |
-| `my_cloud:collection_item_removed` | `{ data: { success: true, collectionId, itemId } }` |
 
 ## Messaging Namespace `/messages`
 

@@ -42,9 +42,6 @@ Các table đang được khởi tạo bởi `ALL_TABLES`:
 | `friendships` | Social | `userA`, `userB` | `userA-createdAt-index`, `userB-index` | Một record cho mỗi cặp bạn bè |
 | `friend_requests` | Social | `id` | `senderId-index`, `receiverId-index`, `senderId-createdAt-index`, `receiverId-createdAt-index` | Lời mời kết bạn |
 | `blocks` | Social | `blockerId`, `blockedUserId` | `blockerId-createdAt-index` | Quan hệ chặn |
-| `cloud_items` | My Cloud | `id` | `userId-index`, `userId-type-index`, `userId-isDeleted-index`, `userId-isPinned-index`, `userId-collectionId-index`, `shareToken-index` | File/note/link lưu cá nhân |
-| `collections` | My Cloud | `id` | `userId-index`, `userId-parentId-index`, `userId-isDefault-index` | Thư mục/collection |
-| `collection_items` | My Cloud | `pk`, `sk` | `collectionId-index`, `itemId-index` | Mapping collection-item |
 | `group_invite_links` | Chat | `token` | `conversationId-status-index` | Invite link/token cho group |
 | `group_blocks` | Chat | `pk`, `sk` | `userId-index`, `blockedBy-index` | User bị chặn khỏi group |
 
@@ -416,85 +413,6 @@ Access patterns:
 
 - Check block bằng cặp `blockerId/blockedUserId`.
 - List users đã chặn theo `blockerId`.
-
-## My Cloud Domain
-
-### `cloud_items`
-
-Mục đích: lưu tài liệu cá nhân, file, image, video, voice, link và note.
-
-Primary key:
-
-- `id`.
-
-Indexes:
-
-- `userId-index`.
-- `userId-type-index`.
-- `userId-isDeleted-index`.
-- `userId-isPinned-index`.
-- `userId-collectionId-index`.
-- `shareToken-index`.
-
-Fields chính:
-
-- Identity: `id`, `userId`, `collectionId`.
-- Content: `type`, `title`, `content`, `fileUrl`, `fileName`, `fileSize`, `mimetype`, `thumbnailUrl`.
-- State: `isPinned`, `isDeleted`, `deletedAt`, `shareToken`, `shareExpiresAt`.
-- Audit: `createdAt`, `updatedAt`.
-
-Access patterns:
-
-- List cloud items by user.
-- Filter by type, deleted state, pinned state, collection.
-- Resolve public/shared item by `shareToken`.
-
-### `collections`
-
-Mục đích: lưu folder/collection trong My Cloud.
-
-Primary key:
-
-- `id`.
-
-Indexes:
-
-- `userId-index`.
-- `userId-parentId-index`.
-- `userId-isDefault-index`.
-
-Fields chính:
-
-- `id`, `userId`, `name`, `description`, `color`, `icon`, `coverImageUrl`, `parentId`, `isDefault`, `isDeleted`, `itemCount`, `createdAt`, `updatedAt`.
-
-Access patterns:
-
-- List collections by user.
-- List child collections by parent.
-- Ensure/get default collection.
-
-### `collection_items`
-
-Mục đích: mapping nhiều-nhiều giữa collection và cloud item.
-
-Primary key:
-
-- `pk = COLLECTION#{collectionId}`.
-- `sk = ITEM#{itemId}`.
-
-Indexes:
-
-- `collectionId-index`.
-- `itemId-index`.
-
-Fields chính:
-
-- `id`, `collectionId`, `itemId`, `userId`, `addedAt`.
-
-Access patterns:
-
-- List items trong collection.
-- Tìm/remove mapping theo item.
 
 ## Redis Data
 

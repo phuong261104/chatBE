@@ -13,7 +13,7 @@ This document was checked against the current backend source on 2026-05-15:
 - Canonical call routes/socket: `src/modules/call/infras/transport/http/call-v2.routes.ts`, `src/modules/call/infras/transport/call-v2-socket.service.ts`
 - Canonical user routes: `src/modules/user/infras/transport/user-v2.routes.ts`
 - Friendship/block routes: `src/modules/friend-requests/index.ts`, `src/modules/friendships/index.ts`, `src/modules/blocks/index.ts`
-- Media, my-cloud, AI routes: `src/modules/media/index.ts`, `src/modules/my-cloud/index.ts`, `src/modules/ai/infras/transport/http-service.ts`
+- Media, AI routes: `src/modules/media/index.ts`, `src/modules/ai/infras/transport/http-service.ts`
 
 Frontend handoff reading order:
 
@@ -21,7 +21,7 @@ Frontend handoff reading order:
 |---|---|---|---|
 | 1 | `docs/FE_INTEGRATION_GUIDE_V2.md` | Main integration guide and source-verified endpoint inventory | Required |
 | 2 | `docs/SOCKET_IO_BACKEND_REFERENCE.md` | Canonical Socket.IO namespace/event/payload reference | Required |
-| 3 | `docs/SOCKET_IO_EVENTS_OVERVIEW.md` | Quick Socket.IO namespace/event map including chat, calls, friends, blocks, My Cloud | Required |
+| 3 | `docs/SOCKET_IO_EVENTS_OVERVIEW.md` | Quick Socket.IO namespace/event map including chat, calls, friends, blocks | Required |
 | 4 | `docs/handoff/FRONTEND_API_SOCKET_V2_CHANGES.md` | Concise canonical API migration notes | Required |
 | 5 | `docs/handoff/FRONTEND_CALL_INTEGRATION_GUIDE.md` | Call V1 LiveKit integration flow | Required for calls |
 | 6 | `http://localhost:3000/api-docs` | Swagger UI for exact request/response schemas | Required |
@@ -1058,37 +1058,7 @@ These routes are mounted under `/v1`.
 | `GET` | `/{version}/blocks` | Blocked users list |
 | `GET` | `/{version}/blocks/{blockedUserId}/check` | Block status |
 
-### 12.6 My Cloud V1
-
-| Method | Path | UI / client use |
-|---|---|---|
-| `GET` | `/v1/my-cloud`, `/v1/my-cloud/items` | List cloud items |
-| `POST` | `/v1/my-cloud` | Create cloud item |
-| `PATCH` | `/v1/my-cloud/{id}` | Update item |
-| `DELETE` | `/v1/my-cloud/{id}` | Soft delete item |
-| `POST` | `/v1/my-cloud/{id}/restore` | Restore from trash |
-| `DELETE` | `/v1/my-cloud/{id}/permanent` | Permanent delete |
-| `POST` | `/v1/my-cloud/trash/empty` | Empty trash |
-| `PATCH` | `/v1/my-cloud/{id}/pin` | Pin/unpin item |
-| `GET` | `/v1/my-cloud/stats` | Storage/statistics |
-| `GET` | `/v1/my-cloud/search` | Search cloud items |
-| `POST` | `/v1/my-cloud/batch-delete` | Batch delete |
-| `POST` | `/v1/my-cloud/{id}/share` | Create share link |
-| `GET` | `/v1/my-cloud/shared/{shareToken}` | Public/shared item |
-| `POST` | `/v1/my-cloud/upload` | Multipart upload |
-| `POST` | `/v1/my-cloud/upload/presigned` | Presigned upload URL |
-| `POST` | `/v1/my-cloud/upload/confirm` | Confirm presigned upload |
-| `POST` | `/v1/my-cloud/{id}/forward` | Forward cloud item to chat |
-| `POST` | `/v1/my-cloud/collections` | Create collection |
-| `GET` | `/v1/my-cloud/collections` | List collections |
-| `GET` | `/v1/my-cloud/collections/{id}` | Collection detail |
-| `PATCH` | `/v1/my-cloud/collections/{id}` | Update collection |
-| `DELETE` | `/v1/my-cloud/collections/{id}` | Delete collection |
-| `POST` | `/v1/my-cloud/collections/{id}/items` | Add item to collection |
-| `DELETE` | `/v1/my-cloud/collections/{id}/items/{itemId}` | Remove item from collection |
-| `GET` | `/v1/my-cloud/collections/{id}/items` | Collection items |
-
-### 12.7 AI V1
+### 12.6 AI V1
 
 | Method | Path | UI / client use |
 |---|---|---|
@@ -1098,7 +1068,7 @@ These routes are mounted under `/v1`.
 | `POST` | `/v1/ai/translate` | Translate text |
 | `POST` | `/v1/ai/detect-language` | Detect language |
 
-### 12.8 Global Search V1
+### 12.7 Global Search V1
 
 | Method | Path | UI / client use |
 |---|---|---|

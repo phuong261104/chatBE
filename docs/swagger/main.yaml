@@ -237,48 +237,6 @@ paths:
   /v1/blocks/{blockedUserId}/check:
     $ref: "./paths/blocks.yaml#/paths/~1v1~1blocks~1{blockedUserId}~1check"
 
-  # ==================== MY CLOUD V1 ====================
-  /v1/my-cloud:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud"
-  /v1/my-cloud/items:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1items"
-  /v1/my-cloud/upload:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1upload"
-  /v1/my-cloud/upload/presigned:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1upload~1presigned"
-  /v1/my-cloud/upload/confirm:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1upload~1confirm"
-  /v1/my-cloud/{id}:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1{id}"
-  /v1/my-cloud/{id}/pin:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1{id}~1pin"
-  /v1/my-cloud/{id}/restore:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1{id}~1restore"
-  /v1/my-cloud/{id}/permanent:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1{id}~1permanent"
-  /v1/my-cloud/{id}/share:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1{id}~1share"
-  /v1/my-cloud/{id}/forward:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1{id}~1forward"
-  /v1/my-cloud/shared/{shareToken}:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1shared~1{shareToken}"
-  /v1/my-cloud/search:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1search"
-  /v1/my-cloud/stats:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1stats"
-  /v1/my-cloud/batch-delete:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1batch-delete"
-  /v1/my-cloud/trash/empty:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1trash~1empty"
-  /v1/my-cloud/collections:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1collections"
-  /v1/my-cloud/collections/{id}:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1collections~1{id}"
-  /v1/my-cloud/collections/{id}/items:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1collections~1{id}~1items"
-  /v1/my-cloud/collections/{id}/items/{itemId}:
-    $ref: "./paths/my-cloud.yaml#/paths/~1v1~1my-cloud~1collections~1{id}~1items~1{itemId}"
-
   # ==================== SEARCH ====================
   /v1/search:
     $ref: "./paths/search.yaml#/paths/~1v1~1search"

@@ -11,7 +11,6 @@ Checked against:
 - `src/modules/call/infras/transport/call-v2-socket.service.ts`
 - `src/modules/friend-requests/infras/transport/socket-service.ts`
 - `src/modules/blocks/infras/transport/socket-service.ts`
-- `src/modules/my-cloud/infras/transport/socket-service.ts`
 
 ## Connection
 
@@ -25,7 +24,7 @@ Checked against:
 
 | Namespace | Purpose | Main implementation |
 | --- | --- | --- |
-| `/` | Connection lifecycle, presence helpers, My Cloud realtime actions | `src/share/component/socket-io.ts`, `src/modules/user/infras/transport/socket-service.ts`, `src/modules/my-cloud/infras/transport/socket-service.ts` |
+| `/` | Connection lifecycle, presence helpers | `src/share/component/socket-io.ts`, `src/modules/user/infras/transport/socket-service.ts` |
 | `/messages` | Chat messages, read state, typing, groups, polls, reminders, notes | `src/modules/chat/infras/transport/socket-service.ts` |
 | `/v1/calls` | Current LiveKit cloud call socket | `src/modules/call/infras/transport/call-v2-socket.service.ts` |
 | `/friends` | Friend request and friendship notifications | `src/modules/friend-requests/infras/transport/socket-service.ts` |
@@ -33,7 +32,7 @@ Checked against:
 
 ## Root Namespace `/`
 
-Root events are for presence, connection state, room subscription, and My Cloud.
+Root events are for presence and connection state.
 Do not use root `messageSeen`, `messageDelivered`, or typing events for chat
 business logic; they only touch activity/presence.
 
@@ -49,24 +48,6 @@ business logic; they only touch activity/presence.
 | `getBatchOnlineStatus` | `{ userIds }` | Ack returns `statuses` |
 | `typing:start` | any | Presence touch only |
 | `typing:stop` | any | Presence touch only |
-| `messageSeen` | any | Presence touch only |
-| `messageDelivered` | any | Presence touch only |
-| `my_cloud:load` | `{ limit?, type?, isDeleted?, isPinned?, cursor? }` | My Cloud item list |
-| `my_cloud:create` | create item DTO | Create My Cloud item |
-| `my_cloud:update` | `{ itemId, ...updates }` | Update item |
-| `my_cloud:delete` | `{ itemId }` | Soft delete item |
-| `my_cloud:restore` | `{ itemId }` | Restore item |
-| `my_cloud:pin` | `{ itemId, pinned }` | Pin/unpin item |
-| `my_cloud:stats` | ignored | Load stats |
-| `my_cloud:search` | `{ query, limit? }` | Search items |
-| `my_cloud:share` | `{ itemId, expiresInDays? }` | Share item |
-| `my_cloud:empty_trash` | ignored | Empty trash |
-| `my_cloud:collection_create` | create collection DTO | Create collection |
-| `my_cloud:collection_update` | `{ collectionId, ...updates }` | Update collection |
-| `my_cloud:collection_delete` | `{ collectionId }` | Delete collection |
-| `my_cloud:collections_list` | ignored | List collections |
-| `my_cloud:collection_add_item` | `{ collectionId, itemId }` | Add item to collection |
-| `my_cloud:collection_remove_item` | `{ collectionId, itemId }` | Remove item from collection |
 
 ### Server -> Client
 
@@ -77,7 +58,6 @@ business logic; they only touch activity/presence.
 | `user:online` | `{ userId, socketId, timestamp, visibility, isOnline, online, lastSeen }` |
 | `user:offline` | `{ userId, timestamp, reason?, visibility, isOnline, online, lastSeen }` |
 | `session:revoked` | `{ userId, deviceId, reason, timestamp }` |
-| `my_cloud:*` response events | See `docs/SOCKET_IO_BACKEND_REFERENCE.md` |
 
 ## Messages Namespace `/messages`
 
