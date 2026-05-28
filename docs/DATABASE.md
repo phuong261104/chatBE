@@ -150,12 +150,14 @@ Fields chính:
 - Read state: `unreadCount`, `lastReadMessageId`, `lastReadAt`, `lastReadMessageCreatedAt`, `lastSeenMessageId`, `lastSeenAt`, `lastSeenMessageCreatedAt`, `lastDeliveredMessageId`, `lastDeliveredAt`, `lastDeliveredMessageCreatedAt`.
 - User inbox flags: `muteUntil`, `pinned`, `pinnedAt`, `archived`.
 - Hidden chat: `hiddenUserIds`, `hidden`, `hiddenAt`, `hiddenPinHash`.
+- Personalization: `nickname`, `nicknameUpdatedAt`, `wallpaper`, `wallpaperUpdatedAt`.
 
 Access patterns:
 
 - Query members of a conversation by `pk`.
 - Query user inbox by `userId-lastActivityAt-index`.
 - Check membership/role before message, group, poll and utility actions.
+- Set/remove nickname and wallpaper per member via update on `conversation_members` row.
 
 ### `messages`
 

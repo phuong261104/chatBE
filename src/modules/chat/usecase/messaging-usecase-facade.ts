@@ -86,6 +86,7 @@ import {
   UpdateGroupNoteHandler,
   DeleteGroupNoteHandler,
 } from "./group-utilities";
+import { SetNicknameHandler, RemoveNicknameHandler, SetWallpaperHandler, RemoveWallpaperHandler } from "./conversation-settings";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -163,6 +164,10 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly listGroupNotesHandler: ListGroupNotesHandler,
     private readonly updateGroupNoteHandler: UpdateGroupNoteHandler,
     private readonly deleteGroupNoteHandler: DeleteGroupNoteHandler,
+    private readonly setNicknameHandler: SetNicknameHandler,
+    private readonly removeNicknameHandler: RemoveNicknameHandler,
+    private readonly setWallpaperHandler: SetWallpaperHandler,
+    private readonly removeWallpaperHandler: RemoveWallpaperHandler,
   ) {}
 
   async getOrCreatePrivateConversation(
@@ -789,5 +794,34 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
 
   async deleteGroupNote(noteId: string, userId: string): Promise<void> {
     return this.deleteGroupNoteHandler.execute({ noteId, userId });
+  }
+
+  async setNickname(
+    conversationId: string,
+    currentUserId: string,
+    targetUserId: string,
+    nickname: string,
+  ): Promise<void> {
+    return this.setNicknameHandler.execute({ conversationId, currentUserId, targetUserId, nickname });
+  }
+
+  async removeNickname(
+    conversationId: string,
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    return this.removeNicknameHandler.execute({ conversationId, currentUserId, targetUserId });
+  }
+
+  async setWallpaper(
+    conversationId: string,
+    currentUserId: string,
+    wallpaperUrl: string | null,
+  ): Promise<void> {
+    return this.setWallpaperHandler.execute({ conversationId, currentUserId, wallpaperUrl });
+  }
+
+  async removeWallpaper(conversationId: string, currentUserId: string): Promise<void> {
+    return this.removeWallpaperHandler.execute({ conversationId, currentUserId });
   }
 }

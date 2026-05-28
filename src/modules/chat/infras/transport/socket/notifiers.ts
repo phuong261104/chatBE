@@ -31,6 +31,8 @@ export interface SocketNotifierMethods {
   notifyEditEnd(conversationId: string, messageId: string, userId: string): void;
   notifyVoiceMessage(conversationId: string, message: any): void;
   notifyLocationShare(conversationId: string, userId: string, location: any): void;
+  notifyMemberNicknameChanged(conversationId: string, targetUserId: string, nickname: string, changedBy: string): void;
+  notifyMemberWallpaperChanged(conversationId: string, wallpaperUrl: string | null, changedBy: string): void;
 }
 
 export const socketNotifiers = {
@@ -250,5 +252,33 @@ export const socketNotifiers = {
 
   notifyLocationShare(this: SocketHandlerContext, conversationId: string, userId: string, location: any) {
     this.emitToGroupRoom(conversationId, SocketEvent.LOCATION_SHARE, { conversationId, userId, location });
+  },
+
+  notifyMemberNicknameChanged(
+    this: SocketHandlerContext,
+    conversationId: string,
+    targetUserId: string,
+    nickname: string,
+    changedBy: string,
+  ) {
+    this.emitToGroupRoom(conversationId, SocketEvent.MEMBER_NICKNAME_CHANGED, {
+      conversationId,
+      targetUserId,
+      nickname,
+      changedBy,
+    });
+  },
+
+  notifyMemberWallpaperChanged(
+    this: SocketHandlerContext,
+    conversationId: string,
+    wallpaperUrl: string | null,
+    changedBy: string,
+  ) {
+    this.emitToGroupRoom(conversationId, SocketEvent.MEMBER_WALLPAPER_CHANGED, {
+      conversationId,
+      wallpaperUrl,
+      changedBy,
+    });
   },
 };

@@ -122,4 +122,8 @@ export const SocketEvent = {
   JOIN_GROUP_BY_INVITE: "joinGroupByInvite",
   BLOCK_GROUP_MEMBER: "blockGroupMember",
   UNBLOCK_GROUP_MEMBER: "unblockGroupMember",
+
+  // NEW: Member settings events
+  MEMBER_NICKNAME_CHANGED: "member:nickname_changed",
+  MEMBER_WALLPAPER_CHANGED: "member:wallpaper_changed",
 } as const;

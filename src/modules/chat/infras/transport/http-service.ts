@@ -13,6 +13,7 @@ import { PollController } from "./http/poll-controller";
 import { ReactionController } from "./http/reaction-controller";
 import { GroupInviteController } from "./http/group-invite-controller";
 import { GroupBlockController } from "./http/group-block-controller";
+import { ConversationSettingsController } from "./http/conversation-settings-controller";
 
 export interface MessagingHttpServiceDeps {
   groupInviteController: GroupInviteController;
@@ -32,6 +33,7 @@ export class MessagingHttpService {
   private readonly reactionController: ReactionController;
   private readonly groupInviteController: GroupInviteController;
   private readonly groupBlockController: GroupBlockController;
+  private readonly conversationSettingsController: ConversationSettingsController;
 
   constructor(useCase: IMessagingUseCase, deps?: MessagingHttpServiceDeps) {
     this.conversationActionsController = new ConversationActionsController(useCase);
@@ -50,6 +52,7 @@ export class MessagingHttpService {
     }
     this.groupInviteController = deps.groupInviteController;
     this.groupBlockController = deps.groupBlockController;
+    this.conversationSettingsController = new ConversationSettingsController(useCase);
   }
 
   setSocketService(socketService: MessagingSocketService) {
@@ -65,6 +68,7 @@ export class MessagingHttpService {
     this.reactionController.setSocketService(socketService);
     this.groupInviteController.setSocketService(socketService);
     this.groupBlockController.setSocketService(socketService);
+    this.conversationSettingsController.setSocketService(socketService);
   }
 
   async getPrivateConversationAPI(req: Request, res: Response) {
@@ -385,5 +389,21 @@ export class MessagingHttpService {
 
   async unblockGroupMemberAPI(req: Request, res: Response) {
     return this.groupBlockController.unblockGroupMemberAPI(req, res);
+  }
+
+  async setNicknameAPI(req: Request, res: Response) {
+    return this.conversationSettingsController.setNicknameAPI(req, res);
+  }
+
+  async removeNicknameAPI(req: Request, res: Response) {
+    return this.conversationSettingsController.removeNicknameAPI(req, res);
+  }
+
+  async setWallpaperAPI(req: Request, res: Response) {
+    return this.conversationSettingsController.setWallpaperAPI(req, res);
+  }
+
+  async removeWallpaperAPI(req: Request, res: Response) {
+    return this.conversationSettingsController.removeWallpaperAPI(req, res);
   }
 }

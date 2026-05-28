@@ -648,4 +648,25 @@ export interface IMessagingUseCase {
   updateGroupNote(noteId: string, userId: string, data: { title?: string; content?: string }): Promise<GroupNote>;
 
   deleteGroupNote(noteId: string, userId: string): Promise<void>;
+
+  setNickname(
+    conversationId: string,
+    currentUserId: string,
+    targetUserId: string,
+    nickname: string,
+  ): Promise<void>;
+
+  removeNickname(
+    conversationId: string,
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<void>;
+
+  setWallpaper(
+    conversationId: string,
+    currentUserId: string,
+    wallpaperUrl: string | null,
+  ): Promise<void>;
+
+  removeWallpaper(conversationId: string, currentUserId: string): Promise<void>;
 }

@@ -253,7 +253,7 @@ export async function createChatE2EHarness(): Promise<ChatE2EHarness> {
   v1Router.post("/groups/:groupId/blocks", auth, httpService.blockGroupMemberAPI.bind(httpService));
   v1Router.delete("/groups/:groupId/blocks/:userId", auth, httpService.unblockGroupMemberAPI.bind(httpService));
 
-  app.use("/v1", setupChatV2Routes(v2Controller, mdlFactory as any));
+  app.use("/v1", setupChatV2Routes(v2Controller, mdlFactory as any, httpService as any));
   app.use("/v1", v1Router);
 
   const jwtSpy = jest.spyOn(jwtProvider, "verifyToken").mockImplementation(async (token: string) => {

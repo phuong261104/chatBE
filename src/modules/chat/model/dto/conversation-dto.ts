@@ -85,6 +85,8 @@ export type ConversationWithMetadata = Conversation & {
   activityAt?: Date;
   lastMessageStatus?: "sent" | "delivered" | "read";
   lastMessageTimeFormatted?: string;
+  nicknamesByUserId?: Record<string, string>;
+  wallpaperUrl?: string | null;
 };
 
 export type ConversationCursorResult = {
@@ -101,6 +103,8 @@ export type ConversationCursorResult = {
       avatarUrl: string;
       lastMessageStatus?: string;
       lastMessageTimeFormatted?: string;
+      nicknamesByUserId?: Record<string, string>;
+      wallpaperUrl?: string | null;
     }
   > | null;
   data: Array<
@@ -116,6 +120,8 @@ export type ConversationCursorResult = {
       avatarUrl: string;
       lastMessageStatus?: string;
       lastMessageTimeFormatted?: string;
+      nicknamesByUserId?: Record<string, string>;
+      wallpaperUrl?: string | null;
     }
   >;
   nextCursor?: string;

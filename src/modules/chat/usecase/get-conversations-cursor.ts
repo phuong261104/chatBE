@@ -105,9 +105,20 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
         : [];
     const targetUserMap = new Map(targetUsers.map((u) => [u.id, u]));
 
+    // Batch load all members for nickname/wallpaper population
+    const allMembersMap = new Map<string, any[]>();
+    for (const conv of conversations) {
+      const membersInConv = await this.conversationMemberQueryRepo
+        .list({ conversationId: conv.id }, { page: 1, limit: 1000 });
+      allMembersMap.set(conv.id, membersInConv.filter(
+        (m) => m.status === ConversationMemberStatus.ACTIVE && !m.leftAt,
+      ));
+    }
+
     return Promise.all(
       conversations.map(async (conv) => {
         const member = memberMap.get(conv.id);
+        const allMembersInConv = allMembersMap.get(conv.id) || [];
 
         let name = conv.name || "";
         let avatarUrl = conv.avatarUrl || "";
@@ -131,28 +142,22 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
           conv.lastMessage.senderId === userId &&
           conv.type === ConversationType.PRIVATE
         ) {
-          try {
-            const membersInConvArr = await this.conversationMemberQueryRepo
-              .list({ conversationId: conv.id }, { page: 1, limit: 10 });
-            const otherMember = membersInConvArr.find(
-              (m) => m.userId !== userId,
-            );
-            if (otherMember) {
-              if (
-                otherMember.lastSeenMessageId === conv.lastMessage!.messageId ||
-                (otherMember.lastReadAt &&
-                  otherMember.lastReadAt >= conv.lastMessage!.createdAt)
-              ) {
-                lastMessageStatus = "read";
-              } else if (
-                otherMember.lastDeliveredMessageId ===
-                conv.lastMessage!.messageId
-              ) {
-                lastMessageStatus = "delivered";
-              }
+          const otherMember = allMembersInConv.find(
+            (m) => m.userId !== userId,
+          );
+          if (otherMember) {
+            if (
+              otherMember.lastSeenMessageId === conv.lastMessage!.messageId ||
+              (otherMember.lastReadAt &&
+                otherMember.lastReadAt >= conv.lastMessage!.createdAt)
+            ) {
+              lastMessageStatus = "read";
+            } else if (
+              otherMember.lastDeliveredMessageId ===
+              conv.lastMessage!.messageId
+            ) {
+              lastMessageStatus = "delivered";
             }
-          } catch (e) {
-            // ignore
           }
         }
 
@@ -186,6 +191,17 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
           conv.createdAt,
         );
 
+        // Build nicknames map from members
+        const nicknamesByUserId: Record<string, string> = {};
+        for (const m of allMembersInConv) {
+          if (m.userId && typeof m.nickname === "string" && m.nickname.length > 0) {
+            nicknamesByUserId[m.userId] = m.nickname;
+          }
+        }
+
+        // Get wallpaper from current user's member record
+        const wallpaperUrl = member?.wallpaper || null;
+
         return normalizeConversationListItem({
           ...conv,
           lastMessage: visibleLast.lastMessage,
@@ -202,6 +218,8 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
           muteUntil: member?.muteUntil || undefined,
           lastMessageStatus,
           lastMessageTimeFormatted,
+          nicknamesByUserId,
+          wallpaperUrl,
         }, userId);
       }),
     );

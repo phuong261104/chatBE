@@ -93,3 +93,12 @@ export {
 } from "./group-block";
 
 export { MessagingUseCaseFacade } from "./messaging-usecase-facade";
+export { SetNicknameHandler, RemoveNicknameHandler, SetWallpaperHandler, RemoveWallpaperHandler } from "./conversation-settings";
+export {
+  setNicknameDTOSchema,
+  SetNicknameCommand,
+  setWallpaperDTOSchema,
+  SetWallpaperCommand,
+  RemoveNicknameCommand,
+  RemoveWallpaperCommand,
+} from "./conversation-settings";

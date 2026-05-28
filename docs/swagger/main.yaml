@@ -100,6 +100,10 @@ paths:
     $ref: "./paths/chat-conversations-actions.yaml#/paths/~1v1~1conversations~1{conversationId}~1pin-conversation"
   /v1/conversations/{conversationId}/archive:
     $ref: "./paths/chat-conversations-actions.yaml#/paths/~1v1~1conversations~1{conversationId}~1archive"
+  /v1/conversations/{conversationId}/nickname:
+    $ref: "./paths/chat-conversation-settings.yaml#/paths/~1v1~1conversations~1{conversationId}~1nickname"
+  /v1/conversations/{conversationId}/wallpaper:
+    $ref: "./paths/chat-conversation-settings.yaml#/paths/~1v1~1conversations~1{conversationId}~1wallpaper"
   /v1/conversations/{conversationId}/statistics:
     $ref: "./paths/chat-conversations-base.yaml#/paths/~1v1~1conversations~1{conversationId}~1statistics"
   /v1/conversations/{conversationId}/members/online:

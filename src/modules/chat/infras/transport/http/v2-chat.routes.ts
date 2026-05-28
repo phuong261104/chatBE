@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { ChatV2Controller } from "./v2-chat-controller";
+import { MessagingHttpService } from "../http-service";
 
-export const setupChatV2Routes = (controller: ChatV2Controller, mdlFactory: any) => {
+export const setupChatV2Routes = (
+  controller: ChatV2Controller,
+  mdlFactory: any,
+  httpService: MessagingHttpService,
+) => {
   const router = Router();
 
   router.get("/conversations", mdlFactory.auth, controller.getConversationsAPI);
@@ -26,6 +31,11 @@ export const setupChatV2Routes = (controller: ChatV2Controller, mdlFactory: any)
   router.post("/groups/:groupId/members", mdlFactory.auth, controller.addMembersAPI);
   router.post("/groups/:groupId/leave", mdlFactory.auth, controller.leaveGroupAPI);
   router.patch("/groups/:groupId/settings", mdlFactory.auth, controller.updateGroupSettingsAPI);
+
+  router.patch("/conversations/:conversationId/nickname", mdlFactory.auth, httpService.setNicknameAPI.bind(httpService));
+  router.delete("/conversations/:conversationId/nickname/:targetUserId", mdlFactory.auth, httpService.removeNicknameAPI.bind(httpService));
+  router.patch("/conversations/:conversationId/wallpaper", mdlFactory.auth, httpService.setWallpaperAPI.bind(httpService));
+  router.delete("/conversations/:conversationId/wallpaper", mdlFactory.auth, httpService.removeWallpaperAPI.bind(httpService));
 
   return router;
 };

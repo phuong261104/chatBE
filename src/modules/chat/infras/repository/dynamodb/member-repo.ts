@@ -65,6 +65,10 @@ function toConversationMemberEntity(doc: Record<string, any>): ConversationMembe
     hidden: doc.hidden || false,
     hiddenAt: hiddenAt ? new Date(hiddenAt) : undefined,
     hiddenPinHash: doc.hiddenPinHash || undefined,
+    nickname: doc.nickname || undefined,
+    nicknameUpdatedAt: doc.nicknameUpdatedAt ? new Date(doc.nicknameUpdatedAt) : undefined,
+    wallpaper: doc.wallpaper || undefined,
+    wallpaperUpdatedAt: doc.wallpaperUpdatedAt ? new Date(doc.wallpaperUpdatedAt) : undefined,
   } as ConversationMember;
 }
 
@@ -656,6 +660,10 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       hidden: data.hidden || false,
       hiddenAt: data.hiddenAt ? data.hiddenAt.toISOString() : null,
       hiddenPinHash: data.hiddenPinHash,
+      nickname: data.nickname || undefined,
+      nicknameUpdatedAt: data.nicknameUpdatedAt ? data.nicknameUpdatedAt.toISOString() : undefined,
+      wallpaper: data.wallpaper || undefined,
+      wallpaperUpdatedAt: data.wallpaperUpdatedAt ? data.wallpaperUpdatedAt.toISOString() : undefined,
       updatedAt: now,
     };
   }
@@ -695,6 +703,10 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
         ? null
         : ((data as any).historyVisibleFrom as Date).toISOString();
     }
+    if (data.nickname !== undefined) updateData.nickname = data.nickname;
+    if (data.nicknameUpdatedAt !== undefined) updateData.nicknameUpdatedAt = (data.nicknameUpdatedAt as Date).toISOString();
+    if (data.wallpaper !== undefined) updateData.wallpaper = data.wallpaper;
+    if (data.wallpaperUpdatedAt !== undefined) updateData.wallpaperUpdatedAt = (data.wallpaperUpdatedAt as Date).toISOString();
     return updateData;
   }
 }

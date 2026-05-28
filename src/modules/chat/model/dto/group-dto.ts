@@ -44,6 +44,10 @@ export const ConversationMemberUpdateDTOSchema = z.object({
   hiddenAt: z.date().nullable().optional(),
   hiddenPinHash: z.string().nullable().optional(),
   historyVisibleFrom: z.date().nullable().optional(),
+  nickname: z.string().nullable().optional(),
+  nicknameUpdatedAt: z.date().optional(),
+  wallpaper: z.string().nullable().optional(),
+  wallpaperUpdatedAt: z.date().optional(),
 });
 
 export type ConversationMemberUpdateDTO = z.infer<

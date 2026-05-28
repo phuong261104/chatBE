@@ -132,6 +132,10 @@ import {
   GetGroupBlocksHandler,
   BlockGroupMemberHandler,
   UnblockGroupMemberHandler,
+  SetNicknameHandler,
+  RemoveNicknameHandler,
+  SetWallpaperHandler,
+  RemoveWallpaperHandler,
 } from "./usecase";
 import { GroupUtilityWorker } from "./usecase/group-utility-worker";
 
@@ -614,6 +618,11 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   const updateGroupNoteHandler = new UpdateGroupNoteHandler(conversationRepo, conversationMemberRepo, groupNoteRepo, groupNoteRepo);
   const deleteGroupNoteHandler = new DeleteGroupNoteHandler(conversationRepo, conversationMemberRepo, groupNoteRepo, groupNoteRepo);
 
+  const setNicknameHandler = new SetNicknameHandler(conversationMemberRepo, conversationMemberRepo);
+  const removeNicknameHandler = new RemoveNicknameHandler(conversationMemberRepo, conversationMemberRepo);
+  const setWallpaperHandler = new SetWallpaperHandler(conversationMemberRepo, conversationMemberRepo);
+  const removeWallpaperHandler = new RemoveWallpaperHandler(conversationMemberRepo, conversationMemberRepo);
+
   const getGroupInviteLinkHandler = new GetGroupInviteLinkHandler(
     conversationRepo,
     groupInviteLinkRepo,
@@ -747,6 +756,10 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     listGroupNotesHandler,
     updateGroupNoteHandler,
     deleteGroupNoteHandler,
+    setNicknameHandler,
+    removeNicknameHandler,
+    setWallpaperHandler,
+    removeWallpaperHandler,
   );
 
   const httpService = new MessagingHttpService(useCase, {
@@ -799,7 +812,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   httpService.setSocketService(socketService);
 
   const router = Router();
-  const v2Router = setupChatV2Routes(v2Controller, mdlFactory);
+  const v2Router = setupChatV2Routes(v2Controller, mdlFactory, httpService);
 
   router.post("/conversations/private", mdlFactory.auth, httpService.getPrivateConversationAPI.bind(httpService));
   router.get("/conversations/unread-count", mdlFactory.auth, httpService.getTotalUnreadCountAPI.bind(httpService));
