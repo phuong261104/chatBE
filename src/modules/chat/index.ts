@@ -91,11 +91,13 @@ import {
   CreatePollHandler,
   AddPollOptionHandler,
   GetPollsHandler,
+  GetPollHandler,
   VotePollHandler,
   GetPollResultsHandler,
   ClosePollHandler,
   PinPollHandler,
   UnpinPollHandler,
+  DeletePollHandler,
   GetPendingMembersHandler,
   ApproveMemberHandler,
   RejectMemberHandler,
@@ -409,6 +411,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   const getPollsHandler = new GetPollsHandler(pollQueryRepo as any, conversationRepo, conversationMemberRepo);
 
+  const getPollHandler = new GetPollHandler(pollQueryRepo, conversationMemberRepo, conversationRepo);
+
   const votePollHandler = new VotePollHandler(
     pollQueryRepo,
     pollCmdRepo,
@@ -419,7 +423,14 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationMemberRepo,
   );
 
-  const addPollOptionHandler = new AddPollOptionHandler(pollQueryRepo, pollCmdRepo, conversationMemberRepo);
+  const addPollOptionHandler = new AddPollOptionHandler(
+    pollQueryRepo,
+    pollCmdRepo,
+    conversationMemberRepo,
+    conversationMemberRepo,
+    conversationRepo,
+    messageRepo,
+  );
 
   const getPollResultsHandler = new GetPollResultsHandler(pollQueryRepo, conversationMemberRepo, conversationRepo);
 
@@ -451,6 +462,14 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     messageRepo,
     conversationRepo,
     conversationMemberRepo,
+  );
+
+  const deletePollHandler = new DeletePollHandler(
+    pollQueryRepo,
+    pollCmdRepo,
+    conversationMemberRepo,
+    conversationRepo,
+    messageRepo,
   );
 
   const getPendingMembersHandler = new GetPendingMembersHandler(conversationRepo, conversationMemberRepo);
@@ -694,12 +713,14 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     transferOwnerHandler,
     createPollHandler,
     getPollsHandler,
+    getPollHandler,
     votePollHandler,
     addPollOptionHandler,
     getPollResultsHandler,
     closePollHandler,
     pinPollHandler,
     unpinPollHandler,
+    deletePollHandler,
     getPendingMembersHandler,
     approveMemberHandler,
     rejectMemberHandler,
@@ -895,6 +916,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
 
   router.get("/groups/:groupId/polls", mdlFactory.auth, httpService.getPollsAPI.bind(httpService));
 
+  router.get("/groups/:groupId/polls/:pollId", mdlFactory.auth, httpService.getPollAPI.bind(httpService));
+
   router.post("/groups/:groupId/polls/:pollId/vote", mdlFactory.auth, httpService.votePollAPI.bind(httpService));
 
   router.post("/groups/:groupId/polls/:pollId/options", mdlFactory.auth, httpService.addPollOptionAPI.bind(httpService));
@@ -904,6 +927,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   router.post("/groups/:groupId/polls/:pollId/pin", mdlFactory.auth, httpService.pinPollAPI.bind(httpService));
 
   router.delete("/groups/:groupId/polls/:pollId/pin", mdlFactory.auth, httpService.unpinPollAPI.bind(httpService));
+
+  router.delete("/groups/:groupId/polls/:pollId", mdlFactory.auth, httpService.deletePollAPI.bind(httpService));
 
   router.get(
     "/groups/:groupId/polls/:pollId/results",

@@ -75,6 +75,7 @@ export function registerMessagingSocketHandlers(service: SocketServiceWithHandle
     socket.on(SocketEvent.CLOSE_POLL, async (payload: any, callback) => service.handleClosePoll(socket, payload, callback));
     socket.on(SocketEvent.PIN_POLL, async (payload: any, callback) => service.handlePinPoll(socket, payload, callback));
     socket.on(SocketEvent.UNPIN_POLL, async (payload: any, callback) => service.handleUnpinPoll(socket, payload, callback));
+    socket.on(SocketEvent.DELETE_POLL, async (payload: any, callback) => service.handleDeletePoll(socket, payload, callback));
     socket.on(SocketEvent.CREATE_REMINDER, async (payload: any, callback) => service.handleCreateReminder(socket, payload, callback));
     socket.on(SocketEvent.UPDATE_REMINDER, async (payload: any, callback) => service.handleUpdateReminder(socket, payload, callback));
     socket.on(SocketEvent.DELETE_REMINDER, async (payload: any, callback) => service.handleDeleteReminder(socket, payload, callback));

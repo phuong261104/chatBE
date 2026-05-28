@@ -226,12 +226,14 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | PATCH | `/v1/groups/{groupId}/members/{userId}/approve` | Approve member |
 | PATCH | `/v1/groups/{groupId}/members/{userId}/reject` | Reject member |
 | PATCH | `/v1/groups/{groupId}/settings` | Cập nhật group settings |
-| GET/POST | `/v1/groups/{groupId}/polls` | List/tạo poll |
+| GET/POST | `/v1/groups/{groupId}/polls` | List polls (filter by `status`, cursor pagination) / Tạo poll |
+| GET | `/v1/groups/{groupId}/polls/{pollId}` | Get single poll detail |
 | POST | `/v1/groups/{groupId}/polls/{pollId}/vote` | Vote poll |
 | POST | `/v1/groups/{groupId}/polls/{pollId}/options` | Thêm phương án poll khi `allowAddOption=true` |
 | POST | `/v1/groups/{groupId}/polls/{pollId}/lock` | Close poll |
 | POST/DELETE | `/v1/groups/{groupId}/polls/{pollId}/pin` | Pin/unpin poll |
 | GET | `/v1/groups/{groupId}/polls/{pollId}/results` | Poll results |
+| DELETE | `/v1/groups/{groupId}/polls/{pollId}` | Delete poll (creator/admin only) |
 | GET/POST | `/v1/groups/{groupId}/reminders` | List/tạo reminder |
 | PUT/DELETE | `/v1/groups/{groupId}/reminders/{reminderId}` | Update/delete reminder |
 | POST/DELETE | `/v1/groups/{groupId}/reminders/{reminderId}/pin` | Pin/unpin reminder |

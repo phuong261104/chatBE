@@ -23,6 +23,7 @@ import {
   GetPinnedMessagesHandler,
   GetPollResultsHandler,
   GetPollsHandler,
+  GetPollHandler,
   GetReactionsHandler,
   LeaveGroupHandler,
   ListGroupNotesHandler,
@@ -49,6 +50,7 @@ import {
   UnpinConversationHandler,
   UnpinGroupReminderHandler,
   UnpinPollHandler,
+  DeletePollHandler,
   UpdateGroupInfoHandler,
   UpdateGroupNoteHandler,
   UpdateGroupReminderHandler,
@@ -325,6 +327,7 @@ export function buildUseCase(store: ChatE2EStore) {
     memberRepo as any,
   );
   const getPolls = new GetPollsHandler(pollRepo as any, conversationRepo as any, memberRepo as any);
+  const getPoll = new GetPollHandler(pollRepo as any, memberRepo as any, conversationRepo as any);
   const votePoll = new VotePollHandler(
     pollRepo as any,
     pollRepo as any,
@@ -334,7 +337,7 @@ export function buildUseCase(store: ChatE2EStore) {
     conversationRepo as any,
     memberRepo as any,
   );
-  const addPollOption = new AddPollOptionHandler(pollRepo as any, pollRepo as any, memberRepo as any);
+  const addPollOption = new AddPollOptionHandler(pollRepo as any, pollRepo as any, memberRepo as any, memberRepo as any, conversationRepo as any, messageRepo as any);
   const getPollResults = new GetPollResultsHandler(pollRepo as any, memberRepo as any, conversationRepo as any);
   const closePoll = new ClosePollHandler(
     pollRepo as any,
@@ -362,6 +365,13 @@ export function buildUseCase(store: ChatE2EStore) {
     messageRepo as any,
     conversationRepo as any,
     memberRepo as any,
+  );
+  const deletePoll = new DeletePollHandler(
+    pollRepo as any,
+    pollRepo as any,
+    memberRepo as any,
+    conversationRepo as any,
+    messageRepo as any,
   );
   const createGroupReminder = new CreateGroupReminderHandler(
     conversationRepo as any,
@@ -542,6 +552,7 @@ export function buildUseCase(store: ChatE2EStore) {
         options: string[],
         isMultipleChoice?: boolean,
         allowAddOption?: boolean,
+        allowChangeVote?: boolean,
         showResultsBeforeClose?: boolean,
         expiresAt?: string,
         hideVoters?: boolean,
@@ -553,11 +564,14 @@ export function buildUseCase(store: ChatE2EStore) {
           options,
           isMultipleChoice,
           allowAddOption,
+          allowChangeVote,
           showResultsBeforeClose,
           expiresAt,
           hideVoters,
         }),
-      getPolls: (conversationId: string, userId: string) => getPolls.query({ conversationId, userId }),
+      getPolls: (conversationId: string, userId: string, cursor?: string, limit?: number, status?: string) =>
+        getPolls.query({ conversationId, userId, cursor, limit, status }),
+      getPoll: (pollId: string, userId: string) => getPoll.query({ pollId, userId }),
       votePoll: (pollId: string, userId: string, optionIds: string[]) =>
         votePoll.execute({ pollId, userId, optionIds }),
       addPollOption: (pollId: string, userId: string, text: string) =>
@@ -566,6 +580,7 @@ export function buildUseCase(store: ChatE2EStore) {
       closePoll: (pollId: string, userId: string) => closePoll.execute({ pollId, userId }),
       pinPoll: (pollId: string, userId: string) => pinPoll.execute({ pollId, userId }),
       unpinPoll: (pollId: string, userId: string) => unpinPoll.execute({ pollId, userId }),
+      deletePoll: (pollId: string, userId: string) => deletePoll.execute({ pollId, userId }),
       createGroupReminder: (
         conversationId: string,
         userId: string,

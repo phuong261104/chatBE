@@ -192,7 +192,7 @@ export interface IMessageReactionCommandRepository {
 
 export interface IPollQueryRepository {
   get(id: string): Promise<Poll | null>;
-  findByConversationId(conversationId: string): Promise<Poll[]>;
+  findByConversationId(conversationId: string, cursor?: string, limit?: number): Promise<Poll[]>;
   findActivePolls(conversationId: string): Promise<Poll[]>;
   findExpiredActivePolls?(now: Date, limit?: number): Promise<Poll[]>;
 }
@@ -483,12 +483,15 @@ export interface IMessagingUseCase {
     options: string[],
     isMultipleChoice?: boolean,
     allowAddOption?: boolean,
+    allowChangeVote?: boolean,
     showResultsBeforeClose?: boolean,
     expiresAt?: string,
     hideVoters?: boolean,
   ): Promise<Poll>;
 
-  getPolls(conversationId: string, userId: string): Promise<Poll[]>;
+  getPolls(conversationId: string, userId: string, cursor?: string, limit?: number, status?: string): Promise<{ polls: Poll[]; nextCursor?: string; hasMore: boolean }>;
+
+  getPoll(pollId: string, userId: string): Promise<Poll>;
 
   votePoll(pollId: string, userId: string, optionIds: string[]): Promise<Poll>;
 
@@ -501,6 +504,8 @@ export interface IMessagingUseCase {
   pinPoll(pollId: string, userId: string): Promise<Poll>;
 
   unpinPoll(pollId: string, userId: string): Promise<Poll>;
+
+  deletePoll(pollId: string, userId: string): Promise<void>;
 
   getPendingMembers(groupId: string, requesterId: string): Promise<ConversationMember[]>;
 

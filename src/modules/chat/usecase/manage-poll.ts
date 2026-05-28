@@ -158,3 +158,45 @@ export class UnpinPollHandler extends PollManagerBase {
     return attachHiddenMessage(updated, "systemMessage", message);
   }
 }
+
+export class DeletePollHandler implements ICommandHandler<PollActionCommand, void> {
+  constructor(
+    private readonly pollQueryRepo: IPollQueryRepository,
+    private readonly pollCommandRepo: IPollCommandRepository,
+    private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly conversationQueryRepo: IConversationQueryRepository,
+    private readonly messageCommandRepo: IMessageCommandRepository,
+  ) {}
+
+  async execute(command: PollActionCommand): Promise<void> {
+    const poll = await this.pollQueryRepo.get(command.pollId);
+    if (!poll) {
+      throw AppError.from(new Error("Poll not found"), 404);
+    }
+
+    const [conversation, member] = await Promise.all([
+      this.conversationQueryRepo.get(poll.conversationId),
+      this.conversationMemberQueryRepo.findByCond({
+        conversationId: poll.conversationId,
+        userId: command.userId,
+      }),
+    ]);
+
+    if (!member || member.leftAt || member.status !== ConversationMemberStatus.ACTIVE) {
+      throw AppError.from(new Error("You are not a member of this group"), 403);
+    }
+
+    if (!isGroupManager(member, conversation) && poll.createdBy !== command.userId) {
+      throw AppError.from(new Error("Only poll creator, owner or admins can delete this poll"), 403);
+    }
+
+    if (poll.pinned && poll.messageId) {
+      await this.messageCommandRepo.update(poll.messageId, {
+        pinned: false,
+        pinnedAt: null as any,
+      });
+    }
+
+    await this.pollCommandRepo.delete(command.pollId);
+  }
+}

@@ -39,6 +39,7 @@ export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Pol
       options,
       isMultipleChoice,
       allowAddOption,
+      allowChangeVote,
       showResultsBeforeClose,
       hideVoters,
       expiresAt,
@@ -67,6 +68,10 @@ export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Pol
       throw AppError.from(new Error("Only owner or admins can create polls in this group"), 403);
     }
 
+    if (!options || options.length < 2) {
+      throw AppError.from(new Error("At least 2 options are required"), 400);
+    }
+
     const now = new Date();
     const pollOptions: PollOption[] = options.map((text) => ({
       id: v7(),
@@ -83,6 +88,7 @@ export class CreatePollHandler implements ICommandHandler<CreatePollCommand, Pol
       createdBy: creatorId,
       isMultipleChoice: isMultipleChoice || false,
       allowAddOption: allowAddOption || false,
+      allowChangeVote: allowChangeVote || false,
       showResultsBeforeClose: showResultsBeforeClose ?? false,
       hideVoters: hideVoters || false,
       status: PollStatus.ACTIVE,

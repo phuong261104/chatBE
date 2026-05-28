@@ -260,6 +260,7 @@ export const memberSocketHandlers = {
       options: string[];
       isMultipleChoice?: boolean;
       allowAddOption?: boolean;
+      allowChangeVote?: boolean;
       showResultsBeforeClose?: boolean;
       hideVoters?: boolean;
       expiresAt?: string;
@@ -274,7 +275,7 @@ export const memberSocketHandlers = {
         return;
       }
 
-      const { conversationId, question, options, isMultipleChoice, allowAddOption, showResultsBeforeClose, hideVoters, expiresAt } = payload;
+      const { conversationId, question, options, isMultipleChoice, allowAddOption, allowChangeVote, showResultsBeforeClose, hideVoters, expiresAt } = payload;
 
       if (!conversationId || !question || !options || options.length < 2) {
         if (callback) callback({ success: false, error: "conversationId, question, and at least 2 options are required" });
@@ -288,6 +289,7 @@ export const memberSocketHandlers = {
         options,
         isMultipleChoice,
         allowAddOption,
+        allowChangeVote,
         showResultsBeforeClose,
         expiresAt,
         hideVoters,
@@ -391,6 +393,16 @@ export const memberSocketHandlers = {
         return;
       }
       const poll = await this.useCase.addPollOption(payload.pollId, userId, payload.text);
+      const systemMessage = getAttachedMessage(poll, "systemMessage");
+      if (systemMessage) {
+        const memberUserIds = await this.getMemberUserIds(poll.conversationId);
+        for (const memberId of memberUserIds) {
+          this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId: poll.conversationId,
+            message: systemMessage,
+          });
+        }
+      }
       this.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_OPTION_ADDED, {
         conversationId: poll.conversationId,
         pollId: poll.id,
@@ -508,6 +520,32 @@ export const memberSocketHandlers = {
       if (callback) callback({ success: true, poll });
     } catch (error) {
       console.error("Error handling unpinPoll:", error);
+      if (callback) callback({ success: false, error: (error as Error).message });
+    }
+  },
+
+  async handleDeletePoll(this: SocketHandlerContext,
+    socket: AuthenticatedSocket,
+    payload: { pollId: string },
+    callback?: (response: any) => void,
+  ) {
+    try {
+      const userId = socket.userId;
+      if (!userId) {
+        if (callback) callback({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const poll = await this.useCase.getPollResults(payload.pollId, userId);
+      const conversationId = poll.conversationId;
+      await this.useCase.deletePoll(payload.pollId, userId);
+      this.emitToGroupRoom(conversationId, SocketEvent.POLL_DELETED, {
+        conversationId,
+        pollId: payload.pollId,
+        deletedBy: userId,
+      });
+      if (callback) callback({ success: true });
+    } catch (error) {
+      console.error("Error handling deletePoll:", error);
       if (callback) callback({ success: false, error: (error as Error).message });
     }
   },

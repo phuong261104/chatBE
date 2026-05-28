@@ -507,11 +507,14 @@ export class InMemoryPollRepository {
     return poll ? clonePoll(poll) : null;
   }
 
-  async findByConversationId(conversationId: string): Promise<Poll[]> {
-    return Array.from(this.store.polls.values())
+  async findByConversationId(conversationId: string, cursor?: string, limit = 50): Promise<Poll[]> {
+    const all = Array.from(this.store.polls.values())
       .filter((poll) => poll.conversationId === conversationId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .map(clonePoll);
+
+    const startIndex = cursor ? 1 : 0;
+    return all.slice(startIndex, startIndex + limit);
   }
 
   async findActivePolls(conversationId: string): Promise<Poll[]> {

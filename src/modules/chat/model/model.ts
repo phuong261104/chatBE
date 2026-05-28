@@ -143,6 +143,11 @@ export const ConversationMemberSchema = z.object({
   hiddenAt: z.date().optional(),
   hiddenPinHash: z.string().optional(),
 
+  nickname: z.string().optional(),
+  nicknameUpdatedAt: z.date().optional(),
+  wallpaper: z.string().optional(),
+  wallpaperUpdatedAt: z.date().optional(),
+
   updatedAt: z.date(),
 });
 
@@ -313,6 +318,7 @@ export const PollOptionSchema = z.object({
   text: z.string(),
   voteCount: z.number().default(0),
   votedUserIds: z.array(z.string()).default([]),
+  addedBy: z.string().optional(),
 });
 
 export type PollOption = z.infer<typeof PollOptionSchema>;
@@ -326,6 +332,7 @@ export const PollSchema = z.object({
   createdBy: z.string(),
   isMultipleChoice: z.boolean().default(false),
   allowAddOption: z.boolean().default(false),
+  allowChangeVote: z.boolean().default(false),
   showResultsBeforeClose: z.boolean().default(true),
   hideVoters: z.boolean().default(false),
   status: z.nativeEnum(PollStatus).default(PollStatus.ACTIVE),

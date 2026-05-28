@@ -45,8 +45,11 @@ export class DynamoPollQueryRepository {
 
   async findByConversationId(
     conversationId: string,
+    cursor?: string,
+    limit = 50,
   ): Promise<Poll[]> {
     const docClient = getDocClient();
+    const exclusiveStartKey = cursor ? JSON.parse(Buffer.from(cursor, "base64").toString("utf8")) : undefined;
 
     const result = await docClient.send(
       new QueryCommand({
@@ -54,7 +57,9 @@ export class DynamoPollQueryRepository {
         IndexName: "conversation-index",
         KeyConditionExpression: "conversationId = :conversationId",
         ExpressionAttributeValues: { ":conversationId": conversationId },
-        Limit: 50,
+        Limit: limit,
+        ExclusiveStartKey: exclusiveStartKey,
+        ScanIndexForward: false,
       }),
     );
 
@@ -117,6 +122,7 @@ export class DynamoPollCommandRepository {
           createdBy: poll.createdBy,
           isMultipleChoice: poll.isMultipleChoice || false,
           allowAddOption: poll.allowAddOption || false,
+          allowChangeVote: poll.allowChangeVote || false,
           showResultsBeforeClose: poll.showResultsBeforeClose ?? true,
           hideVoters: poll.hideVoters || false,
           status: poll.status || PollStatus.ACTIVE,
@@ -151,6 +157,7 @@ export class DynamoPollCommandRepository {
     if (data.options !== undefined) updateData.options = data.options;
     if (data.isMultipleChoice !== undefined) updateData.isMultipleChoice = data.isMultipleChoice;
     if (data.allowAddOption !== undefined) updateData.allowAddOption = data.allowAddOption;
+    if (data.allowChangeVote !== undefined) updateData.allowChangeVote = data.allowChangeVote;
     if (data.showResultsBeforeClose !== undefined) updateData.showResultsBeforeClose = data.showResultsBeforeClose;
     if (data.hideVoters !== undefined) updateData.hideVoters = data.hideVoters;
     if (data.status !== undefined) updateData.status = data.status;

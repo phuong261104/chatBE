@@ -162,6 +162,8 @@ paths:
     $ref: "./paths/chat-groups-pending.yaml#/paths/~1v1~1groups~1{groupId}~1members~1{userId}~1reject"
   /v1/groups/{groupId}/polls:
     $ref: "./paths/chat-polls.yaml#/paths/~1v1~1groups~1{groupId}~1polls"
+  /v1/groups/{groupId}/polls/{pollId}:
+    $ref: "./paths/chat-polls.yaml#/paths/~1v1~1groups~1{groupId}~1polls~1{pollId}"
   /v1/groups/{groupId}/polls/{pollId}/vote:
     $ref: "./paths/chat-polls.yaml#/paths/~1v1~1groups~1{groupId}~1polls~1{pollId}~1vote"
   /v1/groups/{groupId}/polls/{pollId}/options:

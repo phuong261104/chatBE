@@ -41,6 +41,11 @@ export class VotePollHandler implements ICommandHandler<{ pollId: string; userId
       throw AppError.from(new Error("Poll is closed"), 400);
     }
 
+    const userPreviouslyVoted = poll.options.some((opt) => opt.votedUserIds.includes(userId));
+    if (userPreviouslyVoted && !poll.allowChangeVote) {
+      throw AppError.from(new Error("You cannot change your vote on this poll"), 400);
+    }
+
     const member = await this.conversationMemberQueryRepo.findByCond({
       conversationId: poll.conversationId,
       userId,
@@ -66,10 +71,25 @@ export class VotePollHandler implements ICommandHandler<{ pollId: string; userId
 
     const selectedOptionIds = new Set(optionIds);
     const updatedOptions = poll.options.map((opt) => {
-      const existingVotes = opt.votedUserIds.filter((id) => id !== userId);
-      const votedUserIds = selectedOptionIds.has(opt.id)
-        ? [...existingVotes, userId]
-        : existingVotes;
+      const wasVoted = opt.votedUserIds.includes(userId);
+      const willVote = selectedOptionIds.has(opt.id);
+
+      let votedUserIds: string[];
+      if (poll.isMultipleChoice) {
+        if (willVote && !wasVoted) {
+          votedUserIds = [...opt.votedUserIds, userId];
+        } else if (!willVote && wasVoted) {
+          votedUserIds = opt.votedUserIds.filter((id) => id !== userId);
+        } else {
+          votedUserIds = opt.votedUserIds;
+        }
+      } else {
+        if (willVote) {
+          votedUserIds = [...opt.votedUserIds.filter((id) => id !== userId), userId];
+        } else {
+          votedUserIds = opt.votedUserIds.filter((id) => id !== userId);
+        }
+      }
 
       return {
         ...opt,

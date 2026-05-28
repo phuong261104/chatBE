@@ -3,21 +3,29 @@ import { AppError } from "@share/app-error";
 import { v7 } from "uuid";
 import {
   IConversationMemberQueryRepository,
+  IConversationMemberCommandRepository,
+  IConversationCommandRepository,
+  IMessageCommandRepository,
   IPollCommandRepository,
   IPollQueryRepository,
 } from "../interface";
 import {
   ConversationMemberStatus,
+  MessageType,
   Poll,
   PollStatus,
 } from "../model/model";
 import { AddPollOptionCommand, addPollOptionDTOSchema } from "../model/dto";
+import { attachHiddenMessage, createConversationActivityMessage } from "./utility-messages";
 
 export class AddPollOptionHandler implements ICommandHandler<AddPollOptionCommand, Poll> {
   constructor(
     private readonly pollQueryRepo: IPollQueryRepository,
     private readonly pollCommandRepo: IPollCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
+    private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
+    private readonly conversationCommandRepo: IConversationCommandRepository,
+    private readonly messageCommandRepo: IMessageCommandRepository,
   ) {}
 
   async execute(command: AddPollOptionCommand): Promise<Poll> {
@@ -58,6 +66,7 @@ export class AddPollOptionHandler implements ICommandHandler<AddPollOptionComman
         text: data.text.trim(),
         voteCount: 0,
         votedUserIds: [],
+        addedBy: data.userId,
       },
     ];
 
@@ -66,6 +75,21 @@ export class AddPollOptionHandler implements ICommandHandler<AddPollOptionComman
     if (!updated) {
       throw AppError.from(new Error("Failed to get updated poll"), 500);
     }
-    return updated;
+
+    const message = await createConversationActivityMessage({
+      messageCommandRepo: this.messageCommandRepo,
+      conversationCommandRepo: this.conversationCommandRepo,
+      conversationMemberCommandRepo: this.conversationMemberCommandRepo,
+      conversationId: poll.conversationId,
+      senderId: data.userId,
+      type: MessageType.SYSTEM,
+      text: `đã thêm phương án "${data.text.trim()}" vào bình chọn "${poll.question}"`,
+      systemAction: "poll_option_added",
+      systemRefId: poll.id,
+      pollId: poll.id,
+      incrementUnread: false,
+    });
+
+    return attachHiddenMessage(updated, "systemMessage", message);
   }
 }

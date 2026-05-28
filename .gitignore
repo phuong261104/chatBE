@@ -92,3 +92,4 @@ tests/*
 !tests/helpers/
 !tests/helpers/chat-e2e-harness.ts
 !tests/helpers/chat-live-e2e-harness.ts
+!tests/chat-poll.e2e.test.ts

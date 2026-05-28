@@ -2,6 +2,10 @@ paths:
   /v1/groups/{groupId}/polls:
     get:
       summary: Get all polls in a group
+      description: |
+        Returns paginated list of polls in a group.
+        Supports optional status filter: `active`, `closed`, `expired`.
+        Cursor pagination via `cursor` + `limit`.
       tags: [Chat - Polls]
       security:
         - BearerAuth: []
@@ -10,37 +14,67 @@ paths:
           name: groupId
           schema:
             type: string
-            example: "conv_group_001"
           required: true
+          example: "0192a3bc-def0-7abc-8901-23456789abce"
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, closed, expired]
+          description: Filter by poll status
+          required: false
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: Pagination cursor (base64 encoded)
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Number of polls per page (default 20)
+          required: false
       responses:
         "200":
-          description: List of polls
+          description: Paginated list of polls
           content:
             application/json:
               example:
                 data:
                   polls:
-                    - _id: "poll_001"
-                      conversationId: "conv_group_001"
-                      messageId: "0192a3bc-def0-7abc-8901-23456789abce"
+                    - id: "0192a3bc-def0-7abc-8901-23456789abcf"
+                      conversationId: "0192a3bc-def0-7abc-8901-23456789abce"
+                      messageId: "0192a3bc-def0-7abc-8901-23456789abcd"
                       question: "Chọn ngày họp?"
                       options:
-                        - _id: "opt_001"
+                        - id: "opt_001"
                           text: "Thứ 2"
                           voteCount: 5
-                        - _id: "opt_002"
+                          votedUserIds: []
+                        - id: "opt_002"
                           text: "Thứ 3"
                           voteCount: 3
+                          votedUserIds: []
+                      createdBy: "user_123"
                       isMultipleChoice: false
                       allowAddOption: true
+                      allowChangeVote: false
                       showResultsBeforeClose: true
                       hideVoters: false
-                      createdBy: "user_123"
-                      createdAt: "2024-01-15T10:00:00Z"
-                      expiresAt: "2024-01-20T10:00:00Z"
+                      status: "active"
+                      pinned: false
                       totalVotes: 8
+                      createdAt: "2026-01-15T10:00:00.000Z"
+                      expiresAt: "2026-01-20T10:00:00.000Z"
+                nextCursor: "eyJpZCI6IjAxOTJhM2JjLWRlZjAtN2FiYy04OTAxLTIzNDU2Nzg5YWJjZiIsInVwZGF0ZWRBdCI6IjIwMjYtMDEtMTVUMTA6MDA6MDAuMDAwWiJ9"
+                hasMore: false
         "401":
           description: Unauthorized
+        "403":
+          description: Not a group member
 
     post:
       summary: Create a poll
@@ -52,8 +86,8 @@ paths:
           name: groupId
           schema:
             type: string
-            example: "conv_group_001"
           required: true
+          example: "0192a3bc-def0-7abc-8901-23456789abce"
       requestBody:
         required: true
         content:
@@ -73,33 +107,33 @@ paths:
                   items:
                     type: string
                   minItems: 2
-                  maxItems: 20
+                  maxItems: 10
                   example: ["Thứ 2", "Thứ 3", "Thứ 4"]
                 isMultipleChoice:
                   type: boolean
                   default: false
                   description: Allow voting for multiple options
-                  example: false
                 allowAddOption:
                   type: boolean
-                  default: true
+                  default: false
                   description: Allow members to add new options
-                  example: true
+                allowChangeVote:
+                  type: boolean
+                  default: false
+                  description: Allow members to change their vote after voting
                 showResultsBeforeClose:
                   type: boolean
-                  default: true
+                  default: false
                   description: Show poll results before the poll is closed
-                  example: true
                 hideVoters:
                   type: boolean
                   default: false
                   description: Hide voter identities from normal members
-                  example: false
                 expiresAt:
                   type: string
                   format: date-time
                   description: Poll expiration time (optional)
-                  example: "2024-01-20T10:00:00Z"
+                  example: "2026-01-20T10:00:00.000Z"
       responses:
         "201":
           description: Poll created
@@ -107,21 +141,36 @@ paths:
             application/json:
               example:
                 data:
-                  _id: "poll_001"
-                  conversationId: "conv_group_001"
-                  messageId: "0192a3bc-def0-7abc-8901-23456789abce"
+                  id: "0192a3bc-def0-7abc-8901-23456789abcf"
+                  conversationId: "0192a3bc-def0-7abc-8901-23456789abce"
                   question: "Chọn ngày họp?"
-                  options: [...]
+                  options:
+                    - id: "opt_001"
+                      text: "Thứ 2"
+                      voteCount: 0
+                      votedUserIds: []
+                    - id: "opt_002"
+                      text: "Thứ 3"
+                      voteCount: 0
+                      votedUserIds: []
+                  isMultipleChoice: false
+                  allowAddOption: true
+                  allowChangeVote: false
+                  showResultsBeforeClose: false
                   hideVoters: false
-                  createdAt: "2024-01-15T10:00:00Z"
+                  status: "active"
+                  totalVotes: 0
+                  createdAt: "2026-01-15T10:00:00.000Z"
+        "400":
+          description: Validation error (e.g. less than 2 options, empty question)
         "401":
           description: Unauthorized
         "403":
           description: Only group members can create polls
 
-  /v1/groups/{groupId}/polls/{pollId}/vote:
-    post:
-      summary: Vote on a poll
+  /v1/groups/{groupId}/polls/{pollId}:
+    get:
+      summary: Get a single poll
       tags: [Chat - Polls]
       security:
         - BearerAuth: []
@@ -130,13 +179,87 @@ paths:
           name: groupId
           schema:
             type: string
-            example: "conv_group_001"
           required: true
         - in: path
           name: pollId
           schema:
             type: string
-            example: "poll_001"
+          required: true
+      responses:
+        "200":
+          description: Poll detail
+          content:
+            application/json:
+              example:
+                data:
+                  id: "0192a3bc-def0-7abc-8901-23456789abcf"
+                  question: "Chọn ngày họp?"
+                  options: [...]
+                  status: "active"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a group member
+        "404":
+          description: Poll not found
+    delete:
+      summary: Delete a poll
+      description: |
+        Permanently removes a poll from the group.
+        Only poll creator, group owner, or group admins can delete a poll.
+        If the poll is pinned, its linked message is automatically unpinned.
+      tags: [Chat - Polls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+        - in: path
+          name: pollId
+          schema:
+            type: string
+          required: true
+      responses:
+        "200":
+          description: Poll deleted
+          content:
+            application/json:
+              example:
+                data:
+                  pollId: "0192a3bc-def0-7abc-8901-23456789abcf"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only poll creator, owner or admins can delete the poll
+        "404":
+          description: Poll not found
+
+  /v1/groups/{groupId}/polls/{pollId}/vote:
+    post:
+      summary: Vote on a poll
+      description: |
+        Vote for one or more options.
+        For single-choice polls, send exactly one optionId.
+        For multi-choice polls, send one or more optionIds.
+        To change a vote on single-choice: send the new optionId (replaces old vote).
+        To toggle options in multi-choice: include all currently selected optionIds.
+        Re-voting is blocked if poll.allowChangeVote is false.
+      tags: [Chat - Polls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          schema:
+            type: string
+          required: true
+        - in: path
+          name: pollId
+          schema:
+            type: string
           required: true
       requestBody:
         required: true
@@ -151,6 +274,7 @@ paths:
                   type: array
                   items:
                     type: string
+                  minItems: 1
                   description: Option IDs to vote for
                   example: ["opt_001"]
       responses:
@@ -160,20 +284,38 @@ paths:
             application/json:
               example:
                 data:
-                  _id: "poll_001"
-                  options: [...]
+                  id: "0192a3bc-def0-7abc-8901-23456789abcf"
+                  options:
+                    - id: "opt_001"
+                      text: "Thứ 2"
+                      voteCount: 6
+                      votedUserIds: ["user_456"]
+                    - id: "opt_002"
+                      text: "Thứ 3"
+                      voteCount: 3
+                      votedUserIds: []
                   totalVotes: 9
+        "400":
+          description: |
+            - Poll has expired
+            - Poll is closed
+            - Option does not exist in poll
+            - Cannot change vote (allowChangeVote is false)
+            - Only one option allowed for single-choice poll
         "401":
           description: Unauthorized
-        "400":
-          description: Poll has expired
-        "422":
-          description: Invalid option IDs
+        "403":
+          description: Not a group member
+        "404":
+          description: Poll not found
 
   /v1/groups/{groupId}/polls/{pollId}/options:
     post:
       summary: Add an option to a poll
-      description: Adds a new option when the poll is active, not expired, and allowAddOption is true.
+      description: |
+        Adds a new option when the poll is active, not expired, and allowAddOption is true.
+        Records who added the option via `addedBy` field.
+        Creates a system message in the conversation.
       tags: [Chat - Polls]
       security:
         - BearerAuth: []
@@ -182,13 +324,11 @@ paths:
           name: groupId
           schema:
             type: string
-            example: "conv_group_001"
           required: true
         - in: path
           name: pollId
           schema:
             type: string
-            example: "poll_001"
           required: true
       requestBody:
         required: true
@@ -211,14 +351,17 @@ paths:
             application/json:
               example:
                 data:
-                  _id: "poll_001"
+                  id: "0192a3bc-def0-7abc-8901-23456789abcf"
                   options:
-                    - _id: "opt_001"
+                    - id: "opt_001"
                       text: "Thứ 2"
                       voteCount: 5
-                    - _id: "opt_003"
+                      votedUserIds: []
+                    - id: "opt_003"
                       text: "Thứ 5"
                       voteCount: 0
+                      votedUserIds: []
+                      addedBy: "user_456"
         "400":
           description: Poll is closed, expired, or does not allow new options
         "401":
@@ -227,10 +370,15 @@ paths:
           description: Not a group member
         "404":
           description: Poll not found
+        "409":
+          description: Poll option already exists
 
   /v1/groups/{groupId}/polls/{pollId}/lock:
     post:
       summary: Close or lock a poll
+      description: |
+        Only poll creator, group owner, or group admins can close a poll.
+        Once closed, no more voting or option additions are allowed.
       tags: [Chat - Polls]
       security:
         - BearerAuth: []
@@ -239,13 +387,11 @@ paths:
           name: groupId
           schema:
             type: string
-            example: "conv_group_001"
           required: true
         - in: path
           name: pollId
           schema:
             type: string
-            example: "poll_001"
           required: true
       responses:
         "200":
@@ -254,12 +400,14 @@ paths:
             application/json:
               example:
                 data:
-                  _id: "poll_001"
-                  isClosed: true
+                  id: "0192a3bc-def0-7abc-8901-23456789abcf"
+                  status: "closed"
+                  closedAt: "2026-01-15T12:00:00.000Z"
+                  closedBy: "user_123"
         "401":
           description: Unauthorized
         "403":
-          description: Only permitted group members can close the poll
+          description: Only poll creator, owner or admins can close the poll
         "404":
           description: Poll not found
 
@@ -275,13 +423,11 @@ paths:
           name: groupId
           schema:
             type: string
-            example: "conv_group_001"
           required: true
         - in: path
           name: pollId
           schema:
             type: string
-            example: "poll_001"
           required: true
       responses:
         "200":
@@ -290,12 +436,17 @@ paths:
             application/json:
               example:
                 data:
-                  _id: "poll_001"
+                  id: "0192a3bc-def0-7abc-8901-23456789abcf"
                   pinned: true
+                  pinnedAt: "2026-01-15T12:00:00.000Z"
+                  pinnedBy: "user_123"
         "401":
           description: Unauthorized
+        "403":
+          description: Only poll creator, owner or admins can pin the poll
         "404":
           description: Poll not found
+
     delete:
       summary: Unpin a poll
       description: Unpins the poll and its linked poll message card.
@@ -307,13 +458,11 @@ paths:
           name: groupId
           schema:
             type: string
-            example: "conv_group_001"
           required: true
         - in: path
           name: pollId
           schema:
             type: string
-            example: "poll_001"
           required: true
       responses:
         "200":
@@ -322,10 +471,12 @@ paths:
             application/json:
               example:
                 data:
-                  _id: "poll_001"
+                  id: "0192a3bc-def0-7abc-8901-23456789abcf"
                   pinned: false
         "401":
           description: Unauthorized
+        "403":
+          description: Only poll creator, owner or admins can unpin the poll
         "404":
           description: Poll not found
 
@@ -340,39 +491,37 @@ paths:
           name: groupId
           schema:
             type: string
-            example: "conv_group_001"
           required: true
         - in: path
           name: pollId
           schema:
             type: string
-            example: "poll_001"
           required: true
       responses:
         "200":
-          description: Poll results
+          description: Poll results with visibility rules applied
           content:
             application/json:
               example:
                 data:
-                  _id: "poll_001"
+                  id: "0192a3bc-def0-7abc-8901-23456789abcf"
                   question: "Chọn ngày họp?"
                   options:
-                    - _id: "opt_001"
+                    - id: "opt_001"
                       text: "Thứ 2"
                       voteCount: 5
                       percentage: 62.5
-                      votedBy:
-                        - userId: "user_001"
-                          votedAt: "2024-01-15T10:30:00Z"
-                    - _id: "opt_002"
+                      votedUserIds: []
+                    - id: "opt_002"
                       text: "Thứ 3"
                       voteCount: 3
                       percentage: 37.5
-                      votedBy:
-                        - userId: "user_002"
-                          votedAt: "2024-01-15T10:35:00Z"
+                      votedUserIds: []
                   totalVotes: 8
-                  isExpired: false
+                  status: "active"
         "401":
           description: Unauthorized
+        "403":
+          description: Not a group member
+        "404":
+          description: Poll not found

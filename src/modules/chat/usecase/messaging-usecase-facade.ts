@@ -55,10 +55,10 @@ import { SetAdminHandler } from "./set-admin";
 import { TransferOwnerHandler } from "./transfer-owner";
 import { CreatePollHandler } from "./create-poll";
 import { AddPollOptionHandler } from "./add-poll-option";
-import { GetPollsHandler } from "./get-polls";
+import { GetPollsHandler, GetPollHandler } from "./get-polls";
 import { VotePollHandler } from "./vote-poll";
 import { GetPollResultsHandler } from "./get-poll-results";
-import { ClosePollHandler, PinPollHandler, UnpinPollHandler } from "./manage-poll";
+import { ClosePollHandler, PinPollHandler, UnpinPollHandler, DeletePollHandler } from "./manage-poll";
 import { GetPendingMembersHandler } from "./get-pending-members";
 import { ApproveMemberHandler } from "./approve-member";
 import { RejectMemberHandler } from "./reject-member";
@@ -129,12 +129,14 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly transferOwnerHandler: TransferOwnerHandler,
     private readonly createPollHandler: CreatePollHandler,
     private readonly getPollsHandler: GetPollsHandler,
+    private readonly getPollHandler: GetPollHandler,
     private readonly votePollHandler: VotePollHandler,
     private readonly addPollOptionHandler: AddPollOptionHandler,
     private readonly getPollResultsHandler: GetPollResultsHandler,
     private readonly closePollHandler: ClosePollHandler,
     private readonly pinPollHandler: PinPollHandler,
     private readonly unpinPollHandler: UnpinPollHandler,
+    private readonly deletePollHandler: DeletePollHandler,
     private readonly getPendingMembersHandler: GetPendingMembersHandler,
     private readonly approveMemberHandler: ApproveMemberHandler,
     private readonly rejectMemberHandler: RejectMemberHandler,
@@ -490,6 +492,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     options: string[],
     isMultipleChoice?: boolean,
     allowAddOption?: boolean,
+    allowChangeVote?: boolean,
     showResultsBeforeClose?: boolean,
     expiresAt?: string,
     hideVoters?: boolean,
@@ -501,14 +504,19 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       options,
       isMultipleChoice,
       allowAddOption,
+      allowChangeVote,
       showResultsBeforeClose,
       expiresAt,
       hideVoters,
     });
   }
 
-  async getPolls(conversationId: string, userId: string): Promise<Poll[]> {
-    return this.getPollsHandler.query({ conversationId, userId });
+  async getPolls(conversationId: string, userId: string, cursor?: string, limit?: number, status?: string): Promise<{ polls: Poll[]; nextCursor?: string; hasMore: boolean }> {
+    return this.getPollsHandler.query({ conversationId, userId, cursor, limit, status });
+  }
+
+  async getPoll(pollId: string, userId: string): Promise<Poll> {
+    return this.getPollHandler.query({ pollId, userId });
   }
 
   async votePoll(pollId: string, userId: string, optionIds: string[]): Promise<Poll> {
@@ -533,6 +541,10 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
 
   async unpinPoll(pollId: string, userId: string): Promise<Poll> {
     return this.unpinPollHandler.execute({ pollId, userId });
+  }
+
+  async deletePoll(pollId: string, userId: string): Promise<void> {
+    return this.deletePollHandler.execute({ pollId, userId });
   }
 
   async getPendingMembers(groupId: string, requesterId: string): Promise<ConversationMember[]> {

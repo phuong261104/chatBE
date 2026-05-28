@@ -18,7 +18,7 @@ export class PollController {
       const groupId = Array.isArray(req.params.groupId)
         ? req.params.groupId[0]
         : req.params.groupId;
-      const { question, options, isMultipleChoice, allowAddOption, showResultsBeforeClose, hideVoters, expiresAt } = req.body;
+      const { question, options, isMultipleChoice, allowAddOption, allowChangeVote, showResultsBeforeClose, hideVoters, expiresAt } = req.body;
       const currentUserId = res.locals["requester"]?.sub;
 
       if (!currentUserId) {
@@ -33,6 +33,7 @@ export class PollController {
         options,
         isMultipleChoice,
         allowAddOption,
+        allowChangeVote,
         showResultsBeforeClose,
         expiresAt,
         hideVoters,
@@ -48,7 +49,7 @@ export class PollController {
         message,
       });
 
-      res.status(201).json({ data: poll });
+      res.status(201).json({ data: { poll, message } });
     } catch (error) {
       this.sendError(res, error);
     }
@@ -66,9 +67,35 @@ export class PollController {
         return;
       }
 
-      const polls = await this.useCase.getPolls(groupId, currentUserId);
+      const { cursor, limit, status } = req.query;
+      const result = await this.useCase.getPolls(
+        groupId,
+        currentUserId,
+        cursor as string | undefined,
+        limit ? Number(limit) : undefined,
+        status as string | undefined,
+      );
 
-      res.status(200).json({ data: polls });
+      res.status(200).json({ data: result.polls, nextCursor: result.nextCursor, hasMore: result.hasMore });
+    } catch (error) {
+      this.sendError(res, error);
+    }
+  }
+
+  async getPollAPI(req: Request, res: Response) {
+    try {
+      const pollId = Array.isArray(req.params.pollId)
+        ? req.params.pollId[0]
+        : req.params.pollId;
+      const currentUserId = res.locals["requester"]?.sub;
+
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const poll = await this.useCase.getPoll(pollId, currentUserId);
+      res.status(200).json({ data: poll });
     } catch (error) {
       this.sendError(res, error);
     }
@@ -220,6 +247,10 @@ export class PollController {
       }
 
       const poll = await this.useCase.addPollOption(pollId, currentUserId, text);
+      const systemMessage = getAttachedMessage(poll, "systemMessage");
+      if (systemMessage) {
+        await this.emitMessageToMembers(poll.conversationId, systemMessage);
+      }
       this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_OPTION_ADDED, {
         conversationId: poll.conversationId,
         pollId,
@@ -227,6 +258,28 @@ export class PollController {
         addedBy: currentUserId,
       });
       res.status(200).json({ data: poll });
+    } catch (error) {
+      this.sendError(res, error);
+    }
+  }
+
+  async deletePollAPI(req: Request, res: Response) {
+    try {
+      const pollId = Array.isArray(req.params.pollId) ? req.params.pollId[0] : req.params.pollId;
+      const currentUserId = res.locals["requester"]?.sub;
+      if (!currentUserId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const poll = await this.useCase.getPollResults(pollId, currentUserId);
+      await this.useCase.deletePoll(pollId, currentUserId);
+      this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_DELETED, {
+        conversationId: poll.conversationId,
+        pollId,
+        deletedBy: currentUserId,
+      });
+      res.status(200).json({ data: { pollId } });
     } catch (error) {
       this.sendError(res, error);
     }
