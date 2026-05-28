@@ -53,3 +53,78 @@ export interface DetectLanguageRequest {
 export interface DetectLanguageResponse {
   language: string;
 }
+
+// --- Smart Search ---
+export interface SmartSearchRequest {
+  query: string;
+  conversationId?: string;
+}
+
+export interface SmartSearchReference {
+  messageId: string;
+  conversationId: string;
+  text: string;
+  senderId: string;
+  createdAt: string;
+}
+
+export interface SmartSearchResponse {
+  answer: string;
+  references: SmartSearchReference[];
+}
+
+// --- Task Extraction ---
+export interface ExtractedTask {
+  description: string;
+  assignee?: string;
+  deadline?: string;
+  status: "pending" | "in_progress" | "done";
+}
+
+export interface ReminderSuggestion {
+  title: string;
+  remindAt: string;
+  assignee?: string;
+  sourceMessageId?: string;
+}
+
+export interface ExtractTasksRequest {
+  conversationId: string;
+  maxMessages?: number;
+}
+
+export interface ExtractTasksResponse {
+  tasks: ExtractedTask[];
+  reminderSuggestions: ReminderSuggestion[];
+  originalCount: number;
+  conversationId: string;
+}
+
+// --- Content Moderation ---
+export type ModerationCategory =
+  | "toxicity"
+  | "hate_speech"
+  | "harassment"
+  | "violence"
+  | "sexual_content"
+  | "self_harm"
+  | "spam"
+  | "misinformation";
+
+export interface ModerationResult {
+  category: ModerationCategory;
+  isViolated: boolean;
+  confidence: number;
+}
+
+export interface ModerateContentRequest {
+  text: string;
+  conversationId?: string;
+}
+
+export interface ModerateContentResponse {
+  isSafe: boolean;
+  categories: ModerationResult[];
+  confidence: number;
+  warningMessage?: string;
+}

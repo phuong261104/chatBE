@@ -351,6 +351,27 @@ Tất cả route AI nằm dưới `/v1/ai` và được bảo vệ bằng auth m
 | POST | `/v1/ai/tone-adjust` | Điều chỉnh giọng văn |
 | POST | `/v1/ai/translate` | Dịch văn bản |
 | POST | `/v1/ai/detect-language` | Detect language |
+| POST | `/v1/ai/smart-search` | Tim kiem thong minh bang AI |
+| POST | `/v1/ai/extract-tasks` | Trich xuat cong viec tu chat |
+| POST | `/v1/ai/moderate` | Kiem tra noi dung nhay cam |
+
+AI su dung Google Gemini lam provider. Cau hinh trong `GEMINI_API_KEY`, `GEMINI_MODEL`, `AI_MAX_TOKENS`, `AI_TEMPERATURE`.
+
+AI rules (AI-01 den AI-10) duoc ap dung cho tat ca features.
+
+#### AI Socket.IO (namespace `/ai`)
+
+| Event (Client -> Server) | Payload | Response |
+| --- | --- | --- |
+| `ai:summarize` | `{ conversationId, maxMessages? }` | `{ summary, originalCount }` |
+| `ai:smart_reply` | `{ conversationId, userId? }` | `{ replies }` |
+| `ai:tone_adjust` | `{ message, tone }` | `{ original, adjusted }` |
+| `ai:translate` | `{ text, targetLang, sourceLang? }` | `{ translated, sourceLang }` |
+| `ai:smart_search` | `{ query, conversationId? }` | `{ answer, references }` |
+| `ai:extract_tasks` | `{ conversationId, maxMessages? }` | `{ tasks, reminderSuggestions }` |
+| `ai:moderate` | `{ text }` | `{ isSafe, categories, warningMessage? }` |
+
+Tat ca events su dung token auth qua handshake. Error event `ai:error` duoc emit khi xay ra loi.
 
 ## Flow Details
 

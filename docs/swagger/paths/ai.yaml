@@ -443,57 +443,236 @@ paths:
               schema:
                 type: object
                 properties:
-                  data:
-                    type: object
-                    properties:
-                      language:
-                        type: string
-                        example: "tieng Viet"
+                  language:
+                    type: string
+                    example: "tieng Viet"
         '400':
           description: Du lieu dau vao khong hop le
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        example: "VALIDATION_ERROR"
-                      message:
-                        type: string
-                        example: "Invalid request"
         '401':
           description: Chua xac thuc
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        example: "UNAUTHORIZED"
-                      message:
-                        type: string
-                        example: "Unauthorized"
         '500':
           description: Loi server
+
+  /v1/ai/smart-search:
+    post:
+      tags:
+        - AI
+      summary: Tim kiem thong minh bang AI
+      description: Cho phep hoi cau hoi bang ngon ngu tu nhien, AI se tra loi dua tren noi dung cuoc tro chuyen.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+                  description: Cau hoi bang ngon ngu tu nhien
+                  minLength: 1
+                  maxLength: 500
+                  example: "Deadline nop bao cao la khi nao?"
+                conversationId:
+                  type: string
+                  format: uuid
+                  description: ID cuoc tro chuyen can tim kiem (optional - neu khong co se tim kiem tren toan bo)
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Tim kiem thanh cong
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                        example: "INTERNAL_ERROR"
-                      message:
-                        type: string
-                        example: "Internal server error"
+                  answer:
+                    type: string
+                    example: "Deadline nop bao cao la 22:00 ngay 28/05/2026."
+                  references:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        messageId:
+                          type: string
+                        conversationId:
+                          type: string
+                        text:
+                          type: string
+                        senderId:
+                          type: string
+                        createdAt:
+                          type: string
+                    example:
+                      - messageId: "msg-123"
+                        conversationId: "550e8400-e29b-41d4-a716-446655440000"
+                        text: "Deadline nop bao cao la 22:00 ngay 28/05/2026."
+                        senderId: "user-456"
+                        createdAt: "2026-05-26T10:25:00.000Z"
+        '400':
+          description: Du lieu dau vao khong hop le
+        '401':
+          description: Chua xac thuc
+        '500':
+          description: Loi server
+
+  /v1/ai/extract-tasks:
+    post:
+      tags:
+        - AI
+      summary: Trich xuat cong viec tu cuoc tro chuyen
+      description: AI phan tich cuoc tro chuyen de nhan dien cac cong viec, nguoi phu trach, deadline va de xuat tao nhac nho.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversationId
+              properties:
+                conversationId:
+                  type: string
+                  format: uuid
+                  description: ID cuoc tro chuyen can phan tich
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+                maxMessages:
+                  type: integer
+                  description: So tin nhan toi da de phan tich (mac dinh 100)
+                  example: 100
+                  minimum: 1
+                  maximum: 200
+      responses:
+        '200':
+          description: Trich xuat thanh cong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        description:
+                          type: string
+                          example: "Hoan thien API gui tin nhan"
+                        assignee:
+                          type: string
+                          nullable: true
+                          example: "Phuong"
+                        deadline:
+                          type: string
+                          nullable: true
+                          example: "2026-05-28T21:00:00.000Z"
+                        status:
+                          type: string
+                          enum: [pending, in_progress, done]
+                          example: "pending"
+                  reminderSuggestions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                        remindAt:
+                          type: string
+                        assignee:
+                          type: string
+                          nullable: true
+                        sourceMessageId:
+                          type: string
+                          nullable: true
+                    example:
+                      - title: "Hoan thien API gui tin nhan"
+                        remindAt: "2026-05-28T21:00:00.000Z"
+                        assignee: "Phuong"
+                        sourceMessageId: "msg-789"
+                  originalCount:
+                    type: integer
+                    example: 30
+                  conversationId:
+                    type: string
+                    format: uuid
+        '400':
+          description: Du lieu dau vao khong hop le
+        '401':
+          description: Chua xac thuc
+        '500':
+          description: Loi server
+
+  /v1/ai/moderate:
+    post:
+      tags:
+        - AI
+      summary: Kiem tra noi dung nhay cam
+      description: AI kiem tra noi dung theo cac danh muc nhay cam nhu doc dao, loi noi thuong tan, etc.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: Van ban can kiem tra noi dung nhay cam
+                  minLength: 1
+                  maxLength: 5000
+                  example: "Ban that la nguoi nguoi vut"
+                conversationId:
+                  type: string
+                  format: uuid
+                  description: ID cuoc tro chuyen chua noi dung (optional)
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Kiem tra thanh cong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isSafe:
+                    type: boolean
+                    example: false
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        category:
+                          type: string
+                          enum: [toxicity, hate_speech, harassment, violence, sexual_content, self_harm, spam, misinformation]
+                          example: "toxicity"
+                        isViolated:
+                          type: boolean
+                          example: true
+                        confidence:
+                          type: number
+                          example: 0.85
+                  confidence:
+                    type: number
+                    example: 0.85
+                  warningMessage:
+                    type: string
+                    nullable: true
+                    example: "Noi dung co the mang tinh cong kich. Vui long kiem tra lai."
+        '400':
+          description: Du lieu dau vao khong hop le
+        '401':
+          description: Chua xac thuc
+        '500':
+          description: Loi server

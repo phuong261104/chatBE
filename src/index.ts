@@ -185,6 +185,7 @@ config();
   const { router: aiRouter } = setupAiHexagon({
     messageRepo: new DynamoMessageRepository(),
     conversationRepo: new DynamoConversationRepository(),
+    io,
   });
   app.use("/v1/ai", sctx.mdlFactory.auth, aiRouter);
 

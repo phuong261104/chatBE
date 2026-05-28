@@ -342,3 +342,9 @@ paths:
     $ref: "./paths/ai.yaml#/paths/~1v1~1ai~1translate"
   /v1/ai/detect-language:
     $ref: "./paths/ai.yaml#/paths/~1v1~1ai~1detect-language"
+  /v1/ai/smart-search:
+    $ref: "./paths/ai.yaml#/paths/~1v1~1ai~1smart-search"
+  /v1/ai/extract-tasks:
+    $ref: "./paths/ai.yaml#/paths/~1v1~1ai~1extract-tasks"
+  /v1/ai/moderate:
+    $ref: "./paths/ai.yaml#/paths/~1v1~1ai~1moderate"
