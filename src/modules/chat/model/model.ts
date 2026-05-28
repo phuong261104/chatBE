@@ -147,6 +147,8 @@ export const ConversationMemberSchema = z.object({
   nicknameUpdatedAt: z.date().optional(),
   wallpaper: z.string().optional(),
   wallpaperUpdatedAt: z.date().optional(),
+  // Alias exposed to clients via API response
+  wallpaperUrl: z.string().nullable().optional(),
 
   updatedAt: z.date(),
 });

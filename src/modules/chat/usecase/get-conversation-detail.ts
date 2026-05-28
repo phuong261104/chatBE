@@ -61,6 +61,7 @@ export class GetConversationDetailQueryHandler implements IQueryHandler<
       muteUntil: currentUserMember.muteUntil,
       archived: !!currentUserMember.archived,
       isArchived: !!currentUserMember.archived,
+      wallpaperUrl: currentUserMember.wallpaper || null,
     };
 
     return {
