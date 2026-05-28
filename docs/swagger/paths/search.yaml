@@ -1,7 +1,7 @@
 paths:
   /v1/search:
     get:
-      summary: Global search (users, messages, groups, etc)
+      summary: Global search (users, messages, groups, media, links)
       tags: [Search]
       security:
         - BearerAuth: []
@@ -18,12 +18,58 @@ paths:
           schema: 
             type: string
             example: "ALL"
-            enum: [ALL, USERS, MESSAGES, GROUPS]
+            enum: [ALL, USERS, MESSAGES, GROUPS, MEDIA, LINKS]
+          description: "Loại tìm kiếm: ALL (mặc định), USERS, MESSAGES, GROUPS, MEDIA, LINKS"
+        - in: query
+          name: conversationId
+          schema:
+            type: string
+          description: "Tìm kiếm trong một cuộc trò chuyện cụ thể"
+        - in: query
+          name: senderId
+          schema:
+            type: string
+          description: "Lọc tin nhắn theo người gửi"
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+          description: "Tìm kiếm từ ngày (ISO 8601 hoặc YYYY-MM-DD)"
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+          description: "Tìm kiếm đến ngày (ISO 8601 hoặc YYYY-MM-DD)"
+        - in: query
+          name: mediaType
+          schema:
+            type: string
+            enum: [all, image, video, file, voice]
+            default: all
+          description: "Lọc theo loại media (chỉ khi type=MEDIA)"
+        - in: query
+          name: contextLimit
+          schema:
+            type: integer
+            default: 1
+            minimum: 0
+            maximum: 5
+          description: "Số lượng tin nhắn ngữ cảnh trước/sau mỗi kết quả"
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: "Cursor phân trang"
         - in: query
           name: limit
           schema: 
             type: integer
-            example: 10
+            default: 10
+            minimum: 1
+            maximum: 50
+          description: "Số kết quả mỗi trang"
       responses:
         '200':
           description: Search results
@@ -43,12 +89,34 @@ paths:
                         type: array
                         items: 
                           type: object
+                      groups:
+                        type: array
+                        items:
+                          type: object
+                      media:
+                        type: array
+                        items:
+                          type: object
+                      links:
+                        type: array
+                        items:
+                          type: object
+                      hasMore:
+                        type: boolean
+                      nextCursor:
+                        type: string
               example:
                 data:
                   users:
-                    - _id: "60d0fe4f5311236168a1"
+                    - id: "0192a3bc-def0-7abc-8901-23456789abcd"
                       displayName: "Tài Liệu Cty"
                   messages:
-                    - _id: "msg-id-1"
+                    - id: "msg-id-1"
+                      conversationId: "conv-123"
+                      senderId: "user-456"
                       text: "Đây là tài liệu mật của dự án"
+                      createdAt: "2024-01-15T10:00:00Z"
                   groups: []
+                  media: []
+                  links: []
+                  hasMore: false

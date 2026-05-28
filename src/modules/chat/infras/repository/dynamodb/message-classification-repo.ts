@@ -132,8 +132,10 @@ export class DynamoMessageClassificationRepository {
           ":type3": ClassificationType.LINK,
           ":type4": ClassificationType.VIDEO,
           ":type5": ClassificationType.VOICE,
+          ":type6": ClassificationType.STICKER,
+          ":type7": ClassificationType.GIF,
         },
-        FilterExpression: "#t IN (:type1, :type2, :type3, :type4, :type5)",
+        FilterExpression: "#t IN (:type1, :type2, :type3, :type4, :type5, :type6, :type7)",
         ExpressionAttributeNames: {
           "#t": "type",
         },

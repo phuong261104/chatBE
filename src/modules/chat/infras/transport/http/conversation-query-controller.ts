@@ -10,7 +10,7 @@ export class ConversationQueryController extends BaseController {
   async getConversationMediaAPI(req: Request, res: Response) {
     try {
       const conversationId = this.parseIdParam(req, "conversationId");
-      const { cursor, limit = "20", type = "all" } = req.query;
+      const { cursor, limit = "20", type = "all", query } = req.query;
       const currentUserId = this.getCurrentUserId(req, res);
 
       if (!currentUserId) {
@@ -24,6 +24,7 @@ export class ConversationQueryController extends BaseController {
         cursor: cursor || undefined,
         limit: parseInt(limit as string, 10),
         type,
+        query: typeof query === "string" ? query : undefined,
       });
 
       const result = await this.useCase.getConversationMedia(
@@ -32,6 +33,7 @@ export class ConversationQueryController extends BaseController {
         validatedData.cursor,
         validatedData.limit,
         validatedData.type,
+        validatedData.query,
       );
 
       res.status(200).json({ data: result });

@@ -191,6 +191,7 @@ Access patterns:
 - Lookup/update/revoke/delete by `id-index`.
 - Dedupe send retries by direct get on the idempotency reservation key `{conversationId, senderId, clientMessageId}` and fallback lookup through `clientMessageKey-index`.
 - Increment unread and update last message after insert.
+- Search messages by text content (DynamoDB Query + in-memory text filter), với optional filters: date range (`from`/`to`), senderId filter.
 
 ### `message_reactions`
 
@@ -229,11 +230,17 @@ Fields chính:
 
 - `id`, `conversationId`, `type`, `senderId`, `url`, `name`, `linkUrl`, `messageId`, `createdAt`.
 
+Classification types (field `type`):
+
+- `image`, `video`, `voice`, `file`, `link`, `sticker`, `gif`.
+
 Access patterns:
 
-- Search media/link by conversation and type.
-- List all classifications in a conversation.
+- Search media/link by conversation and type (GSI1).
+- List all classifications in a conversation (GSI1 với FilterExpression).
 - Delete classifications when message is removed.
+- Search media by keyword (name/url) — in-memory filter after DynamoDB query.
+- Sticker/GIF search via `type` = sticker/gif query.
 
 ### `polls`
 

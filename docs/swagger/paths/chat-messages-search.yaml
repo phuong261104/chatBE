@@ -80,7 +80,34 @@ paths:
           schema:
             type: integer
             default: 20
+            minimum: 1
+            maximum: 50
             example: 20
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+          description: "Tìm kiếm từ ngày (ISO 8601 hoặc YYYY-MM-DD)"
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+          description: "Tìm kiếm đến ngày (ISO 8601 hoặc YYYY-MM-DD)"
+        - in: query
+          name: senderId
+          schema:
+            type: string
+          description: "Lọc tin nhắn theo người gửi"
+        - in: query
+          name: contextLimit
+          schema:
+            type: integer
+            default: 1
+            minimum: 0
+            maximum: 5
+          description: "Số lượng tin nhắn ngữ cảnh trước/sau mỗi kết quả"
       responses:
         "200":
           description: Kết quả tìm kiếm
@@ -127,9 +154,16 @@ paths:
           name: type
           schema:
             type: string
-            enum: [all, image, file, link]
+            enum: [all, image, file, link, video, voice]
             default: all
-          description: "Loc theo loai: all (tat ca), image (chinh anh), file (chinh file), link (chinh link)"
+          description: "Loc theo loai: all (tat ca), image (chinh anh), file (chinh file), link (chinh link), video (chinh video), voice (chinh voice)"
+        - in: query
+          name: query
+          schema:
+            type: string
+            maxLength: 200
+          description: "Từ khóa tìm kiếm trong tên file/media (case-insensitive)"
+          example: "photo"
       responses:
         "200":
           description: List of media/files/links

@@ -615,7 +615,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
     query: string,
     cursor?: string,
     limit: number = 20,
-    options: { from?: Date; to?: Date; hiddenAfter?: Date } = {},
+    options: { from?: Date; to?: Date; hiddenAfter?: Date; senderId?: string } = {},
   ): Promise<{
     messages: Message[];
     nextCursor?: string;
@@ -726,7 +726,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
   private matchesSearch(
     message: Message,
     lowerQuery: string,
-    options: { from?: Date; to?: Date; hiddenAfter?: Date },
+    options: { from?: Date; to?: Date; hiddenAfter?: Date; senderId?: string },
     userId: string,
   ): boolean {
     if (message.messageStatus === MessageStatus.REVOKED || message.deletedAt) return false;
@@ -735,6 +735,7 @@ export class DynamoMessageRepository extends BaseRepositoryDynamoDB<
     if (options.hiddenAfter && message.createdAt <= options.hiddenAfter) return false;
     if (options.from && message.createdAt < options.from) return false;
     if (options.to && message.createdAt > options.to) return false;
+    if (options.senderId && message.senderId !== options.senderId) return false;
     return (message.text || "").toLowerCase().includes(lowerQuery);
   }
 

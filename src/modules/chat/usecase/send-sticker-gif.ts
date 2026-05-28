@@ -12,7 +12,8 @@ import {
   ConversationMemberStatus,
   Message,
   MessageType,
-  ConversationType,
+  ClassificationType,
+  MessageClassification,
 } from "../model/model";
 
 export class SendStickerHandler implements ICommandHandler<{
@@ -27,6 +28,7 @@ export class SendStickerHandler implements ICommandHandler<{
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
+    private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
   async execute(command: {
@@ -70,6 +72,18 @@ export class SendStickerHandler implements ICommandHandler<{
 
     await this.messageCommandRepo.insert(message);
 
+    const stickerClassification: MessageClassification = {
+      id: v7(),
+      conversationId,
+      type: ClassificationType.STICKER,
+      senderId,
+      url: stickerUrl,
+      name: stickerId || packageId || "sticker",
+      messageId: id,
+      createdAt: now,
+    };
+    await this.classificationRepo.insertBatch([stickerClassification]);
+
     await this.conversationCommandRepo.update(conversationId, {
       lastMessage: {
         messageId: id,
@@ -96,6 +110,7 @@ export class SendGifHandler implements ICommandHandler<{
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
+    private readonly classificationRepo: IMessageClassificationRepository,
   ) {}
 
   async execute(command: {
@@ -137,6 +152,18 @@ export class SendGifHandler implements ICommandHandler<{
     };
 
     await this.messageCommandRepo.insert(message);
+
+    const gifClassification: MessageClassification = {
+      id: v7(),
+      conversationId,
+      type: ClassificationType.GIF,
+      senderId,
+      url: gifUrl,
+      name: `GIF from ${provider || "unknown"}`,
+      messageId: id,
+      createdAt: now,
+    };
+    await this.classificationRepo.insertBatch([gifClassification]);
 
     await this.conversationCommandRepo.update(conversationId, {
       lastMessage: {

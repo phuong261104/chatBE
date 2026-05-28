@@ -18,6 +18,7 @@ export class SearchMessagesHandler
     userId: string;
     from?: string;
     to?: string;
+    senderId?: string;
     contextLimit?: number;
   }, SearchMessagesResult>
 {
@@ -34,6 +35,7 @@ export class SearchMessagesHandler
     userId: string;
     from?: string;
     to?: string;
+    senderId?: string;
     contextLimit?: number;
   }): Promise<SearchMessagesResult> {
     const { conversationId, query: searchQuery, cursor, limit, userId } = query;
@@ -56,7 +58,7 @@ export class SearchMessagesHandler
       searchQuery,
       cursor,
       limit,
-      { from, to, hiddenAfter: member.hiddenAt },
+      { from, to, hiddenAfter: member.hiddenAt, senderId: query.senderId },
     );
 
     const contextLimit = query.contextLimit ?? 1;

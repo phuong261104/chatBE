@@ -79,9 +79,18 @@ export class GetConversationMediaQueryHandler
     const images: MediaItem[] = [];
     const files: FileItem[] = [];
     const links: LinkItem[] = [];
+    const normalizedQuery = data.query?.toLowerCase();
 
     const nowEpoch = Math.floor(Date.now() / 1000);
     for (const item of returnItems) {
+      if (normalizedQuery) {
+        const matchesQuery =
+          (typeof item.name === "string" && item.name.toLowerCase().includes(normalizedQuery)) ||
+          (typeof item.url === "string" && item.url.toLowerCase().includes(normalizedQuery)) ||
+          (typeof item.linkUrl === "string" && item.linkUrl.toLowerCase().includes(normalizedQuery));
+        if (!matchesQuery) continue;
+      }
+
       const message = await this.messageQueryRepo.get(item.messageId);
       if (
         !message ||
@@ -141,6 +150,30 @@ export class GetConversationMediaQueryHandler
           name: item.name,
           size: undefined,
           mediaType: MediaType.AUDIO,
+          senderId: item.senderId,
+          createdAt: new Date(item.createdAt),
+        });
+      } else if (item.type === ClassificationType.STICKER) {
+        images.push({
+          messageId: item.messageId,
+          url: item.url,
+          name: item.name,
+          size: undefined,
+          width: undefined,
+          height: undefined,
+          mediaType: MediaType.IMAGE,
+          senderId: item.senderId,
+          createdAt: new Date(item.createdAt),
+        });
+      } else if (item.type === ClassificationType.GIF) {
+        images.push({
+          messageId: item.messageId,
+          url: item.url,
+          name: item.name,
+          size: undefined,
+          width: undefined,
+          height: undefined,
+          mediaType: MediaType.IMAGE,
           senderId: item.senderId,
           createdAt: new Date(item.createdAt),
         });

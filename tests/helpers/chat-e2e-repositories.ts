@@ -340,7 +340,7 @@ export class InMemoryMessageRepository {
     query: string,
     cursor?: string,
     limit = 20,
-    options: { from?: Date; to?: Date; hiddenAfter?: Date } = {},
+    options: { from?: Date; to?: Date; hiddenAfter?: Date; senderId?: string } = {},
   ): Promise<{ messages: Message[]; nextCursor?: string; hasMore: boolean; total: number }> {
     const needle = query.toLowerCase();
     let messages = this.store.visibleMessages(conversationId, userId)
@@ -350,7 +350,8 @@ export class InMemoryMessageRepository {
           !message.deletedAt &&
           (!options.hiddenAfter || message.createdAt > options.hiddenAfter) &&
           (!options.from || message.createdAt >= options.from) &&
-          (!options.to || message.createdAt <= options.to) &&
+          (!options.to || message.createdAt < options.to) &&
+          (!options.senderId || message.senderId === options.senderId) &&
           (message.text || "").toLowerCase().includes(needle),
       );
     if (cursor) {

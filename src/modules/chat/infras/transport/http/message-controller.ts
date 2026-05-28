@@ -479,7 +479,7 @@ export class MessageController extends BaseController {
   async searchMessagesAPI(req: Request, res: Response) {
     try {
       const conversationId = this.parseIdParam(req, "conversationId");
-      const { query, cursor, limit, from, to, contextLimit } = req.query;
+      const { query, cursor, limit, from, to, senderId, contextLimit } = req.query;
       const currentUserId = this.getCurrentUserId(req, res);
 
       if (!currentUserId) {
@@ -494,6 +494,7 @@ export class MessageController extends BaseController {
         limit: limit ? Number(limit) : 20,
         from: from || undefined,
         to: to || undefined,
+        senderId: senderId || undefined,
         contextLimit: contextLimit ? Number(contextLimit) : 1,
       });
 
@@ -506,6 +507,7 @@ export class MessageController extends BaseController {
         {
           from: parseSearchDate(validatedData.from),
           to: parseSearchEndDate(validatedData.to),
+          senderId: validatedData.senderId,
           contextLimit: validatedData.contextLimit,
         },
       );

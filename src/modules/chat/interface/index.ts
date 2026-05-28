@@ -145,7 +145,7 @@ export interface IMessageQueryRepository {
     query: string,
     cursor?: string,
     limit?: number,
-    options?: { from?: Date; to?: Date; hiddenAfter?: Date },
+    options?: { from?: Date; to?: Date; hiddenAfter?: Date; senderId?: string },
   ): Promise<{
     messages: Message[];
     nextCursor?: string;
@@ -445,7 +445,7 @@ export interface IMessagingUseCase {
     query: string,
     cursor?: string,
     limit?: number,
-    options?: { from?: Date; to?: Date; contextLimit?: number },
+    options?: { from?: Date; to?: Date; senderId?: string; contextLimit?: number },
   ): Promise<{
     messages: Message[];
     nextCursor?: string;
@@ -541,6 +541,7 @@ export interface IMessagingUseCase {
     cursor: string | undefined,
     limit: number,
     type: "all" | "image" | "file" | "link" | "video" | "voice",
+    query?: string,
   ): Promise<GetConversationMediaResult>;
 
   getConversationsCursor(
@@ -557,7 +558,6 @@ export interface IMessagingUseCase {
   dissolveGroup(groupId: string, requesterId: string): Promise<string[]>;
 
   getConversationStatistics(conversationId: string, userId: string): Promise<{
-    messageCount: number;
     memberCount: number;
     activeMemberCount: number;
     lastActivity: Date | null;

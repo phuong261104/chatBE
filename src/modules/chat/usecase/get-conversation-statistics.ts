@@ -39,37 +39,21 @@ export class GetConversationStatisticsQueryHandler
       (m) => m.status === ConversationMemberStatus.ACTIVE && !m.leftAt,
     );
 
-    let messageCount = 0;
     let lastActivity: Date | null = null;
 
     try {
-      let page = 1;
-      let hasMore = true;
-      while (hasMore) {
-        const messages = await this.messageQueryRepo.list(
-          { conversationId },
-          { page, limit: 100 }
-        );
-        if (messages.length === 0) {
-          hasMore = false;
-        } else {
-          messageCount += messages.length;
-          if (page === 1 && messages.length > 0) {
-            lastActivity = messages[0].createdAt;
-          }
-          hasMore = messages.length === 100;
-          page++;
-          if (page > 100) {
-            hasMore = false;
-          }
-        }
+      const messages = await this.messageQueryRepo.list(
+        { conversationId },
+        { page: 1, limit: 1 }
+      );
+      if (messages.length > 0) {
+        lastActivity = messages[0].createdAt;
       }
     } catch {
       // Messages table may be empty
     }
 
     return {
-      messageCount,
       memberCount: allMembers.length,
       activeMemberCount: activeMembers.length,
       lastActivity,

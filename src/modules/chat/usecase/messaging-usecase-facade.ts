@@ -587,6 +587,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     cursor: string | undefined,
     limit: number,
     type: "all" | "image" | "file" | "link" | "video" | "voice",
+    query?: string,
   ): Promise<GetConversationMediaResult> {
     return this.getConversationMediaQueryHandler.query({
       conversationId,
@@ -594,6 +595,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       cursor,
       limit,
       type,
+      query,
     });
   }
 
@@ -640,7 +642,6 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
   }
 
   async getConversationStatistics(conversationId: string, userId: string): Promise<{
-    messageCount: number;
     memberCount: number;
     activeMemberCount: number;
     lastActivity: Date | null;

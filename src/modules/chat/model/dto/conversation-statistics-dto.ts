@@ -9,7 +9,6 @@ export const getConversationStatisticsSchema = z.object({
 export type GetConversationStatisticsDTO = z.infer<typeof getConversationStatisticsSchema>;
 
 export interface ConversationStatistics {
-  messageCount: number;
   memberCount: number;
   activeMemberCount: number;
   lastActivity: Date | null;

@@ -94,6 +94,7 @@ export class SearchUseCase implements ISearchUseCase {
         dateRange,
         input.contextLimit,
         !input.conversationId,
+        input.senderId,
       );
       result.messages = messageResult.messages;
       result.nextCursor = messageResult.nextCursor;
@@ -233,6 +234,7 @@ export class SearchUseCase implements ISearchUseCase {
     dateRange: DateRange,
     contextLimit: number,
     useGlobalCursor: boolean,
+    senderId?: string,
   ): Promise<{ messages: MessageSearchResultItem[]; nextCursor?: string; hasMore: boolean }> {
     const messages: MessageSearchResultItem[] = [];
     let nextCursor: string | undefined;
@@ -259,6 +261,7 @@ export class SearchUseCase implements ISearchUseCase {
           from: dateRange.from,
           to: dateRange.to,
           hiddenAfter: member.hiddenAt,
+          senderId: senderId,
         },
       );
 

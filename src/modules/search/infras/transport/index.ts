@@ -23,6 +23,7 @@ export class SearchHTTPService {
         mediaType: req.query.mediaType,
         from: req.query.from,
         to: req.query.to,
+        senderId: req.query.senderId,
         cursor: req.query.cursor,
         limit: req.query.limit,
         contextLimit: req.query.contextLimit,

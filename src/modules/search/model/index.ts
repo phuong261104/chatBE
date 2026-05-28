@@ -19,6 +19,7 @@ export const globalSearchDTOSchema = z.object({
   ),
   from: z.string().optional(),
   to: z.string().optional(),
+  senderId: z.string().optional(),
   cursor: z.string().optional(),
   limit: numberQuery(10, 1, 50),
   contextLimit: numberQuery(1, 0, 5),
@@ -94,6 +95,7 @@ export interface SearchGroupResult {
 export interface SearchMessagesOptions {
   from?: Date;
   to?: Date;
+  senderId?: string;
   contextLimit?: number;
 }
 

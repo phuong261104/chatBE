@@ -8,6 +8,7 @@ export const GetConversationMediaQuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.number().min(1).max(100).default(20),
   type: z.enum(["all", "image", "file", "link", "video", "voice"]).default("all"),
+  query: z.string().max(200).optional(),
 });
 
 export type GetConversationMediaQuery = z.infer<typeof GetConversationMediaQuerySchema>;

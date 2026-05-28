@@ -8,6 +8,7 @@ export const searchMessagesDTOSchema = z.object({
   limit: z.number().min(1).max(50).default(20),
   from: z.string().optional(),
   to: z.string().optional(),
+  senderId: z.string().optional(),
   contextLimit: z.number().min(0).max(5).default(1),
 });
 

@@ -399,9 +399,6 @@ components:
     ConversationStatistics:
       type: object
       properties:
-        messageCount:
-          type: integer
-          example: 128
         memberCount:
           type: integer
           example: 5

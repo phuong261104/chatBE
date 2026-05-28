@@ -44,6 +44,8 @@ export enum ClassificationType {
   VOICE = "voice",
   FILE = "file",
   LINK = "link",
+  STICKER = "sticker",
+  GIF = "gif",
 }
 
 export enum MediaType {
