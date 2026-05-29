@@ -29,7 +29,7 @@ pipeline {
                 ansible-playbook \
                     -i ansible/inventory/production/hosts \
                     ansible/deploy.yml \
-                    --extra-vars "image_name=${IMAGE_NAME}"
+                    --extra-vars "image_name=${IMAGE_NAME} ghcr_user=${GHCR_USER} ghcr_token=${GHCR_TOKEN}"
                 '''
             }
         }
