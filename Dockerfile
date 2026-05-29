@@ -5,9 +5,9 @@ WORKDIR /app
 # Required for some native modules
 RUN apk add --no-cache make gcc g++ python3
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
