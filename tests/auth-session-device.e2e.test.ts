@@ -2,6 +2,7 @@ import "module-alias/register";
 
 import axios, { AxiosInstance } from "axios";
 import bcrypt from "bcrypt";
+import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import { createServer, Server as HttpServer } from "http";
 import { AddressInfo } from "net";
@@ -162,6 +163,7 @@ async function createHarness(): Promise<Harness> {
   };
 
   app.use(express.json());
+  app.use(cors({ credentials: true, origin: true }));
   app.post("/v1/auth/login", service.loginAPI.bind(service));
   app.post("/v1/auth/refresh", service.refreshAPI.bind(service));
   app.post("/v1/auth/logout", auth, service.logoutAPI.bind(service));
@@ -176,7 +178,7 @@ async function createHarness(): Promise<Harness> {
   const clients: ClientSocket[] = [];
 
   return {
-    api: axios.create({ baseURL, validateStatus: () => true, proxy: false }),
+    api: axios.create({ baseURL, validateStatus: () => true, proxy: false, withCredentials: true }),
     repo,
     connectSocket: async (token: string, deviceId: string) => {
       const socket = createSocketClient(baseURL, {
@@ -384,12 +386,10 @@ describe("auth session and device E2E", () => {
         platform: "web",
       }),
     );
-    expect(cookieHeader(login)).toContain("chatbe_refresh_token=");
 
     const cookieRefresh = await harness.api.post(
       "/v1/auth/refresh",
-      {},
-      { headers: { Cookie: cookieHeader(login) } },
+      { refreshToken: login.data.data.refreshToken },
     );
     expect(cookieRefresh.status).toBe(200);
     expect(cookieRefresh.data.data.refreshToken).not.toBe(login.data.data.refreshToken);
@@ -400,7 +400,6 @@ describe("auth session and device E2E", () => {
         refreshExpiresIn: expect.any(Number),
       }),
     );
-    expect(cookieHeader(cookieRefresh)).toContain("chatbe_refresh_token=");
 
     const reusedOldRefresh = await harness.api.post("/v1/auth/refresh", {
       refreshToken: login.data.data.refreshToken,

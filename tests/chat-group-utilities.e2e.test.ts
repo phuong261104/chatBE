@@ -250,8 +250,8 @@ describe("group utilities, owner role, and permissions E2E", () => {
     );
     expect(singleChoice.status).toBe(201);
     const badVote = await harness.api.post(
-      `/v1/groups/${conversation.id}/polls/${singleChoice.data.data.id}/vote`,
-      { optionIds: singleChoice.data.data.options.map((option: any) => option.id) },
+      `/v1/groups/${conversation.id}/polls/${singleChoice.data.data.poll.id}/vote`,
+      { optionIds: singleChoice.data.data.poll.options.map((option: any) => option.id) },
       { headers: authHeader(member.id) },
     );
     expect(badVote.status).toBe(400);
@@ -263,8 +263,8 @@ describe("group utilities, owner role, and permissions E2E", () => {
     );
     expect(multipleChoice.status).toBe(201);
     const multiVote = await harness.api.post(
-      `/v1/groups/${conversation.id}/polls/${multipleChoice.data.data.id}/vote`,
-      { optionIds: multipleChoice.data.data.options.map((option: any) => option.id) },
+      `/v1/groups/${conversation.id}/polls/${multipleChoice.data.data.poll.id}/vote`,
+      { optionIds: multipleChoice.data.data.poll.options.map((option: any) => option.id) },
       { headers: authHeader(member.id) },
     );
     expect(multiVote.status).toBe(200);
@@ -276,7 +276,7 @@ describe("group utilities, owner role, and permissions E2E", () => {
     );
     expect(addOptionPoll.status).toBe(201);
     const addedOption = await harness.api.post(
-      `/v1/groups/${conversation.id}/polls/${addOptionPoll.data.data.id}/options`,
+      `/v1/groups/${conversation.id}/polls/${addOptionPoll.data.data.poll.id}/options`,
       { text: "Z" },
       { headers: authHeader(member.id) },
     );

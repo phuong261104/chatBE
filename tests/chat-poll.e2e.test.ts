@@ -28,11 +28,11 @@ describe("chat poll E2E", () => {
       );
 
       expect(response.status).toBe(201);
-      expect(response.data.data.question).toBe("Chọn ngày họp?");
-      expect(response.data.data.options).toHaveLength(3);
-      expect(response.data.data.status).toBe(PollStatus.ACTIVE);
-      expect(response.data.data.totalVotes).toBe(0);
-      expect(response.data.data.allowChangeVote).toBe(false);
+      expect(response.data.data.poll.question).toBe("Chọn ngày họp?");
+      expect(response.data.data.poll.options).toHaveLength(3);
+      expect(response.data.data.poll.status).toBe(PollStatus.ACTIVE);
+      expect(response.data.data.poll.totalVotes).toBe(0);
+      expect(response.data.data.poll.allowChangeVote).toBe(false);
     });
 
     it("creates a poll with all options", async () => {
@@ -53,11 +53,11 @@ describe("chat poll E2E", () => {
       );
 
       expect(response.status).toBe(201);
-      expect(response.data.data.isMultipleChoice).toBe(true);
-      expect(response.data.data.allowAddOption).toBe(true);
-      expect(response.data.data.allowChangeVote).toBe(true);
-      expect(response.data.data.showResultsBeforeClose).toBe(true);
-      expect(response.data.data.hideVoters).toBe(false);
+      expect(response.data.data.poll.isMultipleChoice).toBe(true);
+      expect(response.data.data.poll.allowAddOption).toBe(true);
+      expect(response.data.data.poll.allowChangeVote).toBe(true);
+      expect(response.data.data.poll.showResultsBeforeClose).toBe(true);
+      expect(response.data.data.poll.hideVoters).toBe(false);
     });
 
     it("returns 400 for poll with less than 2 options", async () => {

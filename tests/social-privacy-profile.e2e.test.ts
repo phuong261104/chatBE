@@ -307,7 +307,7 @@ async function createHarness(): Promise<Harness> {
   canonical.get("/users/:id/presence", auth, userV2.getPresenceAPI);
   canonical.get("/friends/suggestions", auth, userV2.getFriendSuggestionsAPI);
   app.use("/v1", canonical);
-  app.use("/v1", setupChatV2Routes(chatV2, mdlFactory as any));
+  app.use("/v1", setupChatV2Routes(chatV2, mdlFactory as any, messagingHttp));
 
   const v1 = express.Router();
   v1.post("/friend-requests/:receiverId", auth, friendRequestHttp.sendFriendRequestAPI.bind(friendRequestHttp));
