@@ -1,5 +1,9 @@
 FROM node:22-alpine
 
+LABEL org.opencontainers.image.source="https://github.com/be/bezl-chatbe"
+LABEL org.opencontainers.image.description="ChatBE backend API"
+LABEL org.opencontainers.image.licenses="ISC"
+
 WORKDIR /app
 
 # Required for some native modules

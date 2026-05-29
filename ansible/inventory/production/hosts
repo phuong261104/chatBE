@@ -1,0 +1,2 @@
+[vps]
+prod ansible_host=ssh.iamphuong.dev ansible_user=deploy ansible_port=22

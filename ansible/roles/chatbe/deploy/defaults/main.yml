@@ -1,0 +1,22 @@
+---
+# Default variables for chatbe.deploy role
+app_name: chatbe
+app_dir: /opt/chatbe
+
+ghcr_registry: ghcr.io
+ghcr_image: ghcr.io/be/bezl/chatbe
+
+backend_container_name: chatbe-backend-prod
+backend_port: "3000"
+backend_env_file: .env.production
+backend_healthcheck_path: /v1/users/profile
+
+redis_container_name: chatbe-redis-prod
+redis_port: "6379"
+
+network_name: chatbe-network
+volumes:
+  uploads: chatbe-uploads
+  logs: chatbe-logs
+
+image_name: "{{ ghcr_registry }}/be/bezl/chatbe:latest"

@@ -1,0 +1,8 @@
+---
+- name: Deploy ChatBE to Production
+  hosts: vps
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - chatbe.deploy

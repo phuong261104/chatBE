@@ -1,0 +1,138 @@
+name: CI/CD Backend
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/chatbe
+
+jobs:
+  build-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_sha: ${{ env.IMAGE_TAG_SHA }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=
+
+      - name: Set image tag sha env
+        run: echo "IMAGE_TAG_SHA=sha-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push with Docker metadata
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Inspect pushed image
+        run: |
+          echo "Pushed tags: ${{ steps.meta.outputs.tags }}"
+
+  deploy:
+    name: Deploy to Production
+    needs: build-push
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      deploy_method: ${{ steps.deploy_method.outputs.method }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Check Jenkins alive
+        id: check_jenkins
+        continue-on-error: true
+        run: |
+          status_code=$(curl -sS -o /dev/null -w "%{http_code}" \
+            https://jenkins.iamphuong.dev/whoAmI/api/json \
+            -u "${{ secrets.JENKINS_USER }}:${{ secrets.JENKINS_TOKEN }}")
+          echo "jenkins_status=$status_code" >> $GITHUB_OUTPUT
+          echo "Jenkins HTTP status: $status_code"
+
+      - name: Check VPS SSH alive
+        id: check_ssh
+        continue-on-error: true
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=10 \
+              -o BatchMode=yes \
+              deploy@ssh.iamphuong.dev "echo VPS_OK"
+        env:
+          TERM: xterm
+
+      - name: Deploy via Jenkins
+        id: deploy_jenkins
+        if: steps.check_jenkins.outcome == 'success' && steps.check_ssh.outcome == 'success'
+        run: |
+          echo "Deploying via Jenkins..."
+          response=$(curl -sS -w "\n%{http_code}" \
+            -X POST "https://jenkins.iamphuong.dev/job/chatbe-deploy/buildWithParameters" \
+            -u "${{ secrets.JENKINS_USER }}:${{ secrets.JENKINS_TOKEN }}" \
+            --data-urlencode "IMAGE_NAME=${{ needs.build-push.outputs.image_tag }}")
+          http_code=$(echo "$response" | tail -1)
+          echo "Jenkins response code: $http_code"
+          if [ "$http_code" != "201" ] && [ "$http_code" != "200" ]; then
+            echo "Jenkins trigger failed with code: $http_code"
+            exit 1
+          fi
+
+          # Wait for Jenkins queue to start
+          sleep 10
+          echo "Jenkins job triggered successfully"
+
+      - name: Install Ansible
+        if: steps.check_jenkins.outcome != 'success' && steps.check_ssh.outcome == 'success'
+        run: |
+          echo "Jenkins unavailable, falling back to direct Ansible deployment..."
+          pip install ansible ansible-core ansible-lint --quiet
+          ansible --version
+
+      - name: Deploy via GitHub Actions + Ansible (fallback)
+        if: steps.check_jenkins.outcome != 'success' && steps.check_ssh.outcome == 'success'
+        run: |
+          echo "IMAGE_NAME=${{ needs.build-push.outputs.image_tag }}"
+          ansible-playbook \
+            -i ansible/inventory/production/hosts \
+            ansible/deploy.yml \
+            --extra-vars "image_name=${{ needs.build-push.outputs.image_tag }} ghcr_user=${{ github.actor }} ghcr_token=${{ secrets.GHCR_TOKEN }}"
+
+      - name: Report failure
+        if: steps.check_ssh.outcome != 'success'
+        run: |
+          echo "ERROR: VPS SSH is not reachable. Deploy aborted."
+          echo "Jenkins status: ${{ steps.check_jenkins.outcome }}"
+          echo "SSH status: ${{ steps.check_ssh.outcome }}"
+          exit 1
