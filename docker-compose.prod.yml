@@ -1,18 +1,15 @@
 services:
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ${BACKEND_IMAGE:-chatbe-backend:prod}
+    image: ${BACKEND_IMAGE}
     container_name: ${BACKEND_CONTAINER_NAME:-chatbe-backend-prod}
-    env_file:
-      - ${BACKEND_ENV_FILE:-.env.production}
     restart: always
     depends_on:
       redis:
         condition: service_healthy
     ports:
       - "${BACKEND_PORT:-3000}:3000"
+    env_file:
+      - ${BACKEND_ENV_FILE:-/opt/chatbe/.env.production}
     volumes:
       - backend_uploads:/app/uploads
       - backend_logs:/app/logs
@@ -30,5 +27,27 @@ services:
       - chatbe-network
 
   redis:
+    image: redis:7-alpine
     container_name: ${REDIS_CONTAINER_NAME:-chatbe-redis-prod}
     restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - chatbe-network
+
+volumes:
+  backend_uploads:
+  backend_logs:
+  redis_data:
+
+networks:
+  chatbe-network:
+    driver: bridge
