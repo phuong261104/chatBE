@@ -11,6 +11,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/chatbe
+  IMAGE_TAG: ${{ github.sha }}
   APP_DIR: /opt/chatbe
   BACKEND_PORT: "3000"
 
@@ -39,21 +40,14 @@ jobs:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     needs: test
-    outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=sha,prefix=
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -62,10 +56,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha
 
-      - name: Build and push with Docker metadata
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -73,83 +73,78 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
-
-      - name: Inspect pushed image
-        run: |
-          echo "Pushed tags: ${{ steps.meta.outputs.tags }}"
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
 
   deploy:
     name: Deploy to Production
     needs: build-push
     runs-on: ubuntu-latest
-    environment: production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Install cloudflared
-        run: |
-          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-          chmod +x /usr/local/bin/cloudflared
-          cloudflared --version
-
-      - name: Configure SSH for Cloudflare Tunnel
+      - name: Configure SSH key
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           echo "${{ secrets.VPS_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          cat >> ~/.ssh/config << 'EOF'
-          Host ssh.iamphuong.dev
-              HostName ssh.iamphuong.dev
-              User deploy
-              ProxyCommand cloudflared access ssh --hostname %h
-              StrictHostKeyChecking no
-              UserKnownHostsFile /dev/null
-              ConnectTimeout 30
-          EOF
-          chmod 600 ~/.ssh/config
 
       - name: Create app directory on VPS
         run: |
-          ssh ssh.iamphuong.dev "sudo mkdir -p ${{ env.APP_DIR }} && sudo chown deploy:deploy ${{ env.APP_DIR }}"
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            'sudo mkdir -p ${{ env.APP_DIR }} && sudo chown deploy:deploy ${{ env.APP_DIR }}'
 
       - name: Copy docker-compose.yml to VPS
         run: |
-          cat docker-compose.prod.yml | ssh ssh.iamphuong.dev "cat > ${{ env.APP_DIR }}/docker-compose.yml && chown deploy:deploy ${{ env.APP_DIR }}/docker-compose.yml"
+          cat docker-compose.prod.yml | ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            'cat > ${{ env.APP_DIR }}/docker-compose.yml && chown deploy:deploy ${{ env.APP_DIR }}/docker-compose.yml'
 
       - name: Create .env file on VPS
         run: |
-          ssh ssh.iamphuong.dev "cat > ${{ env.APP_DIR }}/.env << 'ENVEOF'
-BACKEND_IMAGE=${{ needs.build-push.outputs.image_tag }}
+          ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            'cat > ${{ env.APP_DIR }}/.env << '\''ENVEOF'\''
+BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 BACKEND_PORT=${{ env.BACKEND_PORT }}
 BACKEND_ENV_FILE=/opt/chatbe/.env.production
 BACKEND_CONTAINER_NAME=chatbe-backend-prod
 REDIS_CONTAINER_NAME=chatbe-redis-prod
-ENVEOF
-          chown deploy:deploy ${{ env.APP_DIR }}/.env"
+ENVEOF'
+          ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            'chown deploy:deploy ${{ env.APP_DIR }}/.env'
 
       - name: GHCR login on VPS
         run: |
-          ssh ssh.iamphuong.dev "echo '${{ secrets.GHCR_TOKEN }}' | docker login ${{ env.REGISTRY }} -u '${{ github.actor }}' --password-stdin"
+          ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "echo '${{ secrets.GHCR_TOKEN }}' | docker login ${{ env.REGISTRY }} -u '${{ github.actor }}' --password-stdin"
 
       - name: Pull Docker image on VPS
         run: |
-          ssh ssh.iamphuong.dev "docker pull '${{ needs.build-push.outputs.image_tag }}'"
+          ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            'docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
 
       - name: Start containers with new image
         run: |
-          ssh ssh.iamphuong.dev \
-            "docker compose --env-file ${{ env.APP_DIR }}/.env -f ${{ env.APP_DIR }}/docker-compose.yml up -d"
+          ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            'docker compose --env-file ${{ env.APP_DIR }}/.env -f ${{ env.APP_DIR }}/docker-compose.yml up -d'
 
       - name: Wait for backend to be healthy
         run: |
           echo "Waiting for backend to start..."
           sleep 30
           for i in $(seq 1 15); do
-            status=$(ssh ssh.iamphuong.dev "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${{ env.BACKEND_PORT }}/v1/users/profile || echo '000'")
+            status=$(ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+              'curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${{ env.BACKEND_PORT }}/v1/users/profile || echo "000"')
             if [ "$status" != "000" ] && [ "$status" != "503" ]; then
               echo "Backend is up (HTTP $status)"
               exit 0
@@ -162,4 +157,6 @@ ENVEOF
 
       - name: Inspect running containers
         run: |
-          ssh ssh.iamphuong.dev "docker ps --filter 'name=chatbe-backend' --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'"
+          ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            'docker ps --filter "name=chatbe-backend" --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"'
