@@ -4,7 +4,7 @@ app_name: chatbe
 app_dir: /opt/chatbe
 
 ghcr_registry: ghcr.io
-ghcr_image: ghcr.io/be/bezl/chatbe
+ghcr_image: ghcr.io/phuong261104/chatbe
 
 backend_container_name: chatbe-backend-prod
 backend_port: "3000"
@@ -19,4 +19,4 @@ volumes:
   uploads: chatbe-uploads
   logs: chatbe-logs
 
-image_name: "{{ ghcr_registry }}/be/bezl/chatbe:latest"
+image_name: "{{ ghcr_registry }}/phuong261104/chatbe:latest"

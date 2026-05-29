@@ -3,7 +3,7 @@ app_name: chatbe
 app_dir: /opt/chatbe
 
 ghcr_registry: ghcr.io
-ghcr_image: ghcr.io/be/bezl/chatbe
+ghcr_image: ghcr.io/phuong261104/chatbe
 
 backend_container_name: chatbe-backend-prod
 backend_port: "3000"

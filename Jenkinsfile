@@ -4,8 +4,8 @@ pipeline {
     parameters {
         string(
             name: 'IMAGE_NAME',
-            defaultValue: 'ghcr.io/be/bezl/chatbe:latest',
-            description: 'Docker image to deploy (e.g. ghcr.io/be/bezl/chatbe:sha-abc1234)'
+            defaultValue: 'ghcr.io/phuong261104/chatbe:latest',
+            description: 'Docker image to deploy (e.g. ghcr.io/phuong261104/chatbe:sha-abc1234)'
         )
     }
 
@@ -18,7 +18,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/be/bezl-chatbe.git',
+                    url: 'https://github.com/phuong261104/chatBE.git',
                     credentialsId: 'github-deploy-token'
             }
         }

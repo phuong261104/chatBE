@@ -1,6 +1,6 @@
 FROM node:22-alpine
 
-LABEL org.opencontainers.image.source="https://github.com/be/bezl-chatbe"
+LABEL org.opencontainers.image.source="https://github.com/phuong261104/chatBE"
 LABEL org.opencontainers.image.description="ChatBE backend API"
 LABEL org.opencontainers.image.licenses="ISC"
 
