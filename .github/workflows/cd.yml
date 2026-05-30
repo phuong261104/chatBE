@@ -90,6 +90,11 @@ jobs:
           ssh vps-chatbe \
             'docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
 
+      - name: Stop old backend container (free port 3000)
+        run: |
+          ssh vps-chatbe \
+            'docker rm -f chatbe-backend-prod || true'
+
       - name: Start containers with new image
         run: |
           ssh vps-chatbe \
