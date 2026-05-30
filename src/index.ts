@@ -6,6 +6,8 @@ import { createServer } from "http";
 import morgan from "morgan";
 import { config as appConfig } from "@share/component/config";
 import { responseFormatMiddleware, setupMiddlewares } from "@share/middleware";
+import { createRateLimitMiddleware } from "@share/utils/rate-limiter";
+import { healthCheck } from "@share/middleware/health-check";
 import { setupUserHexagon } from "@modules/user";
 import { setupAuthHexagon } from "@modules/auth";
 import Logger from "@share/utils/logger";
@@ -55,6 +57,10 @@ config();
   const app = express();
   const httpServer = createServer(app);
   const port = process.env.PORT || 3000;
+
+  app.get("/health", healthCheck);
+  app.get("/health/live", (_req, res) => res.json({ status: "ok" }));
+  app.get("/health/ready", healthCheck);
 
   app.use(express.json());
   app.use(morgan("dev"));
@@ -107,6 +113,16 @@ config();
 
   //   next();
   // });
+
+  if (appConfig.rateLimit.enabled) {
+    const globalLimiter = createRateLimitMiddleware({
+      max: appConfig.rateLimit.global.max,
+      windowSec: appConfig.rateLimit.global.windowSec,
+      keyPrefix: "global",
+      keyGenerator: (req: Request) => req.ip || "unknown",
+    });
+    app.use(globalLimiter);
+  }
 
   try {
     const swaggerDocument = (await SwaggerParser.dereference(

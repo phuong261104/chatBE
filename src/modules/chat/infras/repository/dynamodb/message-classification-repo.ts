@@ -38,7 +38,6 @@ export class DynamoMessageClassificationRepository {
       createdAt,
     };
   }
-
   private async batchWriteWithRetry(
     tableName: string,
     requestItems: any[],

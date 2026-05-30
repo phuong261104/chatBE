@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, GenerateContentResult } from "@google/generative-ai
 import { config } from "@share/component/config";
 import { AiError } from "../../model/errors";
 import { IAiProvider } from "./interface";
+import { withRetry } from "@share/utils/retry";
 
 export class GeminiProvider implements IAiProvider {
   private client: GoogleGenerativeAI;
@@ -58,30 +59,29 @@ export class GeminiProvider implements IAiProvider {
     return jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text;
   }
 
-  private async executeWithRetry<T>(fn: () => Promise<T>, attempt = 1, maxAttempts = 3): Promise<T> {
-    try {
-      return await fn();
-    } catch (error: unknown) {
+  private async executeWithRetry<T>(fn: () => Promise<T>): Promise<T> {
+    return withRetry(fn, {
+      retries: 3,
+      delayMs: 1000,
+      backoffMultiplier: 2,
+      retryOn: (error: unknown) => {
+        const err = error as { status?: number; message?: string };
+        const isRateLimit = err?.status === 429 || err?.message?.includes("rate limit");
+        const isServerError = (err?.status ?? 0) >= 500;
+        return isRateLimit || isServerError;
+      },
+    }).catch((error: unknown) => {
       const err = error as { status?: number; message?: string };
       const isRateLimit = err?.status === 429 || err?.message?.includes("rate limit");
       const isServerError = (err?.status ?? 0) >= 500;
-
-      if ((isRateLimit || isServerError) && attempt < maxAttempts) {
-        const delay = Math.pow(2, attempt) * 1000;
-        await this.sleep(delay);
-        return this.executeWithRetry(fn, attempt + 1, maxAttempts);
-      }
-
       if (isRateLimit) {
         throw new AiError("AI_RATE_LIMIT", "Gemini API rate limit exceeded", 429);
       }
-
+      if (isServerError) {
+        throw new AiError("AI_PROVIDER_ERROR", "Gemini API server error after retries", 500);
+      }
       throw new AiError("AI_PROVIDER_ERROR", err?.message || "Gemini API error", 500);
-    }
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    });
   }
 }
 

@@ -98,6 +98,13 @@ export const config = {
     maxTokens: parseInt(process.env.AI_MAX_TOKENS || "1024"),
     temperature: parseFloat(process.env.AI_TEMPERATURE || "0.7"),
   },
+  rateLimit: {
+    global: {
+      max: parseInt(process.env.RATE_LIMIT_GLOBAL_MAX || "100"),
+      windowSec: parseInt(process.env.RATE_LIMIT_GLOBAL_WINDOW || "900"),
+    },
+    enabled: process.env.RATE_LIMIT_ENABLED !== "false",
+  },
   livekit: {
     apiKey: process.env.LIVEKIT_API_KEY || "",
     apiSecret: process.env.LIVEKIT_API_SECRET || "",

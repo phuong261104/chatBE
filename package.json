@@ -18,7 +18,12 @@
     "docker:logs": "docker compose -f docker-compose.yml logs -f backend redis",
     "docker:down": "docker compose -f docker-compose.yml down",
     "dynamodb:init": "ts-node scripts/init-dynamodb-tables.ts",
-    "dynamodb:reset": "ts-node scripts/init-dynamodb-tables.ts --reset"
+    "dynamodb:reset": "ts-node scripts/init-dynamodb-tables.ts --reset",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop chatbe",
+    "pm2:restart": "pm2 restart chatbe",
+    "pm2:logs": "pm2 logs chatbe",
+    "pm2:save": "pm2 save"
   },
   "author": "",
   "license": "ISC",
