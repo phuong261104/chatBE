@@ -1,0 +1,123 @@
+name: CD (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - production
+        default: production
+
+concurrency:
+  group: cd-deploy-manual
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/chatbe
+  APP_DIR: /opt/chatbe
+  BACKEND_PORT: "3000"
+  SSH_HOST_ALIAS: ec2-chatbe
+  EC2_HOST: ${{ secrets.EC2_HOST }}
+  EC2_USER: ${{ secrets.EC2_USER }}
+
+jobs:
+  deploy:
+    name: Deploy to Production (Manual)
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Write SSH config for EC2
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat > ~/.ssh/config <<'EOF'
+          Host ${SSH_HOST_ALIAS}
+            HostName ${EC2_HOST}
+            User ${EC2_USER}
+            IdentityFile ~/.ssh/id_rsa
+            IdentitiesOnly yes
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ServerAliveInterval 30
+            ServerAliveCountMax 3
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Create app directory on EC2
+        run: |
+          ssh -o ConnectTimeout=30 ${{ env.SSH_HOST_ALIAS }} \
+            'sudo mkdir -p ${{ env.APP_DIR }} && sudo chown deploy:deploy ${{ env.APP_DIR }}'
+
+      - name: Copy docker-compose.yml to EC2
+        run: |
+          cat docker-compose.prod.yml | ssh ${{ env.SSH_HOST_ALIAS }} \
+            'cat > ${{ env.APP_DIR }}/docker-compose.yml && chown deploy:deploy ${{ env.APP_DIR }}/docker-compose.yml'
+
+      - name: Create .env file on EC2
+        run: |
+          ssh ${{ env.SSH_HOST_ALIAS }} \
+            "printf 'BACKEND_IMAGE=%s\nBACKEND_PORT=%s\nBACKEND_ENV_FILE=/opt/chatbe/.env.production\nBACKEND_CONTAINER_NAME=chatbe-backend-prod\nREDIS_CONTAINER_NAME=chatbe-redis-prod\n' \
+              '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest' \
+              '${{ env.BACKEND_PORT }}' \
+              > ${{ env.APP_DIR }}/.env && chown deploy:deploy ${{ env.APP_DIR }}/.env"
+
+      - name: GHCR login on EC2
+        run: |
+          ssh ${{ env.SSH_HOST_ALIAS }} \
+            'echo "${{ secrets.GHCR_TOKEN }}" | docker login ${{ env.REGISTRY }} -u "${{ github.actor }}" --password-stdin'
+
+      - name: Pull Docker image on EC2
+        run: |
+          ssh ${{ env.SSH_HOST_ALIAS }} \
+            'docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
+
+      - name: Stop old backend container (free port 3000)
+        run: |
+          ssh ${{ env.SSH_HOST_ALIAS }} \
+            'docker rm -f chatbe-backend-prod || true'
+
+      - name: Start containers with new image
+        run: |
+          ssh ${{ env.SSH_HOST_ALIAS }} \
+            'docker compose --env-file ${{ env.APP_DIR }}/.env -f ${{ env.APP_DIR }}/docker-compose.yml up -d'
+
+      - name: Wait for backend to be healthy
+        run: |
+          echo "Waiting for backend to start..."
+          sleep 30
+          for i in $(seq 1 15); do
+            status=$(ssh ${{ env.SSH_HOST_ALIAS }} \
+              'curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${{ env.BACKEND_PORT }}/v1/users/profile || echo "000"')
+            if [ "$status" != "000" ] && [ "$status" != "503" ]; then
+              echo "Backend is up (HTTP $status)"
+              exit 0
+            fi
+            echo "Attempt $i/15: backend not ready (HTTP $status), retrying in 10s..."
+            sleep 10
+          done
+          echo "WARNING: Backend health check timed out after 150s"
+          exit 1
+
+      - name: Inspect running containers
+        run: |
+          ssh ${{ env.SSH_HOST_ALIAS }} \
+            'docker ps --filter "name=chatbe-backend"'
