@@ -163,7 +163,7 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | GET | `/v1/users/me/avatar-history` | Lịch sử avatar |
 | GET/POST | `/v1/users` | List user hoặc admin tạo user |
 | GET | `/v1/users/search` | Search user có áp dụng privacy |
-| GET | `/v1/users/search-by-phone` | Search phone có áp dụng privacy |
+| GET | `/v1/users/search-by-phone` | Search phone có áp dụng privacy; response có `phone` khi `phoneVisibility` cho phép |
 | GET | `/v1/users/{id}/presence` | Presence theo privacy |
 | GET | `/v1/users/{id}/public` | Public profile theo relationship/privacy |
 | GET/PATCH/DELETE | `/v1/users/{id}` | Xem/cập nhật/xóa user theo id |
@@ -321,7 +321,7 @@ Không còn social alias version khác; dùng các route `/v1` trong bảng trê
 | GET | `/v1/blocks/cursor` | List blocked users with cursor pagination |
 | GET | `/v1/blocks/{blockedUserId}/check` | Check block status |
 
-`GET /v1/blocks` và `GET /v1/blocks/cursor` giữ nguyên block item cũ (`id`, `blockerId`, `blockedUserId`, `createdAt`) và bổ sung `blockedUser` dạng nested profile card (`id`, `displayName`, `username`, `avatarUrl`, `coverUrl`, `bio`, `verified`, `status`, `email`) cùng `blockedUserUnavailable`. `email` chỉ trả theo rule self/active-friend nên thường không có trong block list.
+`GET /v1/blocks` và `GET /v1/blocks/cursor` giữ nguyên block item cũ (`id`, `blockerId`, `blockedUserId`, `createdAt`) và bổ sung `blockedUser` dạng nested profile card (`id`, `displayName`, `username`, `avatarUrl`, `coverUrl`, `bio`, `verified`, `status`, `email`, `phone`) cùng `blockedUserUnavailable`. `email` chỉ trả theo rule self/active-friend nên thường không có trong block list. `phone` là optional và chỉ trả khi `phoneVisibility` cho phép viewer xem.
 
 Không còn block alias version khác; dùng các route `/v1` trong bảng trên.
 

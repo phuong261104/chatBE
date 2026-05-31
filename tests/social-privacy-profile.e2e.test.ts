@@ -536,6 +536,26 @@ describe("social, privacy, profile E2E", () => {
       }),
     );
 
+    const friendPhoneSearch = await harness.api.get(
+      `/v1/users/search-by-phone?phone=${encodeURIComponent(profileFriend.phone)}`,
+      { headers: authHeader(profileViewer.id) },
+    );
+    expect(friendPhoneSearch.status).toBe(200);
+    expect(friendPhoneSearch.data.data).toEqual(
+      expect.objectContaining({
+        id: profileFriend.id,
+        phone: profileFriend.phone,
+      }),
+    );
+
+    const strangerPhoneSearch = await harness.api.get(
+      `/v1/users/search-by-phone?phone=${encodeURIComponent(profileFriend.phone)}`,
+      { headers: authHeader(stranger.id) },
+    );
+    expect(strangerPhoneSearch.status).toBe(200);
+    expect(strangerPhoneSearch.data.data).toEqual(expect.objectContaining({ id: profileFriend.id }));
+    expect(strangerPhoneSearch.data.data.phone).toBeUndefined();
+
     const strangerEmailHiddenProfile = await harness.api.get(`/v1/users/${profileFriend.id}/public`, {
       headers: authHeader(stranger.id),
     });
@@ -705,8 +725,13 @@ describe("social, privacy, profile E2E", () => {
       avatarUrl: "https://cdn.test/blocked-1.png",
       coverUrl: "https://cdn.test/blocked-1-cover.png",
       bio: "blocked one",
+      privacy: { phoneVisibility: UserInfoVisibility.EVERYONE },
     });
-    const blocked2 = seedUser(harness.store, { displayName: "Blocked 2", email: "blocked2@example.test" });
+    const blocked2 = seedUser(harness.store, {
+      displayName: "Blocked 2",
+      email: "blocked2@example.test",
+      privacy: { phoneVisibility: UserInfoVisibility.ONLY_ME },
+    });
     const blocked3 = seedUser(harness.store, { displayName: "Blocked 3" });
 
     for (const blocked of [blocked1, blocked2, blocked3]) {
@@ -737,10 +762,13 @@ describe("social, privacy, profile E2E", () => {
           bio: "blocked one",
           verified: blocked1.verified,
           status: blocked1.status,
+          phone: blocked1.phone,
         }),
       }),
     );
     expect(list.data.data.items[0].blockedUser.email).toBeUndefined();
+    expect(list.data.data.items[0].blockedUser.phone).toBe(blocked1.phone);
+    expect(list.data.data.items[1].blockedUser.phone).toBeUndefined();
 
     const firstPage = await harness.api.get("/v1/blocks/cursor?limit=2", {
       headers: authHeader(blocker.id),
@@ -759,10 +787,13 @@ describe("social, privacy, profile E2E", () => {
           id: blocked1.id,
           displayName: "Blocked 1",
           username: blocked1.username,
+          phone: blocked1.phone,
         }),
       }),
     );
     expect(firstPage.data.data.items[0].blockedUser.email).toBeUndefined();
+    expect(firstPage.data.data.items[0].blockedUser.phone).toBe(blocked1.phone);
+    expect(firstPage.data.data.items[1].blockedUser.phone).toBeUndefined();
 
     const secondPage = await harness.api.get(
       `/v1/blocks/cursor?limit=2&cursor=${encodeURIComponent(firstPage.data.data.nextCursor)}`,
@@ -782,5 +813,6 @@ describe("social, privacy, profile E2E", () => {
     );
     expect(secondPage.data.data.hasMore).toBe(false);
     expect(secondPage.data.data.nextCursor).toBe("");
+    expect(secondPage.data.data.items[0].blockedUser.phone).toBeUndefined();
   });
 });
