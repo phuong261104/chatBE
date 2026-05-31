@@ -6,12 +6,35 @@ import {
 } from "../model/model";
 
 export type PresenceVisibility = "visible" | "hidden";
+export type PublicProfileFieldVisibilityValue = "visible" | "hidden";
+export type PublicProfileRelationshipStatus =
+  | "self"
+  | "friend"
+  | "blocked_by_me"
+  | "blocking_me"
+  | "none";
 
 export interface VisiblePresence {
   userId: string;
   visibility: PresenceVisibility;
   isOnline: boolean;
   lastSeen: number | null;
+}
+
+export interface PublicProfileRelationship {
+  status: PublicProfileRelationshipStatus;
+  isSelf: boolean;
+  isFriend: boolean;
+  isBlockedByMe: boolean;
+  isBlockingMe: boolean;
+}
+
+export interface PublicProfileFieldVisibility {
+  avatarUrl: PublicProfileFieldVisibilityValue;
+  coverUrl: PublicProfileFieldVisibilityValue;
+  birthday: PublicProfileFieldVisibilityValue;
+  phone: PublicProfileFieldVisibilityValue;
+  email: PublicProfileFieldVisibilityValue;
 }
 
 export const DEFAULT_USER_PRIVACY: UserPrivacy = {
@@ -95,6 +118,68 @@ export class RelationshipPrivacyPolicyV2 {
     };
   }
 
+  async buildPublicProfileDetail(viewerId: string, targetUser: User): Promise<Record<string, unknown>> {
+    const privacy = this.normalizePrivacy(targetUser);
+    const relationship = await this.getRelationship(viewerId, targetUser.id);
+    const [canViewAvatar, canViewPhone, canViewBirthday] = await Promise.all([
+      this.canViewField(viewerId, targetUser, privacy.avatarVisibility),
+      this.canViewField(viewerId, targetUser, privacy.phoneVisibility),
+      this.canViewField(viewerId, targetUser, privacy.birthdayVisibility),
+    ]);
+    const canViewEmail = relationship.isSelf || relationship.isFriend;
+    const canSendMessage = await this.canSendMessage(viewerId, targetUser.id, relationship);
+
+    return {
+      id: targetUser.id,
+      displayName: targetUser.displayName,
+      username: targetUser.username,
+      avatarUrl: canViewAvatar ? targetUser.avatarUrl : undefined,
+      coverUrl: canViewAvatar ? (targetUser as any).coverUrl : undefined,
+      bio: targetUser.bio,
+      birthday: canViewBirthday ? (targetUser as any).birthday : undefined,
+      gender: (targetUser as any).gender,
+      phone: canViewPhone ? targetUser.phone : undefined,
+      email: canViewEmail ? (targetUser as any).email : undefined,
+      verified: targetUser.verified,
+      relationship,
+      fieldVisibility: {
+        avatarUrl: this.toFieldVisibility(canViewAvatar),
+        coverUrl: this.toFieldVisibility(canViewAvatar),
+        birthday: this.toFieldVisibility(canViewBirthday),
+        phone: this.toFieldVisibility(canViewPhone),
+        email: this.toFieldVisibility(canViewEmail),
+      } satisfies PublicProfileFieldVisibility,
+      canSendMessage,
+    };
+  }
+
+  async getRelationship(viewerId: string, targetUserId: string): Promise<PublicProfileRelationship> {
+    const isSelf = viewerId === targetUserId;
+    const [blockedByMe, blockingMe, isFriend] = isSelf
+      ? [null, null, true]
+      : await Promise.all([
+          this.blockRepo.findByCond({ blockerId: viewerId, blockedUserId: targetUserId }),
+          this.blockRepo.findByCond({ blockerId: targetUserId, blockedUserId: viewerId }),
+          this.areActiveFriends(viewerId, targetUserId),
+        ]);
+    const isBlockedByMe = !!blockedByMe;
+    const isBlockingMe = !!blockingMe;
+
+    let status: PublicProfileRelationshipStatus = "none";
+    if (isSelf) status = "self";
+    else if (isBlockedByMe) status = "blocked_by_me";
+    else if (isBlockingMe) status = "blocking_me";
+    else if (isFriend) status = "friend";
+
+    return {
+      status,
+      isSelf,
+      isFriend,
+      isBlockedByMe,
+      isBlockingMe,
+    };
+  }
+
   async canViewPresence(viewerId: string, targetUserId: string): Promise<boolean> {
     if (viewerId === targetUserId) return true;
     const [viewer, target] = await Promise.all([
@@ -147,5 +232,23 @@ export class RelationshipPrivacyPolicyV2 {
   async canViewJournal(viewerId: string, authorId: string): Promise<boolean> {
     if (viewerId === authorId) return true;
     return !(await this.hiddenByBlock(viewerId, authorId));
+  }
+
+  private async canSendMessage(
+    viewerId: string,
+    targetUserId: string,
+    relationship: PublicProfileRelationship,
+  ): Promise<boolean> {
+    if (relationship.isSelf || relationship.isBlockedByMe || relationship.isBlockingMe) {
+      return false;
+    }
+    if (relationship.isFriend) {
+      return true;
+    }
+    return this.canReceiveStrangerMessage(viewerId, targetUserId);
+  }
+
+  private toFieldVisibility(canView: boolean): PublicProfileFieldVisibilityValue {
+    return canView ? "visible" : "hidden";
   }
 }

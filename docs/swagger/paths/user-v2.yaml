@@ -46,14 +46,82 @@ components:
           type: string
         displayName:
           type: string
+        username:
+          type: string
+          nullable: true
         avatarUrl:
+          type: string
+          nullable: true
+        coverUrl:
           type: string
           nullable: true
         bio:
           type: string
           nullable: true
+        birthday:
+          type: string
+          format: date-time
+          nullable: true
+        gender:
+          type: string
+          enum: [male, female, other]
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+          description: Returned only when viewer is self or an active friend.
+        verified:
+          type: object
+          properties:
+            email:
+              type: boolean
+            phone:
+              type: boolean
+        relationship:
+          $ref: "#/components/schemas/UserRelationshipContext"
+        fieldVisibility:
+          $ref: "#/components/schemas/UserPublicFieldVisibility"
+        canSendMessage:
+          type: boolean
         privacy:
           $ref: "#/components/schemas/UserPrivacy"
+
+    UserRelationshipContext:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [self, friend, blocked_by_me, blocking_me, none]
+        isSelf:
+          type: boolean
+        isFriend:
+          type: boolean
+        isBlockedByMe:
+          type: boolean
+        isBlockingMe:
+          type: boolean
+
+    UserPublicFieldVisibility:
+      type: object
+      properties:
+        avatarUrl:
+          type: string
+          enum: [visible, hidden]
+        coverUrl:
+          type: string
+          enum: [visible, hidden]
+        birthday:
+          type: string
+          enum: [visible, hidden]
+        phone:
+          type: string
+          enum: [visible, hidden]
+        email:
+          type: string
+          enum: [visible, hidden]
 
     UserPrivacy:
       type: object
@@ -431,7 +499,8 @@ paths:
         The returned fields depend on the viewer's relationship:
         - If blocked by viewer: returns `403`
         - Fields are filtered based on target's privacy settings
-        - Includes relationship context (mutual friends count if applicable)
+        - Includes relationship context, field visibility hints, and `canSendMessage`
+        - `email` is returned only for self or active friends
       parameters:
         - in: path
           name: id

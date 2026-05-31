@@ -121,10 +121,7 @@ class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<Block, Bloc
       const items = (result.Items || []).map((item) => this.toEntity(item));
       const hasMore = items.length > (limit || 20);
       const returnItems = hasMore ? items.slice(0, limit || 20) : items;
-      let nextCursor = "";
-      if (hasMore && result.LastEvaluatedKey) {
-        nextCursor = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString("base64");
-      }
+      const nextCursor = hasMore ? this.encodeCursor(result.LastEvaluatedKey, returnItems[returnItems.length - 1]) : "";
       return { items: returnItems, nextCursor, hasMore };
     }
 
@@ -144,11 +141,24 @@ class DynamoBlockQueryRepository extends BaseQueryRepositoryDynamoDB<Block, Bloc
     const items = (result.Items || []).map((item) => this.toEntity(item));
     const hasMore = items.length > (limit || 20);
     const returnItems = hasMore ? items.slice(0, limit || 20) : items;
-    let nextCursor = "";
-    if (hasMore && result.LastEvaluatedKey) {
-      nextCursor = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString("base64");
-    }
+    const nextCursor = hasMore ? this.encodeCursor(result.LastEvaluatedKey, returnItems[returnItems.length - 1]) : "";
     return { items: returnItems, nextCursor, hasMore };
+  }
+
+  private encodeCursor(
+    lastEvaluatedKey: Record<string, unknown> | undefined,
+    lastReturnedItem: Block | undefined,
+  ): string {
+    const key = lastReturnedItem
+      ? {
+          blockerId: lastReturnedItem.blockerId,
+          blockedUserId: lastReturnedItem.blockedUserId,
+          createdAt: lastReturnedItem.createdAt instanceof Date
+            ? lastReturnedItem.createdAt.toISOString()
+            : lastReturnedItem.createdAt,
+        }
+      : lastEvaluatedKey;
+    return key ? Buffer.from(JSON.stringify(key)).toString("base64") : "";
   }
 }
 

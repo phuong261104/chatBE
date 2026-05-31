@@ -274,4 +274,158 @@ liveDescribe("social, privacy, profile live E2E with real DynamoDB repositories"
       }),
     );
   });
+
+  it("returns enriched public profiles and enriched block lists from real DB", async () => {
+    const viewer = await seedUser(harness, "Live Enrich Viewer");
+    const friend = await seedUser(harness, "Live Enrich Friend", {
+      email: "live-enrich-friend@example.test",
+      avatarUrl: "https://cdn.test/live-enrich-friend-avatar.png",
+      coverUrl: "https://cdn.test/live-enrich-friend-cover.png",
+      birthday: new Date("1995-04-05T00:00:00.000Z"),
+      gender: UserGender.FEMALE,
+      bio: "friend profile",
+    });
+    const stranger = await seedUser(harness, "Live Enrich Stranger");
+    await seedFriendship(harness, viewer.id, friend.id);
+
+    const selfProfile = await harness.api.get(`/v1/users/${friend.id}/public`, friend.id);
+    expect(selfProfile.status).toBe(200);
+    expect(selfProfile.data.data).toEqual(
+      expect.objectContaining({
+        id: friend.id,
+        username: friend.username,
+        avatarUrl: "https://cdn.test/live-enrich-friend-avatar.png",
+        coverUrl: "https://cdn.test/live-enrich-friend-cover.png",
+        gender: UserGender.FEMALE,
+        email: "live-enrich-friend@example.test",
+        relationship: expect.objectContaining({
+          status: "self",
+          isSelf: true,
+          isFriend: true,
+          isBlockedByMe: false,
+          isBlockingMe: false,
+        }),
+        fieldVisibility: expect.objectContaining({
+          avatarUrl: "visible",
+          coverUrl: "visible",
+          birthday: "visible",
+          phone: "visible",
+          email: "visible",
+        }),
+        canSendMessage: false,
+      }),
+    );
+
+    const friendProfile = await harness.api.get(`/v1/users/${friend.id}/public`, viewer.id);
+    expect(friendProfile.status).toBe(200);
+    expect(friendProfile.data.data).toEqual(
+      expect.objectContaining({
+        email: "live-enrich-friend@example.test",
+        relationship: expect.objectContaining({
+          status: "friend",
+          isSelf: false,
+          isFriend: true,
+        }),
+        fieldVisibility: expect.objectContaining({
+          email: "visible",
+        }),
+        canSendMessage: true,
+      }),
+    );
+
+    const strangerProfile = await harness.api.get(`/v1/users/${friend.id}/public`, stranger.id);
+    expect(strangerProfile.status).toBe(200);
+    expect(strangerProfile.data.data.email).toBeUndefined();
+    expect(strangerProfile.data.data).toEqual(
+      expect.objectContaining({
+        relationship: expect.objectContaining({
+          status: "none",
+          isSelf: false,
+          isFriend: false,
+          isBlockedByMe: false,
+          isBlockingMe: false,
+        }),
+        fieldVisibility: expect.objectContaining({
+          email: "hidden",
+        }),
+      }),
+    );
+
+    const blocker = await seedUser(harness, "Live Enrich Blocker");
+    const blocked1 = await seedUser(harness, "Live Enrich Blocked 1", {
+      email: "live-enrich-blocked-1@example.test",
+      avatarUrl: "https://cdn.test/live-enrich-blocked-1-avatar.png",
+      coverUrl: "https://cdn.test/live-enrich-blocked-1-cover.png",
+      bio: "blocked one",
+    });
+    const blocked2 = await seedUser(harness, "Live Enrich Blocked 2");
+    const deletedBlocked = await seedUser(harness, "Live Enrich Deleted Blocked");
+
+    for (const blocked of [blocked1, blocked2, deletedBlocked]) {
+      const response = await harness.api.post(`/v1/blocks/${blocked.id}`, {}, blocker.id);
+      expect(response.status).toBe(200);
+      harness.trackBlock(blocker.id, blocked.id);
+    }
+    await harness.repos.user.delete(deletedBlocked.id, true);
+
+    await eventually(async () => {
+      const page = await harness.api.get("/v1/blocks?page=1&limit=3", blocker.id);
+      expect(page.status).toBe(200);
+      expect(page.data.data.total).toBe(3);
+      expect(page.data.data.page).toBe(1);
+      expect(page.data.data.limit).toBe(3);
+      expect(page.data.data.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            blockerId: blocker.id,
+            blockedUserId: blocked1.id,
+            blockedUserUnavailable: false,
+            blockedUser: expect.objectContaining({
+              id: blocked1.id,
+              displayName: blocked1.displayName,
+              username: blocked1.username,
+              avatarUrl: "https://cdn.test/live-enrich-blocked-1-avatar.png",
+              coverUrl: "https://cdn.test/live-enrich-blocked-1-cover.png",
+              bio: "blocked one",
+              status: "active",
+            }),
+          }),
+          expect.objectContaining({
+            blockerId: blocker.id,
+            blockedUserId: deletedBlocked.id,
+            blockedUser: null,
+            blockedUserUnavailable: true,
+          }),
+        ]),
+      );
+      const blockedOne = page.data.data.items.find((item: any) => item.blockedUserId === blocked1.id);
+      expect(blockedOne.blockedUser.email).toBeUndefined();
+    });
+
+    const firstCursorPage = await harness.api.get("/v1/blocks/cursor?limit=2", blocker.id);
+    expect(firstCursorPage.status).toBe(200);
+    expect(firstCursorPage.data.data.items).toHaveLength(2);
+    expect(firstCursorPage.data.data.hasMore).toBe(true);
+    expect(firstCursorPage.data.data.limit).toBe(2);
+    expect(firstCursorPage.data.data.nextCursor).toBeTruthy();
+    expect(firstCursorPage.data.data.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          blockerId: blocker.id,
+          blockedUserId: expect.any(String),
+          blockedUserUnavailable: expect.any(Boolean),
+        }),
+      ]),
+    );
+
+    const secondCursorPage = await harness.api.get(
+      `/v1/blocks/cursor?limit=2&cursor=${encodeURIComponent(firstCursorPage.data.data.nextCursor)}`,
+      blocker.id,
+    );
+    expect(secondCursorPage.status).toBe(200);
+    expect(secondCursorPage.data.data.items).toHaveLength(1);
+    expect(secondCursorPage.data.data.hasMore).toBe(false);
+    expect(secondCursorPage.data.data.nextCursor).toBe("");
+    expect(secondCursorPage.data.data.limit).toBe(2);
+  });
 });

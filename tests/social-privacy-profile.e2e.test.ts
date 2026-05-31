@@ -315,6 +315,7 @@ async function createHarness(): Promise<Harness> {
   v1.delete("/friend-requests/:requestId", auth, friendRequestHttp.cancelFriendRequestAPI.bind(friendRequestHttp));
   v1.get("/friendships", auth, friendshipHttp.getFriendsListAPI.bind(friendshipHttp));
   v1.get("/blocks/cursor", auth, blockHttp.getBlockedUsersCursorAPI.bind(blockHttp));
+  v1.get("/blocks", auth, blockHttp.getBlockedUsersAPI.bind(blockHttp));
   v1.post("/blocks/:blockedUserId", auth, blockHttp.blockUserAPI.bind(blockHttp));
   v1.get("/blocks/:blockedUserId/check", auth, blockHttp.checkBlockStatusAPI.bind(blockHttp));
   v1.get("/conversations/:conversationId/messages", auth, messagingHttp.loadMessagesAPI.bind(messagingHttp));
@@ -471,12 +472,87 @@ describe("social, privacy, profile E2E", () => {
     const stranger = seedUser(harness.store, { displayName: "Stranger", phone: "+84933333333" });
     const contact = seedUser(harness.store, {
       displayName: "Contact",
+      email: "contact@example.test",
       phone: "+84944444444",
       avatarUrl: "https://cdn.test/contact-old.png",
       birthday: new Date("2000-01-01T00:00:00.000Z"),
       gender: UserGender.OTHER,
       bio: "hello",
     });
+    const profileViewer = seedUser(harness.store, { displayName: "Profile Viewer" });
+    const profileFriend = seedUser(harness.store, {
+      displayName: "Profile Friend",
+      email: "profile.friend@example.test",
+      coverUrl: "https://cdn.test/profile-cover.png",
+      gender: UserGender.FEMALE,
+    });
+    harness.store.addFriendship(profileViewer.id, profileFriend.id);
+
+    const selfProfile = await harness.api.get(`/v1/users/${profileFriend.id}/public`, {
+      headers: authHeader(profileFriend.id),
+    });
+    expect(selfProfile.status).toBe(200);
+    expect(selfProfile.data.data).toEqual(
+      expect.objectContaining({
+        id: profileFriend.id,
+        username: profileFriend.username,
+        coverUrl: "https://cdn.test/profile-cover.png",
+        gender: UserGender.FEMALE,
+        email: "profile.friend@example.test",
+        relationship: expect.objectContaining({
+          status: "self",
+          isSelf: true,
+          isFriend: true,
+          isBlockedByMe: false,
+          isBlockingMe: false,
+        }),
+        fieldVisibility: expect.objectContaining({
+          avatarUrl: "visible",
+          coverUrl: "visible",
+          birthday: "visible",
+          phone: "visible",
+          email: "visible",
+        }),
+        canSendMessage: false,
+      }),
+    );
+
+    const friendVisibleProfile = await harness.api.get(`/v1/users/${profileFriend.id}/public`, {
+      headers: authHeader(profileViewer.id),
+    });
+    expect(friendVisibleProfile.status).toBe(200);
+    expect(friendVisibleProfile.data.data).toEqual(
+      expect.objectContaining({
+        email: "profile.friend@example.test",
+        relationship: expect.objectContaining({
+          status: "friend",
+          isSelf: false,
+          isFriend: true,
+        }),
+        fieldVisibility: expect.objectContaining({
+          email: "visible",
+        }),
+        canSendMessage: true,
+      }),
+    );
+
+    const strangerEmailHiddenProfile = await harness.api.get(`/v1/users/${profileFriend.id}/public`, {
+      headers: authHeader(stranger.id),
+    });
+    expect(strangerEmailHiddenProfile.status).toBe(200);
+    expect(strangerEmailHiddenProfile.data.data.email).toBeUndefined();
+    expect(strangerEmailHiddenProfile.data.data).toEqual(
+      expect.objectContaining({
+        relationship: expect.objectContaining({
+          status: "none",
+          isSelf: false,
+          isFriend: false,
+        }),
+        fieldVisibility: expect.objectContaining({
+          email: "hidden",
+        }),
+      }),
+    );
 
     harness.store.addFriendship(blocker.id, blocked.id);
     const existing = harness.store.addConversation({
@@ -545,8 +621,30 @@ describe("social, privacy, profile E2E", () => {
     const publicProfile = await harness.api.get(`/v1/users/${contact.id}/public`, { headers: authHeader(stranger.id) });
     expect(publicProfile.status).toBe(200);
     expect(publicProfile.data.data.phone).toBeUndefined();
+    expect(publicProfile.data.data.email).toBeUndefined();
     expect(publicProfile.data.data.birthday).toBeUndefined();
     expect(publicProfile.data.data.avatarUrl).toBeUndefined();
+    expect(publicProfile.data.data).toEqual(
+      expect.objectContaining({
+        username: contact.username,
+        gender: UserGender.OTHER,
+        relationship: expect.objectContaining({
+          status: "none",
+          isSelf: false,
+          isFriend: false,
+          isBlockedByMe: false,
+          isBlockingMe: false,
+        }),
+        fieldVisibility: expect.objectContaining({
+          avatarUrl: "hidden",
+          coverUrl: "hidden",
+          birthday: "hidden",
+          phone: "hidden",
+          email: "hidden",
+        }),
+        canSendMessage: false,
+      }),
+    );
 
     const updateProfile = await harness.api.patch(
       "/v1/users/me/profile",
@@ -601,14 +699,48 @@ describe("social, privacy, profile E2E", () => {
 
   it("lists blocked users with cursor pagination", async () => {
     const blocker = seedUser(harness.store, { displayName: "Cursor Blocker" });
-    const blocked1 = seedUser(harness.store, { displayName: "Blocked 1" });
-    const blocked2 = seedUser(harness.store, { displayName: "Blocked 2" });
+    const blocked1 = seedUser(harness.store, {
+      displayName: "Blocked 1",
+      email: "blocked1@example.test",
+      avatarUrl: "https://cdn.test/blocked-1.png",
+      coverUrl: "https://cdn.test/blocked-1-cover.png",
+      bio: "blocked one",
+    });
+    const blocked2 = seedUser(harness.store, { displayName: "Blocked 2", email: "blocked2@example.test" });
     const blocked3 = seedUser(harness.store, { displayName: "Blocked 3" });
 
     for (const blocked of [blocked1, blocked2, blocked3]) {
       const response = await harness.api.post(`/v1/blocks/${blocked.id}`, {}, { headers: authHeader(blocker.id) });
       expect(response.status).toBe(200);
     }
+
+    const list = await harness.api.get("/v1/blocks?page=1&limit=2", {
+      headers: authHeader(blocker.id),
+    });
+    expect(list.status).toBe(200);
+    expect(list.data.data.items).toHaveLength(2);
+    expect(list.data.data.total).toBe(3);
+    expect(list.data.data.page).toBe(1);
+    expect(list.data.data.limit).toBe(2);
+    expect(list.data.data.hasMore).toBe(true);
+    expect(list.data.data.items[0]).toEqual(
+      expect.objectContaining({
+        blockerId: blocker.id,
+        blockedUserId: blocked1.id,
+        blockedUserUnavailable: false,
+        blockedUser: expect.objectContaining({
+          id: blocked1.id,
+          displayName: "Blocked 1",
+          username: blocked1.username,
+          avatarUrl: "https://cdn.test/blocked-1.png",
+          coverUrl: "https://cdn.test/blocked-1-cover.png",
+          bio: "blocked one",
+          verified: blocked1.verified,
+          status: blocked1.status,
+        }),
+      }),
+    );
+    expect(list.data.data.items[0].blockedUser.email).toBeUndefined();
 
     const firstPage = await harness.api.get("/v1/blocks/cursor?limit=2", {
       headers: authHeader(blocker.id),
@@ -618,6 +750,19 @@ describe("social, privacy, profile E2E", () => {
     expect(firstPage.data.data.hasMore).toBe(true);
     expect(firstPage.data.data.limit).toBe(2);
     expect(firstPage.data.data.nextCursor).toBe("2");
+    expect(firstPage.data.data.items[0]).toEqual(
+      expect.objectContaining({
+        blockerId: blocker.id,
+        blockedUserId: blocked1.id,
+        blockedUserUnavailable: false,
+        blockedUser: expect.objectContaining({
+          id: blocked1.id,
+          displayName: "Blocked 1",
+          username: blocked1.username,
+        }),
+      }),
+    );
+    expect(firstPage.data.data.items[0].blockedUser.email).toBeUndefined();
 
     const secondPage = await harness.api.get(
       `/v1/blocks/cursor?limit=2&cursor=${encodeURIComponent(firstPage.data.data.nextCursor)}`,
@@ -625,6 +770,16 @@ describe("social, privacy, profile E2E", () => {
     );
     expect(secondPage.status).toBe(200);
     expect(secondPage.data.data.items).toHaveLength(1);
+    expect(secondPage.data.data.items[0]).toEqual(
+      expect.objectContaining({
+        blockerId: blocker.id,
+        blockedUserId: blocked3.id,
+        blockedUser: expect.objectContaining({
+          id: blocked3.id,
+          displayName: "Blocked 3",
+        }),
+      }),
+    );
     expect(secondPage.data.data.hasMore).toBe(false);
     expect(secondPage.data.data.nextCursor).toBe("");
   });

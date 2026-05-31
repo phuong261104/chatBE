@@ -319,6 +319,8 @@ Không còn social alias version khác; dùng các route `/v1` trong bảng trê
 | GET | `/v1/blocks/cursor` | List blocked users with cursor pagination |
 | GET | `/v1/blocks/{blockedUserId}/check` | Check block status |
 
+`GET /v1/blocks` và `GET /v1/blocks/cursor` giữ nguyên block item cũ (`id`, `blockerId`, `blockedUserId`, `createdAt`) và bổ sung `blockedUser` dạng nested profile card (`id`, `displayName`, `username`, `avatarUrl`, `coverUrl`, `bio`, `verified`, `status`, `email`) cùng `blockedUserUnavailable`. `email` chỉ trả theo rule self/active-friend nên thường không có trong block list.
+
 Không còn block alias version khác; dùng các route `/v1` trong bảng trên.
 
 ### Search
@@ -388,6 +390,8 @@ Tat ca events su dung token auth qua handshake. Error event `ai:error` duoc emit
 ### Profile/privacy
 
 - Profile/privacy dùng `UserPrivacySchema` để kiểm soát search, birthday/phone/avatar visibility, online/last-seen và message từ stranger.
+- `GET /v1/users/{id}/public` trả public profile đã sanitize theo relationship/privacy và bổ sung metadata cho UI: `username`, `coverUrl`, `gender`, `email`, `relationship`, `fieldVisibility`, `canSendMessage`.
+- `email` trong public profile chỉ trả khi viewer là chính user đó hoặc đang là bạn bè active; các field bị privacy ẩn sẽ không có giá trị và có trạng thái tương ứng trong `fieldVisibility`.
 - Presence response có thể bị ẩn theo privacy và relationship.
 
 ### Private chat

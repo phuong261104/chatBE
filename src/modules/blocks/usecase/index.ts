@@ -2,6 +2,7 @@ import { AppError } from '@share/app-error';
 import { ErrDataNotFound } from '@share/model/base-error';
 import { PagingDTO } from '@share/model/paging';
 import { v7 } from 'uuid';
+import type { User } from '@modules/user/model/model';
 import {
   IBlockFriendRequestRepository,
   IBlockFriendshipRepository,
@@ -14,9 +15,10 @@ import {
   BlockCondDTO,
   BlockCreateDTO,
   BlockCursorListQuery,
-  BlockCursorListResult,
   BlockCreateSchema,
   BlockUpdateDTO,
+  BlockWithUser,
+  BlockWithUserCursorListResult,
   ErrAlreadyBlocked,
   ErrBlockNotFound,
   ErrCannotBlockYourself,
@@ -113,14 +115,15 @@ export class BlockUseCase implements IBlockUseCase {
     return !!block;
   }
 
-  async getBlockedUsers(blockerId: string): Promise<Block[]> {
-    return await this.repository.findAllByCond({ blockerId });
+  async getBlockedUsers(blockerId: string): Promise<BlockWithUser[]> {
+    const blocks = await this.repository.findAllByCond({ blockerId });
+    return this.hydrateBlockedUsers(blockerId, blocks);
   }
 
   async getBlockedUsersCursor(
     blockerId: string,
     query: BlockCursorListQuery,
-  ): Promise<BlockCursorListResult> {
+  ): Promise<BlockWithUserCursorListResult> {
     const result = await this.repository.findAllByCondWithCursor(
       { blockerId },
       query.cursor,
@@ -128,6 +131,7 @@ export class BlockUseCase implements IBlockUseCase {
     );
     return {
       ...result,
+      items: await this.hydrateBlockedUsers(blockerId, result.items),
       limit: query.limit,
     };
   }
@@ -156,5 +160,85 @@ export class BlockUseCase implements IBlockUseCase {
   async delete(id: string): Promise<boolean> {
     await this.repository.delete(id, true);
     return true;
+  }
+
+  private async hydrateBlockedUsers(blockerId: string, blocks: Block[]): Promise<BlockWithUser[]> {
+    if (blocks.length === 0) {
+      return [];
+    }
+
+    const blockedUserIds = Array.from(new Set(blocks.map((block) => block.blockedUserId)));
+    const users = await this.loadUsersByIds(blockedUserIds);
+    const userMap = new Map(users.map((user) => [user.id, user]));
+    const emailVisibleUserIds = await this.getEmailVisibleUserIds(blockerId, users);
+
+    return blocks.map((block) => {
+      const blockedUser = userMap.get(block.blockedUserId);
+      const isUnavailable = !blockedUser || (blockedUser as any).status === 'deleted';
+
+      return {
+        ...block,
+        blockedUser: isUnavailable
+          ? null
+          : this.toBlockedUserSummary(blockedUser, emailVisibleUserIds.has(blockedUser.id)),
+        blockedUserUnavailable: isUnavailable,
+      };
+    });
+  }
+
+  private async loadUsersByIds(userIds: string[]): Promise<User[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    if (typeof this.userRepository.listByIds === 'function') {
+      return this.userRepository.listByIds(userIds);
+    }
+
+    const users = await Promise.all(userIds.map((userId) => this.userRepository.get(userId)));
+    return users.filter((user): user is User => !!user);
+  }
+
+  private async getEmailVisibleUserIds(blockerId: string, users: User[]): Promise<Set<string>> {
+    const visibleUserIds = new Set<string>();
+    const usersWithEmail = users.filter((user) => !!(user as any).email);
+
+    for (const user of usersWithEmail) {
+      if (user.id === blockerId) {
+        visibleUserIds.add(user.id);
+      }
+    }
+
+    if (typeof this.friendshipRepository.findByCond !== 'function') {
+      return visibleUserIds;
+    }
+
+    await Promise.all(
+      usersWithEmail
+        .filter((user) => user.id !== blockerId)
+        .map(async (user) => {
+          const [userA, userB] = [blockerId, user.id].sort();
+          const friendship = await this.friendshipRepository.findByCond?.({ userA, userB });
+          if (friendship?.status === 'active') {
+            visibleUserIds.add(user.id);
+          }
+        }),
+    );
+
+    return visibleUserIds;
+  }
+
+  private toBlockedUserSummary(user: User, canViewEmail: boolean) {
+    return {
+      id: user.id,
+      displayName: user.displayName,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      coverUrl: (user as any).coverUrl,
+      bio: user.bio,
+      verified: user.verified,
+      status: user.status,
+      email: canViewEmail ? (user as any).email : undefined,
+    };
   }
 }

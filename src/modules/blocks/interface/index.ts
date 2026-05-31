@@ -8,8 +8,9 @@ import {
   BlockCondDTO,
   BlockCreateDTO,
   BlockCursorListQuery,
-  BlockCursorListResult,
   BlockCursorPage,
+  BlockWithUser,
+  BlockWithUserCursorListResult,
   BlockUpdateDTO,
 } from '../model';
 
@@ -25,9 +26,11 @@ export interface IBlockRepository extends IRepository<Block, BlockCondDTO, Block
 
 export interface IBlockUserRepository {
   get(id: string): Promise<User | null>;
+  listByIds?(ids: string[]): Promise<User[]>;
 }
 
 export interface IBlockFriendshipRepository {
+  findByCond?(cond: { userA: string; userB: string }): Promise<{ status?: string } | null>;
   softDeleteFriendship(userA: string, userB: string): Promise<boolean>;
 }
 
@@ -40,9 +43,9 @@ export interface IBlockUseCase extends IUseCase<BlockCreateDTO, BlockUpdateDTO, 
   blockUser(blockerId: string, blockedUserId: string): Promise<string>;
   unblockUser(blockerId: string, blockedUserId: string): Promise<boolean>;
   isBlocked(blockerId: string, blockedUserId: string): Promise<boolean>;
-  getBlockedUsers(blockerId: string): Promise<Block[]>;
+  getBlockedUsers(blockerId: string): Promise<BlockWithUser[]>;
   getBlockedUsersCursor(
     blockerId: string,
     query: BlockCursorListQuery,
-  ): Promise<BlockCursorListResult>;
+  ): Promise<BlockWithUserCursorListResult>;
 }

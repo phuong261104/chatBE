@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Block } from './model';
+import type { User } from '@modules/user/model/model';
 
 export const BlockCreateSchema = z
   .object({
@@ -37,5 +38,31 @@ export interface BlockCursorPage {
 }
 
 export interface BlockCursorListResult extends BlockCursorPage {
+  limit: number;
+}
+
+export type BlockedUserSummary = Pick<
+  User,
+  | 'id'
+  | 'displayName'
+  | 'username'
+  | 'avatarUrl'
+  | 'coverUrl'
+  | 'bio'
+  | 'verified'
+  | 'status'
+> & {
+  email?: string;
+};
+
+export type BlockWithUser = Block & {
+  blockedUser: BlockedUserSummary | null;
+  blockedUserUnavailable: boolean;
+};
+
+export interface BlockWithUserCursorListResult {
+  items: BlockWithUser[];
+  nextCursor: string;
+  hasMore: boolean;
   limit: number;
 }

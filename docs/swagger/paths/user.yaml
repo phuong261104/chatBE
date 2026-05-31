@@ -285,12 +285,30 @@ paths:
                       displayName:
                         type: string
                         example: "Boss Phuong"
+                      username:
+                        type: string
+                        example: "phuongboss2026"
                       avatarUrl:
                         type: string
                         example: "https://example.com/avatar.jpg"
+                      coverUrl:
+                        type: string
+                        example: "https://example.com/cover.jpg"
                       bio:
                         type: string
                         example: "Gioi thieu ban than"
+                      birthday:
+                        type: string
+                        format: date-time
+                      gender:
+                        type: string
+                        enum: [male, female, other]
+                      phone:
+                        type: string
+                        example: "0912345678"
+                      email:
+                        type: string
+                        description: "Chi tra khi viewer la chinh user hoac ban be active"
                       verified:
                         type: object
                         properties:
@@ -298,6 +316,40 @@ paths:
                             type: boolean
                           phone:
                             type: boolean
+                      relationship:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            enum: [self, friend, blocked_by_me, blocking_me, none]
+                          isSelf:
+                            type: boolean
+                          isFriend:
+                            type: boolean
+                          isBlockedByMe:
+                            type: boolean
+                          isBlockingMe:
+                            type: boolean
+                      fieldVisibility:
+                        type: object
+                        properties:
+                          avatarUrl:
+                            type: string
+                            enum: [visible, hidden]
+                          coverUrl:
+                            type: string
+                            enum: [visible, hidden]
+                          birthday:
+                            type: string
+                            enum: [visible, hidden]
+                          phone:
+                            type: string
+                            enum: [visible, hidden]
+                          email:
+                            type: string
+                            enum: [visible, hidden]
+                      canSendMessage:
+                        type: boolean
         '400':
           description: Khong lay duoc ho so
 

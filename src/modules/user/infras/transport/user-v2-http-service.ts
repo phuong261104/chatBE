@@ -114,7 +114,7 @@ export class UserV2HTTPService {
       if (await this.privacyPolicy.hiddenByBlock(viewerId, target.id)) {
         return res.status(403).json({ error: "Profile is hidden by user relationship" });
       }
-      const profile = await this.privacyPolicy.sanitizePublicProfile(viewerId, target);
+      const profile = await this.privacyPolicy.buildPublicProfileDetail(viewerId, target);
       return res.status(200).json({ data: profile });
     } catch (err) {
       return this.sendError(res, err);
