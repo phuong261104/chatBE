@@ -289,7 +289,7 @@ Các thay đổi poll/reminder/note có realtime event để client trong nhóm 
 
 ---
 
-## 9. Media, My Cloud và My Document
+## 9. Media, My Cloud và Saved Messages
 
 ### 9.1. Media upload
 
@@ -315,9 +315,9 @@ My Cloud là kho lưu cá nhân cho file, image, video, voice, link và note. Ng
 
 Item có thể thuộc collection. Backend hỗ trợ tạo/list/cập nhật/xóa collection, thêm item vào collection và gỡ item khỏi collection.
 
-### 9.3. My Document
+### 9.3. Saved Messages
 
-My Document được thể hiện như một luồng lưu message vào không gian cá nhân. Người dùng có thể lưu các message đã chọn, đặc biệt file và link, vào My Cloud/My Document. Conversation My Document có rule sắp xếp riêng trong inbox: khi unpinned vẫn được ưu tiên cao hơn conversation thường, và khi pinned thì sắp xếp theo `pinnedAt` cùng các conversation pinned khác.
+Saved Messages được thể hiện như một luồng lưu message vào không gian cá nhân. Người dùng có thể lưu các message đã chọn, đặc biệt file và link, vào Saved Messages. Conversation này trả `type: "saved_messages"` cho client, nhưng nội bộ vẫn lưu như private self chat với `pairKey = self_{userId}`. Trong inbox, Saved Messages sắp xếp như conversation thường khi unpinned; khi pinned thì sắp xếp theo `pinnedAt` cùng các conversation pinned khác.
 
 ---
 

@@ -17,7 +17,10 @@ import {
 } from "../model/model";
 import {
   ConversationCondDTO,
+  ConversationCursorResult,
+  ConversationDetail,
   ConversationUpdateDTO,
+  ConversationWithMetadata,
   ConversationMemberCondDTO,
   ConversationMemberUpdateDTO,
   MessageCondDTO,
@@ -336,18 +339,12 @@ export interface IMessagingUseCase {
     userId: string,
     page?: number,
     limit?: number,
-  ): Promise<
-    Array<Conversation & { unreadCount: number; role: ConversationMemberRole }>
-  >;
+  ): Promise<ConversationWithMetadata[]>;
 
   getConversationDetail(
     conversationId: string,
     userId: string,
-  ): Promise<{
-    conversation: Conversation;
-    members: ConversationMember[];
-    currentUserRole: ConversationMemberRole;
-  }>;
+  ): Promise<ConversationDetail>;
 
   loadMessages(
     conversationId: string,
@@ -402,9 +399,11 @@ export interface IMessagingUseCase {
     userId: string,
     messageIds: string[],
   ): Promise<{
-    conversation: Conversation & {
+    conversation: Omit<Conversation, "type"> & {
+      type: Conversation["type"] | "saved_messages";
       name: string;
       isSelfChat: true;
+      isSavedMessages: true;
       pinned?: boolean;
       isPinned?: boolean;
       pinnedAt?: Date;
@@ -553,12 +552,7 @@ export interface IMessagingUseCase {
     userId: string,
     cursor?: string,
     limit?: number,
-  ): Promise<{
-    pinned: Array<Conversation & { unreadCount: number; role: ConversationMemberRole; pinnedAt?: Date }> | null;
-    data: Array<Conversation & { unreadCount: number; role: ConversationMemberRole }>;
-    nextCursor?: string;
-    hasMore: boolean;
-  }>;
+  ): Promise<ConversationCursorResult>;
 
   dissolveGroup(groupId: string, requesterId: string): Promise<string[]>;
 

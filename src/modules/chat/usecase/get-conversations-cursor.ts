@@ -26,6 +26,7 @@ import {
   ensureSelfConversation,
   isSelfConversation,
   normalizeConversationListItem,
+  SELF_CONVERSATION_NAME,
 } from "./conversation-listing";
 
 export class GetConversationsCursorQueryHandler implements IQueryHandler<
@@ -124,7 +125,7 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
         let avatarUrl = conv.avatarUrl || "";
 
         if (isSelfConversation(conv, userId)) {
-          name = "My Document";
+          name = SELF_CONVERSATION_NAME;
           avatarUrl = "";
         } else if (conv.type === ConversationType.PRIVATE && conv.pairKey) {
           const ids = conv.pairKey.split("_");

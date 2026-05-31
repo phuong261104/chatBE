@@ -3,6 +3,7 @@ import { AppError } from '@share/app-error';
 import { IConversationQueryRepository, IConversationMemberQueryRepository } from '../interface';
 import { ConversationMemberStatus } from '../model/model';
 import { GetConversationDetailQuery, ConversationDetail, getConversationDetailDTOSchema } from '../model/dto';
+import { normalizeConversationListItem } from './conversation-listing';
 
 export class GetConversationDetailQueryHandler implements IQueryHandler<
   GetConversationDetailQuery,
@@ -49,7 +50,7 @@ export class GetConversationDetailQueryHandler implements IQueryHandler<
       (member) => member.status === ConversationMemberStatus.ACTIVE && !member.leftAt
     );
 
-    const conversationWithMembership = {
+    const conversationWithMembership = normalizeConversationListItem({
       ...conversation,
       unreadCount: currentUserMember.unreadCount || 0,
       role: currentUserMember.role,
@@ -62,7 +63,7 @@ export class GetConversationDetailQueryHandler implements IQueryHandler<
       archived: !!currentUserMember.archived,
       isArchived: !!currentUserMember.archived,
       wallpaperUrl: currentUserMember.wallpaper || null,
-    };
+    }, validatedQuery.userId);
 
     return {
       conversation: conversationWithMembership as ConversationDetail["conversation"],
@@ -71,4 +72,3 @@ export class GetConversationDetailQueryHandler implements IQueryHandler<
     };
   }
 }
-

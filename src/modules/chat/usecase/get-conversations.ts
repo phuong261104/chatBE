@@ -22,6 +22,7 @@ import {
   ensureSelfConversation,
   isSelfConversation,
   normalizeConversationListItem,
+  SELF_CONVERSATION_NAME,
 } from "./conversation-listing";
 
 export class GetConversationsQueryHandler implements IQueryHandler<GetConversationsQuery, ConversationWithMetadata[]> {
@@ -89,7 +90,7 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
         let avatarUrl = conv.avatarUrl || "";
 
         if (isSelfConversation(conv, query.userId)) {
-          name = "My Document";
+          name = SELF_CONVERSATION_NAME;
           avatarUrl = "";
         } else if (conv.type === ConversationType.PRIVATE && conv.pairKey) {
           const ids = conv.pairKey.split("_");

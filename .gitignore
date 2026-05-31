@@ -87,6 +87,7 @@ tests/*
 !tests/social-privacy-profile.e2e.test.ts
 !tests/auth-session-device.live.e2e.test.ts
 !tests/social-privacy-profile.live.e2e.test.ts
+!tests/chat-saved-messages.live-server.test.ts
 !tests/live-server-session-social.test.ts
 !tests/helpers/
 !tests/helpers/chat-e2e-harness.ts

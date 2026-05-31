@@ -7,6 +7,7 @@ import {
   markAsDeliveredDTOSchema,
 } from "../../../model/dto";
 import { z } from "zod";
+import { normalizeConversationListItem } from "../../../usecase/conversation-listing";
 
 export class ConversationController extends BaseController {
   async getPrivateConversationAPI(req: Request, res: Response) {
@@ -29,7 +30,9 @@ export class ConversationController extends BaseController {
         validatedData.targetUserId,
       );
 
-      res.status(200).json({ data: conversation });
+      res.status(200).json({
+        data: normalizeConversationListItem(conversation, validatedData.currentUserId),
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         this.sendValidationError(res, error);

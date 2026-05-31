@@ -21,6 +21,7 @@ export const setupChatV2Routes = (
 
   router.post("/messages/private", mdlFactory.auth, controller.sendPrivateMessageAPI);
   router.post("/messages/save-to-my-document", mdlFactory.auth, controller.saveMessagesToMyDocumentAPI);
+  router.post("/saved-messages/messages", mdlFactory.auth, controller.saveMessagesToMyDocumentAPI);
   router.put("/messages/:messageId", mdlFactory.auth, controller.editMessageAPI);
 
   router.get("/message-requests", mdlFactory.auth, controller.listMessageRequestsAPI);

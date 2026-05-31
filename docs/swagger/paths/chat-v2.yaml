@@ -17,8 +17,14 @@ components:
           example: "Nhóm Dev Team"
         type:
           type: string
-          enum: [private, group]
+          enum: [private, group, saved_messages]
           example: "group"
+        isSelfChat:
+          type: boolean
+          example: false
+        isSavedMessages:
+          type: boolean
+          example: false
         avatarUrl:
           type: string
           nullable: true

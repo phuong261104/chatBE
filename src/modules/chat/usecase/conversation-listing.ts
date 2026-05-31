@@ -13,22 +13,29 @@ import {
   ConversationType,
 } from "../model/model";
 
-export const SELF_CONVERSATION_NAME = "My Document";
+export const SELF_CONVERSATION_NAME = "Saved Messages";
+export const SAVED_MESSAGES_CONVERSATION_TYPE = "saved_messages" as const;
+export type ConversationResponseType = ConversationType | typeof SAVED_MESSAGES_CONVERSATION_TYPE;
 
 export function selfConversationPairKey(userId: string): string {
   return `self_${userId}`;
 }
 
-export function isSelfConversation(conversation: Pick<Conversation, "type" | "pairKey">, userId: string): boolean {
+export function isSelfConversation(
+  conversation: Pick<ConversationListItem, "type" | "pairKey">,
+  userId: string,
+): boolean {
   return conversation.type === ConversationType.PRIVATE && conversation.pairKey === selfConversationPairKey(userId);
 }
 
-export type ConversationListItem = Conversation & {
+export type ConversationListItem = Omit<Conversation, "type"> & {
+  type: ConversationResponseType;
   activityAt?: Date;
   pinned?: boolean;
   isPinned?: boolean;
   pinnedAt?: Date;
   isSelfChat?: boolean;
+  isSavedMessages?: boolean;
 };
 
 export function normalizeConversationListItem<T extends ConversationListItem>(item: T, userId: string): T {
@@ -37,10 +44,12 @@ export function normalizeConversationListItem<T extends ConversationListItem>(it
 
   return {
     ...item,
+    type: SAVED_MESSAGES_CONVERSATION_TYPE,
     name: SELF_CONVERSATION_NAME,
     avatarUrl: item.avatarUrl || "",
     membersCount: 1,
     isSelfChat: true,
+    isSavedMessages: true,
   };
 }
 
@@ -49,15 +58,10 @@ export function compareConversationListItems(userId: string) {
     const pinnedA = !!(a.pinned || a.isPinned);
     const pinnedB = !!(b.pinned || b.isPinned);
 
-    const selfA = !!a.isSelfChat || isSelfConversation(a, userId);
-    const selfB = !!b.isSelfChat || isSelfConversation(b, userId);
-
     // Ordering rules:
     // 1) All pinned conversations are always on top.
-    // 2) When NOT pinned, self-chat (My Document) is always on top.
-    //    => This makes self-chat sit below the pinned section but above all normal chats.
+    // 2) Unpinned conversations, including Saved Messages, sort by activity.
     if (pinnedA !== pinnedB) return pinnedA ? -1 : 1;
-    if (!pinnedA && selfA !== selfB) return selfA ? -1 : 1;
 
     if (pinnedA && pinnedB) {
       const pinnedAtA = a.pinnedAt?.getTime?.() || 0;

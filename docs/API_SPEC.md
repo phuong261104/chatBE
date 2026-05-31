@@ -203,7 +203,8 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | POST | `/v1/messages/{messageId}/delete` | Delete for me |
 | POST | `/v1/messages/{messageId}/delete-for-everyone` | Delete for everyone |
 | POST | `/v1/messages/forward` | Forward messages |
-| POST | `/v1/messages/save-to-my-document` | Lưu message vào My Cloud/My Document |
+| POST | `/v1/messages/save-to-my-document` | Lưu message vào Saved Messages |
+| POST | `/v1/saved-messages/messages` | Alias lưu message vào Saved Messages |
 | POST/DELETE | `/v1/messages/{messageId}/pin` | Pin/unpin message |
 | POST | `/v1/messages/{messageId}/quote` | Quote/reply |
 | POST | `/v1/messages/{messageId}/translate` | Dịch message |

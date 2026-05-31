@@ -7,6 +7,8 @@ import {
   ConversationMember,
 } from "../model";
 
+export type ConversationResponseType = ConversationType | "saved_messages";
+
 export const ConversationCondDTOSchema = z.object({
   type: z.nativeEnum(ConversationType).optional(),
   pairKey: z.string().optional(),
@@ -73,7 +75,8 @@ export interface GetConversationsCursorQuery {
   limit?: number;
 }
 
-export type ConversationWithMetadata = Conversation & {
+export type ConversationWithMetadata = Omit<Conversation, "type"> & {
+  type: ConversationResponseType;
   name: string;
   avatarUrl: string;
   unreadCount: number;
@@ -82,6 +85,7 @@ export type ConversationWithMetadata = Conversation & {
   isPinned?: boolean;
   pinnedAt?: Date;
   isSelfChat?: boolean;
+  isSavedMessages?: boolean;
   activityAt?: Date;
   lastMessageStatus?: "sent" | "delivered" | "read";
   lastMessageTimeFormatted?: string;
@@ -91,13 +95,15 @@ export type ConversationWithMetadata = Conversation & {
 
 export type ConversationCursorResult = {
   pinned: Array<
-    Conversation & {
+    Omit<Conversation, "type"> & {
+      type: ConversationResponseType;
       unreadCount: number;
       role: any;
       pinned?: boolean;
       isPinned?: boolean;
       pinnedAt?: Date;
       isSelfChat?: boolean;
+      isSavedMessages?: boolean;
       activityAt?: Date;
       name: string;
       avatarUrl: string;
@@ -108,13 +114,15 @@ export type ConversationCursorResult = {
     }
   > | null;
   data: Array<
-    Conversation & {
+    Omit<Conversation, "type"> & {
+      type: ConversationResponseType;
       unreadCount: number;
       role: any;
       pinned?: boolean;
       isPinned?: boolean;
       pinnedAt?: Date;
       isSelfChat?: boolean;
+      isSavedMessages?: boolean;
       activityAt?: Date;
       name: string;
       avatarUrl: string;
@@ -141,7 +149,16 @@ export const getConversationDetailDTOSchema = z.object({
 export type GetConversationDetailDTO = z.infer<typeof getConversationDetailDTOSchema>;
 
 export interface ConversationDetail {
-  conversation: Conversation;
+  conversation: Omit<Conversation, "type"> & {
+    type: ConversationResponseType;
+    unreadCount?: number;
+    role?: any;
+    pinned?: boolean;
+    isPinned?: boolean;
+    pinnedAt?: Date;
+    isSelfChat?: boolean;
+    isSavedMessages?: boolean;
+  };
   members: ConversationMember[];
   currentUserRole: any;
 }

@@ -14,7 +14,7 @@ components:
               example: "Nhóm Dev Team"
             type:
               type: string
-              enum: [private, group]
+              enum: [private, group, saved_messages]
               example: "group"
             avatarUrl:
               type: string
@@ -256,8 +256,14 @@ components:
           example: "Nguyễn Văn A"
         type:
           type: string
-          enum: [private, group]
+          enum: [private, group, saved_messages]
           example: "private"
+        isSelfChat:
+          type: boolean
+          example: false
+        isSavedMessages:
+          type: boolean
+          example: false
         avatarUrl:
           type: string
           format: uri
@@ -328,7 +334,7 @@ components:
           nullable: true
         type:
           type: string
-          enum: [private, group]
+          enum: [private, group, saved_messages]
           example: "group"
         avatarUrl:
           type: string

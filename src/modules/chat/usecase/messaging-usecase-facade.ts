@@ -13,6 +13,7 @@ import {
 } from "../model/model";
 import {
   ConversationWithMetadata,
+  ConversationCursorResult,
   ConversationDetail,
   LoadMessagesResult,
   ReactionResult,
@@ -279,20 +280,14 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     userId: string,
     page?: number,
     limit?: number,
-  ): Promise<
-    Array<Conversation & { unreadCount: number; role: ConversationMemberRole }>
-  > {
+  ): Promise<ConversationWithMetadata[]> {
     return this.getConversationsQueryHandler.query({ userId, page, limit });
   }
 
   async getConversationDetail(
     conversationId: string,
     userId: string,
-  ): Promise<{
-    conversation: Conversation;
-    members: ConversationMember[];
-    currentUserRole: ConversationMemberRole;
-  }> {
+  ): Promise<ConversationDetail> {
     return this.getConversationDetailQueryHandler.query({
       conversationId,
       userId,
@@ -620,12 +615,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     userId: string,
     cursor?: string,
     limit?: number,
-  ): Promise<{
-    pinned: Array<Conversation & { unreadCount: number; role: ConversationMemberRole; pinnedAt?: Date }> | null;
-    data: Array<Conversation & { unreadCount: number; role: ConversationMemberRole }>;
-    nextCursor?: string;
-    hasMore: boolean;
-  }> {
+  ): Promise<ConversationCursorResult> {
     return this.getConversationsCursorQueryHandler.query({ userId, cursor, limit });
   }
 

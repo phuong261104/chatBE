@@ -13,14 +13,17 @@ import {
 } from "../model/dto";
 import { ForwardMessagesHandler } from "./forward-messages";
 import {
+  ConversationResponseType,
   ensureSelfConversation,
   normalizeConversationListItem,
 } from "./conversation-listing";
 
 export type SaveMessagesToMyDocumentResult = {
-  conversation: Conversation & {
+  conversation: Omit<Conversation, "type"> & {
+    type: ConversationResponseType;
     name: string;
     isSelfChat: true;
+    isSavedMessages: true;
     pinned?: boolean;
     isPinned?: boolean;
     pinnedAt?: Date;

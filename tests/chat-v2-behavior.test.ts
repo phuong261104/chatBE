@@ -67,7 +67,7 @@ describe("canonical chat business behavior", () => {
     return conversation;
   }
 
-  it("orders pinned conversations first and keeps unpinned My Document above normal chats", async () => {
+  it("orders pinned conversations first and sorts unpinned Saved Messages by activity", async () => {
     const store = new ChatE2EStore();
     const user = store.addUser({ displayName: "Owner" });
     const repos = createConversationListRepos(store);
@@ -86,6 +86,20 @@ describe("canonical chat business behavior", () => {
       name: "Normal old",
       activityAt: new Date("2026-01-03T00:00:00Z"),
     });
+    const selfConversation = store.addConversation({
+      type: ConversationType.PRIVATE,
+      pairKey: `self_${user.id}`,
+      name: "Old self name",
+      membersCount: 2,
+      updatedAt: new Date("2026-01-03T12:00:00Z"),
+      createdAt: new Date("2026-01-03T12:00:00Z"),
+    });
+    store.addMember({
+      conversationId: selfConversation.id,
+      userId: user.id,
+      lastActivityAt: new Date("2026-01-03T12:00:00Z"),
+      updatedAt: new Date("2026-01-03T12:00:00Z"),
+    });
     const pinnedNew = seedListConversation(store, user.id, {
       name: "Pinned new",
       activityAt: new Date("2026-01-02T00:00:00Z"),
@@ -103,26 +117,28 @@ describe("canonical chat business behavior", () => {
     );
 
     const result = await handler.query({ userId: user.id, page: 1, limit: 10 });
-    const selfConversation = result.find((conversation: any) => conversation.isSelfChat);
+    const savedMessages = result.find((conversation: any) => conversation.isSelfChat);
 
     expect(result.map((conversation) => conversation.id)).toEqual([
       pinnedNew.id,
       pinnedOld.id,
-      selfConversation!.id,
       normalNew.id,
+      selfConversation.id,
       normalOld.id,
     ]);
-    expect(selfConversation).toEqual(
+    expect(savedMessages).toEqual(
       expect.objectContaining({
-        name: "My Document",
+        name: "Saved Messages",
+        type: "saved_messages",
         pairKey: `self_${user.id}`,
         membersCount: 1,
         isSelfChat: true,
+        isSavedMessages: true,
       }),
     );
   });
 
-  it("sorts pinned My Document by pinnedAt with other pinned conversations", async () => {
+  it("sorts pinned Saved Messages by pinnedAt with other pinned conversations", async () => {
     const store = new ChatE2EStore();
     const user = store.addUser({ displayName: "Owner" });
     const repos = createConversationListRepos(store);
@@ -178,15 +194,17 @@ describe("canonical chat business behavior", () => {
     ]);
     expect(result.find((conversation) => conversation.id === selfConversation.id)).toEqual(
       expect.objectContaining({
-        name: "My Document",
+        name: "Saved Messages",
+        type: "saved_messages",
         membersCount: 1,
         isSelfChat: true,
+        isSavedMessages: true,
         pinned: true,
       }),
     );
   });
 
-  it("paginates cursor conversations after sorting pinned and My Document", async () => {
+  it("paginates cursor conversations after sorting pinned and Saved Messages by activity", async () => {
     const store = new ChatE2EStore();
     const user = store.addUser({ displayName: "Owner" });
     const repos = createConversationListRepos(store);
@@ -198,6 +216,20 @@ describe("canonical chat business behavior", () => {
     const normalOld = seedListConversation(store, user.id, {
       name: "Normal old",
       activityAt: new Date("2026-01-03T00:00:00Z"),
+    });
+    const selfConversation = store.addConversation({
+      type: ConversationType.PRIVATE,
+      pairKey: `self_${user.id}`,
+      name: "Old self name",
+      membersCount: 2,
+      updatedAt: new Date("2026-01-03T12:00:00Z"),
+      createdAt: new Date("2026-01-03T12:00:00Z"),
+    });
+    store.addMember({
+      conversationId: selfConversation.id,
+      userId: user.id,
+      lastActivityAt: new Date("2026-01-03T12:00:00Z"),
+      updatedAt: new Date("2026-01-03T12:00:00Z"),
     });
     const pinnedOld = seedListConversation(store, user.id, {
       name: "Pinned old",
@@ -222,11 +254,12 @@ describe("canonical chat business behavior", () => {
     );
 
     const first = await handler.query({ userId: user.id, limit: 2 });
-    const selfConversation = first.data.find((conversation: any) => conversation.isSelfChat);
+    const savedMessages = first.data.find((conversation: any) => conversation.isSelfChat);
 
     expect(first.pinned?.map((conversation) => conversation.id)).toEqual([pinnedNew.id, pinnedOld.id]);
-    expect(first.data.map((conversation) => conversation.id)).toEqual([selfConversation!.id, normalNew.id]);
-    expect(first.nextCursor).toBe(normalNew.id);
+    expect(first.data.map((conversation) => conversation.id)).toEqual([normalNew.id, selfConversation.id]);
+    expect(savedMessages).toEqual(expect.objectContaining({ type: "saved_messages", isSavedMessages: true }));
+    expect(first.nextCursor).toBe(selfConversation.id);
     expect(first.hasMore).toBe(true);
 
     const second = await handler.query({ userId: user.id, cursor: first.nextCursor, limit: 2 });
@@ -235,7 +268,7 @@ describe("canonical chat business behavior", () => {
     expect(second.hasMore).toBe(false);
   });
 
-  it("saves selected messages to My Document with searchable text and media classification", async () => {
+  it("saves selected messages to Saved Messages with searchable text and media classification", async () => {
     const store = new ChatE2EStore();
     const user = store.addUser({ displayName: "Owner" });
     const repos = createConversationListRepos(store);
@@ -282,8 +315,10 @@ describe("canonical chat business behavior", () => {
     expect(result.conversation).toEqual(
       expect.objectContaining({
         pairKey: `self_${user.id}`,
-        name: "My Document",
+        name: "Saved Messages",
+        type: "saved_messages",
         isSelfChat: true,
+        isSavedMessages: true,
       }),
     );
     expect(result.messages).toHaveLength(1);

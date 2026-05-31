@@ -31,7 +31,11 @@ import { FriendshipStatus } from "@modules/friendships/model/model";
 import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
 import { IPresenceUseCase } from "@modules/user/interface";
 import { RelationshipPrivacyPolicyV2 } from "@modules/user/usecase/relationship-privacy-policy-v2";
-import { SELF_CONVERSATION_NAME, selfConversationPairKey } from "../../../usecase/conversation-listing";
+import {
+  normalizeConversationListItem,
+  SELF_CONVERSATION_NAME,
+  selfConversationPairKey,
+} from "../../../usecase/conversation-listing";
 
 const privateMessageSchema = z
   .object({
@@ -257,7 +261,7 @@ export class ChatV2Controller {
 
       return res.status(201).json({
         data: {
-          conversation,
+          conversation: normalizeConversationListItem(conversation, currentUserId),
           messages,
           messageRequestStatus: requestStatus,
         },
