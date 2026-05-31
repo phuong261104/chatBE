@@ -3,8 +3,8 @@ import { SocketHandlerContext } from "./types";
 
 export interface SocketNotifierMethods {
   notifyNewGroup(memberUserIds: string[], groupData: any): void;
-  notifyMembersAdded(conversationId: string, newMembers: any[]): void;
-  notifyMemberRemoved(conversationId: string, removedUserId: string): void;
+  notifyMembersAdded(conversationId: string, newMembers: any[], addedBy?: string): void;
+  notifyMemberRemoved(conversationId: string, removedUserId: string, removedBy?: string, reason?: "removed" | "left"): void;
   notifyMemberLeft(conversationId: string, leftUserId: string, leftBy: string): void;
   notifyGroupDissolved(conversationId: string, dissolvedBy: string, memberUserIds: string[]): void;
   notifyConversationPinned(conversationId: string, pinnedBy: string, pinned: boolean): void;
@@ -42,26 +42,58 @@ export const socketNotifiers = {
     }
   },
 
-  notifyMembersAdded(this: SocketHandlerContext, conversationId: string, newMembers: any[]) {
-    this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_MEMBERS_ADDED, {
+  notifyMembersAdded(this: SocketHandlerContext, conversationId: string, newMembers: any[], addedBy?: string) {
+    const payload = {
       conversationId,
       newMembers,
-    });
+      addedBy,
+    };
+
+    this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_MEMBERS_ADDED, payload);
+
+    for (const member of newMembers) {
+      if (member?.userId) {
+        this.emitToUser(member.userId, SocketEvent.CONVERSATION_MEMBERS_ADDED, payload);
+      }
+    }
   },
 
-  notifyMemberRemoved(this: SocketHandlerContext, conversationId: string, removedUserId: string) {
-    this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_MEMBER_REMOVED, {
+  notifyMemberRemoved(
+    this: SocketHandlerContext,
+    conversationId: string,
+    removedUserId: string,
+    removedBy?: string,
+    reason: "removed" | "left" = "removed",
+  ) {
+    const payload = {
       conversationId,
       removedUserId,
-    });
+      removedBy,
+      reason,
+    };
+
+    this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_MEMBER_REMOVED, payload);
+    this.emitToUser(removedUserId, SocketEvent.CONVERSATION_MEMBER_REMOVED, payload);
   },
 
   notifyMemberLeft(this: SocketHandlerContext, conversationId: string, leftUserId: string, leftBy: string) {
-    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_MEMBER_LEFT, {
+    const memberRemovedPayload = {
+      conversationId,
+      removedUserId: leftUserId,
+      removedBy: leftBy,
+      reason: "left",
+    };
+    const memberLeftPayload = {
       conversationId,
       leftUserId,
       leftBy,
-    });
+    };
+
+    this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_MEMBER_REMOVED, memberRemovedPayload);
+    this.emitToUser(leftUserId, SocketEvent.CONVERSATION_MEMBER_REMOVED, memberRemovedPayload);
+
+    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_MEMBER_LEFT, memberLeftPayload);
+    this.emitToUser(leftUserId, SocketEvent.GROUP_MEMBER_LEFT, memberLeftPayload);
   },
 
   notifyGroupDissolved(this: SocketHandlerContext, conversationId: string, dissolvedBy: string, memberUserIds: string[]) {
