@@ -71,6 +71,7 @@ import { SearchMessagesHandler } from "./search-messages";
 import { GetConversationStatisticsQueryHandler } from "./get-conversation-statistics";
 import { GetSharedConversationsQueryHandler } from "./get-shared-conversations";
 import { DeleteMessagesBulkHandler } from "./delete-messages-bulk";
+import { DeleteConversationForMeHandler, DeleteConversationForMeResult } from "./delete-conversation-for-me";
 import { GetConversationOnlineMembersQueryHandler } from "./get-conversation-online-members";
 import { GetDraftsQueryHandler } from "./get-drafts";
 import { TranslateMessageHandler } from "./translate-message";
@@ -151,6 +152,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly getConversationStatisticsQueryHandler: GetConversationStatisticsQueryHandler,
     private readonly getSharedConversationsQueryHandler: GetSharedConversationsQueryHandler,
     private readonly deleteMessagesBulkHandler: DeleteMessagesBulkHandler,
+    private readonly deleteConversationForMeHandler: DeleteConversationForMeHandler,
     private readonly getConversationOnlineMembersQueryHandler: GetConversationOnlineMembersQueryHandler,
     private readonly getDraftsQueryHandler: GetDraftsQueryHandler,
     private readonly translateMessageHandler: TranslateMessageHandler,
@@ -427,6 +429,10 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
 
   async unarchiveConversation(conversationId: string, userId: string): Promise<void> {
     return this.unarchiveConversationHandler.execute({ conversationId, userId });
+  }
+
+  async deleteConversationForMe(conversationId: string, userId: string): Promise<DeleteConversationForMeResult> {
+    return this.deleteConversationForMeHandler.execute({ conversationId, userId });
   }
 
   async editMessage(messageId: string, userId: string, text: string, timeLimitMs?: number): Promise<Message> {

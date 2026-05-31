@@ -43,6 +43,7 @@ export const ConversationMemberUpdateDTOSchema = z.object({
   hidden: z.boolean().optional(),
   hiddenAt: z.date().nullable().optional(),
   hiddenPinHash: z.string().nullable().optional(),
+  deletedAt: z.date().nullable().optional(),
   historyVisibleFrom: z.date().nullable().optional(),
   nickname: z.string().nullable().optional(),
   nicknameUpdatedAt: z.date().optional(),

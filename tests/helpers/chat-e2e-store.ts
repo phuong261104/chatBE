@@ -92,6 +92,7 @@ export function cloneMember(member: ConversationMember): ConversationMember {
     muteUntil: cloneDate(member.muteUntil) as Date | undefined,
     pinnedAt: cloneDate(member.pinnedAt) as Date | undefined,
     hiddenAt: cloneDate(member.hiddenAt) as Date | undefined,
+    deletedAt: cloneDate(member.deletedAt) as Date | undefined,
     hiddenUserIds: member.hiddenUserIds ? [...member.hiddenUserIds] : [],
   };
 }
@@ -244,6 +245,7 @@ export class ChatE2EStore {
       hidden: data.hidden,
       hiddenAt: data.hiddenAt,
       hiddenPinHash: data.hiddenPinHash,
+      deletedAt: data.deletedAt,
       updatedAt: data.updatedAt || now,
     };
     this.members.set(member.id, member);

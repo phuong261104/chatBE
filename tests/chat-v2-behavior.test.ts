@@ -2,6 +2,7 @@ import { v7 } from "uuid";
 import { EditMessageHandler } from "@modules/chat/usecase/edit-message";
 import { AddReactionHandler } from "@modules/chat/usecase/add-reaction";
 import { AddMembersToGroupHandler } from "@modules/chat/usecase/add-members-to-group";
+import { DeleteConversationForMeHandler } from "@modules/chat/usecase/delete-conversation-for-me";
 import { ForwardMessagesHandler } from "@modules/chat/usecase/forward-messages";
 import { GetConversationsCursorQueryHandler } from "@modules/chat/usecase/get-conversations-cursor";
 import { GetConversationsQueryHandler } from "@modules/chat/usecase/get-conversations";
@@ -867,5 +868,219 @@ describe("canonical chat business behavior", () => {
 
     expect(result.messages).toEqual([visibleMessage]);
     expect(result.hasMore).toBe(false);
+  });
+
+  it("deletes a private conversation for one user and only shows messages after recreation activity", async () => {
+    const store = new ChatE2EStore();
+    const user = store.addUser({ displayName: "Owner" });
+    const target = store.addUser({ displayName: "Target" });
+    const repos = createConversationListRepos(store);
+    const conversation = store.addConversation({
+      type: ConversationType.PRIVATE,
+      pairKey: [user.id, target.id].sort().join("_"),
+      updatedAt: new Date("2024-01-01T00:00:00Z"),
+      createdAt: new Date("2024-01-01T00:00:00Z"),
+    });
+    store.addMember({
+      conversationId: conversation.id,
+      userId: user.id,
+      lastActivityAt: new Date("2024-01-01T00:00:00Z"),
+    });
+    store.addMember({
+      conversationId: conversation.id,
+      userId: target.id,
+      lastActivityAt: new Date("2024-01-01T00:00:00Z"),
+    });
+    const oldMessage = store.addMessage({
+      conversationId: conversation.id,
+      senderId: target.id,
+      type: MessageType.FILE,
+      text: "old needle",
+      media: [{ url: "https://cdn.test/old.pdf", mediaType: MediaType.FILE, name: "old.pdf" }],
+      createdAt: new Date("2024-01-01T00:00:00Z"),
+    });
+    store.classifications.push({
+      id: v7(),
+      conversationId: conversation.id,
+      type: ClassificationType.FILE,
+      senderId: target.id,
+      url: "https://cdn.test/old.pdf",
+      name: "old.pdf",
+      messageId: oldMessage.id,
+      createdAt: oldMessage.createdAt,
+    });
+    await repos.conversationRepo.update(conversation.id, {
+      lastMessage: {
+        messageId: oldMessage.id,
+        senderId: oldMessage.senderId,
+        type: oldMessage.type,
+        textPreview: oldMessage.text,
+        createdAt: oldMessage.createdAt,
+      },
+      lastMessageAt: oldMessage.createdAt,
+    });
+
+    const deleteHandler = new DeleteConversationForMeHandler(repos.memberRepo as any, repos.memberRepo as any);
+    const deleted = await deleteHandler.execute({ conversationId: conversation.id, userId: user.id });
+
+    const listHandler = new GetConversationsQueryHandler(
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.userRepo as any,
+      repos.messageRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+    );
+    const afterDeleteList = await listHandler.query({ userId: user.id, page: 1, limit: 20 });
+    expect(afterDeleteList.map((item) => item.id)).not.toContain(conversation.id);
+
+    const newCreatedAt = new Date(deleted.deletedAt.getTime() + 1000);
+    const newMessage = store.addMessage({
+      conversationId: conversation.id,
+      senderId: target.id,
+      type: MessageType.FILE,
+      text: "new needle",
+      media: [{ url: "https://cdn.test/new.pdf", mediaType: MediaType.FILE, name: "new.pdf" }],
+      createdAt: newCreatedAt,
+    });
+    store.classifications.push({
+      id: v7(),
+      conversationId: conversation.id,
+      type: ClassificationType.FILE,
+      senderId: target.id,
+      url: "https://cdn.test/new.pdf",
+      name: "new.pdf",
+      messageId: newMessage.id,
+      createdAt: newMessage.createdAt,
+    });
+    await repos.conversationRepo.update(conversation.id, {
+      lastMessage: {
+        messageId: newMessage.id,
+        senderId: newMessage.senderId,
+        type: newMessage.type,
+        textPreview: newMessage.text,
+        createdAt: newMessage.createdAt,
+      },
+      lastMessageAt: newMessage.createdAt,
+    });
+    await repos.memberRepo.touchActivityForConversation(conversation.id, newCreatedAt);
+
+    const afterActivityList = await listHandler.query({ userId: user.id, page: 1, limit: 20 });
+    expect(afterActivityList.map((item) => item.id)).toContain(conversation.id);
+    expect(afterActivityList.find((item) => item.id === conversation.id)?.lastMessage?.messageId).toBe(newMessage.id);
+
+    const loadHandler = new LoadMessagesQueryHandler(
+      repos.memberRepo as any,
+      repos.messageRepo as any,
+      { findByMessageId: jest.fn().mockResolvedValue([]) } as any,
+      repos.userRepo as any,
+      { get: jest.fn().mockResolvedValue(null) } as any,
+      { get: jest.fn().mockResolvedValue(null) } as any,
+      repos.conversationRepo as any,
+    );
+    const loaded = await loadHandler.query({ conversationId: conversation.id, userId: user.id, limit: 20 });
+    expect(loaded.messages.map((message) => message.id)).toEqual([newMessage.id]);
+
+    const searchHandler = new SearchMessagesHandler(repos.memberRepo as any, repos.messageRepo as any);
+    const search = await searchHandler.query({
+      conversationId: conversation.id,
+      userId: user.id,
+      query: "needle",
+      limit: 20,
+    });
+    expect(search.messages.map((message) => message.id)).toEqual([newMessage.id]);
+
+    const mediaHandler = new GetConversationMediaQueryHandler(
+      repos.memberRepo as any,
+      repos.classificationRepo as any,
+      repos.messageRepo as any,
+    );
+    const media = await mediaHandler.query({
+      conversationId: conversation.id,
+      userId: user.id,
+      type: "file",
+      limit: 20,
+    });
+    expect(media.files.map((file) => file.messageId)).toEqual([newMessage.id]);
+  });
+
+  it("deletes Saved Messages for the user and only loads newly saved messages after delete", async () => {
+    const store = new ChatE2EStore();
+    const user = store.addUser({ displayName: "Owner" });
+    const repos = createConversationListRepos(store);
+    const sourceConversation = store.addConversation({
+      type: ConversationType.GROUP,
+      name: "Source",
+    });
+    store.addMember({ conversationId: sourceConversation.id, userId: user.id });
+    const oldSource = store.addMessage({
+      conversationId: sourceConversation.id,
+      senderId: user.id,
+      type: MessageType.TEXT,
+      text: "old saved needle",
+    });
+    const newSource = store.addMessage({
+      conversationId: sourceConversation.id,
+      senderId: user.id,
+      type: MessageType.TEXT,
+      text: "new saved needle",
+    });
+    const forwardHandler = new ForwardMessagesHandler(
+      repos.conversationRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.memberRepo as any,
+      repos.messageRepo as any,
+      repos.messageRepo as any,
+      repos.classificationRepo as any,
+    );
+    const saveHandler = new SaveMessagesToMyDocumentHandler(
+      repos.conversationRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.memberRepo as any,
+      forwardHandler,
+    );
+
+    const oldSaved = await saveHandler.execute({ userId: user.id, messageIds: [oldSource.id] });
+    const deleteHandler = new DeleteConversationForMeHandler(repos.memberRepo as any, repos.memberRepo as any);
+    await deleteHandler.execute({ conversationId: oldSaved.conversation.id, userId: user.id });
+
+    const listHandler = new GetConversationsQueryHandler(
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+      repos.userRepo as any,
+      repos.messageRepo as any,
+      repos.conversationRepo as any,
+      repos.memberRepo as any,
+    );
+    const afterDeleteList = await listHandler.query({ userId: user.id, page: 1, limit: 20 });
+    expect(afterDeleteList.map((item) => item.id)).not.toContain(oldSaved.conversation.id);
+
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    const newSaved = await saveHandler.execute({ userId: user.id, messageIds: [newSource.id] });
+    expect(newSaved.conversation).toEqual(
+      expect.objectContaining({
+        id: oldSaved.conversation.id,
+        type: "saved_messages",
+        isSavedMessages: true,
+      }),
+    );
+
+    const loadHandler = new LoadMessagesQueryHandler(
+      repos.memberRepo as any,
+      repos.messageRepo as any,
+      { findByMessageId: jest.fn().mockResolvedValue([]) } as any,
+      repos.userRepo as any,
+      { get: jest.fn().mockResolvedValue(null) } as any,
+      { get: jest.fn().mockResolvedValue(null) } as any,
+      repos.conversationRepo as any,
+    );
+    const loaded = await loadHandler.query({
+      conversationId: oldSaved.conversation.id,
+      userId: user.id,
+      limit: 20,
+    });
+    expect(loaded.messages.map((message) => message.id)).toEqual(newSaved.messages.map((message) => message.id));
   });
 });

@@ -116,11 +116,16 @@ async function registerUser(label: string): Promise<Session> {
   return { accessToken: loginPayload.accessToken, userId: loginPayload.user.id, email, phone, deviceId };
 }
 
-async function sendPrivateMessage(owner: Session, target: Session, text: string) {
+async function sendPrivateMessage(
+  owner: Session,
+  target: Session,
+  text: string,
+  media?: any[],
+) {
   const response = await request(
     "POST",
     "/v1/messages/private",
-    { targetUserId: target.userId, text },
+    { targetUserId: target.userId, text, ...(media ? { media } : {}) },
     owner,
   );
   expect(response.status).toBe(201);
@@ -219,6 +224,232 @@ liveDescribe("Saved Messages against a real running server", () => {
           isSavedMessages: true,
         }),
       );
+    });
+  });
+
+  it("keeps delete-for-me cutoff after private chat and Saved Messages are recreated", async () => {
+    const owner = await registerUser("delete-owner");
+    const target = await registerUser("delete-target");
+    const savedSource = await registerUser("delete-source");
+
+    const oldPrivate = await sendPrivateMessage(
+      owner,
+      target,
+      `old private cutoff ${RUN_ID}`,
+      [
+        {
+          url: `https://cdn.test/live-delete-old-private-${RUN_ID}.pdf`,
+          filename: `live-delete-old-private-${RUN_ID}.pdf`,
+          mimetype: "application/pdf",
+          size: 100,
+        },
+      ],
+    );
+
+    const deletePrivate = await request(
+      "DELETE",
+      `/v1/conversations/${oldPrivate.conversation.id}`,
+      undefined,
+      owner,
+    );
+    expect(deletePrivate.status).toBe(200);
+    expect(dataOf(deletePrivate)).toEqual(
+      expect.objectContaining({
+        conversationId: oldPrivate.conversation.id,
+        deletedAt: expect.any(String),
+      }),
+    );
+
+    await eventually(async () => {
+      const list = await request("GET", "/v1/conversations?page=1&limit=20", undefined, owner);
+      expect(list.status).toBe(200);
+      expect(idsOf(dataOf(list))).not.toContain(oldPrivate.conversation.id);
+    });
+
+    await sleep(150);
+    const newPrivate = await sendPrivateMessage(
+      target,
+      owner,
+      `new private cutoff ${RUN_ID}`,
+      [
+        {
+          url: `https://cdn.test/live-delete-new-private-${RUN_ID}.pdf`,
+          filename: `live-delete-new-private-${RUN_ID}.pdf`,
+          mimetype: "application/pdf",
+          size: 101,
+        },
+      ],
+    );
+    expect(newPrivate.conversation.id).toBe(oldPrivate.conversation.id);
+
+    await eventually(async () => {
+      const list = await request("GET", "/v1/conversations?page=1&limit=20", undefined, owner);
+      expect(list.status).toBe(200);
+      expect(idsOf(dataOf(list))).toContain(oldPrivate.conversation.id);
+
+      const loaded = await request(
+        "GET",
+        `/v1/conversations/${oldPrivate.conversation.id}/messages`,
+        undefined,
+        owner,
+      );
+      expect(loaded.status).toBe(200);
+      const loadedIds = idsOf(dataOf(loaded).messages);
+      expect(loadedIds).not.toEqual(expect.arrayContaining(idsOf(oldPrivate.messages)));
+      expect(loadedIds).toEqual(expect.arrayContaining(idsOf(newPrivate.messages)));
+
+      const search = await request(
+        "GET",
+        `/v1/conversations/${oldPrivate.conversation.id}/search?query=cutoff`,
+        undefined,
+        owner,
+      );
+      expect(search.status).toBe(200);
+      const searchIds = idsOf(dataOf(search).messages);
+      expect(searchIds).not.toEqual(expect.arrayContaining(idsOf(oldPrivate.messages)));
+      expect(searchIds).toEqual(expect.arrayContaining(idsOf(newPrivate.messages)));
+
+      const files = await request(
+        "GET",
+        `/v1/conversations/${oldPrivate.conversation.id}/media?type=file`,
+        undefined,
+        owner,
+      );
+      expect(files.status).toBe(200);
+      const fileUrls = dataOf(files).files.map((file: any) => file.url);
+      expect(fileUrls).not.toContain(`https://cdn.test/live-delete-old-private-${RUN_ID}.pdf`);
+      expect(fileUrls).toContain(`https://cdn.test/live-delete-new-private-${RUN_ID}.pdf`);
+    });
+
+    const initialList = await request("GET", "/v1/conversations?page=1&limit=20", undefined, owner);
+    expect(initialList.status).toBe(200);
+    const savedMessages = dataOf(initialList).find((conversation: any) => conversation.isSavedMessages);
+    expect(savedMessages).toEqual(
+      expect.objectContaining({
+        name: "Saved Messages",
+        type: "saved_messages",
+        isSavedMessages: true,
+      }),
+    );
+
+    const oldSource = await sendPrivateMessage(
+      owner,
+      savedSource,
+      `old saved cutoff ${RUN_ID}`,
+      [
+        {
+          url: `https://cdn.test/live-delete-old-saved-${RUN_ID}.pdf`,
+          filename: `live-delete-old-saved-${RUN_ID}.pdf`,
+          mimetype: "application/pdf",
+          size: 200,
+        },
+      ],
+    );
+    const oldSave = await request(
+      "POST",
+      "/v1/saved-messages/messages",
+      { messageIds: idsOf(oldSource.messages) },
+      owner,
+    );
+    expect(oldSave.status).toBe(201);
+    const oldSavedMessageIds = idsOf(dataOf(oldSave).messages);
+    expect(dataOf(oldSave).conversation).toEqual(
+      expect.objectContaining({
+        id: savedMessages.id,
+        type: "saved_messages",
+        isSavedMessages: true,
+      }),
+    );
+
+    const deleteSaved = await request(
+      "DELETE",
+      `/v1/conversations/${savedMessages.id}`,
+      undefined,
+      owner,
+    );
+    expect(deleteSaved.status).toBe(200);
+    expect(dataOf(deleteSaved)).toEqual(
+      expect.objectContaining({
+        conversationId: savedMessages.id,
+        deletedAt: expect.any(String),
+      }),
+    );
+
+    await eventually(async () => {
+      const list = await request("GET", "/v1/conversations?page=1&limit=20", undefined, owner);
+      expect(list.status).toBe(200);
+      expect(idsOf(dataOf(list))).not.toContain(savedMessages.id);
+    });
+
+    await sleep(150);
+    const newSource = await sendPrivateMessage(
+      owner,
+      savedSource,
+      `new saved cutoff ${RUN_ID}`,
+      [
+        {
+          url: `https://cdn.test/live-delete-new-saved-${RUN_ID}.pdf`,
+          filename: `live-delete-new-saved-${RUN_ID}.pdf`,
+          mimetype: "application/pdf",
+          size: 201,
+        },
+      ],
+    );
+    const newSave = await request(
+      "POST",
+      "/v1/saved-messages/messages",
+      { messageIds: idsOf(newSource.messages) },
+      owner,
+    );
+    expect(newSave.status).toBe(201);
+    const newSavedMessageIds = idsOf(dataOf(newSave).messages);
+    expect(dataOf(newSave).conversation).toEqual(
+      expect.objectContaining({
+        id: savedMessages.id,
+        name: "Saved Messages",
+        type: "saved_messages",
+        isSelfChat: true,
+        isSavedMessages: true,
+      }),
+    );
+
+    await eventually(async () => {
+      const list = await request("GET", "/v1/conversations?page=1&limit=20", undefined, owner);
+      expect(list.status).toBe(200);
+      expect(idsOf(dataOf(list))).toContain(savedMessages.id);
+
+      const loaded = await request(
+        "GET",
+        `/v1/conversations/${savedMessages.id}/messages`,
+        undefined,
+        owner,
+      );
+      expect(loaded.status).toBe(200);
+      const loadedIds = idsOf(dataOf(loaded).messages);
+      expect(loadedIds).not.toEqual(expect.arrayContaining(oldSavedMessageIds));
+      expect(loadedIds).toEqual(expect.arrayContaining(newSavedMessageIds));
+
+      const search = await request(
+        "GET",
+        `/v1/conversations/${savedMessages.id}/search?query=cutoff`,
+        undefined,
+        owner,
+      );
+      expect(search.status).toBe(200);
+      const searchIds = idsOf(dataOf(search).messages);
+      expect(searchIds).not.toEqual(expect.arrayContaining(oldSavedMessageIds));
+      expect(searchIds).toEqual(expect.arrayContaining(newSavedMessageIds));
+
+      const files = await request(
+        "GET",
+        `/v1/conversations/${savedMessages.id}/media?type=file`,
+        undefined,
+        owner,
+      );
+      expect(files.status).toBe(200);
+      const fileUrls = dataOf(files).files.map((file: any) => file.url);
+      expect(fileUrls).not.toContain(`https://cdn.test/live-delete-old-saved-${RUN_ID}.pdf`);
+      expect(fileUrls).toContain(`https://cdn.test/live-delete-new-saved-${RUN_ID}.pdf`);
     });
   });
 });

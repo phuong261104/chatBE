@@ -55,6 +55,7 @@ export { GetReadReceiptsHandler, MarkMultipleAsReadHandler } from "./read-receip
 export { GetConversationStatisticsQueryHandler } from "./get-conversation-statistics";
 export { GetSharedConversationsQueryHandler } from "./get-shared-conversations";
 export { DeleteMessagesBulkHandler } from "./delete-messages-bulk";
+export { DeleteConversationForMeHandler } from "./delete-conversation-for-me";
 export { GetConversationOnlineMembersQueryHandler } from "./get-conversation-online-members";
 export { GetDraftsQueryHandler } from "./get-drafts";
 export { TranslateMessageHandler } from "./translate-message";

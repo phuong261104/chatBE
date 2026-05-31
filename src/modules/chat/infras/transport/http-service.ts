@@ -175,6 +175,10 @@ export class MessagingHttpService {
     return this.conversationActionsController.unarchiveConversationAPI(req, res);
   }
 
+  async deleteConversationForMeAPI(req: Request, res: Response) {
+    return this.conversationActionsController.deleteConversationForMeAPI(req, res);
+  }
+
   async editMessageAPI(req: Request, res: Response) {
     return this.messageController.editMessageAPI(req, res);
   }

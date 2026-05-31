@@ -194,6 +194,42 @@ paths:
           description: Not a member of this conversation
         "404":
           description: Conversation not found
+    delete:
+      summary: Delete conversation for me
+      tags: [Chat - Conversations]
+      security:
+        - BearerAuth: []
+      description: |
+        Deletes a conversation only for the current user. The backend keeps the conversation and messages,
+        stores `deletedAt` on the current user's membership, hides the conversation until new activity,
+        and filters messages/search/media before `deletedAt` from this user.
+      parameters:
+        - in: path
+          name: conversationId
+          schema:
+            type: string
+          example: "0192a3bc-def0-7abc-8901-23456789abcd"
+          required: true
+      responses:
+        "200":
+          description: Conversation deleted for current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      conversationId:
+                        type: string
+                      deletedAt:
+                        type: string
+                        format: date-time
+        "401":
+          description: Unauthorized
+        "404":
+          description: Conversation not found
 
   /v1/conversations/unread-count:
     get:

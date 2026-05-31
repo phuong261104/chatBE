@@ -28,6 +28,7 @@ import {
   normalizeConversationListItem,
   SELF_CONVERSATION_NAME,
 } from "./conversation-listing";
+import { isMessageAfterCutoff, latestVisibilityCutoff } from "./conversation-visibility";
 
 export class GetConversationsCursorQueryHandler implements IQueryHandler<
   GetConversationsCursorQuery,
@@ -116,7 +117,7 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
       ));
     }
 
-    return Promise.all(
+    const mapped = await Promise.all(
       conversations.map(async (conv) => {
         const member = memberMap.get(conv.id);
         const allMembersInConv = allMembersMap.get(conv.id) || [];
@@ -183,7 +184,11 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
           }
         }
 
-        const visibleLast = await this.resolveVisibleLastMessage(conv, userId, member?.hiddenAt);
+        const cutoff = latestVisibilityCutoff(member);
+        const visibleLast = await this.resolveVisibleLastMessage(conv, userId, cutoff);
+        if (member?.deletedAt && !visibleLast.lastMessageAt) {
+          return null;
+        }
         const activityAt = this.resolveActivityAt(
           member?.lastActivityAt,
           visibleLast.lastMessageAt,
@@ -224,6 +229,7 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
         }, userId);
       }),
     );
+    return mapped.filter((conversation): conversation is any => !!conversation);
   }
 
   private async listActiveMembersForUser(userId: string): Promise<ConversationMember[]> {
@@ -268,7 +274,7 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
   private async resolveVisibleLastMessage(
     conv: Conversation,
     userId: string,
-    hiddenAt?: Date,
+    cutoff?: Date,
   ): Promise<{ lastMessage: Conversation["lastMessage"]; lastMessageAt: Date | undefined }> {
     if (!conv.lastMessage) {
       return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
@@ -280,10 +286,10 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
     }
 
     if (
-      (hiddenAt && message.createdAt <= hiddenAt) ||
+      !isMessageAfterCutoff(message, cutoff) ||
       message.deletedForUserIds?.includes(userId)
     ) {
-      const latest = await this.findLatestVisibleMessage(conv.id, userId, hiddenAt);
+      const latest = await this.findLatestVisibleMessage(conv.id, userId, cutoff);
       if (!latest) return { lastMessage: undefined, lastMessageAt: undefined };
       return {
         lastMessage: {
@@ -315,7 +321,7 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
   private async findLatestVisibleMessage(
     conversationId: string,
     userId: string,
-    hiddenAt?: Date,
+    cutoff?: Date,
   ): Promise<Message | undefined> {
     let cursor: string | undefined;
 
@@ -328,10 +334,10 @@ export class GetConversationsCursorQueryHandler implements IQueryHandler<
       );
       if (messages.length === 0) return undefined;
 
-      const latest = messages.find((msg) => !hiddenAt || msg.createdAt > hiddenAt);
+      const latest = messages.find((msg) => isMessageAfterCutoff(msg, cutoff));
       if (latest) return latest;
 
-      if (hiddenAt && messages.some((msg) => msg.createdAt <= hiddenAt)) {
+      if (cutoff && messages.some((msg) => msg.createdAt <= cutoff)) {
         return undefined;
       }
 

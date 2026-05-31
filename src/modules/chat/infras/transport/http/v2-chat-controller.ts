@@ -405,6 +405,18 @@ export class ChatV2Controller {
     }
   };
 
+  deleteConversationForMeAPI = async (req: Request, res: Response) => {
+    try {
+      const currentUserId = this.getCurrentUserId(res);
+      if (!currentUserId) return res.status(401).json({ error: "Unauthorized" });
+
+      const result = await this.useCase.deleteConversationForMe(req.params.conversationId, currentUserId);
+      return res.status(200).json({ data: result });
+    } catch (err) {
+      return this.sendError(res, err);
+    }
+  };
+
   createGroupAPI = async (req: Request, res: Response) => {
     try {
       const currentUserId = this.getCurrentUserId(res);

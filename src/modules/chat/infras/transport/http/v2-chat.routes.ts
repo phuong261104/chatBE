@@ -18,6 +18,7 @@ export const setupChatV2Routes = (
   router.post("/conversations/:conversationId/hide", mdlFactory.auth, controller.hideConversationAPI);
   router.post("/conversations/:conversationId/unlock", mdlFactory.auth, controller.unlockHiddenConversationAPI);
   router.post("/conversations/:conversationId/unhide", mdlFactory.auth, controller.unhideConversationAPI);
+  router.delete("/conversations/:conversationId", mdlFactory.auth, controller.deleteConversationForMeAPI);
 
   router.post("/messages/private", mdlFactory.auth, controller.sendPrivateMessageAPI);
   router.post("/messages/save-to-my-document", mdlFactory.auth, controller.saveMessagesToMyDocumentAPI);

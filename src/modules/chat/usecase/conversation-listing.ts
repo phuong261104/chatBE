@@ -163,8 +163,6 @@ export async function ensureSelfConversation(
   if (member.status !== ConversationMemberStatus.ACTIVE) update.status = ConversationMemberStatus.ACTIVE;
   if (member.leftAt) update.leftAt = null;
   if (member.archived) update.archived = false;
-  if (member.hidden) update.hidden = false;
-  if (member.hiddenAt) update.hiddenAt = null;
   if (!member.lastActivityAt) update.lastActivityAt = conversation.lastMessageAt || conversation.updatedAt || now;
 
   if (Object.keys(update).length > 0) {
@@ -173,7 +171,6 @@ export async function ensureSelfConversation(
       ...member,
       ...update,
       leftAt: update.leftAt === null ? undefined : member.leftAt,
-      hiddenAt: update.hiddenAt === null ? undefined : member.hiddenAt,
       updatedAt: now,
     } as ConversationMember;
   }

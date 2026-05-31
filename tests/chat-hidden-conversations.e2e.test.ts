@@ -81,4 +81,56 @@ describe("hidden conversations E2E", () => {
 
     expect(response.status).toBe(404);
   });
+
+  it("deletes a conversation for me and loads only messages after it becomes active again", async () => {
+    const { userA, userB, conversation } = seedPrivateConversation(harness.store);
+
+    const oldMessageResponse = await harness.api.post(
+      `/v1/conversations/${conversation.id}/messages`,
+      { text: "old delete-for-me message" },
+      { headers: authHeader(userB.id) },
+    );
+    expect(oldMessageResponse.status).toBe(201);
+    const oldMessageIds = oldMessageResponse.data.data.map((message: any) => message.id);
+
+    const deleted = await harness.api.delete(
+      `/v1/conversations/${conversation.id}`,
+      { headers: authHeader(userA.id) },
+    );
+    expect(deleted.status).toBe(200);
+    expect(deleted.data.data).toEqual(
+      expect.objectContaining({
+        conversationId: conversation.id,
+        deletedAt: expect.any(String),
+      }),
+    );
+
+    const afterDelete = await harness.api.get("/v1/conversations", {
+      headers: authHeader(userA.id),
+    });
+    expect(afterDelete.status).toBe(200);
+    expect(conversationIds(afterDelete)).not.toContain(conversation.id);
+
+    const newMessageResponse = await harness.api.post(
+      `/v1/conversations/${conversation.id}/messages`,
+      { text: "new delete-for-me message" },
+      { headers: authHeader(userB.id) },
+    );
+    expect(newMessageResponse.status).toBe(201);
+    const newMessageIds = newMessageResponse.data.data.map((message: any) => message.id);
+
+    const afterNewMessage = await harness.api.get("/v1/conversations", {
+      headers: authHeader(userA.id),
+    });
+    expect(afterNewMessage.status).toBe(200);
+    expect(conversationIds(afterNewMessage)).toContain(conversation.id);
+
+    const loaded = await harness.api.get(`/v1/conversations/${conversation.id}/messages`, {
+      headers: authHeader(userA.id),
+    });
+    expect(loaded.status).toBe(200);
+    const loadedIds = loaded.data.data.messages.map((message: any) => message.id);
+    expect(loadedIds).toEqual(expect.arrayContaining(newMessageIds));
+    expect(loadedIds).toEqual(expect.not.arrayContaining(oldMessageIds));
+  });
 });

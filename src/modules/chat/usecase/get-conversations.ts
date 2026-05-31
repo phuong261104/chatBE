@@ -24,6 +24,7 @@ import {
   normalizeConversationListItem,
   SELF_CONVERSATION_NAME,
 } from "./conversation-listing";
+import { isMessageAfterCutoff, latestVisibilityCutoff } from "./conversation-visibility";
 
 export class GetConversationsQueryHandler implements IQueryHandler<GetConversationsQuery, ConversationWithMetadata[]> {
   constructor(
@@ -81,7 +82,7 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
       allMembersMap.set(conv.id, membersInConv.filter((m) => m.status === ConversationMemberStatus.ACTIVE && !m.leftAt));
     }
 
-    const result: ConversationWithMetadata[] = await Promise.all(
+    const mapped: Array<ConversationWithMetadata | null> = await Promise.all(
       conversations.map(async (conv) => {
         const member = memberMap.get(conv.id);
         const allMembersInConv = allMembersMap.get(conv.id) || [];
@@ -130,7 +131,11 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
           }
         }
 
-        const visibleLast = await this.resolveVisibleLastMessage(conv, query.userId, member?.hiddenAt);
+        const cutoff = latestVisibilityCutoff(member);
+        const visibleLast = await this.resolveVisibleLastMessage(conv, query.userId, cutoff);
+        if (member?.deletedAt && !visibleLast.lastMessageAt) {
+          return null;
+        }
         const activityAt = this.resolveActivityAt(
           member?.lastActivityAt,
           visibleLast.lastMessageAt,
@@ -168,8 +173,11 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
           lastMessageTimeFormatted,
           nicknamesByUserId,
           wallpaperUrl,
-        }, query.userId);
+        }, query.userId) as ConversationWithMetadata;
       }),
+    );
+    const result: ConversationWithMetadata[] = mapped.filter(
+      (conversation): conversation is ConversationWithMetadata => !!conversation,
     );
 
     result.sort(compareConversationListItems(query.userId));
@@ -206,7 +214,7 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
   private async resolveVisibleLastMessage(
     conv: Conversation,
     userId: string,
-    hiddenAt?: Date,
+    cutoff?: Date,
   ): Promise<{ lastMessage: Conversation["lastMessage"]; lastMessageAt: Date | undefined }> {
     if (!conv.lastMessage) {
       return { lastMessage: conv.lastMessage, lastMessageAt: conv.lastMessageAt || undefined };
@@ -218,10 +226,10 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
     }
 
     if (
-      (hiddenAt && message.createdAt <= hiddenAt) ||
+      !isMessageAfterCutoff(message, cutoff) ||
       message.deletedForUserIds?.includes(userId)
     ) {
-      const latest = await this.findLatestVisibleMessage(conv.id, userId, hiddenAt);
+      const latest = await this.findLatestVisibleMessage(conv.id, userId, cutoff);
       if (!latest) return { lastMessage: undefined, lastMessageAt: undefined };
       return {
         lastMessage: {
@@ -253,7 +261,7 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
   private async findLatestVisibleMessage(
     conversationId: string,
     userId: string,
-    hiddenAt?: Date,
+    cutoff?: Date,
   ): Promise<Message | undefined> {
     let cursor: string | undefined;
 
@@ -266,10 +274,10 @@ export class GetConversationsQueryHandler implements IQueryHandler<GetConversati
       );
       if (messages.length === 0) return undefined;
 
-      const latest = messages.find((msg) => !hiddenAt || msg.createdAt > hiddenAt);
+      const latest = messages.find((msg) => isMessageAfterCutoff(msg, cutoff));
       if (latest) return latest;
 
-      if (hiddenAt && messages.some((msg) => msg.createdAt <= hiddenAt)) {
+      if (cutoff && messages.some((msg) => msg.createdAt <= cutoff)) {
         return undefined;
       }
 

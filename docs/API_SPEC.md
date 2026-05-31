@@ -181,6 +181,7 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | POST/DELETE | `/v1/conversations/{conversationId}/mute` | Mute/unmute conversation |
 | POST/DELETE | `/v1/conversations/{conversationId}/pin-conversation` | Pin/unpin conversation |
 | POST/DELETE | `/v1/conversations/{conversationId}/archive` | Archive/unarchive conversation |
+| DELETE | `/v1/conversations/{conversationId}` | Delete conversation for me, giữ cutoff lịch sử bằng `deletedAt` |
 | GET | `/v1/conversations/{conversationId}/statistics` | Thống kê conversation |
 | GET | `/v1/conversations/{conversationId}/members/online` | Online members |
 | GET | `/v1/conversations/{conversationId}/drafts` | Drafts |

@@ -19,6 +19,7 @@ import {
   FileItem,
   LinkItem,
 } from "@modules/chat/model/dto/media-group-dto";
+import { isMessageAfterCutoff, latestVisibilityCutoff } from "./conversation-visibility";
 
 export class GetConversationMediaQueryHandler
   implements IQueryHandler<GetConversationMediaQuery, GetConversationMediaResult>
@@ -80,6 +81,7 @@ export class GetConversationMediaQueryHandler
     const files: FileItem[] = [];
     const links: LinkItem[] = [];
     const normalizedQuery = data.query?.toLowerCase();
+    const cutoff = latestVisibilityCutoff(member);
 
     const nowEpoch = Math.floor(Date.now() / 1000);
     for (const item of returnItems) {
@@ -97,7 +99,8 @@ export class GetConversationMediaQueryHandler
         message.messageStatus === MessageStatus.REVOKED ||
         message.deletedAt ||
         message.deletedForUserIds?.includes(data.userId) ||
-        (message.expireAtEpoch && message.expireAtEpoch <= nowEpoch)
+        (message.expireAtEpoch && message.expireAtEpoch <= nowEpoch) ||
+        !isMessageAfterCutoff(message, cutoff)
       ) {
         continue;
       }

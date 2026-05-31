@@ -227,6 +227,7 @@ Source-verified route inventory:
 | `GET` | `/v1/conversations/{conversationId}/presence` | Conversation presence summary |
 | `POST` | `/v1/conversations/{conversationId}/messages` | Send message in conversation |
 | `POST` | `/v1/conversations/{conversationId}/profile-cards` | Send a profile card message |
+| `DELETE` | `/v1/conversations/{conversationId}` | Delete conversation for current user |
 | `POST` | `/v1/conversations/{conversationId}/hide` | Hide conversation with PIN |
 | `POST` | `/v1/conversations/{conversationId}/unlock` | Unlock hidden conversation with PIN |
 | `POST` | `/v1/conversations/{conversationId}/unhide` | Unhide conversation with PIN |

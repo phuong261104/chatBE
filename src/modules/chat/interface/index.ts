@@ -430,6 +430,8 @@ export interface IMessagingUseCase {
 
   unarchiveConversation(conversationId: string, userId: string): Promise<void>;
 
+  deleteConversationForMe(conversationId: string, userId: string): Promise<{ conversationId: string; deletedAt: Date }>;
+
   editMessage(messageId: string, userId: string, text: string, timeLimitMs?: number): Promise<Message>;
 
   pinMessage(messageId: string, userId: string): Promise<Message>;

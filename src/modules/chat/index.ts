@@ -109,6 +109,7 @@ import {
   GetConversationStatisticsQueryHandler,
   GetSharedConversationsQueryHandler,
   DeleteMessagesBulkHandler,
+  DeleteConversationForMeHandler,
   GetConversationOnlineMembersQueryHandler,
   GetDraftsQueryHandler,
   TranslateMessageHandler,
@@ -549,6 +550,11 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     messageRepo,
   );
 
+  const deleteConversationForMeHandler = new DeleteConversationForMeHandler(
+    conversationMemberRepo,
+    conversationMemberRepo,
+  );
+
   const getConversationOnlineMembersQueryHandler = new GetConversationOnlineMembersQueryHandler(
     conversationMemberRepo,
     presenceUseCase,
@@ -742,6 +748,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     getConversationStatisticsQueryHandler,
     getSharedConversationsQueryHandler,
     deleteMessagesBulkHandler,
+    deleteConversationForMeHandler,
     getConversationOnlineMembersQueryHandler,
     getDraftsQueryHandler,
     translateMessageHandler,
@@ -873,6 +880,12 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     "/conversations/:conversationId/archive",
     mdlFactory.auth,
     httpService.unarchiveConversationAPI.bind(httpService),
+  );
+
+  router.delete(
+    "/conversations/:conversationId",
+    mdlFactory.auth,
+    httpService.deleteConversationForMeAPI.bind(httpService),
   );
 
   router.post("/messages/:messageId/pin", mdlFactory.auth, httpService.pinMessageAPI.bind(httpService));

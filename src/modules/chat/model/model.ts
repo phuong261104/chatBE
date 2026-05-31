@@ -142,6 +142,7 @@ export const ConversationMemberSchema = z.object({
   hidden: z.boolean().optional(),
   hiddenAt: z.date().optional(),
   hiddenPinHash: z.string().optional(),
+  deletedAt: z.date().optional(),
 
   nickname: z.string().optional(),
   nicknameUpdatedAt: z.date().optional(),

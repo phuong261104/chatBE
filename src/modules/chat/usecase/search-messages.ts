@@ -8,6 +8,7 @@ import { Message } from "../model";
 import { SearchMessagesResult } from "../model/dto/search-dto";
 import { ConversationMemberStatus } from "../model/model";
 import { parseSearchDate, parseSearchEndDate } from "@modules/search/model";
+import { isMessageAfterCutoff, latestVisibilityCutoff } from "./conversation-visibility";
 
 export class SearchMessagesHandler
   implements IQueryHandler<{
@@ -51,6 +52,7 @@ export class SearchMessagesHandler
 
     const from = parseSearchDate(query.from);
     const to = parseSearchEndDate(query.to);
+    const cutoff = latestVisibilityCutoff(member);
 
     const result = await this.messageQueryRepo.searchMessages(
       conversationId,
@@ -58,7 +60,7 @@ export class SearchMessagesHandler
       searchQuery,
       cursor,
       limit,
-      { from, to, hiddenAfter: member.hiddenAt, senderId: query.senderId },
+      { from, to, hiddenAfter: cutoff, senderId: query.senderId },
     );
 
     const contextLimit = query.contextLimit ?? 1;
@@ -69,7 +71,7 @@ export class SearchMessagesHandler
       undefined,
       2000,
       userId,
-    )).filter((message) => this.isVisibleMessage(message, userId, member.hiddenAt));
+    )).filter((message) => this.isVisibleMessage(message, userId, cutoff));
 
     return {
       ...result,
@@ -94,7 +96,7 @@ export class SearchMessagesHandler
     if (message.messageStatus === "revoked" || message.deletedAt) return false;
     if (message.deletedForUserIds?.includes(userId)) return false;
     if (message.expireAtEpoch && message.expireAtEpoch <= Math.floor(Date.now() / 1000)) return false;
-    if (hiddenAt && message.createdAt <= hiddenAt) return false;
+    if (!isMessageAfterCutoff(message, hiddenAt)) return false;
     return true;
   }
 }

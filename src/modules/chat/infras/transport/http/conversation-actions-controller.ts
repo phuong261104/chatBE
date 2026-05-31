@@ -267,6 +267,23 @@ export class ConversationActionsController extends BaseController {
     }
   }
 
+  async deleteConversationForMeAPI(req: Request, res: Response) {
+    try {
+      const conversationId = this.parseIdParam(req, "conversationId");
+      const currentUserId = this.getCurrentUserId(req, res);
+
+      if (!currentUserId) {
+        this.sendUnauthorized(res);
+        return;
+      }
+
+      const result = await this.useCase.deleteConversationForMe(conversationId, currentUserId);
+      res.status(200).json({ data: result });
+    } catch (error) {
+      this.sendError(res, error);
+    }
+  }
+
   async copyConversationAPI(req: Request, res: Response) {
     try {
       const conversationId = this.parseIdParam(req, "conversationId");

@@ -12,6 +12,7 @@ import {
 import { ConversationMemberStatus, Message } from "../model/model";
 import { loadMessagesDTOSchema, LoadMessagesQuery, LoadMessagesResult } from "../model/dto";
 import { hydrateUtilityMessages } from "./hydrate-utility-messages";
+import { isMessageAfterCutoff, latestVisibilityCutoff } from "./conversation-visibility";
 
 export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery, LoadMessagesResult> {
   constructor(
@@ -56,11 +57,11 @@ export class LoadMessagesQueryHandler implements IQueryHandler<LoadMessagesQuery
       validatedInput.userId,
     );
 
-    const hiddenAt = member.hiddenAt;
+    const cutoff = latestVisibilityCutoff(member);
     const historyVisibleFrom = member.historyVisibleFrom;
     const visibleMessages = messages.filter((msg) => {
       if (msg.deletedForUserIds?.includes(validatedInput.userId)) return false;
-      if (hiddenAt && msg.createdAt <= hiddenAt) return false;
+      if (!isMessageAfterCutoff(msg, cutoff)) return false;
       if (historyVisibleFrom && msg.createdAt < historyVisibleFrom) return false;
       return true;
     });

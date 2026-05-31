@@ -42,6 +42,7 @@ function toConversationMemberEntity(doc: Record<string, any>): ConversationMembe
     updatedAt,
     pinnedAt,
     hiddenAt,
+    deletedAt,
     ...rest
   } = doc;
   return {
@@ -65,6 +66,7 @@ function toConversationMemberEntity(doc: Record<string, any>): ConversationMembe
     hidden: doc.hidden || false,
     hiddenAt: hiddenAt ? new Date(hiddenAt) : undefined,
     hiddenPinHash: doc.hiddenPinHash || undefined,
+    deletedAt: deletedAt ? new Date(deletedAt) : undefined,
     nickname: doc.nickname || undefined,
     nicknameUpdatedAt: doc.nicknameUpdatedAt ? new Date(doc.nicknameUpdatedAt) : undefined,
     wallpaper: doc.wallpaper || undefined,
@@ -660,6 +662,7 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
       hidden: data.hidden || false,
       hiddenAt: data.hiddenAt ? data.hiddenAt.toISOString() : null,
       hiddenPinHash: data.hiddenPinHash,
+      deletedAt: data.deletedAt ? data.deletedAt.toISOString() : null,
       nickname: data.nickname || undefined,
       nicknameUpdatedAt: data.nicknameUpdatedAt ? data.nicknameUpdatedAt.toISOString() : undefined,
       wallpaper: data.wallpaper || undefined,
@@ -698,6 +701,7 @@ class DynamoConversationMemberCommandRepository extends BaseCommandRepositoryDyn
     if ((data as any).hidden !== undefined) updateData.hidden = (data as any).hidden;
     if ((data as any).hiddenAt !== undefined) updateData.hiddenAt = (data as any).hiddenAt ? ((data as any).hiddenAt as Date).toISOString() : null;
     if ((data as any).hiddenPinHash !== undefined) updateData.hiddenPinHash = (data as any).hiddenPinHash;
+    if ((data as any).deletedAt !== undefined) updateData.deletedAt = (data as any).deletedAt ? ((data as any).deletedAt as Date).toISOString() : null;
     if ((data as any).historyVisibleFrom !== undefined) {
       updateData.historyVisibleFrom = (data as any).historyVisibleFrom === null
         ? null

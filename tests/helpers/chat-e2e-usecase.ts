@@ -10,6 +10,7 @@ import {
   CreatePollHandler,
   DeleteGroupNoteHandler,
   DeleteGroupReminderHandler,
+  DeleteConversationForMeHandler,
   DeleteMessageForEveryoneHandler,
   DeleteMessageForMeHandler,
   EditMessageHandler,
@@ -265,6 +266,7 @@ export function buildUseCase(store: ChatE2EStore) {
   );
   const pinConversation = new PinConversationHandler(memberRepo as any, memberRepo as any);
   const unpinConversation = new UnpinConversationHandler(memberRepo as any, memberRepo as any);
+  const deleteConversationForMe = new DeleteConversationForMeHandler(memberRepo as any, memberRepo as any);
   const pinMessage = new PinMessageHandler(
     messageRepo as any,
     messageRepo as any,
@@ -528,6 +530,8 @@ export function buildUseCase(store: ChatE2EStore) {
         pinConversation.execute({ conversationId, userId }),
       unpinConversation: (conversationId: string, userId: string) =>
         unpinConversation.execute({ conversationId, userId }),
+      deleteConversationForMe: (conversationId: string, userId: string) =>
+        deleteConversationForMe.execute({ conversationId, userId }),
       pinMessage: (messageId: string, userId: string) => pinMessage.execute({ messageId, userId }),
       unpinMessage: (messageId: string, userId: string) => unpinMessage.execute({ messageId, userId }),
       getPinnedMessages: (conversationId: string, userId: string) =>

@@ -154,6 +154,7 @@ Mỗi user có state riêng cho từng conversation:
 - `muteUntil` để tắt thông báo theo thời gian.
 - `archived` để lưu trữ khỏi danh sách chính.
 - `hidden`, `hiddenAt`, `hiddenPinHash` để ẩn hội thoại bằng PIN.
+- `deletedAt` để delete conversation for me: conversation bị ẩn khỏi inbox cho đến khi có activity mới, và load/search/media chỉ trả dữ liệu sau mốc này cho user đó.
 
 Hidden conversation không xuất hiện trong danh sách mặc định cho đến khi user unlock hoặc unhide bằng PIN hợp lệ.
 

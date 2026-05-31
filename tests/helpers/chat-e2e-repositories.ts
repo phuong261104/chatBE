@@ -189,7 +189,7 @@ export class InMemoryConversationMemberRepository {
     const member = this.store.members.get(id);
     if (!member) return false;
     const normalized = { ...data } as Record<string, any>;
-    for (const key of ["leftAt", "hiddenAt", "hiddenPinHash"] as const) {
+    for (const key of ["leftAt", "hiddenAt", "hiddenPinHash", "deletedAt"] as const) {
       if (normalized[key] === null) normalized[key] = undefined;
     }
     Object.assign(member, normalized, { updatedAt: new Date() });
