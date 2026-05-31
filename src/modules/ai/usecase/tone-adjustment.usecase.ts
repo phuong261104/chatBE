@@ -1,5 +1,6 @@
 import { IAiProvider } from "../infras/provider/interface";
 import { ToneAdjustRequest, ToneAdjustResponse, ToneType } from "../model/dto";
+import { AiError } from "../model/errors";
 
 const TONE_INSTRUCTIONS: Record<ToneType, string> = {
   formal: "Viết lại câu sau thành văn phong lịch sự, trang trọng, phù hợp trong công việc hoặc giao tiếp chuyên nghiệp.",
@@ -19,7 +20,7 @@ export class ToneAdjustmentUseCase {
     }
 
     if (!TONE_INSTRUCTIONS[tone]) {
-      throw new Error(`Invalid tone type: ${tone}`);
+      throw new AiError("AI_PROVIDER_ERROR", `Invalid tone type: ${tone}`, 400);
     }
 
     const toneInstruction = TONE_INSTRUCTIONS[tone];
