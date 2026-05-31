@@ -31,6 +31,7 @@ export const setupChatV2Routes = (
 
   router.post("/groups", mdlFactory.auth, controller.createGroupAPI);
   router.post("/groups/:groupId/members", mdlFactory.auth, controller.addMembersAPI);
+  router.delete("/groups/:groupId/members/:targetUserId", mdlFactory.auth, controller.removeMemberAPI);
   router.post("/groups/:groupId/leave", mdlFactory.auth, controller.leaveGroupAPI);
   router.patch("/groups/:groupId/settings", mdlFactory.auth, controller.updateGroupSettingsAPI);
 

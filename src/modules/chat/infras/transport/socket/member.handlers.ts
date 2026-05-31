@@ -25,11 +25,19 @@ export const memberSocketHandlers = {
 
       const newMembers = await this.useCase.addMembersToGroup(groupId, userId, memberIds);
 
-      this.emitToGroupRoom(groupId, SocketEvent.CONVERSATION_MEMBERS_ADDED, {
+      const membersAddedPayload = {
         conversationId: groupId,
         newMembers,
         addedBy: userId,
-      });
+      };
+
+      this.emitToGroupRoom(groupId, SocketEvent.CONVERSATION_MEMBERS_ADDED, membersAddedPayload);
+
+      for (const member of newMembers) {
+        if (member?.userId) {
+          this.emitToUser(member.userId, SocketEvent.CONVERSATION_MEMBERS_ADDED, membersAddedPayload);
+        }
+      }
 
       if (callback) {
         callback({ success: true, newMembers });
@@ -64,11 +72,15 @@ export const memberSocketHandlers = {
 
       await this.useCase.removeMemberFromGroup(groupId, userId, targetUserId);
 
-      this.emitToGroupRoom(groupId, SocketEvent.CONVERSATION_MEMBER_REMOVED, {
+      const memberRemovedPayload = {
         conversationId: groupId,
         removedUserId: targetUserId,
         removedBy: userId,
-      });
+        reason: "removed",
+      };
+
+      this.emitToGroupRoom(groupId, SocketEvent.CONVERSATION_MEMBER_REMOVED, memberRemovedPayload);
+      this.emitToUser(targetUserId, SocketEvent.CONVERSATION_MEMBER_REMOVED, memberRemovedPayload);
 
       this.emitToUser(targetUserId, SocketEvent.GROUP_MEMBER_LEFT, {
         conversationId: groupId,

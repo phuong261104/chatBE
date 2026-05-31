@@ -451,8 +451,27 @@ export class ChatV2Controller {
         data.requesterId,
         data.memberIds,
       );
-      this.socketService.notifyMembersAdded(data.conversationId, newMembers);
+      this.socketService.notifyMembersAdded(data.conversationId, newMembers, currentUserId);
       return res.status(200).json({ data: newMembers });
+    } catch (err) {
+      return this.sendError(res, err);
+    }
+  };
+
+  removeMemberAPI = async (req: Request, res: Response) => {
+    try {
+      const currentUserId = this.getCurrentUserId(res);
+      if (!currentUserId) return res.status(401).json({ error: "Unauthorized" });
+
+      const groupId = req.params.groupId;
+      const targetUserId = req.params.targetUserId;
+      if (!groupId || !targetUserId) {
+        return res.status(400).json({ error: "groupId and targetUserId are required" });
+      }
+
+      await this.useCase.removeMemberFromGroup(groupId, currentUserId, targetUserId);
+      this.socketService.notifyMemberRemoved(groupId, targetUserId, currentUserId, "removed");
+      return res.status(200).json({ success: true });
     } catch (err) {
       return this.sendError(res, err);
     }

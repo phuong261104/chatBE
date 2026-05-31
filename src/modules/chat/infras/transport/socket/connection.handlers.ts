@@ -77,19 +77,11 @@ export const connectionSocketHandlers = {
         return;
       }
 
-      await this.useCase.leaveGroup(conversationId, userId);
-
-      this.emitToGroupRoom(conversationId, SocketEvent.GROUP_MEMBER_LEFT, {
-        conversationId,
-        leftUserId: userId,
-        leftBy: userId,
-      });
-
       socket.leave(`group:${conversationId}`);
       socket.leave(`group_room:${conversationId}`);
 
       if (callback) {
-        callback({ success: true });
+        callback({ success: true, message: `Left group room ${conversationId}` });
       }
     } catch (error) {
       console.error("Error handling leaveGroup:", error);
