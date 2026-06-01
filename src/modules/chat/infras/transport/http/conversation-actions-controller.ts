@@ -8,6 +8,10 @@ import {
   saveMessagesToMyDocumentDTOSchema,
 } from "../../../model";
 import { copyConversationSchema } from "../../../model/dto/copy-conversation-dto";
+import {
+  saveDraftSchema,
+  deleteDraftSchema,
+} from "../../../model/dto/draft-dto";
 import { BaseController } from "./base-controller";
 
 export class ConversationActionsController extends BaseController {
@@ -32,10 +36,14 @@ export class ConversationActionsController extends BaseController {
       );
 
       for (const message of result.messages) {
-        this.socketService?.emitToUser(currentUserId, SocketEvent.RECEIVE_MESSAGE, {
-          message,
-          conversationId: message.conversationId,
-        });
+        this.socketService?.emitToUser(
+          currentUserId,
+          SocketEvent.RECEIVE_MESSAGE,
+          {
+            message,
+            conversationId: message.conversationId,
+          },
+        );
       }
 
       res.status(201).json({ data: result });
@@ -74,14 +82,18 @@ export class ConversationActionsController extends BaseController {
         validatedData.duration,
       );
 
-      this.socketService?.emitToUser(currentUserId, SocketEvent.CONVERSATION_MUTE_CHANGED, {
-        conversationId,
-        userId: currentUserId,
-        mutedBy: currentUserId,
-        muteUntil: validatedData.muteUntil,
-        duration: validatedData.duration,
-        muted: true,
-      });
+      this.socketService?.emitToUser(
+        currentUserId,
+        SocketEvent.CONVERSATION_MUTE_CHANGED,
+        {
+          conversationId,
+          userId: currentUserId,
+          mutedBy: currentUserId,
+          muteUntil: validatedData.muteUntil,
+          duration: validatedData.duration,
+          muted: true,
+        },
+      );
 
       res.status(200).json({ success: true });
     } catch (error) {
@@ -106,12 +118,16 @@ export class ConversationActionsController extends BaseController {
 
       await this.useCase.unmuteConversation(conversationId, currentUserId);
 
-      this.socketService?.emitToUser(currentUserId, SocketEvent.CONVERSATION_MUTE_CHANGED, {
-        conversationId,
-        userId: currentUserId,
-        mutedBy: currentUserId,
-        muted: false,
-      });
+      this.socketService?.emitToUser(
+        currentUserId,
+        SocketEvent.CONVERSATION_MUTE_CHANGED,
+        {
+          conversationId,
+          userId: currentUserId,
+          mutedBy: currentUserId,
+          muted: false,
+        },
+      );
 
       res.status(200).json({ success: true });
     } catch (error) {
@@ -139,11 +155,15 @@ export class ConversationActionsController extends BaseController {
         validatedData.userId,
       );
 
-      this.socketService?.emitToUser(currentUserId, SocketEvent.CONVERSATION_PIN_TOGGLED, {
-        conversationId,
-        pinnedBy: currentUserId,
-        pinned: true,
-      });
+      this.socketService?.emitToUser(
+        currentUserId,
+        SocketEvent.CONVERSATION_PIN_TOGGLED,
+        {
+          conversationId,
+          pinnedBy: currentUserId,
+          pinned: true,
+        },
+      );
 
       res.status(200).json({ success: true });
     } catch (error) {
@@ -176,11 +196,15 @@ export class ConversationActionsController extends BaseController {
         validatedData.userId,
       );
 
-      this.socketService?.emitToUser(currentUserId, SocketEvent.CONVERSATION_PIN_TOGGLED, {
-        conversationId,
-        pinnedBy: currentUserId,
-        pinned: false,
-      });
+      this.socketService?.emitToUser(
+        currentUserId,
+        SocketEvent.CONVERSATION_PIN_TOGGLED,
+        {
+          conversationId,
+          pinnedBy: currentUserId,
+          pinned: false,
+        },
+      );
 
       res.status(200).json({ success: true });
     } catch (error) {
@@ -213,11 +237,15 @@ export class ConversationActionsController extends BaseController {
         validatedData.userId,
       );
 
-      this.socketService?.emitToUser(currentUserId, SocketEvent.CONVERSATION_ARCHIVED_TOGGLED, {
-        conversationId,
-        userId: currentUserId,
-        archived: true,
-      });
+      this.socketService?.emitToUser(
+        currentUserId,
+        SocketEvent.CONVERSATION_ARCHIVED_TOGGLED,
+        {
+          conversationId,
+          userId: currentUserId,
+          archived: true,
+        },
+      );
 
       res.status(200).json({ success: true });
     } catch (error) {
@@ -250,11 +278,15 @@ export class ConversationActionsController extends BaseController {
         validatedData.userId,
       );
 
-      this.socketService?.emitToUser(currentUserId, SocketEvent.CONVERSATION_ARCHIVED_TOGGLED, {
-        conversationId,
-        userId: currentUserId,
-        archived: false,
-      });
+      this.socketService?.emitToUser(
+        currentUserId,
+        SocketEvent.CONVERSATION_ARCHIVED_TOGGLED,
+        {
+          conversationId,
+          userId: currentUserId,
+          archived: false,
+        },
+      );
 
       res.status(200).json({ success: true });
     } catch (error) {
@@ -277,7 +309,10 @@ export class ConversationActionsController extends BaseController {
         return;
       }
 
-      const result = await this.useCase.deleteConversationForMe(conversationId, currentUserId);
+      const result = await this.useCase.deleteConversationForMe(
+        conversationId,
+        currentUserId,
+      );
       res.status(200).json({ data: result });
     } catch (error) {
       this.sendError(res, error);
@@ -314,6 +349,72 @@ export class ConversationActionsController extends BaseController {
       );
 
       res.status(201).json({ data: result });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        this.sendZodIssues(res, error);
+        return;
+      }
+
+      this.sendError(res, error);
+    }
+  }
+
+  async saveDraftAPI(req: Request, res: Response) {
+    try {
+      const conversationId = this.parseIdParam(req, "conversationId");
+      const currentUserId = this.getCurrentUserId(req, res);
+
+      if (!currentUserId) {
+        this.sendUnauthorized(res);
+        return;
+      }
+
+      const validatedData = saveDraftSchema.parse({
+        conversationId,
+        userId: currentUserId,
+        text: req.body.text,
+        media: req.body.media,
+      });
+
+      await this.useCase.saveDraft(
+        validatedData.conversationId,
+        validatedData.userId,
+        validatedData.text,
+        validatedData.media,
+      );
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        this.sendZodIssues(res, error);
+        return;
+      }
+
+      this.sendError(res, error);
+    }
+  }
+
+  async deleteDraftAPI(req: Request, res: Response) {
+    try {
+      const conversationId = this.parseIdParam(req, "conversationId");
+      const currentUserId = this.getCurrentUserId(req, res);
+
+      if (!currentUserId) {
+        this.sendUnauthorized(res);
+        return;
+      }
+
+      const validatedData = deleteDraftSchema.parse({
+        conversationId,
+        userId: currentUserId,
+      });
+
+      await this.useCase.deleteDraft(
+        validatedData.conversationId,
+        validatedData.userId,
+      );
+
+      res.status(200).json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
         this.sendZodIssues(res, error);
