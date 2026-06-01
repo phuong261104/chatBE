@@ -355,6 +355,14 @@ export class MessagingHttpService {
     return this.conversationQueryController.getDraftsAPI(req, res);
   }
 
+  async saveDraftAPI(req: Request, res: Response) {
+    return this.conversationActionsController.saveDraftAPI(req, res);
+  }
+
+  async deleteDraftAPI(req: Request, res: Response) {
+    return this.conversationActionsController.deleteDraftAPI(req, res);
+  }
+
   async translateMessageAPI(req: Request, res: Response) {
     return this.messageToolsController.translateMessageAPI(req, res);
   }

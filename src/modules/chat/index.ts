@@ -112,6 +112,8 @@ import {
   DeleteConversationForMeHandler,
   GetConversationOnlineMembersQueryHandler,
   GetDraftsQueryHandler,
+  SaveDraftCommandHandler,
+  DeleteDraftCommandHandler,
   TranslateMessageHandler,
   CopyConversationHandler,
   CreateGroupReminderHandler,
@@ -561,6 +563,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
   );
 
   const getDraftsQueryHandler = new GetDraftsQueryHandler(conversationMemberRepo);
+  const saveDraftCommandHandler = new SaveDraftCommandHandler(conversationMemberRepo);
+  const deleteDraftCommandHandler = new DeleteDraftCommandHandler(conversationMemberRepo);
 
   const translateMessageHandler = new TranslateMessageHandler(messageRepo);
 
@@ -751,6 +755,8 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     deleteConversationForMeHandler,
     getConversationOnlineMembersQueryHandler,
     getDraftsQueryHandler,
+    saveDraftCommandHandler,
+    deleteDraftCommandHandler,
     translateMessageHandler,
     copyConversationHandler,
     createGroupReminderHandler,

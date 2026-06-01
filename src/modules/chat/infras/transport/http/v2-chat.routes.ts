@@ -20,6 +20,9 @@ export const setupChatV2Routes = (
   router.post("/conversations/:conversationId/unhide", mdlFactory.auth, controller.unhideConversationAPI);
   router.delete("/conversations/:conversationId", mdlFactory.auth, controller.deleteConversationForMeAPI);
 
+  router.post("/conversations/:conversationId/drafts", mdlFactory.auth, httpService.saveDraftAPI.bind(httpService));
+  router.delete("/conversations/:conversationId/drafts", mdlFactory.auth, httpService.deleteDraftAPI.bind(httpService));
+
   router.post("/messages/private", mdlFactory.auth, controller.sendPrivateMessageAPI);
   router.post("/messages/save-to-my-document", mdlFactory.auth, controller.saveMessagesToMyDocumentAPI);
   router.post("/saved-messages/messages", mdlFactory.auth, controller.saveMessagesToMyDocumentAPI);

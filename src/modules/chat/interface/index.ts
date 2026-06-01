@@ -14,6 +14,7 @@ import {
   ClassificationType,
   GroupInviteLink,
   GroupBlock,
+  MessageMedia,
 } from "../model/model";
 import {
   ConversationCondDTO,
@@ -117,10 +118,20 @@ export interface IConversationMemberCommandRepository {
   update(id: string, data: ConversationMemberUpdateDTO): Promise<boolean>;
   delete(id: string, isHard: boolean): Promise<boolean>;
   deleteByConversationId(conversationId: string): Promise<void>;
-  incrementUnreadCountForConversation(conversationId: string, excludeUserId?: string): Promise<void>;
-  touchActivityForConversation(conversationId: string, activityAt?: Date): Promise<void>;
-  advanceSeenState(input: AdvanceSeenStateInput): Promise<{ changed: boolean; member: ConversationMember | null }>;
-  advanceDeliveredState(input: AdvanceDeliveredStateInput): Promise<{ changed: boolean; member: ConversationMember | null }>;
+  incrementUnreadCountForConversation(
+    conversationId: string,
+    excludeUserId?: string,
+  ): Promise<void>;
+  touchActivityForConversation(
+    conversationId: string,
+    activityAt?: Date,
+  ): Promise<void>;
+  advanceSeenState(
+    input: AdvanceSeenStateInput,
+  ): Promise<{ changed: boolean; member: ConversationMember | null }>;
+  advanceDeliveredState(
+    input: AdvanceDeliveredStateInput,
+  ): Promise<{ changed: boolean; member: ConversationMember | null }>;
 }
 
 export interface IMessageQueryRepository {
@@ -179,15 +190,29 @@ export interface IMessageCommandRepository {
 export interface IMessageReactionQueryRepository {
   get(id: string): Promise<MessageReaction | null>;
   findByMessageId(messageId: string): Promise<MessageReaction[]>;
-  findByUserAndMessage(messageId: string, userId: string): Promise<MessageReaction[]>;
-  findByUserMessageEmoji(messageId: string, userId: string, emoji: string): Promise<MessageReaction | null>;
+  findByUserAndMessage(
+    messageId: string,
+    userId: string,
+  ): Promise<MessageReaction[]>;
+  findByUserMessageEmoji(
+    messageId: string,
+    userId: string,
+    emoji: string,
+  ): Promise<MessageReaction | null>;
   getReactionSummary(messageId: string): Promise<Record<string, number>>;
 }
 
 export interface IMessageReactionCommandRepository {
   upsertReaction(reaction: MessageReaction): Promise<MessageReaction>;
-  decrementReaction(messageId: string, userId: string, emoji: string): Promise<boolean>;
-  decrementAllByUserAndMessage(messageId: string, userId: string): Promise<number>;
+  decrementReaction(
+    messageId: string,
+    userId: string,
+    emoji: string,
+  ): Promise<boolean>;
+  decrementAllByUserAndMessage(
+    messageId: string,
+    userId: string,
+  ): Promise<number>;
   deleteAllByUserAndMessage(messageId: string, userId: string): Promise<number>;
   deleteByMessageId(messageId: string): Promise<void>;
   deleteByConversationId(conversationId: string): Promise<void>;
@@ -195,7 +220,11 @@ export interface IMessageReactionCommandRepository {
 
 export interface IPollQueryRepository {
   get(id: string): Promise<Poll | null>;
-  findByConversationId(conversationId: string, cursor?: string, limit?: number): Promise<Poll[]>;
+  findByConversationId(
+    conversationId: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<Poll[]>;
   findActivePolls(conversationId: string): Promise<Poll[]>;
   findExpiredActivePolls?(now: Date, limit?: number): Promise<Poll[]>;
 }
@@ -217,7 +246,11 @@ export interface IGroupReminderQueryRepository {
 export interface IGroupReminderCommandRepository {
   insert(reminder: GroupReminder): Promise<boolean>;
   update(id: string, data: Partial<GroupReminder>): Promise<boolean>;
-  updateDueReminder?(id: string, expectedNextNotifyAt: Date, data: Partial<GroupReminder>): Promise<boolean>;
+  updateDueReminder?(
+    id: string,
+    expectedNextNotifyAt: Date,
+    data: Partial<GroupReminder>,
+  ): Promise<boolean>;
   delete(id: string): Promise<boolean>;
   deleteByConversationId(conversationId: string): Promise<void>;
 }
@@ -243,17 +276,27 @@ export interface IMessageClassificationRepository {
     type: ClassificationType,
     cursor?: string,
     limit?: number,
-  ): Promise<{ items: MessageClassification[]; nextCursor: string; hasMore: boolean }>;
+  ): Promise<{
+    items: MessageClassification[];
+    nextCursor: string;
+    hasMore: boolean;
+  }>;
   listByConversation(
     conversationId: string,
     cursor?: string,
     limit?: number,
-  ): Promise<{ items: MessageClassification[]; nextCursor: string; hasMore: boolean }>;
+  ): Promise<{
+    items: MessageClassification[];
+    nextCursor: string;
+    hasMore: boolean;
+  }>;
 }
 
 export interface IGroupInviteLinkQueryRepository {
   get(token: string): Promise<GroupInviteLink | null>;
-  findActiveByConversationId(conversationId: string): Promise<GroupInviteLink | null>;
+  findActiveByConversationId(
+    conversationId: string,
+  ): Promise<GroupInviteLink | null>;
 }
 
 export interface IGroupInviteLinkCommandRepository {
@@ -262,14 +305,20 @@ export interface IGroupInviteLinkCommandRepository {
 }
 
 export interface IGroupBlockQueryRepository {
-  findByConversationAndUser(conversationId: string, userId: string): Promise<GroupBlock | null>;
+  findByConversationAndUser(
+    conversationId: string,
+    userId: string,
+  ): Promise<GroupBlock | null>;
   listByConversationId(conversationId: string): Promise<GroupBlock[]>;
   isUserBlocked(conversationId: string, userId: string): Promise<boolean>;
 }
 
 export interface IGroupBlockCommandRepository {
   insert(block: GroupBlock): Promise<boolean>;
-  deleteByConversationAndUser(conversationId: string, userId: string): Promise<void>;
+  deleteByConversationAndUser(
+    conversationId: string,
+    userId: string,
+  ): Promise<void>;
 }
 
 export interface CreateGroupData {
@@ -430,9 +479,17 @@ export interface IMessagingUseCase {
 
   unarchiveConversation(conversationId: string, userId: string): Promise<void>;
 
-  deleteConversationForMe(conversationId: string, userId: string): Promise<{ conversationId: string; deletedAt: Date }>;
+  deleteConversationForMe(
+    conversationId: string,
+    userId: string,
+  ): Promise<{ conversationId: string; deletedAt: Date }>;
 
-  editMessage(messageId: string, userId: string, text: string, timeLimitMs?: number): Promise<Message>;
+  editMessage(
+    messageId: string,
+    userId: string,
+    text: string,
+    timeLimitMs?: number,
+  ): Promise<Message>;
 
   pinMessage(messageId: string, userId: string): Promise<Message>;
 
@@ -446,7 +503,12 @@ export interface IMessagingUseCase {
     query: string,
     cursor?: string,
     limit?: number,
-    options?: { from?: Date; to?: Date; senderId?: string; contextLimit?: number },
+    options?: {
+      from?: Date;
+      to?: Date;
+      senderId?: string;
+      contextLimit?: number;
+    },
   ): Promise<{
     messages: Message[];
     nextCursor?: string;
@@ -454,13 +516,24 @@ export interface IMessagingUseCase {
     total: number;
   }>;
 
-  addReaction(messageId: string, userId: string, emoji: string): Promise<MessageReaction>;
+  addReaction(
+    messageId: string,
+    userId: string,
+    emoji: string,
+  ): Promise<MessageReaction>;
 
-  removeReaction(messageId: string, userId: string, emoji?: string): Promise<number>;
+  removeReaction(
+    messageId: string,
+    userId: string,
+    emoji?: string,
+  ): Promise<number>;
 
   removeAllReactions(messageId: string, userId: string): Promise<number>;
 
-  getReactions(messageId: string, userId: string): Promise<{
+  getReactions(
+    messageId: string,
+    userId: string,
+  ): Promise<{
     reactions: MessageReaction[];
     grouped: Record<string, number>;
   }>;
@@ -473,9 +546,18 @@ export interface IMessagingUseCase {
     quotedMessageId: string,
   ): Promise<Message[]>;
 
-  setAdmin(groupId: string, requesterId: string, targetUserId: string, isAdmin: boolean): Promise<Conversation>;
+  setAdmin(
+    groupId: string,
+    requesterId: string,
+    targetUserId: string,
+    isAdmin: boolean,
+  ): Promise<Conversation>;
 
-  transferOwner(groupId: string, requesterId: string, newOwnerId: string): Promise<Conversation>;
+  transferOwner(
+    groupId: string,
+    requesterId: string,
+    newOwnerId: string,
+  ): Promise<Conversation>;
 
   createPoll(
     conversationId: string,
@@ -490,7 +572,13 @@ export interface IMessagingUseCase {
     hideVoters?: boolean,
   ): Promise<Poll>;
 
-  getPolls(conversationId: string, userId: string, cursor?: string, limit?: number, status?: string): Promise<{ polls: Poll[]; nextCursor?: string; hasMore: boolean }>;
+  getPolls(
+    conversationId: string,
+    userId: string,
+    cursor?: string,
+    limit?: number,
+    status?: string,
+  ): Promise<{ polls: Poll[]; nextCursor?: string; hasMore: boolean }>;
 
   getPoll(pollId: string, userId: string): Promise<Poll>;
 
@@ -508,11 +596,22 @@ export interface IMessagingUseCase {
 
   deletePoll(pollId: string, userId: string): Promise<void>;
 
-  getPendingMembers(groupId: string, requesterId: string): Promise<ConversationMember[]>;
+  getPendingMembers(
+    groupId: string,
+    requesterId: string,
+  ): Promise<ConversationMember[]>;
 
-  approveMember(groupId: string, userId: string, requesterId: string): Promise<ConversationMember>;
+  approveMember(
+    groupId: string,
+    userId: string,
+    requesterId: string,
+  ): Promise<ConversationMember>;
 
-  rejectMember(groupId: string, userId: string, requesterId: string): Promise<void>;
+  rejectMember(
+    groupId: string,
+    userId: string,
+    requesterId: string,
+  ): Promise<void>;
 
   updateGroupSettings(
     groupId: string,
@@ -534,7 +633,10 @@ export interface IMessagingUseCase {
     },
   ): Promise<Conversation>;
 
-  getGroupInfo(groupId: string, userId: string): Promise<{
+  getGroupInfo(
+    groupId: string,
+    userId: string,
+  ): Promise<{
     conversation: Conversation;
     members: ConversationMember[];
     currentUserRole: ConversationMemberRole;
@@ -558,14 +660,20 @@ export interface IMessagingUseCase {
 
   dissolveGroup(groupId: string, requesterId: string): Promise<string[]>;
 
-  getConversationStatistics(conversationId: string, userId: string): Promise<{
+  getConversationStatistics(
+    conversationId: string,
+    userId: string,
+  ): Promise<{
     memberCount: number;
     activeMemberCount: number;
     lastActivity: Date | null;
     createdAt: Date;
   }>;
 
-  getSharedConversations(userId: string, currentUserId: string): Promise<Conversation[]>;
+  getSharedConversations(
+    userId: string,
+    currentUserId: string,
+  ): Promise<Conversation[]>;
 
   deleteMessagesBulk(
     conversationId: string,
@@ -575,13 +683,30 @@ export interface IMessagingUseCase {
     messageIds?: string[],
   ): Promise<{ deletedCount: number }>;
 
-  getConversationOnlineMembers(conversationId: string, userId: string): Promise<Array<{
-    userId: string;
-    isOnline: boolean;
-    lastSeen: Date | null;
-  }>>;
+  getConversationOnlineMembers(
+    conversationId: string,
+    userId: string,
+  ): Promise<
+    Array<{
+      userId: string;
+      isOnline: boolean;
+      lastSeen: Date | null;
+    }>
+  >;
 
-  getDrafts(conversationId: string, userId: string): Promise<{ drafts: Draft[] }>;
+  getDrafts(
+    conversationId: string,
+    userId: string,
+  ): Promise<{ drafts: Draft[] }>;
+
+  saveDraft(
+    conversationId: string,
+    userId: string,
+    text?: string,
+    media?: MessageMedia[],
+  ): Promise<void>;
+
+  deleteDraft(conversationId: string, userId: string): Promise<void>;
 
   translateMessage(
     messageId: string,
@@ -616,7 +741,10 @@ export interface IMessagingUseCase {
     notifyBeforeMinutes?: number,
   ): Promise<GroupReminder>;
 
-  listGroupReminders(conversationId: string, userId: string): Promise<GroupReminder[]>;
+  listGroupReminders(
+    conversationId: string,
+    userId: string,
+  ): Promise<GroupReminder[]>;
 
   updateGroupReminder(
     reminderId: string,
@@ -631,17 +759,32 @@ export interface IMessagingUseCase {
     },
   ): Promise<GroupReminder>;
 
-  deleteGroupReminder(reminderId: string, userId: string): Promise<GroupReminder>;
+  deleteGroupReminder(
+    reminderId: string,
+    userId: string,
+  ): Promise<GroupReminder>;
 
   pinGroupReminder(reminderId: string, userId: string): Promise<GroupReminder>;
 
-  unpinGroupReminder(reminderId: string, userId: string): Promise<GroupReminder>;
+  unpinGroupReminder(
+    reminderId: string,
+    userId: string,
+  ): Promise<GroupReminder>;
 
-  createGroupNote(conversationId: string, userId: string, title: string, content: string): Promise<GroupNote>;
+  createGroupNote(
+    conversationId: string,
+    userId: string,
+    title: string,
+    content: string,
+  ): Promise<GroupNote>;
 
   listGroupNotes(conversationId: string, userId: string): Promise<GroupNote[]>;
 
-  updateGroupNote(noteId: string, userId: string, data: { title?: string; content?: string }): Promise<GroupNote>;
+  updateGroupNote(
+    noteId: string,
+    userId: string,
+    data: { title?: string; content?: string },
+  ): Promise<GroupNote>;
 
   deleteGroupNote(noteId: string, userId: string): Promise<void>;
 

@@ -58,6 +58,8 @@ export { DeleteMessagesBulkHandler } from "./delete-messages-bulk";
 export { DeleteConversationForMeHandler } from "./delete-conversation-for-me";
 export { GetConversationOnlineMembersQueryHandler } from "./get-conversation-online-members";
 export { GetDraftsQueryHandler } from "./get-drafts";
+export { SaveDraftCommandHandler } from "./save-draft";
+export { DeleteDraftCommandHandler } from "./delete-draft";
 export { TranslateMessageHandler } from "./translate-message";
 export { CopyConversationHandler } from "./copy-conversation";
 export {

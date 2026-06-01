@@ -9,6 +9,22 @@ export const getDraftsSchema = z.object({
 
 export type GetDraftsDTO = z.infer<typeof getDraftsSchema>;
 
+export const saveDraftSchema = z.object({
+  conversationId: uuidV7("Invalid conversation ID"),
+  userId: uuidV7("Invalid user ID"),
+  text: z.string().optional(),
+  media: z.array(MessageMediaSchema).optional(),
+});
+
+export type SaveDraftDTO = z.infer<typeof saveDraftSchema>;
+
+export const deleteDraftSchema = z.object({
+  conversationId: uuidV7("Invalid conversation ID"),
+  userId: uuidV7("Invalid user ID"),
+});
+
+export type DeleteDraftDTO = z.infer<typeof deleteDraftSchema>;
+
 export interface Draft {
   id: string;
   conversationId: string;
@@ -30,3 +46,4 @@ export const DraftSchema = z.object({
 });
 
 export type DraftType = z.infer<typeof DraftSchema>;
+
