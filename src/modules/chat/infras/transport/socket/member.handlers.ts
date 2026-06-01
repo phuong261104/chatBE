@@ -354,12 +354,13 @@ export const memberSocketHandlers = {
       }
 
       const poll = await this.useCase.votePoll(pollId, userId, optionIds);
+      const voteChanged = (poll as any).voteChanged === true;
       const activityMessage = getAttachedMessage(poll, "activityMessage");
       const activityMessageUpdated = (poll as any).activityMessageUpdated === true;
 
       // Get conversationId from poll for room emission
       const conversationId = (poll as any).conversationId;
-      if (conversationId) {
+      if (conversationId && voteChanged) {
         if (activityMessage) {
           if (activityMessageUpdated) {
             this.emitToGroupRoom(conversationId, SocketEvent.MESSAGE_EDITED, {

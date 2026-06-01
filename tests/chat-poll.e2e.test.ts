@@ -174,6 +174,32 @@ describe("chat poll E2E", () => {
       expect(response.data.data.options[1].voteCount).toBe(0);
     });
 
+    it("treats repeated single-choice vote as an idempotent no-op", async () => {
+      const { owner, member, conversation } = seedGroupConversation(harness.store);
+      const poll = await harness.useCase.createPoll(conversation.id, owner.id, "Single repeat?", ["A", "B"]);
+
+      await harness.api.post(
+        `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
+        { optionIds: [poll.options[0].id] },
+        { headers: authHeader(member.id) },
+      );
+
+      const response = await harness.api.post(
+        `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
+        { optionIds: [poll.options[0].id] },
+        { headers: authHeader(member.id) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.data.data.totalVotes).toBe(1);
+      expect(response.data.data.options[0]).toEqual(
+        expect.objectContaining({ voteCount: 1, votedUserIds: [member.id] }),
+      );
+      expect(response.data.data.options[1]).toEqual(
+        expect.objectContaining({ voteCount: 0, votedUserIds: [] }),
+      );
+    });
+
     it("changes vote on single-choice poll when allowChangeVote is true", async () => {
       const { owner, member, conversation } = seedGroupConversation(harness.store);
       const poll = await harness.useCase.createPoll(
@@ -187,6 +213,16 @@ describe("chat poll E2E", () => {
       );
 
       await harness.useCase.votePoll(poll.id, member.id, [poll.options[0].id]);
+
+      const repeatResponse = await harness.api.post(
+        `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
+        { optionIds: [poll.options[0].id] },
+        { headers: authHeader(member.id) },
+      );
+      expect(repeatResponse.status).toBe(200);
+      expect(repeatResponse.data.data.options[0]).toEqual(
+        expect.objectContaining({ voteCount: 1, votedUserIds: [member.id] }),
+      );
 
       const response = await harness.api.post(
         `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
@@ -238,6 +274,41 @@ describe("chat poll E2E", () => {
       expect(response.data.data.totalVotes).toBe(1);
     });
 
+    it("treats repeated multi-choice vote as an idempotent no-op", async () => {
+      const { owner, member, conversation } = seedGroupConversation(harness.store);
+      const poll = await harness.useCase.createPoll(
+        conversation.id,
+        owner.id,
+        "Multi repeat?",
+        ["A", "B", "C"],
+        true,
+      );
+
+      await harness.api.post(
+        `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
+        { optionIds: [poll.options[0].id, poll.options[1].id] },
+        { headers: authHeader(member.id) },
+      );
+
+      const response = await harness.api.post(
+        `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
+        { optionIds: [poll.options[1].id, poll.options[0].id, poll.options[0].id] },
+        { headers: authHeader(member.id) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.data.data.totalVotes).toBe(1);
+      expect(response.data.data.options[0]).toEqual(
+        expect.objectContaining({ voteCount: 1, votedUserIds: [member.id] }),
+      );
+      expect(response.data.data.options[1]).toEqual(
+        expect.objectContaining({ voteCount: 1, votedUserIds: [member.id] }),
+      );
+      expect(response.data.data.options[2]).toEqual(
+        expect.objectContaining({ voteCount: 0, votedUserIds: [] }),
+      );
+    });
+
     it("toggles off a multi-choice option", async () => {
       const { owner, member, conversation } = seedGroupConversation(harness.store);
       const poll = await harness.useCase.createPoll(
@@ -287,6 +358,38 @@ describe("chat poll E2E", () => {
       );
 
       expect(response.status).toBe(400);
+    });
+
+    it("normalizes stale duplicate voter ids in poll results and no-op vote responses", async () => {
+      const { owner, member, conversation } = seedGroupConversation(harness.store);
+      const poll = await harness.useCase.createPoll(conversation.id, owner.id, "Stale duplicate voters?", ["A", "B"]);
+      const stored = harness.store.polls.get(poll.id);
+      expect(stored).toBeDefined();
+      stored!.options[0].votedUserIds = [member.id, member.id, owner.id];
+      stored!.options[0].voteCount = 99;
+      stored!.totalVotes = 99;
+
+      const results = await harness.api.get(
+        `/v1/groups/${conversation.id}/polls/${poll.id}/results`,
+        { headers: authHeader(owner.id) },
+      );
+      expect(results.status).toBe(200);
+      expect(results.data.data.totalVotes).toBe(2);
+      expect(results.data.data.options[0]).toEqual(
+        expect.objectContaining({ voteCount: 2, votedUserIds: [member.id, owner.id] }),
+      );
+
+      const response = await harness.api.post(
+        `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
+        { optionIds: [poll.options[0].id] },
+        { headers: authHeader(member.id) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.data.data.totalVotes).toBe(2);
+      expect(response.data.data.options[0]).toEqual(
+        expect.objectContaining({ voteCount: 2, votedUserIds: [member.id, owner.id] }),
+      );
     });
   });
 

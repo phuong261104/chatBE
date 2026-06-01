@@ -55,6 +55,9 @@ CLAUDE.md
 GEMINI.md
 output
 docs/generated
+backend_diagrams
+backend_source_audit_result.md
+backend_audit_for_report.*
 
 tasks
 test-*

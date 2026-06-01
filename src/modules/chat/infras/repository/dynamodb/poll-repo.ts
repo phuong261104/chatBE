@@ -13,10 +13,31 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 
+function normalizePollOptions(options: Poll["options"] = []): Poll["options"] {
+  return options.map((option) => {
+    const votedUserIds = Array.from(new Set(option.votedUserIds || []));
+    return {
+      ...option,
+      votedUserIds,
+      voteCount: votedUserIds.length,
+    };
+  });
+}
+
+function countUniqueVoters(options: Poll["options"]): number {
+  const voters = new Set<string>();
+  for (const option of options) {
+    for (const userId of option.votedUserIds) voters.add(userId);
+  }
+  return voters.size;
+}
+
 export class DynamoPollQueryRepository {
   protected toEntity(doc: Record<string, any>): Poll {
+    const options = normalizePollOptions(doc.options || []);
     return {
       ...doc,
+      options,
       expiresAt: doc.expiresAt ? new Date(doc.expiresAt) : undefined,
       closedAt: doc.closedAt ? new Date(doc.closedAt) : undefined,
       pinnedAt: doc.pinnedAt ? new Date(doc.pinnedAt) : undefined,
@@ -27,7 +48,7 @@ export class DynamoPollQueryRepository {
       hideVoters: doc.hideVoters || false,
       status: doc.status || PollStatus.ACTIVE,
       pinned: doc.pinned || false,
-      totalVotes: doc.totalVotes || 0,
+      totalVotes: countUniqueVoters(options),
       voteActivityCount: doc.voteActivityCount || 0,
     } as Poll;
   }
@@ -113,12 +134,13 @@ export class DynamoPollCommandRepository {
   async insert(poll: Poll): Promise<boolean> {
     const docClient = getDocClient();
     const now = new Date().toISOString();
+    const options = normalizePollOptions(poll.options);
     const item = {
           id: poll.id,
           conversationId: poll.conversationId,
           messageId: poll.messageId,
           question: poll.question,
-          options: poll.options,
+          options,
           createdBy: poll.createdBy,
           isMultipleChoice: poll.isMultipleChoice || false,
           allowAddOption: poll.allowAddOption || false,
@@ -131,7 +153,7 @@ export class DynamoPollCommandRepository {
           pinned: poll.pinned || false,
           pinnedAt: poll.pinnedAt ? poll.pinnedAt.toISOString() : null,
           pinnedBy: poll.pinnedBy,
-          totalVotes: poll.totalVotes || 0,
+          totalVotes: countUniqueVoters(options),
           lastVoteActivityAt: poll.lastVoteActivityAt ? poll.lastVoteActivityAt.toISOString() : null,
           lastVoteActivityMessageId: poll.lastVoteActivityMessageId,
           voteActivityCount: poll.voteActivityCount || 0,
@@ -154,7 +176,10 @@ export class DynamoPollCommandRepository {
     const updateData: Record<string, any> = { updatedAt: now };
     if (data.messageId !== undefined) updateData.messageId = data.messageId;
     if (data.question !== undefined) updateData.question = data.question;
-    if (data.options !== undefined) updateData.options = data.options;
+    if (data.options !== undefined) {
+      updateData.options = normalizePollOptions(data.options);
+      updateData.totalVotes = countUniqueVoters(updateData.options);
+    }
     if (data.isMultipleChoice !== undefined) updateData.isMultipleChoice = data.isMultipleChoice;
     if (data.allowAddOption !== undefined) updateData.allowAddOption = data.allowAddOption;
     if (data.allowChangeVote !== undefined) updateData.allowChangeVote = data.allowChangeVote;
@@ -167,7 +192,7 @@ export class DynamoPollCommandRepository {
     if (data.pinned !== undefined) updateData.pinned = data.pinned;
     if (data.pinnedAt !== undefined) updateData.pinnedAt = data.pinnedAt ? data.pinnedAt.toISOString() : null;
     if (data.pinnedBy !== undefined) updateData.pinnedBy = data.pinnedBy || null;
-    if (data.totalVotes !== undefined) updateData.totalVotes = data.totalVotes;
+    if (data.totalVotes !== undefined && data.options === undefined) updateData.totalVotes = data.totalVotes;
     if (data.lastVoteActivityAt !== undefined) {
       updateData.lastVoteActivityAt = data.lastVoteActivityAt ? data.lastVoteActivityAt.toISOString() : null;
     }

@@ -22,6 +22,21 @@ async function joinGroupSocket(harness: ChatE2EHarness, userId: string, conversa
   return socket;
 }
 
+async function expectNoSocketEvent(socket: any, event: string, timeoutMs = 150) {
+  await new Promise<void>((resolve, reject) => {
+    const onEvent = (payload: unknown) => {
+      clearTimeout(timer);
+      socket.off(event, onEvent);
+      reject(new Error(`Unexpected socket event ${event}: ${JSON.stringify(payload)}`));
+    };
+    const timer = setTimeout(() => {
+      socket.off(event, onEvent);
+      resolve();
+    }, timeoutMs);
+    socket.once(event, onEvent);
+  });
+}
+
 function addFriendshipsWith(harness: ChatE2EHarness, userId: string, otherUserIds: string[]) {
   for (const otherUserId of otherUserIds) {
     harness.store.addFriendship(userId, otherUserId);
@@ -206,11 +221,13 @@ describe("group utilities, owner role, and permissions E2E", () => {
       { headers: authHeader(owner.id) },
     );
     expect(ownerVote.status).toBe(200);
-    await expect(firstVoteActivity).resolves.toEqual(
+    const firstActivity = await firstVoteActivity;
+    expect(firstActivity).toEqual(
       expect.objectContaining({
         message: expect.objectContaining({ type: MessageType.SYSTEM, systemAction: "poll_vote_activity", pollId: poll.id }),
       }),
     );
+    expect(firstActivity.message.text).toContain("1 thành viên");
 
     const voteActivity = waitForSocketEvent<any>(memberSocket, SocketEvent.MESSAGE_EDITED);
     const memberVote = await harness.api.post(
@@ -219,11 +236,13 @@ describe("group utilities, owner role, and permissions E2E", () => {
       { headers: authHeader(member.id) },
     );
     expect(memberVote.status).toBe(200);
-    await expect(voteActivity).resolves.toEqual(
+    const secondActivity = await voteActivity;
+    expect(secondActivity).toEqual(
       expect.objectContaining({
         message: expect.objectContaining({ type: MessageType.SYSTEM, systemAction: "poll_vote_activity", pollId: poll.id }),
       }),
     );
+    expect(secondActivity.message.text).toContain("2 thành viên");
 
     const memberResults = await harness.api.get(
       `/v1/groups/${conversation.id}/polls/${poll.id}/results`,
@@ -242,6 +261,19 @@ describe("group utilities, owner role, and permissions E2E", () => {
       { headers: authHeader(owner.id) },
     );
     expect(ownerResults.data.data.options.map((option: any) => option.voteCount)).toEqual([1, 1]);
+
+    const noRepeatMessage = expectNoSocketEvent(memberSocket, SocketEvent.RECEIVE_MESSAGE);
+    const noRepeatEdit = expectNoSocketEvent(memberSocket, SocketEvent.MESSAGE_EDITED);
+    const noRepeatPollVote = expectNoSocketEvent(memberSocket, SocketEvent.POLL_VOTE);
+    const repeatOwnerVote = await harness.api.post(
+      `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
+      { optionIds: [poll.options[1].id] },
+      { headers: authHeader(owner.id) },
+    );
+    expect(repeatOwnerVote.status).toBe(200);
+    expect(repeatOwnerVote.data.data.options.map((option: any) => option.voteCount)).toEqual([1, 1]);
+    await Promise.all([noRepeatMessage, noRepeatEdit, noRepeatPollVote]);
+    expect(harness.store.getMessage(secondActivity.message.id)?.text).toContain("2 thành viên");
 
     const singleChoice = await harness.api.post(
       `/v1/groups/${conversation.id}/polls`,

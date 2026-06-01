@@ -407,7 +407,7 @@ Tat ca events su dung token auth qua handshake. Error event `ai:error` duoc emit
 - Group owner/admin/member được kiểm tra qua `conversation_members`.
 - Settings điều khiển invite, require approval, link sending, who can send messages và permission cho poll/reminder/note.
 - Group actions phát Socket.IO event tương ứng cho member liên quan.
-- Poll hỗ trợ `hideVoters`, `showResultsBeforeClose`, `isMultipleChoice`, `allowAddOption`, `expiresAt`, pin/unpin và close. Vote cập nhật poll gốc, emit `poll:vote`, không di chuyển card gốc; activity vote được gom trong cửa sổ 5 phút bằng system message để tránh spam.
+- Poll hỗ trợ `hideVoters`, `showResultsBeforeClose`, `isMultipleChoice`, `allowAddOption`, `expiresAt`, pin/unpin và close. Vote cập nhật poll gốc, emit `poll:vote`, không di chuyển card gốc; activity vote được gom trong cửa sổ 5 phút bằng system message để tránh spam. Gửi lại đúng lựa chọn hiện tại là idempotent `200`: không tăng `voteCount`/`totalVotes`, không tạo hoặc sửa activity message, và không emit `poll:vote`.
 - Reminder hỗ trợ `repeatRule` (`none`, `daily`, `weekly`, `monthly`), `notifyBeforeMinutes`, `nextNotifyAt`, pin/unpin và soft delete bằng `status=cancelled`. Worker nội bộ phát system message khi đến giờ; reminder không lặp chuyển `done`, reminder lặp được tính lần kế tiếp.
 
 ### Message lifecycle
