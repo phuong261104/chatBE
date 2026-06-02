@@ -49,7 +49,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          cat > ~/.ssh/config <<'EOF'
+          cat > ~/.ssh/config <<EOF
           Host ${SSH_HOST_ALIAS}
             HostName ${EC2_HOST}
             User ${EC2_USER}
