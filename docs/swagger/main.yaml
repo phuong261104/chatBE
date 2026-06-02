@@ -8,6 +8,8 @@ servers:
     description: Local Server
   - url: https://api.iamphuong.dev
     description: Production Server
+  - url: https://api-ec2.iamphuong.dev/
+    description: Production Server
 
 components:
   securitySchemes:
