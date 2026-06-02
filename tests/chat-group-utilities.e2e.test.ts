@@ -187,7 +187,109 @@ describe("group utilities, owner role, and permissions E2E", () => {
       { headers: authHeader(admin.id) },
     );
     expect(adminAddResponse.status).toBe(200);
-    expect(adminAddResponse.data.data[0].status).toBe(ConversationMemberStatus.PENDING);
+    expect(adminAddResponse.data.data[0].status).toBe(ConversationMemberStatus.ACTIVE);
+    expect(harness.socketEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: "user",
+          targetId: adminInvitee.id,
+          event: SocketEvent.CONVERSATION_CREATED,
+          data: expect.objectContaining({
+            conversation: expect.objectContaining({ id: conversation.id }),
+            addedBy: admin.id,
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("emits user-room updates for group leave and approval so ChatList can sync without group-room cache", async () => {
+    const { owner, admin, member, conversation } = seedGroupConversation(harness.store);
+    const pendingInvitee = harness.store.addUser({ displayName: "Pending invitee" });
+    const leaver = harness.store.addUser({ displayName: "Leaver" });
+    addFriendshipsWith(harness, member.id, [pendingInvitee.id]);
+    addFriendshipsWith(harness, owner.id, [leaver.id]);
+
+    await harness.api.patch(
+      `/v1/groups/${conversation.id}/settings`,
+      { requireApproval: true },
+      { headers: authHeader(owner.id) },
+    );
+
+    const pendingAddResponse = await harness.api.post(
+      `/v1/groups/${conversation.id}/members`,
+      { memberIds: [pendingInvitee.id] },
+      { headers: authHeader(member.id) },
+    );
+    expect(pendingAddResponse.status).toBe(200);
+    expect(pendingAddResponse.data.data[0].status).toBe(ConversationMemberStatus.PENDING);
+
+    const approveResponse = await harness.api.post(
+      `/v1/groups/${conversation.id}/members/${pendingInvitee.id}/approve`,
+      {},
+      { headers: authHeader(owner.id) },
+    );
+    expect(approveResponse.status).toBe(200);
+
+    expect(harness.socketEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: "user",
+          targetId: pendingInvitee.id,
+          event: SocketEvent.CONVERSATION_CREATED,
+          data: expect.objectContaining({
+            conversation: expect.objectContaining({ id: conversation.id }),
+            approvedBy: owner.id,
+          }),
+        }),
+        expect.objectContaining({
+          target: "user",
+          targetId: pendingInvitee.id,
+          event: SocketEvent.GROUP_MEMBER_APPROVED,
+        }),
+      ]),
+    );
+
+    const activeAddResponse = await harness.api.post(
+      `/v1/groups/${conversation.id}/members`,
+      { memberIds: [leaver.id] },
+      { headers: authHeader(owner.id) },
+    );
+    expect(activeAddResponse.status).toBe(200);
+    expect(activeAddResponse.data.data[0].status).toBe(ConversationMemberStatus.ACTIVE);
+
+    const leaveResponse = await harness.api.post(
+      `/v1/groups/${conversation.id}/leave`,
+      {},
+      { headers: authHeader(leaver.id) },
+    );
+    expect(leaveResponse.status).toBe(200);
+
+    expect(harness.socketEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: "user",
+          targetId: owner.id,
+          event: SocketEvent.GROUP_MEMBER_LEFT,
+          data: expect.objectContaining({ conversationId: conversation.id, leftUserId: leaver.id }),
+        }),
+        expect.objectContaining({
+          target: "user",
+          targetId: leaver.id,
+          event: SocketEvent.CONVERSATION_MEMBER_REMOVED,
+          data: expect.objectContaining({ conversationId: conversation.id, removedUserId: leaver.id }),
+        }),
+        expect.objectContaining({
+          target: "user",
+          targetId: admin.id,
+          event: SocketEvent.RECEIVE_MESSAGE,
+          data: expect.objectContaining({
+            conversationId: conversation.id,
+            message: expect.objectContaining({ type: MessageType.SYSTEM }),
+          }),
+        }),
+      ]),
+    );
   });
 
   it("supports polls with hidden results, lock, pin, unpin, and socket events", async () => {

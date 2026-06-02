@@ -235,6 +235,7 @@ components:
           example: true
         requireApproval:
           type: boolean
+          description: Require owner/admin approval for invites made by regular members. Owner/admin direct invites become active immediately.
           example: false
         allowMemberInvite:
           type: boolean
@@ -1016,7 +1017,9 @@ paths:
         Adds members to an existing group.
         **Validation:** Same as `POST /groups` - all target users must be
         active friends and unblocked by/from the sender.
-        Only admins and owner can add members.
+        Permission follows group `whoCanAddMembers`. When `requireApproval=true`,
+        regular member invites create pending members, while owner/admin direct
+        invites become active immediately.
       parameters:
         - in: path
           name: groupId
@@ -1128,6 +1131,7 @@ paths:
                   type: boolean
                 requireApproval:
                   type: boolean
+                  description: Require owner/admin approval for invites made by regular members. Owner/admin direct invites become active immediately.
                 allowMemberInvite:
                   type: boolean
                 whoCanSendMessages:

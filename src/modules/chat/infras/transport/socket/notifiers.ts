@@ -1,11 +1,12 @@
 import { SocketEvent } from "../../../constants/socket-events";
+import { ConversationMemberStatus } from "../../../model/model";
 import { SocketHandlerContext } from "./types";
 
 export interface SocketNotifierMethods {
   notifyNewGroup(memberUserIds: string[], groupData: any): void;
-  notifyMembersAdded(conversationId: string, newMembers: any[], addedBy?: string): void;
-  notifyMemberRemoved(conversationId: string, removedUserId: string, removedBy?: string, reason?: "removed" | "left"): void;
-  notifyMemberLeft(conversationId: string, leftUserId: string, leftBy: string): void;
+  notifyMembersAdded(conversationId: string, newMembers: any[], addedBy?: string): Promise<void>;
+  notifyMemberRemoved(conversationId: string, removedUserId: string, removedBy?: string, reason?: "removed" | "left"): Promise<void>;
+  notifyMemberLeft(conversationId: string, leftUserId: string, leftBy: string): Promise<void>;
   notifyGroupDissolved(conversationId: string, dissolvedBy: string, memberUserIds: string[]): void;
   notifyConversationPinned(conversationId: string, pinnedBy: string, pinned: boolean): void;
   notifyConversationArchived(conversationId: string, userId: string, archived: boolean): void;
@@ -20,7 +21,7 @@ export interface SocketNotifierMethods {
   notifyOwnerTransferred(conversationId: string, oldOwnerId: string, newOwnerId: string): void;
   notifyPollCreated(conversationId: string, poll: any): void;
   notifyPollVoted(conversationId: string, pollId: string, userId: string, poll: any): void;
-  notifyMemberApproved(conversationId: string, userId: string, member: any): void;
+  notifyMemberApproved(conversationId: string, userId: string, member: any, approvedBy?: string): Promise<void>;
   notifyMemberRejected(conversationId: string, userId: string): void;
   notifyGroupSettingsUpdated(conversationId: string, settings: any): void;
   notifyOnlineStatus(userId: string, isOnline: boolean): void;
@@ -35,6 +36,81 @@ export interface SocketNotifierMethods {
   notifyMemberWallpaperChanged(conversationId: string, wallpaperUrl: string | null, changedBy: string): void;
 }
 
+function uniqueStrings(values: Array<string | undefined | null>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => !!value)));
+}
+
+function isActiveMember(member: any): boolean {
+  return !!member && member.status === ConversationMemberStatus.ACTIVE && !member.leftAt;
+}
+
+function latestMessageFromConversation(conversationId: string, conversation: any) {
+  const lastMessage = conversation?.lastMessage;
+  if (!lastMessage?.messageId) return undefined;
+
+  return {
+    id: lastMessage.messageId,
+    conversationId,
+    senderId: lastMessage.senderId,
+    type: lastMessage.type,
+    text: lastMessage.textPreview,
+    createdAt: lastMessage.createdAt,
+    pinned: false,
+  };
+}
+
+async function getActiveMemberUserIds(context: SocketHandlerContext, conversationId: string): Promise<string[]> {
+  try {
+    return await context.getMemberUserIds(conversationId);
+  } catch {
+    return [];
+  }
+}
+
+async function emitConversationCreatedForUser(
+  context: SocketHandlerContext,
+  conversationId: string,
+  userId: string,
+  extra: Record<string, any> = {},
+) {
+  try {
+    const detail = await context.useCase.getConversationDetail(conversationId, userId);
+    context.emitToUser(userId, SocketEvent.CONVERSATION_CREATED, {
+      conversation: detail.conversation,
+      members: detail.members,
+      currentUserRole: detail.currentUserRole,
+      systemMessage: latestMessageFromConversation(conversationId, detail.conversation),
+      ...extra,
+    });
+  } catch {
+    // User may no longer be an active member by the time the notifier runs.
+  }
+}
+
+async function emitLatestMessageToUsers(
+  context: SocketHandlerContext,
+  conversationId: string,
+  userIds: string[],
+) {
+  const firstUserId = userIds[0];
+  if (!firstUserId) return;
+
+  try {
+    const detail = await context.useCase.getConversationDetail(conversationId, firstUserId);
+    const message = latestMessageFromConversation(conversationId, detail.conversation);
+    if (!message) return;
+
+    for (const userId of uniqueStrings(userIds)) {
+      context.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
+        conversationId,
+        message,
+      });
+    }
+  } catch {
+    // Best-effort realtime notification; persistence has already succeeded.
+  }
+}
+
 export const socketNotifiers = {
   notifyNewGroup(this: SocketHandlerContext, memberUserIds: string[], groupData: any) {
     for (const userId of memberUserIds) {
@@ -42,7 +118,7 @@ export const socketNotifiers = {
     }
   },
 
-  notifyMembersAdded(this: SocketHandlerContext, conversationId: string, newMembers: any[], addedBy?: string) {
+  async notifyMembersAdded(this: SocketHandlerContext, conversationId: string, newMembers: any[], addedBy?: string) {
     const payload = {
       conversationId,
       newMembers,
@@ -51,14 +127,19 @@ export const socketNotifiers = {
 
     this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_MEMBERS_ADDED, payload);
 
-    for (const member of newMembers) {
-      if (member?.userId) {
-        this.emitToUser(member.userId, SocketEvent.CONVERSATION_MEMBERS_ADDED, payload);
-      }
+    const activeMemberUserIds = await getActiveMemberUserIds(this, conversationId);
+    for (const userId of activeMemberUserIds) {
+      this.emitToUser(userId, SocketEvent.CONVERSATION_MEMBERS_ADDED, payload);
     }
+
+    for (const member of newMembers.filter(isActiveMember)) {
+      await emitConversationCreatedForUser(this, conversationId, member.userId, { member, addedBy });
+    }
+
+    await emitLatestMessageToUsers(this, conversationId, activeMemberUserIds);
   },
 
-  notifyMemberRemoved(
+  async notifyMemberRemoved(
     this: SocketHandlerContext,
     conversationId: string,
     removedUserId: string,
@@ -73,10 +154,15 @@ export const socketNotifiers = {
     };
 
     this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_MEMBER_REMOVED, payload);
-    this.emitToUser(removedUserId, SocketEvent.CONVERSATION_MEMBER_REMOVED, payload);
+    const activeMemberUserIds = await getActiveMemberUserIds(this, conversationId);
+    for (const userId of uniqueStrings([...activeMemberUserIds, removedUserId])) {
+      this.emitToUser(userId, SocketEvent.CONVERSATION_MEMBER_REMOVED, payload);
+    }
+
+    await emitLatestMessageToUsers(this, conversationId, activeMemberUserIds);
   },
 
-  notifyMemberLeft(this: SocketHandlerContext, conversationId: string, leftUserId: string, leftBy: string) {
+  async notifyMemberLeft(this: SocketHandlerContext, conversationId: string, leftUserId: string, leftBy: string) {
     const memberRemovedPayload = {
       conversationId,
       removedUserId: leftUserId,
@@ -90,10 +176,15 @@ export const socketNotifiers = {
     };
 
     this.emitToGroupRoom(conversationId, SocketEvent.CONVERSATION_MEMBER_REMOVED, memberRemovedPayload);
-    this.emitToUser(leftUserId, SocketEvent.CONVERSATION_MEMBER_REMOVED, memberRemovedPayload);
-
     this.emitToGroupRoom(conversationId, SocketEvent.GROUP_MEMBER_LEFT, memberLeftPayload);
-    this.emitToUser(leftUserId, SocketEvent.GROUP_MEMBER_LEFT, memberLeftPayload);
+
+    const activeMemberUserIds = await getActiveMemberUserIds(this, conversationId);
+    for (const userId of uniqueStrings([...activeMemberUserIds, leftUserId])) {
+      this.emitToUser(userId, SocketEvent.CONVERSATION_MEMBER_REMOVED, memberRemovedPayload);
+      this.emitToUser(userId, SocketEvent.GROUP_MEMBER_LEFT, memberLeftPayload);
+    }
+
+    await emitLatestMessageToUsers(this, conversationId, activeMemberUserIds);
   },
 
   notifyGroupDissolved(this: SocketHandlerContext, conversationId: string, dissolvedBy: string, memberUserIds: string[]) {
@@ -227,17 +318,32 @@ export const socketNotifiers = {
     });
   },
 
-  notifyMemberApproved(this: SocketHandlerContext, conversationId: string, userId: string, member: any) {
-    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_MEMBER_APPROVED, {
+  async notifyMemberApproved(
+    this: SocketHandlerContext,
+    conversationId: string,
+    userId: string,
+    member: any,
+    approvedBy?: string,
+  ) {
+    const payload = {
       conversationId,
       userId,
       member,
-    });
-    this.emitToUser(userId, SocketEvent.GROUP_MEMBER_APPROVED, {
-      conversationId,
-      userId,
+      approvedBy,
+    };
+
+    this.emitToGroupRoom(conversationId, SocketEvent.GROUP_MEMBER_APPROVED, payload);
+
+    const activeMemberUserIds = await getActiveMemberUserIds(this, conversationId);
+    for (const memberUserId of uniqueStrings([...activeMemberUserIds, userId])) {
+      this.emitToUser(memberUserId, SocketEvent.GROUP_MEMBER_APPROVED, payload);
+    }
+
+    await emitConversationCreatedForUser(this, conversationId, userId, {
       member,
+      approvedBy,
     });
+    await emitLatestMessageToUsers(this, conversationId, activeMemberUserIds);
   },
 
   notifyMemberRejected(this: SocketHandlerContext, conversationId: string, userId: string) {

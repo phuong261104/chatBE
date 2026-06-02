@@ -212,7 +212,7 @@ paths:
                   example: true
                 requireApproval:
                   type: boolean
-                  description: Require admin approval for new members
+                  description: Require owner/admin approval for invites made by regular members. Owner/admin direct invites become active immediately.
                   example: false
                 allowMemberInvite:
                   type: boolean

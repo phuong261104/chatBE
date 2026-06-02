@@ -128,7 +128,7 @@ export class GroupController extends BaseController {
       );
 
       if (this.socketService) {
-        this.socketService.notifyMemberLeft(groupId, currentUserId, currentUserId);
+        await this.socketService.notifyMemberLeft(groupId, currentUserId, currentUserId);
       }
 
       res.status(200).json({ success: true });
@@ -294,16 +294,7 @@ export class GroupController extends BaseController {
       const approvedMember = await this.useCase.approveMember(groupId, userId, currentUserId);
 
       if (this.socketService) {
-        this.socketService.emitToGroupRoom(groupId, SocketEvent.GROUP_MEMBER_APPROVED, {
-          conversationId: groupId,
-          userId,
-          member: approvedMember,
-        });
-        this.socketService.emitToUser(userId, SocketEvent.GROUP_MEMBER_APPROVED, {
-          conversationId: groupId,
-          userId,
-          member: approvedMember,
-        });
+        await this.socketService.notifyMemberApproved(groupId, userId, approvedMember, currentUserId);
       }
 
       res.status(200).json({ data: approvedMember });

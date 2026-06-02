@@ -66,7 +66,9 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       throw AppError.from(new Error("Member invites are disabled for this group"), 403);
     }
 
-    if (settings.whoCanAddMembers === "admins" && !isGroupManager(requesterMember, conversation)) {
+    const requesterIsManager = isGroupManager(requesterMember, conversation);
+
+    if (settings.whoCanAddMembers === "admins" && !requesterIsManager) {
       throw AppError.from(new Error("Only owner or admins can add members"), 403);
     }
 
@@ -79,7 +81,7 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
     const users = await this.userQueryRepo.findByIds([validatedInput.requesterId, ...uniqueMemberIds]);
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    const defaultStatus = settings.requireApproval
+    const defaultStatus = settings.requireApproval && !requesterIsManager
       ? ConversationMemberStatus.PENDING
       : ConversationMemberStatus.ACTIVE;
 

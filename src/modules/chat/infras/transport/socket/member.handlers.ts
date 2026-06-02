@@ -25,19 +25,7 @@ export const memberSocketHandlers = {
 
       const newMembers = await this.useCase.addMembersToGroup(groupId, userId, memberIds);
 
-      const membersAddedPayload = {
-        conversationId: groupId,
-        newMembers,
-        addedBy: userId,
-      };
-
-      this.emitToGroupRoom(groupId, SocketEvent.CONVERSATION_MEMBERS_ADDED, membersAddedPayload);
-
-      for (const member of newMembers) {
-        if (member?.userId) {
-          this.emitToUser(member.userId, SocketEvent.CONVERSATION_MEMBERS_ADDED, membersAddedPayload);
-        }
-      }
+      await (this as any).notifyMembersAdded(groupId, newMembers, userId);
 
       if (callback) {
         callback({ success: true, newMembers });
@@ -71,22 +59,7 @@ export const memberSocketHandlers = {
       }
 
       await this.useCase.removeMemberFromGroup(groupId, userId, targetUserId);
-
-      const memberRemovedPayload = {
-        conversationId: groupId,
-        removedUserId: targetUserId,
-        removedBy: userId,
-        reason: "removed",
-      };
-
-      this.emitToGroupRoom(groupId, SocketEvent.CONVERSATION_MEMBER_REMOVED, memberRemovedPayload);
-      this.emitToUser(targetUserId, SocketEvent.CONVERSATION_MEMBER_REMOVED, memberRemovedPayload);
-
-      this.emitToUser(targetUserId, SocketEvent.GROUP_MEMBER_LEFT, {
-        conversationId: groupId,
-        leftUserId: targetUserId,
-        leftBy: userId,
-      });
+      await (this as any).notifyMemberRemoved(groupId, targetUserId, userId, "removed");
 
       if (callback) {
         callback({ success: true });
@@ -199,20 +172,7 @@ export const memberSocketHandlers = {
       }
 
       const member = await this.useCase.approveMember(groupId, userIdToApprove, userId);
-
-      this.emitToGroupRoom(groupId, SocketEvent.GROUP_MEMBER_APPROVED, {
-        conversationId: groupId,
-        userId: userIdToApprove,
-        member,
-        approvedBy: userId,
-      });
-
-      this.emitToUser(userIdToApprove, SocketEvent.GROUP_MEMBER_APPROVED, {
-        conversationId: groupId,
-        userId: userIdToApprove,
-        member,
-        approvedBy: userId,
-      });
+      await (this as any).notifyMemberApproved(groupId, userIdToApprove, member, userId);
 
       if (callback) {
         callback({ success: true, member });

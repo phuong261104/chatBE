@@ -158,7 +158,7 @@ liveDescribe("group utilities live E2E with real app and DynamoDB repositories",
       admin.id,
     );
     expect(adminAdd.status).toBe(200);
-    expect(adminAdd.data.data[0].status).toBe(ConversationMemberStatus.PENDING);
+    expect(adminAdd.data.data[0].status).toBe(ConversationMemberStatus.ACTIVE);
   });
 
   it("supports polls with hidden results, lock, pin, unpin, and socket events against the real app", async () => {

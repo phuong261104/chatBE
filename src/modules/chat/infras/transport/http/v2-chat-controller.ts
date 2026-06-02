@@ -451,7 +451,7 @@ export class ChatV2Controller {
         data.requesterId,
         data.memberIds,
       );
-      this.socketService.notifyMembersAdded(data.conversationId, newMembers, currentUserId);
+      await this.socketService.notifyMembersAdded(data.conversationId, newMembers, currentUserId);
       return res.status(200).json({ data: newMembers });
     } catch (err) {
       return this.sendError(res, err);
@@ -470,7 +470,7 @@ export class ChatV2Controller {
       }
 
       await this.useCase.removeMemberFromGroup(groupId, currentUserId, targetUserId);
-      this.socketService.notifyMemberRemoved(groupId, targetUserId, currentUserId, "removed");
+      await this.socketService.notifyMemberRemoved(groupId, targetUserId, currentUserId, "removed");
       return res.status(200).json({ success: true });
     } catch (err) {
       return this.sendError(res, err);
@@ -484,7 +484,7 @@ export class ChatV2Controller {
 
       const groupId = req.params.groupId;
       await this.useCase.leaveGroup(groupId, currentUserId, true);
-      this.socketService.notifyMemberLeft(groupId, currentUserId, currentUserId);
+      await this.socketService.notifyMemberLeft(groupId, currentUserId, currentUserId);
       return res.status(200).json({ success: true });
     } catch (err) {
       return this.sendError(res, err);
