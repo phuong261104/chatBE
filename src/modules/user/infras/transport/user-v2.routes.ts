@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { DynamoBlockRepository } from "@modules/blocks/infras/repository/dynamodb";
-import { DynamoConversationMemberRepository, DynamoConversationRepository } from "@modules/chat/infras/repository/dynamodb";
+import {
+  DynamoConversationMemberRepository,
+  DynamoConversationRepository,
+} from "@modules/chat/infras/repository/dynamodb";
 import { DynamoFriendRequestRepository } from "@modules/friend-requests/infras/repository/dynamodb";
 import { DynamoFriendshipRepository } from "@modules/friendships/infras/repository/dynamodb";
 import { ServiceContext } from "@share/interface/service-context";
@@ -25,7 +28,11 @@ export function setupUserV2Routes(
   const conversationRepo = new DynamoConversationRepository();
   const conversationMemberRepo = new DynamoConversationMemberRepository();
   const avatarHistoryRepo = new DynamoUserAvatarHistoryRepository();
-  const privacyPolicy = new RelationshipPrivacyPolicyV2(userRepo, friendshipRepo, blockRepo);
+  const privacyPolicy = new RelationshipPrivacyPolicyV2(
+    userRepo,
+    friendshipRepo,
+    blockRepo,
+  );
   const service = new UserV2HTTPService(
     userUseCase,
     presenceUseCase,
@@ -45,7 +52,8 @@ export function setupUserV2Routes(
   router.patch("/users/me/privacy", auth, service.updateMyPrivacyAPI);
   router.get("/users/me/avatar-history", auth, service.getAvatarHistoryAPI);
   router.get("/users/search", auth, service.searchUsersAPI);
-  router.get("/users/search-by-phone", auth, service.searchByPhoneAPI);
+  // router.get("/users/search-by-phone", auth, service.searchByPhoneAPI);
+  router.get("/users/search-by-phone", service.searchByPhoneAPI);
   router.get("/users/:id/presence", auth, service.getPresenceAPI);
   router.get("/users/:id/public", auth, service.getPublicProfileAPI);
   router.get("/friends/suggestions", auth, service.getFriendSuggestionsAPI);
