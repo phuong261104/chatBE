@@ -39,6 +39,11 @@ import cors from "cors";
 
 config();
 
+const getRateLimitClientIp = (req: Request): string => {
+  const cfConnectingIp = req.header("cf-connecting-ip")?.trim();
+  return cfConnectingIp || req.ip || "unknown";
+};
+
 (async () => {
   Logger.info(`Starting server in  mode...`);
 
@@ -57,6 +62,8 @@ config();
   const app = express();
   const httpServer = createServer(app);
   const port = process.env.PORT || 3000;
+
+  app.set("trust proxy", 1);
 
   app.get("/health", healthCheck);
   app.get("/health/live", (_req, res) => res.json({ status: "ok" }));
@@ -93,6 +100,12 @@ config();
       },
       methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
       allowedHeaders: "*",
+      exposedHeaders: [
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+        "Retry-After",
+      ],
       credentials: appConfig.auth.refreshCookie.enabled,
     }),
   );
@@ -119,7 +132,7 @@ config();
       max: appConfig.rateLimit.global.max,
       windowSec: appConfig.rateLimit.global.windowSec,
       keyPrefix: "global",
-      keyGenerator: (req: Request) => req.ip || "unknown",
+      keyGenerator: (req: Request) => getRateLimitClientIp(req),
     });
     app.use(globalLimiter);
   }

@@ -25,7 +25,7 @@ Tên table runtime được ghép qua `getTableName(TABLE_NAMES.X)` và có th�
 
 ## Active Tables
 
-Các table đang được khởi tạo bởi `ALL_TABLES`:
+Các table đang được khởi tạo bởi `ALL_TABLES` (xem `src/share/repository/dynamodb/table-defs.ts`):
 
 | Table | Domain | Primary key | GSI/LSI | Ghi chú |
 | --- | --- | --- | --- | --- |
@@ -41,11 +41,16 @@ Các table đang được khởi tạo bởi `ALL_TABLES`:
 | `group_notes` | Chat | `id` | `conversation-index` | Note trong group |
 | `friendships` | Social | `userA`, `userB` | `userA-createdAt-index`, `userB-index` | Một record cho mỗi cặp bạn bè |
 | `friend_requests` | Social | `id` | `senderId-index`, `receiverId-index`, `senderId-createdAt-index`, `receiverId-createdAt-index` | Lời mời kết bạn |
-| `blocks` | Social | `blockerId`, `blockedUserId` | `blockerId-createdAt-index` | Quan hệ chặn |
 | `group_invite_links` | Chat | `token` | `conversationId-status-index` | Invite link/token cho group |
 | `group_blocks` | Chat | `pk`, `sk` | `userId-index`, `blockedBy-index` | User bị chặn khỏi group |
 
-`stories` và `story_views` đang có trong `TABLE_NAMES`, nhưng chưa có table definition trong `ALL_TABLES`; hiện chưa được auto-init bởi backend.
+Các table/constant có trong code nhưng chưa được auto-init bởi `ALL_TABLES`:
+
+| Table | Trạng thái trong code | Ghi chú |
+| --- | --- | --- |
+| `blocks` | Có `BLOCKS_TABLE` và repository/model, nhưng chưa nằm trong `ALL_TABLES` | Repository đang query theo `blockerId`/`blockedUserId`; table phải tồn tại sẵn hoặc cần thêm vào `ALL_TABLES` trước khi auto-init |
+| `stories` | Chỉ có trong `TABLE_NAMES` | Chưa có table definition/repository model hiện tại |
+| `story_views` | Chỉ có trong `TABLE_NAMES` | Chưa có table definition/repository model hiện tại |
 
 ## User Domain
 
@@ -66,7 +71,7 @@ Indexes:
 Fields chính:
 
 - Identity: `id`, `email`, `phone`, `username`.
-- Auth: `password`, `salt`, `status`, `verified.email`, `verified.phone`.
+- Auth: `password`, `salt`, `tokenVersion`, `status`, `verified.email`, `verified.phone`, `emailVerifiedAt`.
 - Profile: `displayName`, `avatarUrl`, `coverUrl`, `birthday`, `gender`, `bio`.
 - Privacy: `searchableByEmail`, `searchableByPhone`, `searchableByUsername`, `birthdayVisibility`, `phoneVisibility`, `avatarVisibility`, `showOnline`, `showLastSeen`, `blockMessagesFromStrangers`.
 - Settings: `settings.notifications.push`, `settings.notifications.inApp`.
@@ -118,7 +123,9 @@ Fields chính:
 - `type`: `private` hoặc `group`.
 - Private: `pairKey`.
 - Group: `name`, `avatarUrl`, `createdBy`, `ownerId`, `admins`, `membersCount`, `settings`.
+- Group settings: `settings.allowSendLink`, `settings.requireApproval`, `settings.allowMemberInvite`, `settings.whoCanSendMessages`, `settings.whoCanAddMembers`, `settings.whoCanUpdateGroupInfo`, `settings.whoCanPinMessages`, `settings.newMemberCanViewHistory`, `settings.utilityPermissions.poll`, `settings.utilityPermissions.reminder`, `settings.utilityPermissions.note`.
 - Preview: `lastMessage`, `lastMessageAt`.
+- Stored key helper: `pk` được ghi bằng `id` trong repository, không nằm trong public model.
 - Audit: `createdAt`, `updatedAt`.
 
 Access patterns:
@@ -149,8 +156,8 @@ Fields chính:
 - Timeline: `joinedAt`, `leftAt`, `historyVisibleFrom`, `updatedAt`, `lastActivityAt`.
 - Read state: `unreadCount`, `lastReadMessageId`, `lastReadAt`, `lastReadMessageCreatedAt`, `lastSeenMessageId`, `lastSeenAt`, `lastSeenMessageCreatedAt`, `lastDeliveredMessageId`, `lastDeliveredAt`, `lastDeliveredMessageCreatedAt`.
 - User inbox flags: `muteUntil`, `pinned`, `pinnedAt`, `archived`.
-- Hidden chat: `hiddenUserIds`, `hidden`, `hiddenAt`, `hiddenPinHash`.
-- Personalization: `nickname`, `nicknameUpdatedAt`, `wallpaper`, `wallpaperUpdatedAt`.
+- Hidden chat: `hiddenUserIds`, `hidden`, `hiddenAt`, `hiddenPinHash`, `deletedAt`.
+- Personalization: `nickname`, `nicknameUpdatedAt`, `wallpaper`, `wallpaperUpdatedAt`, `wallpaperUrl` (alias response, thực tế lưu bằng `wallpaper`).
 
 Access patterns:
 
@@ -180,11 +187,15 @@ TTL:
 
 Fields chính:
 
-- Identity: `id`, `conversationId`, `senderId`, `clientMessageId`.
+- Identity/key: `pk`, `sk`, `id`, `conversationId`, `senderId`, `clientMessageId`, `clientMessageKey`.
 - Content: `type`, `text`, `media`, `links`, `call`, `profileCardUserId`.
+- Media item fields: `media[].url`, `media[].mediaType`, `media[].name`, `media[].size`, `media[].width`, `media[].height`, `media[].duration`, `media[].thumbnailUrl`.
+- Call metadata fields: `call.callId`, `call.roomName`, `call.callType`, `call.status`, `call.callerId`, `call.calleeIds`, `call.answeredAt`, `call.endedAt`, `call.endedBy`, `call.durationSeconds`, `call.participantOutcomes`.
 - Utility card metadata: `pollId`, `reminderId`, `systemAction`, `systemRefId`. Message `type=poll` và `type=reminder` là card trong timeline, được hydrate bằng record utility khi load.
 - Lifecycle: `messageStatus`, `deletedBy`, `revokedAt`, `deletedForUserIds`, `editedAt`, `deletedAt`, `expiresAt`, `expireAtEpoch`.
-- Interaction: `quotedMessageId`, `quotedMessagePreview`, `forwardedFrom`, `forwardedFromMessageId`, `mentions`, `pinned`, `pinnedAt`, `readBy`, `reactions`.
+- Interaction/model-only hydrate: `quotedMessageId`, `quotedMessagePreview`, `forwardedFrom`, `forwardedFromMessageId`, `mentions`, `pinned`, `pinnedAt`, `readBy`, `reactions`, `poll`, `reminder`.
+- Repository-written helper fields: `GSI1PK`, `GSI1SK` hiện được ghi như sender/time helper attributes, nhưng `messages` không có `GSI1` trong `table-defs.ts`.
+- Idempotency reservation row fields: `pk`, `sk`, `conversationId`, `senderId`, `clientMessageId`, `status`, `messageIds`, `createdAt`, `updatedAt`, `expireAtEpoch`.
 - Audit: `createdAt`.
 
 Access patterns:
@@ -206,7 +217,9 @@ Primary key:
 
 Fields chính:
 
-- `id`, `messageId`, `userId`, `emoji`, `count`, `createdAt`.
+- Key: `pk`, `sk`.
+- Model fields: `id`, `messageId`, `userId`, `emoji`, `count`, `createdAt`.
+- Hydrated response field: `user.id`, `user.avatarUrl`, `user.displayName`.
 
 Access patterns:
 
@@ -260,7 +273,8 @@ Indexes:
 Fields chính:
 
 - `id`, `conversationId`, `messageId`, `question`, `options`, `createdBy`.
-- Settings: `isMultipleChoice`, `allowAddOption`, `showResultsBeforeClose`, `hideVoters`.
+- Option fields: `options[].id`, `options[].text`, `options[].voteCount`, `options[].votedUserIds`, `options[].addedBy`.
+- Settings: `isMultipleChoice`, `allowAddOption`, `allowChangeVote`, `showResultsBeforeClose`, `hideVoters`.
 - Lifecycle: `status`, `expiresAt`, `closedAt`, `closedBy`.
 - Pin/vote: `pinned`, `pinnedAt`, `pinnedBy`, `totalVotes`, `lastVoteActivityAt`, `lastVoteActivityMessageId`, `voteActivityCount`.
 - Audit: `createdAt`, `updatedAt`.
@@ -371,7 +385,8 @@ Indexes:
 
 Fields chính:
 
-- `id`, `userA`, `userB`, `status`, `createdAt`, `updatedAt`.
+- Model fields: `id`, `userA`, `userB`, `status`, `createdAt`.
+- Repository-only lifecycle field: `updatedAt` được ghi khi soft delete/restore, nhưng bị loại khỏi entity trong `toEntity` và không có trong `FriendshipSchema`.
 
 Access patterns:
 
@@ -404,6 +419,10 @@ Ghi chú mapping:
 ### `blocks`
 
 Mục đích: lưu quan hệ user chặn user khác.
+
+Ghi chú hiện trạng code:
+
+- Có `BLOCKS_TABLE`, model và repository DynamoDB, nhưng `BLOCKS_TABLE` chưa nằm trong `ALL_TABLES`, nên backend auto-init hiện chưa tự tạo table này.
 
 Primary key:
 
@@ -455,11 +474,6 @@ Redis chạy trong Docker cùng backend với service name `redis`; host dev có
 | `friendships.userA/userB` | `users.id` | Pair relationship |
 | `friend_requests.fromUserId/toUserId` | `users.id` | Many-to-one |
 | `blocks.blockerId/blockedUserId` | `users.id` | Pair relationship |
-| `cloud_items.userId` | `users.id` | Many-to-one |
-| `cloud_items.collectionId` | `collections.id` | Many-to-one |
-| `collections.userId` | `users.id` | Many-to-one |
-| `collection_items.collectionId` | `collections.id` | Many-to-one |
-| `collection_items.itemId` | `cloud_items.id` | Many-to-one |
 | `group_invite_links.conversationId` | `conversations.id` | Many-to-one |
 | `group_invite_links.createdBy` | `users.id` | Many-to-one |
 | `group_blocks.conversationId` | `conversations.id` | Many-to-one |
