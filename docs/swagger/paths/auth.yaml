@@ -796,6 +796,65 @@ paths:
                             description: "Token version for revocation tracking"
                             example: 1
 
+  /v1/auth/unverified-email:
+    get:
+      summary: "Get unverified email by phone"
+      tags: [Auth]
+      description: |
+        Public lookup used when a user logs in by phone but still needs to verify email.
+        Returns the account email only when the phone belongs to an active user whose email is not verified.
+      parameters:
+        - in: query
+          name: phone
+          required: true
+          schema:
+            type: string
+            pattern: "^\\+?[0-9]{4,15}$"
+          description: "Phone number registered on the account."
+          example: "0912345678"
+      responses:
+        '200':
+          description: "Unverified email found"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  msg:
+                    type: string
+                    example: "OK"
+                  data:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                        format: email
+                        example: "phuong.boss@example.com"
+              example:
+                status: "success"
+                msg: "OK"
+                data:
+                  email: "phuong.boss@example.com"
+        '404':
+          description: "No active account with an unverified email was found for this phone"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Unverified email not found"
+        '422':
+          description: "Invalid or missing phone query"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                message: "Invalid request"
+
   /v1/auth/send-verification:
     post:
       summary: "Send email verification code"

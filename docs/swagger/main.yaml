@@ -54,6 +54,8 @@ paths:
     $ref: "./paths/auth.yaml#/paths/~1v1~1auth~1introspect"
 
   # Auth - Email Verification
+  /v1/auth/unverified-email:
+    $ref: "./paths/auth.yaml#/paths/~1v1~1auth~1unverified-email"
   /v1/auth/send-verification:
     $ref: "./paths/auth.yaml#/paths/~1v1~1auth~1send-verification"
   /v1/auth/verify-email:

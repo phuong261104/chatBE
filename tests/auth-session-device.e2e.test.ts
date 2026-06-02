@@ -164,6 +164,7 @@ async function createHarness(): Promise<Harness> {
 
   app.use(express.json());
   app.use(cors({ credentials: true, origin: true }));
+  app.get("/v1/auth/unverified-email", service.getUnverifiedEmailAPI.bind(service));
   app.post("/v1/auth/login", service.loginAPI.bind(service));
   app.post("/v1/auth/refresh", service.refreshAPI.bind(service));
   app.post("/v1/auth/logout", auth, service.logoutAPI.bind(service));
@@ -484,5 +485,26 @@ describe("auth session and device E2E", () => {
     } finally {
       config.auth.requireEmailVerification = previous;
     }
+  });
+
+  it("publicly returns the email for an active account with unverified email by phone", async () => {
+    const seeded = harness.repo.addUserWithOverrides("0900000088", "Password123!", {
+      email: "unverified-public@chatbe.test",
+      verified: { email: false, phone: true },
+    });
+
+    const lookup = await harness.api.get("/v1/auth/unverified-email", {
+      params: { phone: seeded.user.phone },
+    });
+    expect(lookup.status).toBe(200);
+    expect(lookup.data.data).toEqual({ email: seeded.user.email });
+
+    const verifiedLookup = await harness.api.get("/v1/auth/unverified-email", {
+      params: { phone: credentials.user.phone },
+    });
+    expect(verifiedLookup.status).toBe(404);
+
+    const invalidLookup = await harness.api.get("/v1/auth/unverified-email");
+    expect(invalidLookup.status).toBe(422);
   });
 });

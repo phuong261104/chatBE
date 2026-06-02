@@ -30,6 +30,8 @@ import {
   RegistrationDTOSchema,
   UserStatus,
   SendVerificationDTO,
+  GetUnverifiedEmailByPhoneDTO,
+  GetUnverifiedEmailByPhoneDTOSchema,
   VerifyEmailDTO,
   ForgotPasswordDTO,
   VerifyResetOTPDTO,
@@ -49,6 +51,7 @@ import {
   ErrVerificationExpired,
   ErrTooManyAttempts,
   ErrEmailAlreadyVerified,
+  ErrUnverifiedEmailNotFound,
   ErrRateLimitExceeded,
   ErrUserNotFound,
   ErrInvalidResetToken,
@@ -639,6 +642,18 @@ export class AuthUseCase implements IAuthUseCase {
       () => this.emailService.sendVerificationEmail(email, code, user.displayName),
       "verification email",
     );
+  }
+
+  async getUnverifiedEmailByPhone(data: GetUnverifiedEmailByPhoneDTO): Promise<{ email: string }> {
+    const dto = GetUnverifiedEmailByPhoneDTOSchema.parse(data);
+    const phone = this.normalizePhone(dto.phone);
+    const user = await this.userRepository.findByCond({ phone, status: UserStatus.ACTIVE });
+
+    if (!user?.email || user.verified?.email) {
+      throw AppError.from(ErrUnverifiedEmailNotFound, 404);
+    }
+
+    return { email: user.email };
   }
 
   async verifyEmail(data: VerifyEmailDTO): Promise<boolean> {

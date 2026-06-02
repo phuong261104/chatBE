@@ -39,6 +39,10 @@ export const SendVerificationDTOSchema = z.object({
   email: z.string().email(),
 });
 
+export const GetUnverifiedEmailByPhoneDTOSchema = z.object({
+  phone: UserPhoneSchema,
+});
+
 export const VerifyEmailDTOSchema = z.object({
   email: z.string().email(),
   code: z.string().length(6, "Verification code must be 6 digits"),
@@ -79,6 +83,7 @@ export type LoginDTO = z.infer<typeof LoginDTOSchema>;
 export type RegistrationDTO = z.infer<typeof RegistrationDTOSchema>;
 export type RefreshTokenDTO = z.infer<typeof RefreshTokenDTOSchema>;
 export type SendVerificationDTO = z.infer<typeof SendVerificationDTOSchema>;
+export type GetUnverifiedEmailByPhoneDTO = z.infer<typeof GetUnverifiedEmailByPhoneDTOSchema>;
 export type VerifyEmailDTO = z.infer<typeof VerifyEmailDTOSchema>;
 export type ForgotPasswordDTO = z.infer<typeof ForgotPasswordDTOSchema>;
 export type VerifyResetOTPDTO = z.infer<typeof VerifyResetOTPDTOMSchema>;

@@ -141,6 +141,7 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | POST | `/v1/auth/logout` | Đăng xuất session hiện tại |
 | POST | `/v1/auth/logout-all` | Đăng xuất toàn bộ thiết bị |
 | POST | `/v1/auth/introspect` | Kiểm tra token |
+| GET | `/v1/auth/unverified-email` | Public lookup email chưa verify theo `phone` query |
 | POST | `/v1/auth/send-verification` | Gửi mã verify email |
 | POST | `/v1/auth/verify-email` | Verify email bằng code |
 | POST | `/v1/auth/resend-verification` | Gửi lại mã verify |

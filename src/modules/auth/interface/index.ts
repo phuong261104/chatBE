@@ -9,7 +9,17 @@ import {
 } from "@share/interface";
 import { User } from "@modules/user/model/model";
 import { UserCondDTO, UserUpdateDTO } from "@modules/user/model/dto";
-import { LoginDTO, RegistrationDTO, SendVerificationDTO, VerifyEmailDTO, ForgotPasswordDTO, VerifyResetOTPDTO, ResetPasswordDTO, ChangePasswordDTO } from "../model/dto";
+import {
+  ChangePasswordDTO,
+  ForgotPasswordDTO,
+  GetUnverifiedEmailByPhoneDTO,
+  LoginDTO,
+  RegistrationDTO,
+  ResetPasswordDTO,
+  SendVerificationDTO,
+  VerifyEmailDTO,
+  VerifyResetOTPDTO,
+} from "../model/dto";
 
 export interface LoginResponse {
   accessToken: string;
@@ -87,6 +97,7 @@ export interface IAuthUseCase {
   blacklistToken(jti: string, expiresAt: number): Promise<void>;
   introspect(token: string): Promise<TokenIntrospectResult>;
   sendVerificationEmail(data: SendVerificationDTO, userId?: string): Promise<void>;
+  getUnverifiedEmailByPhone(data: GetUnverifiedEmailByPhoneDTO): Promise<{ email: string }>;
   verifyEmail(data: VerifyEmailDTO): Promise<boolean>;
   resendVerificationEmail(data: SendVerificationDTO): Promise<void>;
   forgotPassword(data: ForgotPasswordDTO): Promise<void>;

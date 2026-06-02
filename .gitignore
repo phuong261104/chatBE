@@ -92,6 +92,7 @@ tests/*
 !tests/social-privacy-profile.live.e2e.test.ts
 !tests/chat-saved-messages.live-server.test.ts
 !tests/chat-group-membership.live-server.test.ts
+!tests/auth-unverified-email.live-server.test.ts
 !tests/live-server-session-social.test.ts
 !tests/helpers/
 !tests/helpers/chat-e2e-harness.ts
@@ -99,3 +100,5 @@ tests/*
 !tests/chat-poll.e2e.test.ts
 docs/ARCHITECTURE-REPORT.md
 docs/BACKEND_BUSINESS_CURRENT.md
+backend_audit_for_chapter2.md
+docs/C4-MODEL-REPORT.md

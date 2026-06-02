@@ -42,6 +42,7 @@ export const setupAuthHexagon = (sctx: ServiceContext | { mdlFactory: { auth: Ha
   router.post("/auth/login", httpService.loginAPI.bind(httpService));
   router.post("/auth/refresh", httpService.refreshAPI.bind(httpService));
   router.post("/auth/introspect", httpService.introspectAPI.bind(httpService));
+  router.get("/auth/unverified-email", httpService.getUnverifiedEmailAPI.bind(httpService));
   router.post("/auth/verify-email", httpService.verifyEmailAPI.bind(httpService));
   router.post("/auth/forgot-password", httpService.forgotPasswordAPI.bind(httpService));
   router.post("/auth/verify-reset-otp", httpService.verifyResetOTPAPI.bind(httpService));

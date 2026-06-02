@@ -52,8 +52,7 @@ export function setupUserV2Routes(
   router.patch("/users/me/privacy", auth, service.updateMyPrivacyAPI);
   router.get("/users/me/avatar-history", auth, service.getAvatarHistoryAPI);
   router.get("/users/search", auth, service.searchUsersAPI);
-  // router.get("/users/search-by-phone", auth, service.searchByPhoneAPI);
-  router.get("/users/search-by-phone", service.searchByPhoneAPI);
+  router.get("/users/search-by-phone", auth, service.searchByPhoneAPI);
   router.get("/users/:id/presence", auth, service.getPresenceAPI);
   router.get("/users/:id/public", auth, service.getPublicProfileAPI);
   router.get("/friends/suggestions", auth, service.getFriendSuggestionsAPI);

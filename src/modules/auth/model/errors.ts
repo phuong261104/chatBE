@@ -7,6 +7,7 @@ export const ErrInvalidToken = new Error("Invalid or expired token");
 export const ErrUserNotFound = new Error("User not found");
 export const ErrEmailNotVerified = new Error("Email is not verified");
 export const ErrEmailNotFound = new Error("Email not found");
+export const ErrUnverifiedEmailNotFound = new Error("Unverified email not found");
 export const ErrInvalidVerificationCode = new Error("Invalid verification code");
 export const ErrVerificationExpired = new Error("Verification code has expired");
 export const ErrTooManyAttempts = new Error("Too many attempts. Please try again later");

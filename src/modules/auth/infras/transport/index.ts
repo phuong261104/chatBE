@@ -9,6 +9,7 @@ import {
   RegistrationDTO,
   RefreshTokenDTO,
   SendVerificationDTO,
+  GetUnverifiedEmailByPhoneDTOSchema,
   VerifyEmailDTO,
   ForgotPasswordDTO,
   VerifyResetOTPDTO,
@@ -261,6 +262,26 @@ export class AuthHTTPService {
     } catch (error) {
       if (error instanceof AppError) {
         res.status(error.getStatusCode()).json({ message: error.message });
+        return;
+      }
+      res.status(500).json({ message: (error as Error).message });
+    }
+  }
+
+  async getUnverifiedEmailAPI(req: Request, res: Response) {
+    try {
+      const parsed = GetUnverifiedEmailByPhoneDTOSchema.safeParse(req.query);
+      if (!parsed.success) {
+        res.status(422).json({ message: "Invalid request", details: parsed.error.flatten() });
+        return;
+      }
+
+      const result = await this.usecase.getUnverifiedEmailByPhone(parsed.data);
+      res.status(200).json({ data: result });
+    } catch (error) {
+      if (error instanceof AppError) {
+        const body = error.toJSON(process.env.NODE_ENV === "production");
+        res.status(error.getStatusCode()).json(body);
         return;
       }
       res.status(500).json({ message: (error as Error).message });

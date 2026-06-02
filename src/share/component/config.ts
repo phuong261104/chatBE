@@ -20,7 +20,10 @@ export const config = {
   dynamodb: {
     region: process.env.DYNAMODB_REGION || "localhost",
     endpoint: process.env.DYNAMODB_ENDPOINT || "",
-    tablePrefix: process.env.DYNAMODB_TABLE_PREFIX !== undefined ? process.env.DYNAMODB_TABLE_PREFIX : "",
+    tablePrefix:
+      process.env.DYNAMODB_TABLE_PREFIX !== undefined
+        ? process.env.DYNAMODB_TABLE_PREFIX
+        : "",
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
   },
@@ -31,15 +34,21 @@ export const config = {
     url: process.env.REDIS_URL,
   },
   accessToken: {
-    secretKey: process.env.JWT_ACCESS_SECRET || "access-secret-key-change-in-production-min-32chars",
+    secretKey:
+      process.env.JWT_ACCESS_SECRET ||
+      "access-secret-key-change-in-production-min-32chars",
     expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
   },
   refreshToken: {
-    secretKey: process.env.JWT_REFRESH_SECRET || "refresh-secret-key-change-in-production-min-32chars",
+    secretKey:
+      process.env.JWT_REFRESH_SECRET ||
+      "refresh-secret-key-change-in-production-min-32chars",
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   },
   passwordReset: {
-    secretKey: process.env.JWT_PASSWORD_RESET_SECRET || "reset-secret-key-change-in-production",
+    secretKey:
+      process.env.JWT_PASSWORD_RESET_SECRET ||
+      "reset-secret-key-change-in-production",
     expiresIn: process.env.JWT_PASSWORD_RESET_EXPIRES_IN || "1h",
   },
   email: {
@@ -48,7 +57,7 @@ export const config = {
     secure: process.env.SMTP_SECURE === "true",
     auth: {
       user: process.env.SMTP_USER || "hideonbush2611@gmail.com",
-      pass: process.env.SMTP_PASS || "",
+      pass: process.env.SMTP_PASS || "ahzr yhqu ibex bxdk",
     },
     from: process.env.EMAIL_FROM || "noreply@chatbe.io",
     fromName: process.env.EMAIL_FROM_NAME || "ChatBE",
@@ -58,11 +67,15 @@ export const config = {
     frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
   },
   auth: {
-    requireEmailVerification: process.env.AUTH_REQUIRE_EMAIL_VERIFICATION === "true",
+    requireEmailVerification:
+      process.env.AUTH_REQUIRE_EMAIL_VERIFICATION === "true",
     refreshCookie: {
       enabled: process.env.AUTH_REFRESH_COOKIE_ENABLED !== "false",
       name: process.env.AUTH_REFRESH_COOKIE_NAME || "chatbe_refresh_token",
-      sameSite: (process.env.AUTH_REFRESH_COOKIE_SAMESITE || "lax") as "lax" | "strict" | "none",
+      sameSite: (process.env.AUTH_REFRESH_COOKIE_SAMESITE || "lax") as
+        | "lax"
+        | "strict"
+        | "none",
       secure:
         process.env.AUTH_REFRESH_COOKIE_SECURE !== undefined
           ? process.env.AUTH_REFRESH_COOKIE_SECURE === "true"
