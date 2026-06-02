@@ -12,7 +12,7 @@ describe("SocketRateLimiter", () => {
   it("allows requests until the configured event limit is reached", () => {
     const limiter = new SocketRateLimiter();
 
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 100; i++) {
       expect(limiter.check("user-id", "sendMessage")).toBe(true);
     }
     expect(limiter.check("user-id", "sendMessage")).toBe(false);
@@ -21,7 +21,7 @@ describe("SocketRateLimiter", () => {
   it("uses independent counters per user and event type", () => {
     const limiter = new SocketRateLimiter();
 
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 100; i++) {
       expect(limiter.check("user-id", "typing")).toBe(true);
     }
     expect(limiter.check("user-id", "typing")).toBe(false);
