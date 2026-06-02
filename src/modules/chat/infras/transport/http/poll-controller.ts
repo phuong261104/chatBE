@@ -115,9 +115,10 @@ export class PollController {
       }
 
       const poll = await this.useCase.votePoll(pollId, currentUserId, optionIds);
+      const voteChanged = (poll as any).voteChanged === true;
       const activityMessage = getAttachedMessage(poll, "activityMessage");
       const activityMessageUpdated = (poll as any).activityMessageUpdated === true;
-      if (activityMessage) {
+      if (voteChanged && activityMessage) {
         if (activityMessageUpdated) {
           this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.MESSAGE_EDITED, {
             conversationId: poll.conversationId,
@@ -128,12 +129,14 @@ export class PollController {
         }
       }
 
-      this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_VOTE, {
-        pollId,
-        userId: currentUserId,
-        poll,
-        activityMessage,
-      });
+      if (voteChanged) {
+        this.socketService?.emitToGroupRoom(poll.conversationId, SocketEvent.POLL_VOTE, {
+          pollId,
+          userId: currentUserId,
+          poll,
+          activityMessage,
+        });
+      }
 
       res.status(200).json({ data: poll });
     } catch (error) {

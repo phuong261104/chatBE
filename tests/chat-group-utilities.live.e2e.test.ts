@@ -3,6 +3,7 @@ import {
   ConversationMemberRole,
   ConversationMemberStatus,
   GroupReminderStatus,
+  MessageType,
   PollStatus,
 } from "@modules/chat/model";
 import {
@@ -23,6 +24,27 @@ async function joinGroupSocket(harness: LiveChatE2EHarness, userId: string, conv
   const ack = await emitWithAck<any>(socket, SocketEvent.JOIN_GROUP, { conversationId });
   expect(ack.success).toBe(true);
   return socket;
+}
+
+async function expectNoSocketEvent(
+  socket: any,
+  event: string,
+  predicate: (payload: any) => boolean = () => true,
+  timeoutMs = 800,
+) {
+  await new Promise<void>((resolve, reject) => {
+    const onEvent = (payload: any) => {
+      if (!predicate(payload)) return;
+      clearTimeout(timer);
+      socket.off(event, onEvent);
+      reject(new Error(`Unexpected socket event ${event}: ${JSON.stringify(payload)}`));
+    };
+    const timer = setTimeout(() => {
+      socket.off(event, onEvent);
+      resolve();
+    }, timeoutMs);
+    socket.on(event, onEvent);
+  });
 }
 
 liveDescribe("group utilities live E2E with real app and DynamoDB repositories", () => {
@@ -136,7 +158,7 @@ liveDescribe("group utilities live E2E with real app and DynamoDB repositories",
       admin.id,
     );
     expect(adminAdd.status).toBe(200);
-    expect(adminAdd.data.data[0].status).toBe(ConversationMemberStatus.PENDING);
+    expect(adminAdd.data.data[0].status).toBe(ConversationMemberStatus.ACTIVE);
   });
 
   it("supports polls with hidden results, lock, pin, unpin, and socket events against the real app", async () => {
@@ -159,19 +181,61 @@ liveDescribe("group utilities live E2E with real app and DynamoDB repositories",
     await expect(pollCreated).resolves.toEqual(expect.objectContaining({ conversationId: conversation.id }));
 
     const poll = createAck.poll;
+    const firstVoteActivity = waitForSocketEvent<any>(
+      memberSocket,
+      SocketEvent.RECEIVE_MESSAGE,
+      (payload) =>
+        payload.conversationId === conversation.id &&
+        payload.message?.systemAction === "poll_vote_activity" &&
+        payload.message?.pollId === poll.id,
+    );
+    const ownerPollVote = waitForSocketEvent<any>(
+      memberSocket,
+      SocketEvent.POLL_VOTE,
+      (payload) => payload.pollId === poll.id && (payload.userId === owner.id || payload.votedBy === owner.id),
+    );
     const ownerVote = await harness.api.post(
       `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
       { optionIds: [poll.options[1].id] },
       owner.id,
     );
     expect(ownerVote.status).toBe(200);
+    const firstActivity = await firstVoteActivity;
+    expect(firstActivity.message).toEqual(
+      expect.objectContaining({ type: MessageType.SYSTEM, systemAction: "poll_vote_activity", pollId: poll.id }),
+    );
+    expect(firstActivity.message.text).toContain("1 thành viên");
+    await expect(ownerPollVote).resolves.toEqual(
+      expect.objectContaining({ pollId: poll.id, userId: owner.id }),
+    );
 
+    const voteActivity = waitForSocketEvent<any>(
+      memberSocket,
+      SocketEvent.MESSAGE_EDITED,
+      (payload) =>
+        payload.conversationId === conversation.id &&
+        payload.message?.systemAction === "poll_vote_activity" &&
+        payload.message?.pollId === poll.id,
+    );
+    const memberPollVote = waitForSocketEvent<any>(
+      memberSocket,
+      SocketEvent.POLL_VOTE,
+      (payload) => payload.pollId === poll.id && (payload.userId === member.id || payload.votedBy === member.id),
+    );
     const memberVote = await harness.api.post(
       `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
       { optionIds: [poll.options[0].id] },
       member.id,
     );
     expect(memberVote.status).toBe(200);
+    const secondActivity = await voteActivity;
+    expect(secondActivity.message).toEqual(
+      expect.objectContaining({ type: MessageType.SYSTEM, systemAction: "poll_vote_activity", pollId: poll.id }),
+    );
+    expect(secondActivity.message.text).toContain("2 thành viên");
+    await expect(memberPollVote).resolves.toEqual(
+      expect.objectContaining({ pollId: poll.id, userId: member.id }),
+    );
 
     const memberResults = await harness.api.get(`/v1/groups/${conversation.id}/polls/${poll.id}/results`, member.id);
     expect(memberResults.status).toBe(200);
@@ -185,6 +249,33 @@ liveDescribe("group utilities live E2E with real app and DynamoDB repositories",
     const ownerResults = await harness.api.get(`/v1/groups/${conversation.id}/polls/${poll.id}/results`, owner.id);
     expect(ownerResults.status).toBe(200);
     expect(ownerResults.data.data.options.map((option: any) => option.voteCount)).toEqual([1, 1]);
+
+    const noRepeatMessage = expectNoSocketEvent(
+      memberSocket,
+      SocketEvent.RECEIVE_MESSAGE,
+      (payload) => payload.message?.pollId === poll.id,
+    );
+    const noRepeatEdit = expectNoSocketEvent(
+      memberSocket,
+      SocketEvent.MESSAGE_EDITED,
+      (payload) => payload.message?.pollId === poll.id,
+    );
+    const noRepeatPollVote = expectNoSocketEvent(
+      memberSocket,
+      SocketEvent.POLL_VOTE,
+      (payload) => payload.pollId === poll.id,
+    );
+    const repeatOwnerVote = await harness.api.post(
+      `/v1/groups/${conversation.id}/polls/${poll.id}/vote`,
+      { optionIds: [poll.options[1].id] },
+      owner.id,
+    );
+    expect(repeatOwnerVote.status).toBe(200);
+    expect(repeatOwnerVote.data.data.options.map((option: any) => option.voteCount)).toEqual([1, 1]);
+    expect(repeatOwnerVote.data.data.totalVotes).toBe(2);
+    await Promise.all([noRepeatMessage, noRepeatEdit, noRepeatPollVote]);
+    const activityMessage = await harness.repos.message.get(secondActivity.message.id);
+    expect(activityMessage?.text).toContain("2 thành viên");
 
     const pinned = waitForSocketEvent<any>(memberSocket, SocketEvent.POLL_PINNED, (payload) => payload.pollId === poll.id);
     const pinAck = await emitWithAck<any>(ownerSocket, SocketEvent.PIN_POLL, { pollId: poll.id });

@@ -112,12 +112,19 @@ export function cloneConversation(conversation: Conversation): Conversation {
 }
 
 export function clonePoll(poll: Poll): Poll {
+  const options = poll.options.map((option) => {
+    const votedUserIds = Array.from(new Set(option.votedUserIds));
+    return {
+      ...option,
+      votedUserIds,
+      voteCount: votedUserIds.length,
+    };
+  });
+  const totalVotes = new Set(options.flatMap((option) => option.votedUserIds)).size;
   return {
     ...poll,
-    options: poll.options.map((option) => ({
-      ...option,
-      votedUserIds: [...option.votedUserIds],
-    })),
+    options,
+    totalVotes,
     expiresAt: cloneDate(poll.expiresAt) as Date | undefined,
     closedAt: cloneDate(poll.closedAt) as Date | undefined,
     pinnedAt: cloneDate(poll.pinnedAt) as Date | undefined,

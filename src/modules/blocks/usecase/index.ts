@@ -2,7 +2,7 @@ import { AppError } from '@share/app-error';
 import { ErrDataNotFound } from '@share/model/base-error';
 import { PagingDTO } from '@share/model/paging';
 import { v7 } from 'uuid';
-import type { User } from '@modules/user/model/model';
+import { UserInfoVisibility, type User } from '@modules/user/model/model';
 import {
   IBlockFriendRequestRepository,
   IBlockFriendshipRepository,
@@ -171,6 +171,7 @@ export class BlockUseCase implements IBlockUseCase {
     const users = await this.loadUsersByIds(blockedUserIds);
     const userMap = new Map(users.map((user) => [user.id, user]));
     const emailVisibleUserIds = await this.getEmailVisibleUserIds(blockerId, users);
+    const phoneVisibleUserIds = await this.getPhoneVisibleUserIds(blockerId, users);
 
     return blocks.map((block) => {
       const blockedUser = userMap.get(block.blockedUserId);
@@ -180,7 +181,11 @@ export class BlockUseCase implements IBlockUseCase {
         ...block,
         blockedUser: isUnavailable
           ? null
-          : this.toBlockedUserSummary(blockedUser, emailVisibleUserIds.has(blockedUser.id)),
+          : this.toBlockedUserSummary(
+              blockedUser,
+              emailVisibleUserIds.has(blockedUser.id),
+              phoneVisibleUserIds.has(blockedUser.id),
+            ),
         blockedUserUnavailable: isUnavailable,
       };
     });
@@ -228,7 +233,41 @@ export class BlockUseCase implements IBlockUseCase {
     return visibleUserIds;
   }
 
-  private toBlockedUserSummary(user: User, canViewEmail: boolean) {
+  private async getPhoneVisibleUserIds(blockerId: string, users: User[]): Promise<Set<string>> {
+    const visibleUserIds = new Set<string>();
+    const friendshipVisibleUsers: User[] = [];
+
+    for (const user of users) {
+      if (!user.phone) {
+        continue;
+      }
+
+      const phoneVisibility = user.privacy?.phoneVisibility || UserInfoVisibility.FRIENDS;
+      if (user.id === blockerId || phoneVisibility === UserInfoVisibility.EVERYONE) {
+        visibleUserIds.add(user.id);
+      } else if (phoneVisibility === UserInfoVisibility.FRIENDS) {
+        friendshipVisibleUsers.push(user);
+      }
+    }
+
+    if (typeof this.friendshipRepository.findByCond !== 'function') {
+      return visibleUserIds;
+    }
+
+    await Promise.all(
+      friendshipVisibleUsers.map(async (user) => {
+        const [userA, userB] = [blockerId, user.id].sort();
+        const friendship = await this.friendshipRepository.findByCond?.({ userA, userB });
+        if (friendship?.status === 'active') {
+          visibleUserIds.add(user.id);
+        }
+      }),
+    );
+
+    return visibleUserIds;
+  }
+
+  private toBlockedUserSummary(user: User, canViewEmail: boolean, canViewPhone: boolean) {
     return {
       id: user.id,
       displayName: user.displayName,
@@ -239,6 +278,7 @@ export class BlockUseCase implements IBlockUseCase {
       verified: user.verified,
       status: user.status,
       email: canViewEmail ? (user as any).email : undefined,
+      phone: canViewPhone ? user.phone : undefined,
     };
   }
 }

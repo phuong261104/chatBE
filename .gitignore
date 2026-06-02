@@ -55,6 +55,9 @@ CLAUDE.md
 GEMINI.md
 output
 docs/generated
+backend_diagrams
+backend_source_audit_result.md
+backend_audit_for_report.*
 
 tasks
 test-*
@@ -88,6 +91,7 @@ tests/*
 !tests/auth-session-device.live.e2e.test.ts
 !tests/social-privacy-profile.live.e2e.test.ts
 !tests/chat-saved-messages.live-server.test.ts
+!tests/chat-group-membership.live-server.test.ts
 !tests/live-server-session-social.test.ts
 !tests/helpers/
 !tests/helpers/chat-e2e-harness.ts

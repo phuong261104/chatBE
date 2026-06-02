@@ -15,6 +15,7 @@ components:
         phone:
           type: string
           nullable: true
+          description: Current user's phone number.
         email:
           type: string
           nullable: true
@@ -69,6 +70,7 @@ components:
         phone:
           type: string
           nullable: true
+          description: Returned only when the viewer can see the target user's phone based on `phoneVisibility`.
         email:
           type: string
           nullable: true
@@ -422,6 +424,7 @@ paths:
       description: |
         Finds a user by their phone number.
         The target user's privacy must allow phone search (`searchableByPhone: true`).
+        The response includes `phone` only when `phoneVisibility` allows the requester to view it.
         Blocked users return `404`.
       parameters:
         - in: query

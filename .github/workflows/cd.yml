@@ -22,7 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    needs: []
 
     permissions:
       contents: read
@@ -93,15 +92,32 @@ jobs:
           ssh vps-chatbe \
             'docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
 
-      - name: Stop old backend container (free port 3000)
+      - name: Stop and remove old containers
         run: |
-          ssh vps-chatbe \
-            'docker rm -f chatbe-backend-prod || true'
+          ssh vps-chatbe docker rm -f chatbe-backend-prod chatbe-redis-prod || true
+
+      - name: Wait for port 3000 to be released
+        run: |
+          echo "Waiting for port 3000 to be released..."
+          for i in $(seq 1 15); do
+            if ssh vps-chatbe ss -tlnp | grep -q ":3000 "; then
+              echo "Port 3000 still in use, attempt $i/15, waiting 5s..."
+              sleep 5
+            else
+              echo "Port 3000 is free."
+              exit 0
+            fi
+          done
+          echo "WARNING: Port 3000 may still be in use, proceeding anyway..."
+          exit 0
+
+      - name: Clean up stale docker networks
+        run: |
+          ssh vps-chatbe docker network prune -f || true
 
       - name: Start containers with new image
         run: |
-          ssh vps-chatbe \
-            'docker compose --env-file ${{ env.APP_DIR }}/.env -f ${{ env.APP_DIR }}/docker-compose.yml up -d'
+          ssh vps-chatbe docker compose --env-file ${{ env.APP_DIR }}/.env -f ${{ env.APP_DIR }}/docker-compose.yml up -d
 
       - name: Wait for backend to be healthy
         run: |

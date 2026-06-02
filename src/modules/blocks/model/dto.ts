@@ -53,6 +53,7 @@ export type BlockedUserSummary = Pick<
   | 'status'
 > & {
   email?: string;
+  phone?: string;
 };
 
 export type BlockWithUser = Block & {

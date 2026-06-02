@@ -1,4 +1,8 @@
-import { IMessagingUseCase, CreateGroupData, MarkConversationStateResult } from "../interface";
+import {
+  IMessagingUseCase,
+  CreateGroupData,
+  MarkConversationStateResult,
+} from "../interface";
 import {
   Conversation,
   ConversationMember,
@@ -6,6 +10,7 @@ import {
   Message,
   MediaAttachment,
   MessageReaction,
+  MessageMedia,
   Poll,
   GroupSettings,
   GroupReminder,
@@ -42,15 +47,32 @@ import { RevokeMessageHandler } from "./revoke-message";
 import { DeleteMessageForMeHandler } from "./delete-message-for-me";
 import { DeleteMessageForEveryoneHandler } from "./delete-message-for-everyone";
 import { ForwardMessagesHandler } from "./forward-messages";
-import { SaveMessagesToMyDocumentHandler, SaveMessagesToMyDocumentResult } from "./save-to-my-document";
-import { MuteConversationHandler, UnmuteConversationHandler } from "./mute-conversation";
-import { PinConversationHandler, UnpinConversationHandler } from "./pin-conversation";
-import { ArchiveConversationHandler, UnarchiveConversationHandler } from "./archive-conversation";
+import {
+  SaveMessagesToMyDocumentHandler,
+  SaveMessagesToMyDocumentResult,
+} from "./save-to-my-document";
+import {
+  MuteConversationHandler,
+  UnmuteConversationHandler,
+} from "./mute-conversation";
+import {
+  PinConversationHandler,
+  UnpinConversationHandler,
+} from "./pin-conversation";
+import {
+  ArchiveConversationHandler,
+  UnarchiveConversationHandler,
+} from "./archive-conversation";
 import { EditMessageHandler } from "./edit-message";
 import { PinMessageHandler } from "./pin-message";
 import { UnpinMessageHandler } from "./unpin-message";
 import { GetPinnedMessagesHandler } from "./get-pinned-messages";
-import { AddReactionHandler, RemoveReactionHandler, RemoveAllReactionsHandler, GetReactionsHandler } from "./add-reaction";
+import {
+  AddReactionHandler,
+  RemoveReactionHandler,
+  RemoveAllReactionsHandler,
+  GetReactionsHandler,
+} from "./add-reaction";
 import { QuoteMessageHandler } from "./quote-message";
 import { SetAdminHandler } from "./set-admin";
 import { TransferOwnerHandler } from "./transfer-owner";
@@ -59,7 +81,12 @@ import { AddPollOptionHandler } from "./add-poll-option";
 import { GetPollsHandler, GetPollHandler } from "./get-polls";
 import { VotePollHandler } from "./vote-poll";
 import { GetPollResultsHandler } from "./get-poll-results";
-import { ClosePollHandler, PinPollHandler, UnpinPollHandler, DeletePollHandler } from "./manage-poll";
+import {
+  ClosePollHandler,
+  PinPollHandler,
+  UnpinPollHandler,
+  DeletePollHandler,
+} from "./manage-poll";
 import { GetPendingMembersHandler } from "./get-pending-members";
 import { ApproveMemberHandler } from "./approve-member";
 import { RejectMemberHandler } from "./reject-member";
@@ -71,9 +98,14 @@ import { SearchMessagesHandler } from "./search-messages";
 import { GetConversationStatisticsQueryHandler } from "./get-conversation-statistics";
 import { GetSharedConversationsQueryHandler } from "./get-shared-conversations";
 import { DeleteMessagesBulkHandler } from "./delete-messages-bulk";
-import { DeleteConversationForMeHandler, DeleteConversationForMeResult } from "./delete-conversation-for-me";
+import {
+  DeleteConversationForMeHandler,
+  DeleteConversationForMeResult,
+} from "./delete-conversation-for-me";
 import { GetConversationOnlineMembersQueryHandler } from "./get-conversation-online-members";
 import { GetDraftsQueryHandler } from "./get-drafts";
+import { SaveDraftCommandHandler } from "./save-draft";
+import { DeleteDraftCommandHandler } from "./delete-draft";
 import { TranslateMessageHandler } from "./translate-message";
 import { CopyConversationHandler } from "./copy-conversation";
 import {
@@ -88,7 +120,12 @@ import {
   UpdateGroupNoteHandler,
   DeleteGroupNoteHandler,
 } from "./group-utilities";
-import { SetNicknameHandler, RemoveNicknameHandler, SetWallpaperHandler, RemoveWallpaperHandler } from "./conversation-settings";
+import {
+  SetNicknameHandler,
+  RemoveNicknameHandler,
+  SetWallpaperHandler,
+  RemoveWallpaperHandler,
+} from "./conversation-settings";
 
 export class MessagingUseCaseFacade implements IMessagingUseCase {
   constructor(
@@ -155,6 +192,8 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     private readonly deleteConversationForMeHandler: DeleteConversationForMeHandler,
     private readonly getConversationOnlineMembersQueryHandler: GetConversationOnlineMembersQueryHandler,
     private readonly getDraftsQueryHandler: GetDraftsQueryHandler,
+    private readonly saveDraftCommandHandler: SaveDraftCommandHandler,
+    private readonly deleteDraftCommandHandler: DeleteDraftCommandHandler,
     private readonly translateMessageHandler: TranslateMessageHandler,
     private readonly copyConversationHandler: CopyConversationHandler,
     private readonly createGroupReminderHandler: CreateGroupReminderHandler,
@@ -368,11 +407,17 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.revokeMessageHandler.execute({ messageId, userId });
   }
 
-  async deleteMessageForMe(messageId: string, userId: string): Promise<Message> {
+  async deleteMessageForMe(
+    messageId: string,
+    userId: string,
+  ): Promise<Message> {
     return this.deleteMessageForMeHandler.execute({ messageId, userId });
   }
 
-  async deleteMessageForEveryone(messageId: string, userId: string): Promise<Message> {
+  async deleteMessageForEveryone(
+    messageId: string,
+    userId: string,
+  ): Promise<Message> {
     return this.deleteMessageForEveryoneHandler.execute({ messageId, userId });
   }
 
@@ -408,10 +453,18 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     muteUntil?: string,
     duration?: number,
   ): Promise<void> {
-    return this.muteConversationHandler.execute({ conversationId, userId, muteUntil, duration });
+    return this.muteConversationHandler.execute({
+      conversationId,
+      userId,
+      muteUntil,
+      duration,
+    });
   }
 
-  async unmuteConversation(conversationId: string, userId: string): Promise<void> {
+  async unmuteConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
     return this.unmuteConversationHandler.execute({ conversationId, userId });
   }
 
@@ -419,24 +472,52 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.pinConversationHandler.execute({ conversationId, userId });
   }
 
-  async unpinConversation(conversationId: string, userId: string): Promise<void> {
+  async unpinConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
     return this.unpinConversationHandler.execute({ conversationId, userId });
   }
 
-  async archiveConversation(conversationId: string, userId: string): Promise<void> {
+  async archiveConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
     return this.archiveConversationHandler.execute({ conversationId, userId });
   }
 
-  async unarchiveConversation(conversationId: string, userId: string): Promise<void> {
-    return this.unarchiveConversationHandler.execute({ conversationId, userId });
+  async unarchiveConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    return this.unarchiveConversationHandler.execute({
+      conversationId,
+      userId,
+    });
   }
 
-  async deleteConversationForMe(conversationId: string, userId: string): Promise<DeleteConversationForMeResult> {
-    return this.deleteConversationForMeHandler.execute({ conversationId, userId });
+  async deleteConversationForMe(
+    conversationId: string,
+    userId: string,
+  ): Promise<DeleteConversationForMeResult> {
+    return this.deleteConversationForMeHandler.execute({
+      conversationId,
+      userId,
+    });
   }
 
-  async editMessage(messageId: string, userId: string, text: string, timeLimitMs?: number): Promise<Message> {
-    return this.editMessageHandler.execute({ messageId, userId, text, timeLimitMs });
+  async editMessage(
+    messageId: string,
+    userId: string,
+    text: string,
+    timeLimitMs?: number,
+  ): Promise<Message> {
+    return this.editMessageHandler.execute({
+      messageId,
+      userId,
+      text,
+      timeLimitMs,
+    });
   }
 
   async pinMessage(messageId: string, userId: string): Promise<Message> {
@@ -447,15 +528,26 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.unpinMessageHandler.execute({ messageId, userId });
   }
 
-  async getPinnedMessages(conversationId: string, userId: string): Promise<Message[]> {
+  async getPinnedMessages(
+    conversationId: string,
+    userId: string,
+  ): Promise<Message[]> {
     return this.getPinnedMessagesHandler.query({ conversationId, userId });
   }
 
-  async addReaction(messageId: string, userId: string, emoji: string): Promise<MessageReaction> {
+  async addReaction(
+    messageId: string,
+    userId: string,
+    emoji: string,
+  ): Promise<MessageReaction> {
     return this.addReactionHandler.execute({ messageId, userId, emoji });
   }
 
-  async removeReaction(messageId: string, userId: string, emoji?: string): Promise<number> {
+  async removeReaction(
+    messageId: string,
+    userId: string,
+    emoji?: string,
+  ): Promise<number> {
     return this.removeReactionHandler.execute(messageId, userId, emoji);
   }
 
@@ -463,7 +555,10 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.removeAllReactionsHandler.execute(messageId, userId);
   }
 
-  async getReactions(messageId: string, userId: string): Promise<ReactionResult> {
+  async getReactions(
+    messageId: string,
+    userId: string,
+  ): Promise<ReactionResult> {
     return this.getReactionsHandler.execute(messageId, userId);
   }
 
@@ -483,12 +578,30 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     });
   }
 
-  async setAdmin(groupId: string, requesterId: string, targetUserId: string, isAdmin: boolean): Promise<Conversation> {
-    return this.setAdminHandler.execute({ groupId, requesterId, targetUserId, isAdmin });
+  async setAdmin(
+    groupId: string,
+    requesterId: string,
+    targetUserId: string,
+    isAdmin: boolean,
+  ): Promise<Conversation> {
+    return this.setAdminHandler.execute({
+      groupId,
+      requesterId,
+      targetUserId,
+      isAdmin,
+    });
   }
 
-  async transferOwner(groupId: string, requesterId: string, newOwnerId: string): Promise<Conversation> {
-    return this.transferOwnerHandler.execute({ groupId, requesterId, newOwnerId });
+  async transferOwner(
+    groupId: string,
+    requesterId: string,
+    newOwnerId: string,
+  ): Promise<Conversation> {
+    return this.transferOwnerHandler.execute({
+      groupId,
+      requesterId,
+      newOwnerId,
+    });
   }
 
   async createPoll(
@@ -517,19 +630,39 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     });
   }
 
-  async getPolls(conversationId: string, userId: string, cursor?: string, limit?: number, status?: string): Promise<{ polls: Poll[]; nextCursor?: string; hasMore: boolean }> {
-    return this.getPollsHandler.query({ conversationId, userId, cursor, limit, status });
+  async getPolls(
+    conversationId: string,
+    userId: string,
+    cursor?: string,
+    limit?: number,
+    status?: string,
+  ): Promise<{ polls: Poll[]; nextCursor?: string; hasMore: boolean }> {
+    return this.getPollsHandler.query({
+      conversationId,
+      userId,
+      cursor,
+      limit,
+      status,
+    });
   }
 
   async getPoll(pollId: string, userId: string): Promise<Poll> {
     return this.getPollHandler.query({ pollId, userId });
   }
 
-  async votePoll(pollId: string, userId: string, optionIds: string[]): Promise<Poll> {
+  async votePoll(
+    pollId: string,
+    userId: string,
+    optionIds: string[],
+  ): Promise<Poll> {
     return this.votePollHandler.execute({ pollId, userId, optionIds });
   }
 
-  async addPollOption(pollId: string, userId: string, text: string): Promise<Poll> {
+  async addPollOption(
+    pollId: string,
+    userId: string,
+    text: string,
+  ): Promise<Poll> {
     return this.addPollOptionHandler.execute({ pollId, userId, text });
   }
 
@@ -553,15 +686,26 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     return this.deletePollHandler.execute({ pollId, userId });
   }
 
-  async getPendingMembers(groupId: string, requesterId: string): Promise<ConversationMember[]> {
+  async getPendingMembers(
+    groupId: string,
+    requesterId: string,
+  ): Promise<ConversationMember[]> {
     return this.getPendingMembersHandler.query({ groupId, requesterId });
   }
 
-  async approveMember(groupId: string, userId: string, requesterId: string): Promise<ConversationMember> {
+  async approveMember(
+    groupId: string,
+    userId: string,
+    requesterId: string,
+  ): Promise<ConversationMember> {
     return this.approveMemberHandler.execute({ groupId, userId, requesterId });
   }
 
-  async rejectMember(groupId: string, userId: string, requesterId: string): Promise<void> {
+  async rejectMember(
+    groupId: string,
+    userId: string,
+    requesterId: string,
+  ): Promise<void> {
     return this.rejectMemberHandler.execute({ groupId, userId, requesterId });
   }
 
@@ -590,7 +734,10 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     });
   }
 
-  async getGroupInfo(groupId: string, userId: string): Promise<{
+  async getGroupInfo(
+    groupId: string,
+    userId: string,
+  ): Promise<{
     conversation: Conversation;
     members: ConversationMember[];
     currentUserRole: ConversationMemberRole;
@@ -622,7 +769,11 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     cursor?: string,
     limit?: number,
   ): Promise<ConversationCursorResult> {
-    return this.getConversationsCursorQueryHandler.query({ userId, cursor, limit });
+    return this.getConversationsCursorQueryHandler.query({
+      userId,
+      cursor,
+      limit,
+    });
   }
 
   async dissolveGroup(groupId: string, requesterId: string): Promise<string[]> {
@@ -654,17 +805,29 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     });
   }
 
-  async getConversationStatistics(conversationId: string, userId: string): Promise<{
+  async getConversationStatistics(
+    conversationId: string,
+    userId: string,
+  ): Promise<{
     memberCount: number;
     activeMemberCount: number;
     lastActivity: Date | null;
     createdAt: Date;
   }> {
-    return this.getConversationStatisticsQueryHandler.query({ conversationId, userId });
+    return this.getConversationStatisticsQueryHandler.query({
+      conversationId,
+      userId,
+    });
   }
 
-  async getSharedConversations(userId: string, currentUserId: string): Promise<Conversation[]> {
-    return this.getSharedConversationsQueryHandler.query({ userId, currentUserId });
+  async getSharedConversations(
+    userId: string,
+    currentUserId: string,
+  ): Promise<Conversation[]> {
+    return this.getSharedConversationsQueryHandler.query({
+      userId,
+      currentUserId,
+    });
   }
 
   async deleteMessagesBulk(
@@ -674,19 +837,54 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     after?: string,
     messageIds?: string[],
   ): Promise<{ deletedCount: number }> {
-    return this.deleteMessagesBulkHandler.execute({ conversationId, userId, before, after, messageIds });
+    return this.deleteMessagesBulkHandler.execute({
+      conversationId,
+      userId,
+      before,
+      after,
+      messageIds,
+    });
   }
 
-  async getConversationOnlineMembers(conversationId: string, userId: string): Promise<Array<{
-    userId: string;
-    isOnline: boolean;
-    lastSeen: Date | null;
-  }>> {
-    return this.getConversationOnlineMembersQueryHandler.query({ conversationId, userId });
+  async getConversationOnlineMembers(
+    conversationId: string,
+    userId: string,
+  ): Promise<
+    Array<{
+      userId: string;
+      isOnline: boolean;
+      lastSeen: Date | null;
+    }>
+  > {
+    return this.getConversationOnlineMembersQueryHandler.query({
+      conversationId,
+      userId,
+    });
   }
 
-  async getDrafts(conversationId: string, userId: string): Promise<{ drafts: Draft[] }> {
+  async getDrafts(
+    conversationId: string,
+    userId: string,
+  ): Promise<{ drafts: Draft[] }> {
     return this.getDraftsQueryHandler.query({ conversationId, userId });
+  }
+
+  async saveDraft(
+    conversationId: string,
+    userId: string,
+    text?: string,
+    media?: MessageMedia[],
+  ): Promise<void> {
+    return this.saveDraftCommandHandler.execute({
+      conversationId,
+      userId,
+      text,
+      media,
+    });
+  }
+
+  async deleteDraft(conversationId: string, userId: string): Promise<void> {
+    return this.deleteDraftCommandHandler.execute({ conversationId, userId });
   }
 
   async translateMessage(
@@ -699,7 +897,11 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     detectedLanguage: string;
     targetLanguage: string;
   }> {
-    return this.translateMessageHandler.execute({ messageId, userId, targetLanguage: targetLanguage || "en" });
+    return this.translateMessageHandler.execute({
+      messageId,
+      userId,
+      targetLanguage: targetLanguage || "en",
+    });
   }
 
   async copyConversation(
@@ -740,7 +942,10 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     });
   }
 
-  async listGroupReminders(conversationId: string, userId: string): Promise<GroupReminder[]> {
+  async listGroupReminders(
+    conversationId: string,
+    userId: string,
+  ): Promise<GroupReminder[]> {
     return this.listGroupRemindersHandler.query({ conversationId, userId });
   }
 
@@ -756,18 +961,31 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
       status?: GroupReminder["status"];
     },
   ): Promise<GroupReminder> {
-    return this.updateGroupReminderHandler.execute({ reminderId, userId, ...data });
+    return this.updateGroupReminderHandler.execute({
+      reminderId,
+      userId,
+      ...data,
+    });
   }
 
-  async deleteGroupReminder(reminderId: string, userId: string): Promise<GroupReminder> {
+  async deleteGroupReminder(
+    reminderId: string,
+    userId: string,
+  ): Promise<GroupReminder> {
     return this.deleteGroupReminderHandler.execute({ reminderId, userId });
   }
 
-  async pinGroupReminder(reminderId: string, userId: string): Promise<GroupReminder> {
+  async pinGroupReminder(
+    reminderId: string,
+    userId: string,
+  ): Promise<GroupReminder> {
     return this.pinGroupReminderHandler.execute({ reminderId, userId });
   }
 
-  async unpinGroupReminder(reminderId: string, userId: string): Promise<GroupReminder> {
+  async unpinGroupReminder(
+    reminderId: string,
+    userId: string,
+  ): Promise<GroupReminder> {
     return this.unpinGroupReminderHandler.execute({ reminderId, userId });
   }
 
@@ -777,14 +995,26 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     title: string,
     content: string,
   ): Promise<GroupNote> {
-    return this.createGroupNoteHandler.execute({ conversationId, userId, title, content });
+    return this.createGroupNoteHandler.execute({
+      conversationId,
+      userId,
+      title,
+      content,
+    });
   }
 
-  async listGroupNotes(conversationId: string, userId: string): Promise<GroupNote[]> {
+  async listGroupNotes(
+    conversationId: string,
+    userId: string,
+  ): Promise<GroupNote[]> {
     return this.listGroupNotesHandler.query({ conversationId, userId });
   }
 
-  async updateGroupNote(noteId: string, userId: string, data: { title?: string; content?: string }): Promise<GroupNote> {
+  async updateGroupNote(
+    noteId: string,
+    userId: string,
+    data: { title?: string; content?: string },
+  ): Promise<GroupNote> {
     return this.updateGroupNoteHandler.execute({ noteId, userId, ...data });
   }
 
@@ -798,7 +1028,12 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     targetUserId: string,
     nickname: string,
   ): Promise<void> {
-    return this.setNicknameHandler.execute({ conversationId, currentUserId, targetUserId, nickname });
+    return this.setNicknameHandler.execute({
+      conversationId,
+      currentUserId,
+      targetUserId,
+      nickname,
+    });
   }
 
   async removeNickname(
@@ -806,7 +1041,11 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     currentUserId: string,
     targetUserId: string,
   ): Promise<void> {
-    return this.removeNicknameHandler.execute({ conversationId, currentUserId, targetUserId });
+    return this.removeNicknameHandler.execute({
+      conversationId,
+      currentUserId,
+      targetUserId,
+    });
   }
 
   async setWallpaper(
@@ -814,10 +1053,20 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     currentUserId: string,
     wallpaperUrl: string | null,
   ): Promise<void> {
-    return this.setWallpaperHandler.execute({ conversationId, currentUserId, wallpaperUrl });
+    return this.setWallpaperHandler.execute({
+      conversationId,
+      currentUserId,
+      wallpaperUrl,
+    });
   }
 
-  async removeWallpaper(conversationId: string, currentUserId: string): Promise<void> {
-    return this.removeWallpaperHandler.execute({ conversationId, currentUserId });
+  async removeWallpaper(
+    conversationId: string,
+    currentUserId: string,
+  ): Promise<void> {
+    return this.removeWallpaperHandler.execute({
+      conversationId,
+      currentUserId,
+    });
   }
 }

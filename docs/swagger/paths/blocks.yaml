@@ -49,6 +49,7 @@ paths:
       tags: [Blocks]
       security:
         - BearerAuth: []
+      description: Returns blocked records with nested `blockedUser`; `blockedUser.phone` is optional and only returned when phone privacy allows the requester to view it.
       responses:
         '200':
           description: A list of blocked users
@@ -65,6 +66,7 @@ paths:
                         id: "60d0fe4f5311236168a2"
                         displayName: "Blocked User"
                         username: "blocked_user"
+                        phone: "+84901234567"
                         avatarUrl: "https://cdn.example.com/avatar.png"
                         coverUrl: "https://cdn.example.com/cover.png"
                         bio: "Profile bio"
@@ -84,6 +86,7 @@ paths:
       tags: [Blocks]
       security:
         - BearerAuth: []
+      description: Returns cursor-paginated blocked records with nested `blockedUser`; `blockedUser.phone` is optional and only returned when phone privacy allows the requester to view it.
       parameters:
         - in: query
           name: cursor
@@ -115,6 +118,7 @@ paths:
                         id: "60d0fe4f5311236168a2"
                         displayName: "Blocked User"
                         username: "blocked_user"
+                        phone: "+84901234567"
                         avatarUrl: "https://cdn.example.com/avatar.png"
                         coverUrl: "https://cdn.example.com/cover.png"
                         bio: "Profile bio"

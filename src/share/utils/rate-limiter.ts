@@ -58,15 +58,25 @@ export function createRateLimitMiddleware(config: RateLimitConfig) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const key = `ratelimit:${keyPrefix}:${keyGenerator(req)}`;
 
-    const { allowed, remaining, resetIn } = await checkRateLimit(key, max, windowSec);
+    const { allowed, remaining, resetIn } = await checkRateLimit(
+      key,
+      max,
+      windowSec,
+    );
 
     res.setHeader("X-RateLimit-Limit", max.toString());
     res.setHeader("X-RateLimit-Remaining", remaining.toString());
-    res.setHeader("X-RateLimit-Reset", Math.ceil(Date.now() / 1000 + resetIn).toString());
+    res.setHeader(
+      "X-RateLimit-Reset",
+      Math.ceil(Date.now() / 1000 + resetIn).toString(),
+    );
 
     if (!allowed) {
       res.setHeader("Retry-After", Math.ceil(resetIn).toString());
-      const err = AppError.from(new Error("Too many requests, please try again later."), 429);
+      const err = AppError.from(
+        new Error("Too many requests, please try again later."),
+        429,
+      );
       return responseErr(err, res);
     }
 

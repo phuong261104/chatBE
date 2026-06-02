@@ -246,6 +246,8 @@ paths:
         For multi-choice polls, send one or more optionIds.
         To change a vote on single-choice: send the new optionId (replaces old vote).
         To toggle options in multi-choice: include all currently selected optionIds.
+        Sending the same current selection again is idempotent: returns 200 with current poll state,
+        does not increment vote counts or activity counts, and does not emit poll:vote.
         Re-voting is blocked if poll.allowChangeVote is false.
       tags: [Chat - Polls]
       security:
@@ -279,7 +281,7 @@ paths:
                   example: ["opt_001"]
       responses:
         "200":
-          description: Vote recorded
+          description: Vote recorded, or current poll returned unchanged when the submitted selection is identical
           content:
             application/json:
               example:

@@ -32,7 +32,7 @@ export class MemberController extends BaseController {
       );
 
       if (this.socketService) {
-        this.socketService.notifyMembersAdded(groupId, newMembers);
+        await this.socketService.notifyMembersAdded(groupId, newMembers, currentUserId);
       }
 
       res.status(200).json({ data: newMembers });
@@ -73,7 +73,7 @@ export class MemberController extends BaseController {
       );
 
       if (this.socketService) {
-        this.socketService.notifyMemberRemoved(groupId, userId);
+        await this.socketService.notifyMemberRemoved(groupId, userId, currentUserId, "removed");
       }
 
       res.status(204).send();

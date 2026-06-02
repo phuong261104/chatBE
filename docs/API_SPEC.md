@@ -163,7 +163,7 @@ Một số controller legacy trả `{ error: string }` hoặc `{ message: string
 | GET | `/v1/users/me/avatar-history` | Lịch sử avatar |
 | GET/POST | `/v1/users` | List user hoặc admin tạo user |
 | GET | `/v1/users/search` | Search user có áp dụng privacy |
-| GET | `/v1/users/search-by-phone` | Search phone có áp dụng privacy |
+| GET | `/v1/users/search-by-phone` | Search phone có áp dụng privacy; response có `phone` khi `phoneVisibility` cho phép |
 | GET | `/v1/users/{id}/presence` | Presence theo privacy |
 | GET | `/v1/users/{id}/public` | Public profile theo relationship/privacy |
 | GET/PATCH/DELETE | `/v1/users/{id}` | Xem/cập nhật/xóa user theo id |
@@ -321,7 +321,7 @@ Không còn social alias version khác; dùng các route `/v1` trong bảng trê
 | GET | `/v1/blocks/cursor` | List blocked users with cursor pagination |
 | GET | `/v1/blocks/{blockedUserId}/check` | Check block status |
 
-`GET /v1/blocks` và `GET /v1/blocks/cursor` giữ nguyên block item cũ (`id`, `blockerId`, `blockedUserId`, `createdAt`) và bổ sung `blockedUser` dạng nested profile card (`id`, `displayName`, `username`, `avatarUrl`, `coverUrl`, `bio`, `verified`, `status`, `email`) cùng `blockedUserUnavailable`. `email` chỉ trả theo rule self/active-friend nên thường không có trong block list.
+`GET /v1/blocks` và `GET /v1/blocks/cursor` giữ nguyên block item cũ (`id`, `blockerId`, `blockedUserId`, `createdAt`) và bổ sung `blockedUser` dạng nested profile card (`id`, `displayName`, `username`, `avatarUrl`, `coverUrl`, `bio`, `verified`, `status`, `email`, `phone`) cùng `blockedUserUnavailable`. `email` chỉ trả theo rule self/active-friend nên thường không có trong block list. `phone` là optional và chỉ trả khi `phoneVisibility` cho phép viewer xem.
 
 Không còn block alias version khác; dùng các route `/v1` trong bảng trên.
 
@@ -406,8 +406,9 @@ Tat ca events su dung token auth qua handshake. Error event `ai:error` duoc emit
 
 - Group owner/admin/member được kiểm tra qua `conversation_members`.
 - Settings điều khiển invite, require approval, link sending, who can send messages và permission cho poll/reminder/note.
+- Khi `requireApproval=true`, lời mời từ member thường tạo member `pending`; owner/admin mời trực tiếp vào nhóm thì member mới `active` ngay và không cần duyệt.
 - Group actions phát Socket.IO event tương ứng cho member liên quan.
-- Poll hỗ trợ `hideVoters`, `showResultsBeforeClose`, `isMultipleChoice`, `allowAddOption`, `expiresAt`, pin/unpin và close. Vote cập nhật poll gốc, emit `poll:vote`, không di chuyển card gốc; activity vote được gom trong cửa sổ 5 phút bằng system message để tránh spam.
+- Poll hỗ trợ `hideVoters`, `showResultsBeforeClose`, `isMultipleChoice`, `allowAddOption`, `expiresAt`, pin/unpin và close. Vote cập nhật poll gốc, emit `poll:vote`, không di chuyển card gốc; activity vote được gom trong cửa sổ 5 phút bằng system message để tránh spam. Gửi lại đúng lựa chọn hiện tại là idempotent `200`: không tăng `voteCount`/`totalVotes`, không tạo hoặc sửa activity message, và không emit `poll:vote`.
 - Reminder hỗ trợ `repeatRule` (`none`, `daily`, `weekly`, `monthly`), `notifyBeforeMinutes`, `nextNotifyAt`, pin/unpin và soft delete bằng `status=cancelled`. Worker nội bộ phát system message khi đến giờ; reminder không lặp chuyển `done`, reminder lặp được tính lần kế tiếp.
 
 ### Message lifecycle
