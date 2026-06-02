@@ -166,6 +166,8 @@ async function createHarness(): Promise<Harness> {
   app.use(cors({ credentials: true, origin: true }));
   app.get("/v1/auth/unverified-email", service.getUnverifiedEmailAPI.bind(service));
   app.post("/v1/auth/login", service.loginAPI.bind(service));
+  app.post("/v1/auth/send-verification", service.sendVerificationAPI.bind(service));
+  app.post("/v1/auth/resend-verification", service.resendVerificationAPI.bind(service));
   app.post("/v1/auth/refresh", service.refreshAPI.bind(service));
   app.post("/v1/auth/logout", auth, service.logoutAPI.bind(service));
   app.post("/v1/auth/logout-all", auth, service.logoutAllAPI.bind(service));
@@ -506,5 +508,24 @@ describe("auth session and device E2E", () => {
 
     const invalidLookup = await harness.api.get("/v1/auth/unverified-email");
     expect(invalidLookup.status).toBe(422);
+  });
+
+  it("publicly sends and resends email verification without an access token", async () => {
+    const seeded = harness.repo.addUserWithOverrides("0900000077", "Password123!", {
+      email: "public-verification@chatbe.test",
+      verified: { email: false, phone: true },
+    });
+
+    const send = await harness.api.post("/v1/auth/send-verification", {
+      email: seeded.user.email,
+    });
+    expect(send.status).toBe(200);
+    expect(send.data.message).toBe("Verification code sent successfully");
+
+    const resend = await harness.api.post("/v1/auth/resend-verification", {
+      email: seeded.user.email,
+    });
+    expect(resend.status).toBe(200);
+    expect(resend.data.message).toBe("Verification code resent successfully");
   });
 });

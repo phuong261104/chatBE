@@ -859,10 +859,8 @@ paths:
     post:
       summary: "Send email verification code"
       tags: [Auth]
-      security:
-        - BearerAuth: []
       description: |
-        Send a 6-digit verification code to email address.
+        Public endpoint. Send a 6-digit verification code to email address.
         
         ## Rate Limiting
         
@@ -877,8 +875,7 @@ paths:
           const response = await fetch('/auth/send-verification', {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({ email })
           });
@@ -926,14 +923,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 message: "Email not found"
-        '401':
-          description: "Unauthorized - valid access token required"
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                message: "Unauthorized"
         '429':
           description: "Rate limit exceeded - too many requests"
           content:
@@ -1052,10 +1041,8 @@ paths:
     post:
       summary: "Resend email verification code"
       tags: [Auth]
-      security:
-        - BearerAuth: []
       description: |
-        Resend verification code to email.
+        Public endpoint. Resend verification code to email.
         Uses same rate limit as `/auth/send-verification` (5 requests/hour).
         
         ## Frontend Implementation (JavaScript)
@@ -1073,8 +1060,7 @@ paths:
           const response = await fetch('/auth/resend-verification', {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({ email })
           });

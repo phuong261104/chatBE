@@ -53,8 +53,8 @@ export const setupAuthHexagon = (sctx: ServiceContext | { mdlFactory: { auth: Ha
   const logoutMw = mdlAuth ? [mdlAuth] : [];
   router.post("/auth/logout", ...logoutMw, httpService.logoutAPI.bind(httpService));
   router.post("/auth/logout-all", ...logoutMw, httpService.logoutAllAPI.bind(httpService));
-  router.post("/auth/send-verification", ...logoutMw, httpService.sendVerificationAPI.bind(httpService));
-  router.post("/auth/resend-verification", ...logoutMw, httpService.resendVerificationAPI.bind(httpService));
+  router.post("/auth/send-verification", httpService.sendVerificationAPI.bind(httpService));
+  router.post("/auth/resend-verification", httpService.resendVerificationAPI.bind(httpService));
   router.post("/auth/change-password", ...logoutMw, httpService.changePasswordAPI.bind(httpService));
   router.get("/auth/sessions", ...logoutMw, httpService.listSessionsAPI.bind(httpService));
   router.delete("/auth/sessions/:deviceId", ...logoutMw, httpService.revokeSessionAPI.bind(httpService));

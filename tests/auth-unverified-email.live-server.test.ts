@@ -130,6 +130,20 @@ liveDescribe("auth unverified-email live-server E2E against a running backend", 
     expect(lookup.status).toBe(200);
     expect(dataOf(lookup)).toEqual({ email: user.email });
 
+    const sendVerification = await request(
+      "POST",
+      "/v1/auth/send-verification",
+      { email: user.email },
+    );
+    expect(sendVerification.status).toBe(200);
+
+    const resendVerification = await request(
+      "POST",
+      "/v1/auth/resend-verification",
+      { email: user.email },
+    );
+    expect(resendVerification.status).toBe(200);
+
     const unknownPhone = `+849${RUN_ID.replace(/\D/g, "").padEnd(9, "9").slice(0, 9)}`;
     const unknownLookup = await request(
       "GET",
