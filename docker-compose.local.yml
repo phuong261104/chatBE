@@ -1,10 +1,41 @@
 services:
-  backend:
-    image: ${BACKEND_IMAGE:-chatbe-backend:local}
-    container_name: ${BACKEND_CONTAINER_NAME:-chatbe-backend-local}
-    env_file:
-      - ${BACKEND_ENV_FILE:-.env.local}
+  redis:
+    image: redis:7-alpine
+    container_name: chatbe-redis-local
     restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - chatbe-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatbe-backend-local
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_logs:/app/logs
     healthcheck:
       test:
         [
@@ -15,9 +46,14 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    networks:
+      - chatbe-network
 
-  redis:
-    container_name: ${REDIS_CONTAINER_NAME:-chatbe-redis-local}
-    restart: unless-stopped
-    ports:
-      - "${REDIS_HOST_PORT:-6379}:6379"
+volumes:
+  redis_data:
+  backend_uploads:
+  backend_logs:
+
+networks:
+  chatbe-network:
+    driver: bridge

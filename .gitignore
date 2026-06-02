@@ -97,3 +97,5 @@ tests/*
 !tests/helpers/chat-e2e-harness.ts
 !tests/helpers/chat-live-e2e-harness.ts
 !tests/chat-poll.e2e.test.ts
+docs/ARCHITECTURE-REPORT.md
+docs/BACKEND_BUSINESS_CURRENT.md
