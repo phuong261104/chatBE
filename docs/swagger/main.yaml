@@ -6,7 +6,7 @@ info:
 servers:
   - url: http://localhost:3000
     description: Local Server
-  - url: https://api.chatbe.example.com
+  - url: https://api.iamphuong.dev
     description: Production Server
 
 components:
