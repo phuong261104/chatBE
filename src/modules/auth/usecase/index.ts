@@ -313,7 +313,9 @@ export class AuthUseCase implements IAuthUseCase {
     const normalizedDeviceInfo = this.buildDeviceInfo(deviceInfo, effectiveDeviceId, effectiveDeviceType);
     const platform = this.resolvePlatform(effectiveDeviceType, normalizedDeviceInfo.details);
     await this.revokeSessionByDevice(user.id, effectiveDeviceId, "session_replaced");
-    await this.revokeSessionsByPlatform(user.id, platform, effectiveDeviceId);
+    if (platform === "web") {
+      await this.revokeSessionsByPlatform(user.id, platform, effectiveDeviceId);
+    }
 
     const tokenVersion = user.tokenVersion || 1;
     const accessToken = await this.generateAccessToken(user.id, UserRole.USER, tokenVersion, effectiveDeviceId);
