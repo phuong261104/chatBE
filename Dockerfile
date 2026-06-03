@@ -15,6 +15,8 @@ RUN npm ci
 
 COPY . .
 
+RUN npm run build && npm prune --omit=dev
+
 RUN mkdir -p uploads logs && chown -R node:node /app
 
 USER node
@@ -24,4 +26,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD node -e "require('http').get('http://127.0.0.1:3000/health/live', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
-CMD ["npm", "run", "demo"]
+CMD ["npm", "run", "start:prod"]

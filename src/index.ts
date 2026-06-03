@@ -1,4 +1,4 @@
-import "module-alias/register";
+import "./share/component/module-aliases";
 
 import { config } from "dotenv";
 import express, { NextFunction, Request, Response } from "express";

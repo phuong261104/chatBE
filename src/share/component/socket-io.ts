@@ -43,6 +43,9 @@ interface SocketPresencePort {
 }
 
 type RawPresence = { isOnline: boolean; lastSeen: number | null };
+const PRESENCE_EMIT_CONCURRENCY = 25;
+const MAX_BATCH_ONLINE_STATUS_USER_IDS = 100;
+const MAX_SOCKET_ID_LENGTH = 128;
 
 export type VisibleSocketPresence = {
   userId: string;
@@ -136,9 +139,14 @@ export async function emitPresenceToVisibleSockets(
   payload: Record<string, any>,
   presence: RawPresence,
 ): Promise<void> {
-  const sockets = Array.from(namespace.sockets?.values?.() || []) as any[];
-  await Promise.all(
-    sockets.map(async (socket) => {
+  const pending: Promise<void>[] = [];
+  const flush = async () => {
+    if (pending.length === 0) return;
+    await Promise.all(pending.splice(0, pending.length));
+  };
+
+  for (const socket of namespace.sockets?.values?.() || []) {
+    pending.push((async () => {
       if (!socket.userId) return;
       const visible = await resolveSocketPresenceForViewer(socket.userId, targetUserId, presence);
       if (visible.visibility !== "visible") return;
@@ -149,8 +157,31 @@ export async function emitPresenceToVisibleSockets(
         online: visible.isOnline,
         lastSeen: visible.lastSeen,
       });
-    }),
-  );
+    })());
+
+    if (pending.length >= PRESENCE_EMIT_CONCURRENCY) {
+      await flush();
+    }
+  }
+
+  await flush();
+}
+
+function isSafeSocketId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= MAX_SOCKET_ID_LENGTH;
+}
+
+function normalizeBatchUserIds(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length > MAX_BATCH_ONLINE_STATUS_USER_IDS) {
+    return null;
+  }
+
+  const userIds = Array.from(new Set(value));
+  if (!userIds.every(isSafeSocketId)) {
+    return null;
+  }
+
+  return userIds;
 }
 
 export function revokeUserDeviceSockets(userId: string, deviceId: string, reason = "session_revoked"): void {
@@ -345,6 +376,11 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
 
     socket.on("subscribeConversation", async (payload: { conversationId: string }, callback?: (response: any) => void) => {
       try {
+        if (!isSafeSocketId(payload?.conversationId)) {
+          callback?.({ success: false, error: "Invalid conversationId" });
+          return;
+        }
+
         const roomName = `group:${payload.conversationId}`;
         socket.join(roomName);
         socket.join(`group_room:${payload.conversationId}`);
@@ -369,6 +405,11 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
 
     socket.on("unsubscribeConversation", async (payload: { conversationId: string }, callback?: (response: any) => void) => {
       try {
+        if (!isSafeSocketId(payload?.conversationId)) {
+          callback?.({ success: false, error: "Invalid conversationId" });
+          return;
+        }
+
         const roomName = `group:${payload.conversationId}`;
         socket.leave(roomName);
         socket.leave(`group_room:${payload.conversationId}`);
@@ -388,6 +429,11 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
     });
 
     socket.on("getOnlineStatus", async (payload: { userId: string }, callback?: (response: any) => void) => {
+      if (!isSafeSocketId(payload?.userId)) {
+        callback?.({ success: false, error: "Invalid userId" });
+        return;
+      }
+
       connectionRegistry.updateLastActivity(socketId);
       void socketPresencePort?.touchSocket(userId, presenceSocketId);
 
@@ -419,11 +465,20 @@ export function createSocketIOServer(httpServer: HttpServer): SocketIOServer {
     });
 
     socket.on("getBatchOnlineStatus", async (payload: { userIds: string[] }, callback?: (response: any) => void) => {
+      const userIds = normalizeBatchUserIds(payload?.userIds);
+      if (!userIds) {
+        callback?.({
+          success: false,
+          error: `userIds must be an array of ${MAX_BATCH_ONLINE_STATUS_USER_IDS} valid IDs or fewer`,
+        });
+        return;
+      }
+
       connectionRegistry.updateLastActivity(socketId);
       void socketPresencePort?.touchSocket(userId, presenceSocketId);
 
       const statuses = await Promise.all(
-        payload.userIds.map(async (targetUserId) => {
+        userIds.map(async (targetUserId) => {
           const rawPresence = socketPresencePort
             ? await socketPresencePort.getUserPresence(targetUserId)
             : null;

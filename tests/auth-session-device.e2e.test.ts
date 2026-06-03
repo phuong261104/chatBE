@@ -257,6 +257,12 @@ function waitForEvent<T>(socket: ClientSocket, event: string): Promise<T> {
   });
 }
 
+function emitAck<T>(socket: ClientSocket, event: string, payload: unknown): Promise<T> {
+  return new Promise((resolve) => {
+    socket.emit(event, payload, resolve);
+  });
+}
+
 function cookieHeader(response: any) {
   const cookies = response.headers["set-cookie"] || [];
   return Array.isArray(cookies) ? cookies.map((cookie) => cookie.split(";")[0]).join("; ") : "";
@@ -467,6 +473,37 @@ describe("auth session and device E2E", () => {
 
     await expect(harness.connectSocket(web1.data.data.accessToken, "socket-web-1")).rejects.toThrow();
     await expect(harness.connectNamespaceSocket("/messages", web1.data.data.accessToken, "socket-web-1")).rejects.toThrow();
+  });
+
+  it("rejects oversized batch online status socket payloads", async () => {
+    const login = await harness.api.post(
+      "/v1/auth/login",
+      { phone: credentials.user.phone, password: credentials.password },
+      { headers: deviceHeaders("batch-web-1", "web", "Chrome - Windows") },
+    );
+    expect(login.status).toBe(200);
+
+    const socket = await harness.connectSocket(login.data.data.accessToken, "batch-web-1");
+    const tooLarge = Array.from({ length: 101 }, (_, index) => `user-${index}`);
+    const rejected = await emitAck<any>(socket, "getBatchOnlineStatus", { userIds: tooLarge });
+    expect(rejected).toEqual(
+      expect.objectContaining({
+        success: false,
+        error: expect.stringContaining("100"),
+      }),
+    );
+
+    const accepted = await emitAck<any>(socket, "getBatchOnlineStatus", { userIds: [credentials.user.id] });
+    expect(accepted).toEqual(
+      expect.objectContaining({
+        statuses: [
+          expect.objectContaining({
+            userId: credentials.user.id,
+            isOnline: true,
+          }),
+        ],
+      }),
+    );
   });
 
   it("blocks login for unverified email when verification is required", async () => {
