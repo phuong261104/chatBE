@@ -84,6 +84,9 @@ export class UnpinConversationHandler
       throw AppError.from(ErrConversationNotPinned, 400);
     }
 
-    await this.memberCommandRepo.update(member.id, { pinned: false });
+    await this.memberCommandRepo.update(member.id, {
+      pinned: false,
+      pinnedAt: null,
+    });
   }
 }

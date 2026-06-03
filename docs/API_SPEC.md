@@ -420,6 +420,7 @@ Tat ca events su dung token auth qua handshake. Error event `ai:error` duoc emit
 - Edit chỉ áp dụng message hợp lệ theo rule trong usecase.
 - Delete for me cập nhật `deletedForUserIds`.
 - Delete for everyone/revoke cập nhật lifecycle state và phát realtime event.
+- Mỗi conversation chỉ được pin tối đa 5 messages; pin message thứ 6 bị từ chối và không phát realtime event.
 - Media/link được classify thêm vào `message_classifications` để search nhanh.
 
 ### Media upload

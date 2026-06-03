@@ -37,7 +37,7 @@ export const ConversationMemberUpdateDTOSchema = z.object({
   lastActivityAt: z.date().optional(),
   muteUntil: z.date().optional(),
   pinned: z.boolean().optional(),
-  pinnedAt: z.date().optional(),
+  pinnedAt: z.date().nullable().optional(),
   archived: z.boolean().optional(),
   hiddenUserIds: z.array(z.string()).optional(),
   hidden: z.boolean().optional(),

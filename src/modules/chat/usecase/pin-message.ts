@@ -25,7 +25,7 @@ import { ErrMessageNotFound, ErrNotMember, ErrMessageAlreadyPinned, ErrNotAdmin 
 import { SystemMessageTemplate } from "../constants/system-messages";
 import { isGroupManager, canPinMessages, normalizeGroupSettings } from "./group-permissions";
 
-const MAX_PINNED_MESSAGES_PER_CONVERSATION = 20;
+const MAX_PINNED_MESSAGES_PER_CONVERSATION = 5;
 
 export class PinMessageHandler
   implements ICommandHandler<PinMessageCommand, Message>

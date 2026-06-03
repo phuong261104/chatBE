@@ -2,6 +2,7 @@ paths:
   /v1/messages/{messageId}/pin:
     post:
       summary: Pin a message
+      description: Each conversation can have at most 5 pinned messages. When the limit is reached, pinning another message returns 400.
       tags: [Chat - Messages]
       security:
         - BearerAuth: []
@@ -25,6 +26,8 @@ paths:
           description: Unauthorized
         "403":
           description: Only group admins can pin messages
+        "400":
+          description: Message is already pinned or the conversation already has 5 pinned messages
     delete:
       summary: Unpin a message
       tags: [Chat - Messages]

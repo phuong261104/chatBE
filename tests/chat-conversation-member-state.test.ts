@@ -67,7 +67,10 @@ describe("conversation member state handlers", () => {
       conversationId: "conversation-id",
       userId: "user-id",
     });
-    expect(repos.commandRepo.update).toHaveBeenCalledWith("member-id", { pinned: false });
+    expect(repos.commandRepo.update).toHaveBeenCalledWith("member-id", {
+      pinned: false,
+      pinnedAt: null,
+    });
   });
 
   it("rejects duplicate pin and unpin state changes", async () => {

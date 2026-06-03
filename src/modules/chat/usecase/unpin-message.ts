@@ -82,11 +82,13 @@ export class UnpinMessageHandler
 
     await this.messageCommandRepo.update(message.id, {
       pinned: false,
+      pinnedAt: null,
     });
 
     const updatedMessage = {
       ...message,
       pinned: false,
+      pinnedAt: undefined,
     };
 
     const actor = await this.userQueryRepo.get(data.userId);

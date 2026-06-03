@@ -663,6 +663,10 @@ describe("advanced messaging E2E, canonical v1", () => {
       headers: authHeader(privateSeed.userB.id),
     });
     expect(unpinByB.status).toBe(200);
+    expect(unpinByB.data.data).toEqual(
+      expect.objectContaining({ id: privateMessage.id, pinned: false }),
+    );
+    expect(unpinByB.data.data.pinnedAt).toBeUndefined();
 
     const userBSocket = await harness.connectMessagesSocket(privateSeed.userB.id);
     const pinAck = await emitWithAck<any>(userBSocket, SocketEvent.PIN_MESSAGE, {
@@ -670,6 +674,36 @@ describe("advanced messaging E2E, canonical v1", () => {
     });
     expect(pinAck.success).toBe(true);
     expect(harness.store.getMessage(privateMessage.id)).toEqual(expect.objectContaining({ pinned: true }));
+
+    const unpinAck = await emitWithAck<any>(userBSocket, SocketEvent.UNPIN_MESSAGE, {
+      messageId: privateMessage.id,
+    });
+    expect(unpinAck.success).toBe(true);
+    expect(unpinAck.message).toEqual(expect.objectContaining({ id: privateMessage.id, pinned: false }));
+    expect(unpinAck.message.pinnedAt).toBeUndefined();
+    expect(harness.store.getMessage(privateMessage.id)).toEqual(
+      expect.objectContaining({ pinned: false, pinnedAt: undefined }),
+    );
+
+    const reloadedMessages = await harness.api.get(
+      `/v1/conversations/${privateSeed.conversation.id}/messages`,
+      { headers: authHeader(privateSeed.userA.id) },
+    );
+    expect(reloadedMessages.status).toBe(200);
+    const reloadedPrivateMessage = reloadedMessages.data.data.messages.find(
+      (message: any) => message.id === privateMessage.id,
+    );
+    expect(reloadedPrivateMessage).toEqual(
+      expect.objectContaining({ id: privateMessage.id, pinned: false }),
+    );
+    expect(reloadedPrivateMessage.pinnedAt).toBeUndefined();
+
+    const pinnedMessages = await harness.api.get(
+      `/v1/conversations/${privateSeed.conversation.id}/pinned-messages`,
+      { headers: authHeader(privateSeed.userA.id) },
+    );
+    expect(pinnedMessages.status).toBe(200);
+    expect(pinnedMessages.data.data.map((message: any) => message.id)).not.toContain(privateMessage.id);
 
     const { member, conversation } = seedGroupConversation(harness.store);
     const groupMessage = harness.store.addMessage({
@@ -686,5 +720,41 @@ describe("advanced messaging E2E, canonical v1", () => {
     );
     expect(memberPin.status).toBe(403);
     expect(harness.store.getMessage(groupMessage.id)).toEqual(expect.objectContaining({ pinned: false }));
+  });
+
+  it("rejects pinning more than five messages in one conversation", async () => {
+    const { userA, conversation } = seedPrivateConversation(harness.store);
+    const messages = Array.from({ length: 6 }, (_, index) =>
+      harness.store.addMessage({
+        conversationId: conversation.id,
+        senderId: userA.id,
+        text: `pin limit ${index + 1}`,
+        type: MessageType.TEXT,
+      }),
+    );
+
+    for (const message of messages.slice(0, 5)) {
+      const response = await harness.api.post(
+        `/v1/messages/${message.id}/pin`,
+        {},
+        { headers: authHeader(userA.id) },
+      );
+      expect(response.status).toBe(200);
+      expect(harness.store.getMessage(message.id)).toEqual(expect.objectContaining({ pinned: true }));
+    }
+
+    const overflow = await harness.api.post(
+      `/v1/messages/${messages[5].id}/pin`,
+      {},
+      { headers: authHeader(userA.id) },
+    );
+
+    expect(overflow.status).toBe(400);
+    expect(harness.store.getMessage(messages[5].id)).toEqual(expect.objectContaining({ pinned: false }));
+    expect(
+      Array.from(harness.store.messages.values()).filter(
+        (message) => message.conversationId === conversation.id && message.pinned,
+      ),
+    ).toHaveLength(5);
   });
 });

@@ -458,6 +458,10 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
 
     const unpinByB = await harness.api.delete(`/v1/messages/${privateMessage.id}/pin`, privateSeed.userB.id);
     expect(unpinByB.status).toBe(200);
+    expect(unpinByB.data.data).toEqual(
+      expect.objectContaining({ id: privateMessage.id, pinned: false }),
+    );
+    expect(unpinByB.data.data.pinnedAt).toBeUndefined();
 
     const userBSocket = await harness.connectMessagesSocket(privateSeed.userB.id);
     const pinAck = await emitWithAck<any>(userBSocket, SocketEvent.PIN_MESSAGE, {
@@ -466,6 +470,39 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
     expect(pinAck.success).toBe(true);
     await eventually(async () => {
       expect(await harness.repos.message.get(privateMessage.id)).toEqual(expect.objectContaining({ pinned: true }));
+    });
+
+    const unpinAck = await emitWithAck<any>(userBSocket, SocketEvent.UNPIN_MESSAGE, {
+      messageId: privateMessage.id,
+    });
+    expect(unpinAck.success).toBe(true);
+    expect(unpinAck.message).toEqual(expect.objectContaining({ id: privateMessage.id, pinned: false }));
+    expect(unpinAck.message.pinnedAt).toBeUndefined();
+
+    await eventually(async () => {
+      const stored = await harness.repos.message.get(privateMessage.id);
+      expect(stored).toEqual(expect.objectContaining({ pinned: false }));
+      expect(stored?.pinnedAt).toBeNull();
+
+      const loaded = await harness.api.get(
+        `/v1/conversations/${privateSeed.conversation.id}/messages`,
+        privateSeed.userA.id,
+      );
+      expect(loaded.status).toBe(200);
+      const reloadedPrivateMessage = loaded.data.data.messages.find(
+        (message: any) => message.id === privateMessage.id,
+      );
+      expect(reloadedPrivateMessage).toEqual(
+        expect.objectContaining({ id: privateMessage.id, pinned: false }),
+      );
+      expect(reloadedPrivateMessage.pinnedAt).toBeNull();
+
+      const pinnedMessages = await harness.api.get(
+        `/v1/conversations/${privateSeed.conversation.id}/pinned-messages`,
+        privateSeed.userA.id,
+      );
+      expect(pinnedMessages.status).toBe(200);
+      expect(pinnedMessages.data.data.map((message: any) => message.id)).not.toContain(privateMessage.id);
     });
 
     const { owner, member, conversation } = await seedGroupConversation(harness);
@@ -487,5 +524,55 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
     const ownerPin = await harness.api.post(`/v1/messages/${ownerMessage.id}/pin`, {}, owner.id);
     expect(ownerPin.status).toBe(200);
     expect(ownerPin.data.data).toEqual(expect.objectContaining({ id: ownerMessage.id, pinned: true }));
+  });
+
+  it("clears conversation pin state after socket unpin and REST reload", async () => {
+    const privateSeed = await seedPrivateConversation(harness);
+    const userSocket = await harness.connectMessagesSocket(privateSeed.userA.id);
+
+    const pinAck = await emitWithAck<any>(userSocket, SocketEvent.PIN_CONVERSATION, {
+      conversationId: privateSeed.conversation.id,
+    });
+    expect(pinAck.success).toBe(true);
+
+    await eventually(async () => {
+      const member = await harness.repos.member.findByCond({
+        conversationId: privateSeed.conversation.id,
+        userId: privateSeed.userA.id,
+      });
+      expect(member).toEqual(expect.objectContaining({ pinned: true, pinnedAt: expect.any(Date) }));
+    });
+
+    const unpinAck = await emitWithAck<any>(userSocket, SocketEvent.UNPIN_CONVERSATION, {
+      conversationId: privateSeed.conversation.id,
+    });
+    expect(unpinAck.success).toBe(true);
+
+    await eventually(async () => {
+      const member = await harness.repos.member.findByCond({
+        conversationId: privateSeed.conversation.id,
+        userId: privateSeed.userA.id,
+      });
+      expect(member).toEqual(expect.objectContaining({ pinned: false }));
+      expect(member?.pinnedAt).toBeNull();
+
+      const cursor = await harness.api.get("/v1/conversations/cursor?limit=20", privateSeed.userA.id);
+      expect(cursor.status).toBe(200);
+      expect((cursor.data.pinned || []).map((conversation: any) => conversation.id)).not.toContain(
+        privateSeed.conversation.id,
+      );
+
+      const reloadedConversation = (cursor.data.data || []).find(
+        (conversation: any) => conversation.id === privateSeed.conversation.id,
+      );
+      expect(reloadedConversation).toEqual(
+        expect.objectContaining({
+          id: privateSeed.conversation.id,
+          pinned: false,
+          isPinned: false,
+        }),
+      );
+      expect(reloadedConversation.pinnedAt).toBeUndefined();
+    });
   });
 });

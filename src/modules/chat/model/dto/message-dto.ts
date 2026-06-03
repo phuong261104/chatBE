@@ -43,7 +43,7 @@ export const MessageUpdateDTOSchema = z.object({
   expiresAt: z.date().optional(),
   expireAtEpoch: z.number().optional(),
   pinned: z.boolean().optional(),
-  pinnedAt: z.date().optional(),
+  pinnedAt: z.date().nullable().optional(),
 });
 
 export type MessageUpdateDTO = z.infer<typeof MessageUpdateDTOSchema>;

@@ -189,7 +189,7 @@ export class InMemoryConversationMemberRepository {
     const member = this.store.members.get(id);
     if (!member) return false;
     const normalized = { ...data } as Record<string, any>;
-    for (const key of ["leftAt", "hiddenAt", "hiddenPinHash", "deletedAt"] as const) {
+    for (const key of ["leftAt", "hiddenAt", "hiddenPinHash", "deletedAt", "pinnedAt"] as const) {
       if (normalized[key] === null) normalized[key] = undefined;
     }
     Object.assign(member, normalized, { updatedAt: new Date() });
@@ -384,7 +384,9 @@ export class InMemoryMessageRepository {
   async update(id: string, data: Partial<Message>): Promise<boolean> {
     const message = this.store.messages.get(id);
     if (!message) return false;
-    Object.assign(message, data);
+    const normalized = { ...data } as Record<string, any>;
+    if (normalized.pinnedAt === null) normalized.pinnedAt = undefined;
+    Object.assign(message, normalized);
     return true;
   }
 
