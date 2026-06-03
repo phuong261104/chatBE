@@ -16,6 +16,7 @@ import {
   IConversationQueryRepository,
   IConversationCommandRepository,
   IUserQueryRepository,
+  MessagePinActionResult,
 } from "../interface";
 import {
   pinMessageDTOSchema,
@@ -28,7 +29,7 @@ import { isGroupManager, canPinMessages, normalizeGroupSettings } from "./group-
 const MAX_PINNED_MESSAGES_PER_CONVERSATION = 5;
 
 export class PinMessageHandler
-  implements ICommandHandler<PinMessageCommand, Message>
+  implements ICommandHandler<PinMessageCommand, MessagePinActionResult>
 {
   constructor(
     private readonly messageQueryRepo: IMessageQueryRepository,
@@ -135,6 +136,9 @@ export class PinMessageHandler
       await this.conversationMemberCommandRepo.touchActivityForConversation(message.conversationId, pinnedAt);
     }
 
-    return updatedMessage;
+    return {
+      message: updatedMessage,
+      systemMessage: systemMsg,
+    };
   }
 }

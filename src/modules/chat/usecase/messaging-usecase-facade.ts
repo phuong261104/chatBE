@@ -2,6 +2,7 @@ import {
   IMessagingUseCase,
   CreateGroupData,
   MarkConversationStateResult,
+  MessagePinActionResult,
 } from "../interface";
 import {
   Conversation,
@@ -520,11 +521,11 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     });
   }
 
-  async pinMessage(messageId: string, userId: string): Promise<Message> {
+  async pinMessage(messageId: string, userId: string): Promise<MessagePinActionResult> {
     return this.pinMessageHandler.execute({ messageId, userId });
   }
 
-  async unpinMessage(messageId: string, userId: string): Promise<Message> {
+  async unpinMessage(messageId: string, userId: string): Promise<MessagePinActionResult> {
     return this.unpinMessageHandler.execute({ messageId, userId });
   }
 

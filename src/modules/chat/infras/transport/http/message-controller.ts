@@ -315,7 +315,7 @@ export class MessageController extends BaseController {
         userId: currentUserId,
       });
 
-      const message = await this.useCase.pinMessage(
+      const { message, systemMessage } = await this.useCase.pinMessage(
         validatedData.messageId,
         validatedData.userId,
       );
@@ -329,6 +329,10 @@ export class MessageController extends BaseController {
           this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_PINNED, {
             conversationId: message.conversationId,
             message,
+          });
+          this.socketService.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId: systemMessage.conversationId,
+            message: systemMessage,
           });
         }
       }
@@ -358,7 +362,7 @@ export class MessageController extends BaseController {
         userId: currentUserId,
       });
 
-      const message = await this.useCase.unpinMessage(
+      const { message, systemMessage } = await this.useCase.unpinMessage(
         validatedData.messageId,
         validatedData.userId,
       );
@@ -372,6 +376,10 @@ export class MessageController extends BaseController {
           this.socketService.emitToUser(memberId, SocketEvent.MESSAGE_UNPINNED, {
             conversationId: message.conversationId,
             message,
+          });
+          this.socketService.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+            conversationId: systemMessage.conversationId,
+            message: systemMessage,
           });
         }
       }

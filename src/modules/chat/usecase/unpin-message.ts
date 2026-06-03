@@ -16,6 +16,7 @@ import {
   IConversationQueryRepository,
   IConversationCommandRepository,
   IUserQueryRepository,
+  MessagePinActionResult,
 } from "../interface";
 import {
   unpinMessageDTOSchema,
@@ -26,7 +27,7 @@ import { SystemMessageTemplate } from "../constants/system-messages";
 import { isGroupManager, canPinMessages, normalizeGroupSettings } from "./group-permissions";
 
 export class UnpinMessageHandler
-  implements ICommandHandler<UnpinMessageCommand, Message>
+  implements ICommandHandler<UnpinMessageCommand, MessagePinActionResult>
 {
   constructor(
     private readonly messageQueryRepo: IMessageQueryRepository,
@@ -120,6 +121,9 @@ export class UnpinMessageHandler
       await this.conversationMemberCommandRepo.touchActivityForConversation(message.conversationId, now);
     }
 
-    return updatedMessage;
+    return {
+      message: updatedMessage,
+      systemMessage: systemMsg,
+    };
   }
 }

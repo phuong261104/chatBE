@@ -34,6 +34,11 @@ import { PagingDTO } from "@share/model/paging";
 
 export * from "./transport";
 
+export type MessagePinActionResult = {
+  message: Message;
+  systemMessage: Message;
+};
+
 export interface IUserQueryRepository {
   get(id: string): Promise<UserInfo | null>;
   findByCond(cond: UserCondDTO): Promise<UserInfo | null>;
@@ -491,9 +496,9 @@ export interface IMessagingUseCase {
     timeLimitMs?: number,
   ): Promise<Message>;
 
-  pinMessage(messageId: string, userId: string): Promise<Message>;
+  pinMessage(messageId: string, userId: string): Promise<MessagePinActionResult>;
 
-  unpinMessage(messageId: string, userId: string): Promise<Message>;
+  unpinMessage(messageId: string, userId: string): Promise<MessagePinActionResult>;
 
   getPinnedMessages(conversationId: string, userId: string): Promise<Message[]>;
 

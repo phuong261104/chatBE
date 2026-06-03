@@ -464,20 +464,78 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
     expect(unpinByB.data.data.pinnedAt).toBeUndefined();
 
     const userBSocket = await harness.connectMessagesSocket(privateSeed.userB.id);
+    const pinEvent = waitForSocketEvent<any>(
+      userBSocket,
+      SocketEvent.MESSAGE_PINNED,
+      (payload) => payload.message.id === privateMessage.id,
+    );
+    const pinSystemMessage = waitForSocketEvent<any>(
+      userBSocket,
+      SocketEvent.RECEIVE_MESSAGE,
+      (payload) =>
+        payload.conversationId === privateSeed.conversation.id &&
+        payload.message.type === MessageType.SYSTEM &&
+        payload.message.senderId === privateSeed.userB.id,
+    );
     const pinAck = await emitWithAck<any>(userBSocket, SocketEvent.PIN_MESSAGE, {
       messageId: privateMessage.id,
     });
     expect(pinAck.success).toBe(true);
+    await expect(pinEvent).resolves.toEqual(
+      expect.objectContaining({ message: expect.objectContaining({ id: privateMessage.id, pinned: true }) }),
+    );
+    const pinSystemPayload = await pinSystemMessage;
+    expect(pinSystemPayload).toEqual(
+      expect.objectContaining({
+        conversationId: privateSeed.conversation.id,
+        message: expect.objectContaining({
+          id: expect.any(String),
+          type: MessageType.SYSTEM,
+          senderId: privateSeed.userB.id,
+          text: expect.any(String),
+          createdAt: expect.anything(),
+        }),
+      }),
+    );
     await eventually(async () => {
       expect(await harness.repos.message.get(privateMessage.id)).toEqual(expect.objectContaining({ pinned: true }));
     });
 
+    const unpinEvent = waitForSocketEvent<any>(
+      userBSocket,
+      SocketEvent.MESSAGE_UNPINNED,
+      (payload) => payload.message.id === privateMessage.id,
+    );
+    const unpinSystemMessage = waitForSocketEvent<any>(
+      userBSocket,
+      SocketEvent.RECEIVE_MESSAGE,
+      (payload) =>
+        payload.conversationId === privateSeed.conversation.id &&
+        payload.message.type === MessageType.SYSTEM &&
+        payload.message.senderId === privateSeed.userB.id,
+    );
     const unpinAck = await emitWithAck<any>(userBSocket, SocketEvent.UNPIN_MESSAGE, {
       messageId: privateMessage.id,
     });
     expect(unpinAck.success).toBe(true);
     expect(unpinAck.message).toEqual(expect.objectContaining({ id: privateMessage.id, pinned: false }));
     expect(unpinAck.message.pinnedAt).toBeUndefined();
+    await expect(unpinEvent).resolves.toEqual(
+      expect.objectContaining({ message: expect.objectContaining({ id: privateMessage.id, pinned: false }) }),
+    );
+    const unpinSystemPayload = await unpinSystemMessage;
+    expect(unpinSystemPayload).toEqual(
+      expect.objectContaining({
+        conversationId: privateSeed.conversation.id,
+        message: expect.objectContaining({
+          id: expect.any(String),
+          type: MessageType.SYSTEM,
+          senderId: privateSeed.userB.id,
+          text: expect.any(String),
+          createdAt: expect.anything(),
+        }),
+      }),
+    );
 
     await eventually(async () => {
       const stored = await harness.repos.message.get(privateMessage.id);
@@ -496,6 +554,9 @@ liveDescribe("advanced messaging live E2E with real DynamoDB repositories", () =
         expect.objectContaining({ id: privateMessage.id, pinned: false }),
       );
       expect(reloadedPrivateMessage.pinnedAt).toBeNull();
+      const loadedMessageIds = loaded.data.data.messages.map((message: any) => message.id);
+      expect(loadedMessageIds.filter((id: string) => id === pinSystemPayload.message.id)).toHaveLength(1);
+      expect(loadedMessageIds.filter((id: string) => id === unpinSystemPayload.message.id)).toHaveLength(1);
 
       const pinnedMessages = await harness.api.get(
         `/v1/conversations/${privateSeed.conversation.id}/pinned-messages`,

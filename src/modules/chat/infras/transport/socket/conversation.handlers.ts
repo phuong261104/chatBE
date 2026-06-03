@@ -387,13 +387,17 @@ export const conversationSocketHandlers = {
         return;
       }
 
-      const message = await this.useCase.pinMessage(messageId, userId);
+      const { message, systemMessage } = await this.useCase.pinMessage(messageId, userId);
 
       const memberUserIds = await this.getMemberUserIds(message.conversationId);
       for (const memberId of memberUserIds) {
         this.emitToUser(memberId, SocketEvent.MESSAGE_PINNED, {
           conversationId: message.conversationId,
           message,
+        });
+        this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+          conversationId: systemMessage.conversationId,
+          message: systemMessage,
         });
       }
 
@@ -433,13 +437,17 @@ export const conversationSocketHandlers = {
         return;
       }
 
-      const message = await this.useCase.unpinMessage(messageId, userId);
+      const { message, systemMessage } = await this.useCase.unpinMessage(messageId, userId);
 
       const memberUserIds = await this.getMemberUserIds(message.conversationId);
       for (const memberId of memberUserIds) {
         this.emitToUser(memberId, SocketEvent.MESSAGE_UNPINNED, {
           conversationId: message.conversationId,
           message,
+        });
+        this.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+          conversationId: systemMessage.conversationId,
+          message: systemMessage,
         });
       }
 
