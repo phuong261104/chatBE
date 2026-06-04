@@ -58,7 +58,7 @@ The root namespace is created by `createSocketIOServer`. It handles base connect
 | `subscribeConversation` | `{ conversationId }` | `{ success, room, timestamp? }` |
 | `unsubscribeConversation` | `{ conversationId }` | `{ success, room? }` |
 | `getOnlineStatus` | `{ userId }` | `{ userId, online, isOnline, visibility, lastSeen, connectionCount, timestamp }` |
-| `getBatchOnlineStatus` | `{ userIds: string[] }` | `{ statuses: Array<{ userId, online, isOnline, visibility, lastSeen, connectionCount }>, timestamp }` |
+| `getBatchOnlineStatus` | `{ userIds: string[] }`, max 100 IDs | `{ statuses: Array<{ userId, online, isOnline, visibility, lastSeen, connectionCount }>, timestamp }`; invalid payload returns `{ success: false, error }` |
 | `typing:start` | any | No ack; touches root presence only |
 | `typing:stop` | any | No ack; touches root presence only |
 | `messageSeen` | any | No ack; touches root presence only |
@@ -246,6 +246,7 @@ Authenticated notification namespace for block and unblock events.
 - Use root `subscribeConversation` or `/messages` `joinGroup` when the client wants room-based broadcasts. Both join `group:${conversationId}` and `group_room:${conversationId}`.
 - Most `/messages` write operations require active conversation membership and return `{ success: false, error }` on authorization, validation, or rate-limit failure.
 - `sendMessage`, `forwardMessages`, `quoteMessage`, and `voice_message` can create multiple messages; consume the returned `messages` array and the `receiveMessage` broadcasts.
+- `pinMessage` and `unpinMessage` keep the ack payload as `{ success: true, message }`; consume `message:pinned`/`message:unpinned` for pinned state and the additional `receiveMessage` system message for timeline activity.
 - `sendMessage.clientMessageId` is optional and idempotent per `{conversationId, senderId, clientMessageId}`. Retrying the same client id returns the existing message(s) and does not increment unread again.
 - `messageSeen` and `messageDelivered` only broadcast when the marker advances. The actor user room is included so sibling tabs sync `unreadCount` and read markers.
 - `voice_message` currently accepts `{ mediaUrl, duration? }` and internally converts it to a `MediaAttachment` with `audio/webm`.

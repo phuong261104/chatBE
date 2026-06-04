@@ -92,7 +92,7 @@ export const memberSocketHandlers = {
         return;
       }
 
-      await this.useCase.setAdmin(groupId, userId, targetUserId, isAdmin);
+      const conversation = await this.useCase.setAdmin(groupId, userId, targetUserId, isAdmin);
 
       this.emitToGroupRoom(groupId, SocketEvent.GROUP_ADMIN_CHANGED, {
         conversationId: groupId,
@@ -100,6 +100,10 @@ export const memberSocketHandlers = {
         isAdmin,
         changedBy: userId,
       });
+      await (this as any).notifySystemMessages(
+        groupId,
+        getAttachedMessage(conversation, "systemMessage"),
+      );
 
       if (callback) {
         callback({ success: true });
@@ -132,13 +136,17 @@ export const memberSocketHandlers = {
         return;
       }
 
-      await this.useCase.transferOwner(groupId, userId, newOwnerId);
+      const conversation = await this.useCase.transferOwner(groupId, userId, newOwnerId);
 
       this.emitToGroupRoom(groupId, SocketEvent.GROUP_OWNER_TRANSFERRED, {
         conversationId: groupId,
         oldOwnerId: userId,
         newOwnerId,
       });
+      await (this as any).notifySystemMessages(
+        groupId,
+        getAttachedMessage(conversation, "systemMessage"),
+      );
 
       if (callback) {
         callback({ success: true });
@@ -205,13 +213,14 @@ export const memberSocketHandlers = {
         return;
       }
 
-      await this.useCase.rejectMember(groupId, userIdToReject, userId);
+      const systemMessage = await this.useCase.rejectMember(groupId, userIdToReject, userId);
 
       this.emitToUser(userIdToReject, SocketEvent.GROUP_MEMBER_REJECTED, {
         conversationId: groupId,
         userId: userIdToReject,
         rejectedBy: userId,
       });
+      await (this as any).notifySystemMessages(groupId, systemMessage);
 
       if (callback) {
         callback({ success: true });

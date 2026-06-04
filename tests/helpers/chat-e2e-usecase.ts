@@ -142,6 +142,7 @@ export function buildUseCase(store: ChatE2EStore) {
     conversationRepo as any,
     memberRepo as any,
     memberRepo as any,
+    groupBlockQueryRepo as any,
     messageRepo as any,
     userRepo as any,
     accessPolicy as any,

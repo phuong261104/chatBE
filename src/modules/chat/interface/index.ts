@@ -616,7 +616,7 @@ export interface IMessagingUseCase {
     groupId: string,
     userId: string,
     requesterId: string,
-  ): Promise<void>;
+  ): Promise<Message>;
 
   updateGroupSettings(
     groupId: string,

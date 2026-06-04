@@ -45,7 +45,7 @@ business logic; they only touch activity/presence.
 | `subscribeConversation` | `{ conversationId }` | Joins `group:{conversationId}` and `group_room:{conversationId}` |
 | `unsubscribeConversation` | `{ conversationId }` | Leaves both conversation rooms |
 | `getOnlineStatus` | `{ userId }` | Ack returns online visibility fields |
-| `getBatchOnlineStatus` | `{ userIds }` | Ack returns `statuses` |
+| `getBatchOnlineStatus` | `{ userIds }`, max 100 IDs | Ack returns `statuses`; invalid payload returns `{ success: false, error }` |
 | `typing:start` | any | Presence touch only |
 | `typing:stop` | any | Presence touch only |
 
@@ -125,6 +125,7 @@ the actor user room so multiple tabs for the same user stay in sync.
 Notes:
 
 - `group:member_joined` exists in `SocketEvent` constants, but no current emitter was found.
+- `pinMessage` and `unpinMessage` emit `message:pinned`/`message:unpinned` for pinned state and also emit a backend-created `receiveMessage` system message for the timeline.
 - `message:reaction_summary`, `message:recall`, `message:edit_start`, and `message:edit_end` are notifier methods; they are emitted only if a service path calls those notifiers.
 - Direct socket `deleteMessage` emits `message:deleted` only to the deleting user. The notifier method can broadcast `message:deleted` when another path invokes it.
 

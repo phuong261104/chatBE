@@ -215,6 +215,7 @@ export const setupMessagingHexagon = (io: SocketIOServer, sctx: ServiceContext) 
     conversationRepo,
     conversationMemberRepo,
     conversationMemberRepo,
+    groupBlockRepo,
     messageRepo,
     userAdapter,
     accessPolicy,

@@ -6,6 +6,7 @@ import {
   IConversationCommandRepository,
   IConversationMemberQueryRepository,
   IConversationMemberCommandRepository,
+  IGroupBlockQueryRepository,
   IMessageCommandRepository,
   IUserQueryRepository
 } from '../interface';
@@ -20,6 +21,7 @@ import {
 import { addMembersToGroupDTOSchema, AddMembersToGroupCommand } from '../model/dto';
 import { ChatAccessPolicy } from './chat-access-policy';
 import { isActiveMember, isGroupManager, normalizeGroupSettings } from "./group-permissions";
+import { attachHiddenMessage } from "./utility-messages";
 
 export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGroupCommand, ConversationMember[]> {
   constructor(
@@ -27,6 +29,7 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
     private readonly conversationCommandRepo: IConversationCommandRepository,
     private readonly conversationMemberQueryRepo: IConversationMemberQueryRepository,
     private readonly conversationMemberCommandRepo: IConversationMemberCommandRepository,
+    private readonly groupBlockQueryRepo: IGroupBlockQueryRepository,
     private readonly messageCommandRepo: IMessageCommandRepository,
     private readonly userQueryRepo: IUserQueryRepository,
     private readonly accessPolicy: ChatAccessPolicy,
@@ -77,6 +80,18 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
       validatedInput.memberIds,
       conversation.membersCount || 0,
     );
+
+    for (const memberId of uniqueMemberIds) {
+      const isBlocked = await this.groupBlockQueryRepo.isUserBlocked(
+        validatedInput.conversationId,
+        memberId,
+      );
+      if (isBlocked) {
+        throw AppError.from(new Error(`User ${memberId} is blocked from this group`), 403)
+          .withDetail("code", "group-blocked")
+          .withDetail("userId", memberId);
+      }
+    }
 
     const users = await this.userQueryRepo.findByIds([validatedInput.requesterId, ...uniqueMemberIds]);
     const userMap = new Map(users.map((u) => [u.id, u]));
@@ -201,6 +216,7 @@ export class AddMembersToGroupHandler implements ICommandHandler<AddMembersToGro
         pinned: false,
       };
       await this.messageCommandRepo.insert(systemMessage);
+      attachHiddenMessage(newMembers, "systemMessage", systemMessage);
 
       await this.conversationCommandRepo.update(validatedInput.conversationId, {
         lastMessage: {

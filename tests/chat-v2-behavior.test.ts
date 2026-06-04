@@ -603,6 +603,7 @@ describe("canonical chat business behavior", () => {
       touchActivityForConversation: jest.fn(),
     };
     const messageRepo = { insert: jest.fn() };
+    const groupBlockRepo = { isUserBlocked: jest.fn().mockResolvedValue(false) };
     const userRepo = {
       findByIds: jest.fn().mockResolvedValue([
         { id: requesterId, displayName: "Admin" },
@@ -617,6 +618,7 @@ describe("canonical chat business behavior", () => {
       conversationRepo as any,
       memberRepo as any,
       memberRepo as any,
+      groupBlockRepo as any,
       messageRepo as any,
       userRepo as any,
       accessPolicy as any,

@@ -71,8 +71,22 @@ export function attachHiddenMessage<T extends object>(target: T, key: string, me
   return target;
 }
 
+export function attachHiddenMessages<T extends object>(target: T, key: string, messages: Message[]): T {
+  Object.defineProperty(target, key, {
+    value: messages,
+    enumerable: false,
+    configurable: true,
+  });
+  return target;
+}
+
 export function getAttachedMessage(source: unknown, key: string): Message | undefined {
   return source && typeof source === "object" ? (source as Record<string, Message | undefined>)[key] : undefined;
+}
+
+export function getAttachedMessages(source: unknown, key: string): Message[] {
+  const value = source && typeof source === "object" ? (source as Record<string, Message[] | undefined>)[key] : undefined;
+  return Array.isArray(value) ? value : [];
 }
 
 export function getInitialNextNotifyAt(remindAt: Date, notifyBeforeMinutes = 0): Date {

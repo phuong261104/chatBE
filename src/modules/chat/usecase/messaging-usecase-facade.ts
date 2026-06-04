@@ -706,7 +706,7 @@ export class MessagingUseCaseFacade implements IMessagingUseCase {
     groupId: string,
     userId: string,
     requesterId: string,
-  ): Promise<void> {
+  ): Promise<Message> {
     return this.rejectMemberHandler.execute({ groupId, userId, requesterId });
   }
 

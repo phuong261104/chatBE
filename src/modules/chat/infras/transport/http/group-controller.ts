@@ -7,6 +7,7 @@ import {
   archiveConversationDTOSchema,
 } from "../../../model/dto";
 import { SocketEvent } from "../../../constants/socket-events";
+import { getAttachedMessage, getAttachedMessages } from "../../../usecase/utility-messages";
 import { z } from "zod";
 
 export class GroupController extends BaseController {
@@ -97,6 +98,10 @@ export class GroupController extends BaseController {
             });
           }
         }
+        await this.socketService.notifySystemMessages(
+          groupId,
+          getAttachedMessages(updatedConversation, "systemMessages"),
+        );
       }
 
       res.status(200).json({ data: updatedConversation });
@@ -228,6 +233,10 @@ export class GroupController extends BaseController {
           isAdmin,
           changedBy: currentUserId,
         });
+        await this.socketService.notifySystemMessages(
+          groupId,
+          getAttachedMessage(updatedConversation, "systemMessage"),
+        );
       }
 
       res.status(200).json({ data: updatedConversation });
@@ -255,6 +264,10 @@ export class GroupController extends BaseController {
           oldOwnerId: currentUserId,
           newOwnerId,
         });
+        await this.socketService.notifySystemMessages(
+          groupId,
+          getAttachedMessage(updatedConversation, "systemMessage"),
+        );
       }
 
       res.status(200).json({ data: updatedConversation });
@@ -314,13 +327,14 @@ export class GroupController extends BaseController {
         return;
       }
 
-      await this.useCase.rejectMember(groupId, userId, currentUserId);
+      const systemMessage = await this.useCase.rejectMember(groupId, userId, currentUserId);
 
       if (this.socketService) {
         this.socketService.emitToUser(userId, SocketEvent.GROUP_MEMBER_REJECTED, {
           conversationId: groupId,
           userId,
         });
+        await this.socketService.notifySystemMessages(groupId, systemMessage);
       }
 
       res.status(200).json({ success: true });

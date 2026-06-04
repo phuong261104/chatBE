@@ -18,6 +18,7 @@ import {
 import { updateGroupInfoDTOSchema, ConversationUpdateDTO, UpdateGroupInfoCommand } from '../model/dto';
 import { SystemMessageTemplate } from '../constants/system-messages';
 import { isActiveMember, canUpdateGroupInfo, normalizeGroupSettings } from "./group-permissions";
+import { attachHiddenMessages } from "./utility-messages";
 
 export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCommand, Conversation> {
   constructor(
@@ -132,6 +133,10 @@ export class UpdateGroupInfoHandler implements ICommandHandler<UpdateGroupInfoCo
     const updatedConversation = await this.conversationQueryRepo.get(validatedInput.conversationId);
     if (!updatedConversation) {
       throw AppError.from(new Error('Failed to get updated conversation'), 500);
+    }
+
+    if (messages.length > 0) {
+      return attachHiddenMessages(updatedConversation, "systemMessages", messages);
     }
 
     return updatedConversation;

@@ -151,6 +151,9 @@ All events below are registered on `/messages`.
   receive unread/read-state sync.
 - `sendMessage.clientMessageId` is optional and idempotent per
   `{conversationId, senderId, clientMessageId}`.
+- `pinMessage` and `unpinMessage` keep their ack payload as the pinned/unpinned
+  message and also emit a backend-created `receiveMessage` system message for
+  timeline activity.
 - Member/admin socket actions use `groupId`, not `conversationId`, in their
   payloads.
 - Direct socket `deleteMessage` emits `message:deleted` only to the user who

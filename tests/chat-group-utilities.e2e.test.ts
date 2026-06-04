@@ -91,6 +91,23 @@ describe("group utilities, owner role, and permissions E2E", () => {
     expect(harness.store.getMember(conversation.id, owner.id)?.role).toBe(ConversationMemberRole.OWNER);
     expect(harness.store.getMember(conversation.id, adminCandidate.id)?.role).toBe(ConversationMemberRole.ADMIN);
     expect(harness.store.conversations.get(conversation.id)?.admins).toEqual([adminCandidate.id]);
+    expect(harness.socketEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: "user",
+          targetId: adminCandidate.id,
+          event: SocketEvent.RECEIVE_MESSAGE,
+          data: expect.objectContaining({
+            conversationId: conversation.id,
+            message: expect.objectContaining({
+              conversationId: conversation.id,
+              senderId: owner.id,
+              type: MessageType.SYSTEM,
+            }),
+          }),
+        }),
+      ]),
+    );
 
     const transferResponse = await harness.api.post(
       `/v1/groups/${conversation.id}/transfer-owner`,
@@ -127,9 +144,10 @@ describe("group utilities, owner role, and permissions E2E", () => {
     const activeInvitee = harness.store.addUser({ displayName: "Active invitee" });
     const pendingInvitee = harness.store.addUser({ displayName: "Pending invitee" });
     const blockedInvitee = harness.store.addUser({ displayName: "Blocked invitee" });
+    const groupBlockedInvitee = harness.store.addUser({ displayName: "Group blocked invitee" });
     const adminInvitee = harness.store.addUser({ displayName: "Admin invitee" });
     addFriendshipsWith(harness, member.id, [activeInvitee.id, pendingInvitee.id, blockedInvitee.id]);
-    addFriendshipsWith(harness, admin.id, [adminInvitee.id]);
+    addFriendshipsWith(harness, admin.id, [adminInvitee.id, groupBlockedInvitee.id]);
 
     const defaultAddResponse = await harness.api.post(
       `/v1/groups/${conversation.id}/members`,
@@ -201,6 +219,21 @@ describe("group utilities, owner role, and permissions E2E", () => {
         }),
       ]),
     );
+
+    const groupBlockResponse = await harness.api.post(
+      `/v1/groups/${conversation.id}/blocks`,
+      { targetUserId: groupBlockedInvitee.id },
+      { headers: authHeader(owner.id) },
+    );
+    expect(groupBlockResponse.status).toBe(200);
+
+    const groupBlockedAddResponse = await harness.api.post(
+      `/v1/groups/${conversation.id}/members`,
+      { memberIds: [groupBlockedInvitee.id] },
+      { headers: authHeader(admin.id) },
+    );
+    expect(groupBlockedAddResponse.status).toBe(403);
+    expect(harness.store.getMember(conversation.id, groupBlockedInvitee.id)).toBeUndefined();
   });
 
   it("emits user-room updates for group leave and approval so ChatList can sync without group-room cache", async () => {

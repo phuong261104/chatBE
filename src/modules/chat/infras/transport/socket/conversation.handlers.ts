@@ -1,5 +1,6 @@
 import { SocketEvent } from "../../../constants/socket-events";
 import { AuthenticatedSocket, SocketHandlerContext } from "./types";
+import { getAttachedMessages } from "../../../usecase/utility-messages";
 
 export const conversationSocketHandlers = {
   async handleUpdateGroupSettings(this: SocketHandlerContext,
@@ -77,6 +78,10 @@ export const conversationSocketHandlers = {
           changedBy: userId,
         });
       }
+      await (this as any).notifySystemMessages(
+        groupId,
+        getAttachedMessages(conversation, "systemMessages"),
+      );
       if (callback) callback({ success: true, conversation });
     } catch (error) {
       console.error("Error handling updateGroupInfo:", error);

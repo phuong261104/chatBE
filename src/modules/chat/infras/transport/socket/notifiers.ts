@@ -1,9 +1,11 @@
 import { SocketEvent } from "../../../constants/socket-events";
 import { ConversationMemberStatus } from "../../../model/model";
+import { getAttachedMessage } from "../../../usecase/utility-messages";
 import { SocketHandlerContext } from "./types";
 
 export interface SocketNotifierMethods {
   notifyNewGroup(memberUserIds: string[], groupData: any): void;
+  notifySystemMessages(conversationId: string, messages: any[] | any | undefined): Promise<void>;
   notifyMembersAdded(conversationId: string, newMembers: any[], addedBy?: string): Promise<void>;
   notifyMemberRemoved(conversationId: string, removedUserId: string, removedBy?: string, reason?: "removed" | "left"): Promise<void>;
   notifyMemberLeft(conversationId: string, leftUserId: string, leftBy: string): Promise<void>;
@@ -111,11 +113,39 @@ async function emitLatestMessageToUsers(
   }
 }
 
+function normalizeMessages(messages: any[] | any | undefined): any[] {
+  if (!messages) return [];
+  return Array.isArray(messages) ? messages.filter(Boolean) : [messages];
+}
+
+async function emitMessagesToActiveMembers(
+  context: SocketHandlerContext,
+  conversationId: string,
+  messages: any[] | any | undefined,
+) {
+  const normalizedMessages = normalizeMessages(messages);
+  if (normalizedMessages.length === 0) return;
+
+  const activeMemberUserIds = await getActiveMemberUserIds(context, conversationId);
+  for (const userId of uniqueStrings(activeMemberUserIds)) {
+    for (const message of normalizedMessages) {
+      context.emitToUser(userId, SocketEvent.RECEIVE_MESSAGE, {
+        conversationId,
+        message,
+      });
+    }
+  }
+}
+
 export const socketNotifiers = {
   notifyNewGroup(this: SocketHandlerContext, memberUserIds: string[], groupData: any) {
     for (const userId of memberUserIds) {
       this.namespace.to(`user:${userId}`).emit(SocketEvent.CONVERSATION_CREATED, groupData);
     }
+  },
+
+  async notifySystemMessages(this: SocketHandlerContext, conversationId: string, messages: any[] | any | undefined) {
+    await emitMessagesToActiveMembers(this, conversationId, messages);
   },
 
   async notifyMembersAdded(this: SocketHandlerContext, conversationId: string, newMembers: any[], addedBy?: string) {
@@ -136,7 +166,12 @@ export const socketNotifiers = {
       await emitConversationCreatedForUser(this, conversationId, member.userId, { member, addedBy });
     }
 
-    await emitLatestMessageToUsers(this, conversationId, activeMemberUserIds);
+    const systemMessage = getAttachedMessage(newMembers, "systemMessage");
+    if (systemMessage) {
+      await emitMessagesToActiveMembers(this, conversationId, systemMessage);
+    } else {
+      await emitLatestMessageToUsers(this, conversationId, activeMemberUserIds);
+    }
   },
 
   async notifyMemberRemoved(

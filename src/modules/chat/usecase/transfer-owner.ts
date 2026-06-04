@@ -20,6 +20,7 @@ import {
 import { TransferOwnerCommand } from "../model/dto";
 import { SystemMessageTemplate } from "../constants/system-messages";
 import { isActiveMember, isOwnerMember } from "./group-permissions";
+import { attachHiddenMessage } from "./utility-messages";
 
 export class TransferOwnerHandler implements ICommandHandler<TransferOwnerCommand, Conversation> {
   constructor(
@@ -115,6 +116,6 @@ export class TransferOwnerHandler implements ICommandHandler<TransferOwnerComman
       throw AppError.from(new Error("Failed to get updated conversation"), 500);
     }
 
-    return updatedConversation;
+    return attachHiddenMessage(updatedConversation, "systemMessage", systemMsg);
   }
 }

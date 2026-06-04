@@ -20,6 +20,7 @@ import {
 import { SetAdminCommand } from "../model/dto";
 import { SystemMessageTemplate } from "../constants/system-messages";
 import { isActiveMember, isOwnerMember } from "./group-permissions";
+import { attachHiddenMessage } from "./utility-messages";
 
 export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Conversation> {
   constructor(
@@ -120,6 +121,6 @@ export class SetAdminHandler implements ICommandHandler<SetAdminCommand, Convers
       throw AppError.from(new Error("Failed to get updated conversation"), 500);
     }
 
-    return updatedConversation;
+    return attachHiddenMessage(updatedConversation, "systemMessage", systemMsg);
   }
 }

@@ -13,7 +13,7 @@ import { ConversationType, ConversationMemberStatus, Message, MessageType } from
 import { SystemMessageTemplate } from "../constants/system-messages";
 import { isActiveMember, isGroupManager } from "./group-permissions";
 
-export class RejectMemberHandler implements ICommandHandler<{ groupId: string; userId: string; requesterId: string }, void> {
+export class RejectMemberHandler implements ICommandHandler<{ groupId: string; userId: string; requesterId: string }, Message> {
   constructor(
     private readonly conversationQueryRepo: IConversationQueryRepository,
     private readonly conversationCommandRepo: IConversationCommandRepository,
@@ -23,7 +23,7 @@ export class RejectMemberHandler implements ICommandHandler<{ groupId: string; u
     private readonly userQueryRepo: IUserQueryRepository,
   ) {}
 
-  async execute(command: { groupId: string; userId: string; requesterId: string }): Promise<void> {
+  async execute(command: { groupId: string; userId: string; requesterId: string }): Promise<Message> {
     const { groupId, userId, requesterId } = command;
 
     const conversation = await this.conversationQueryRepo.get(groupId);
@@ -95,5 +95,7 @@ export class RejectMemberHandler implements ICommandHandler<{ groupId: string; u
       lastMessageAt: now,
     });
     await this.conversationMemberCommandRepo.touchActivityForConversation(groupId, now);
+
+    return systemMsg;
   }
 }
