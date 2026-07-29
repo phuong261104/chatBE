@@ -64,6 +64,7 @@ export const TABLE_NAMES = {
   MESSAGES: "messages",
   MESSAGE_REACTIONS: "message_reactions",
   MESSAGE_CLASSIFICATIONS: "message_classifications",
+  DRAFTS: "drafts",
   POLLS: "polls",
   GROUP_REMINDERS: "group_reminders",
   GROUP_NOTES: "group_notes",
@@ -240,6 +241,19 @@ export const MESSAGES_TABLE: TableDefinition = {
 
 export const MESSAGE_REACTIONS_TABLE: TableDefinition = {
   TableName: TABLE_NAMES.MESSAGE_REACTIONS,
+  KeySchema: [
+    { AttributeName: "pk", KeyType: "HASH" },
+    { AttributeName: "sk", KeyType: "RANGE" },
+  ],
+  AttributeDefinitions: [
+    { AttributeName: "pk", AttributeType: "S" },
+    { AttributeName: "sk", AttributeType: "S" },
+  ],
+  BillingMode: "PAY_PER_REQUEST",
+};
+
+export const DRAFTS_TABLE: TableDefinition = {
+  TableName: TABLE_NAMES.DRAFTS,
   KeySchema: [
     { AttributeName: "pk", KeyType: "HASH" },
     { AttributeName: "sk", KeyType: "RANGE" },
@@ -474,11 +488,13 @@ export const ALL_TABLES: TableDefinition[] = [
   MESSAGES_TABLE,
   MESSAGE_REACTIONS_TABLE,
   MESSAGE_CLASSIFICATIONS_TABLE,
+  DRAFTS_TABLE,
   POLLS_TABLE,
   GROUP_REMINDERS_TABLE,
   GROUP_NOTES_TABLE,
   FRIENDSHIPS_TABLE,
   FRIEND_REQUESTS_TABLE,
+  BLOCKS_TABLE,
   GROUP_INVITE_LINKS_TABLE,
   GROUP_BLOCKS_TABLE,
 ];

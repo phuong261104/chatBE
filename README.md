@@ -68,13 +68,15 @@ Kiểm tra và seed:
 curl https://api.example.com/health/ready
 docker compose --env-file .env.production \
   -f docker-compose.yml -f docker-compose.prod.yml \
-  exec backend npm run seed:demo
+  exec backend npm run seed:recruiter
 docker compose --env-file .env.production \
   -f docker-compose.yml -f docker-compose.prod.yml \
   logs cloudflared
 ```
 
-Seed demo có tính idempotent và dùng password từ `DEMO_PASSWORD`.
+Seed recruiter có thể chạy lại, khôi phục các tài khoản cố định và dùng
+password từ `DEMO_PASSWORD`. Danh sách tài khoản, scenario và checklist kiểm
+thử nằm trong [`docs/RECRUITER-DEMO.md`](docs/RECRUITER-DEMO.md).
 
 ## Docker commands
 

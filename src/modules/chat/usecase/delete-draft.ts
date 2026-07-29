@@ -2,7 +2,11 @@ import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { IConversationMemberQueryRepository } from "../interface";
 import { DeleteDraftDTO } from "../model/dto/draft-dto";
-import { getDocClient } from "@share/repository/dynamodb/client";
+import {
+  getDocClient,
+  getTableName,
+} from "@share/repository/dynamodb/client";
+import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 import { DeleteCommand } from "@aws-sdk/lib-dynamodb";
 
 export class DeleteDraftCommandHandler implements ICommandHandler<DeleteDraftDTO, void> {
@@ -21,7 +25,7 @@ export class DeleteDraftCommandHandler implements ICommandHandler<DeleteDraftDTO
     }
 
     const docClient = getDocClient();
-    const tableName = "DRAFTS";
+    const tableName = getTableName(TABLE_NAMES.DRAFTS);
 
     await docClient.send(
       new DeleteCommand({

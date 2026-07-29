@@ -17,6 +17,7 @@
     "seed:test": "ts-node scripts/seed-test-users.ts",
     "test:social": "ts-node scripts/test-social-api.ts",
     "seed:demo": "node dist/tools/seed-demo.js",
+    "seed:recruiter": "node dist/tools/seed-demo.js",
     "demo": "ts-node src/index.ts",
     "start": "nodemon src/index.ts",
     "start:prod": "node dist/index.js",

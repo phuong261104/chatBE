@@ -109,6 +109,9 @@ docs/BACKEND_BUSINESS_CURRENT.md
 backend_audit_for_chapter2.md
 docs/C4-MODEL-REPORT.md
 tests
+!tests/
+!tests/dynamodb-table-defs.test.ts
+!tests/chat-draft-storage.test.ts
 docs/API_SPEC.md
 docs/ARCHITECTURE-QA.md
 docs/ARCHITECTURE-ANALYSIS.md

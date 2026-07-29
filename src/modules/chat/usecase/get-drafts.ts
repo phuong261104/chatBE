@@ -4,7 +4,11 @@ import {
   IConversationMemberQueryRepository,
 } from "../interface";
 import { GetDraftsDTO, Draft } from "../model/dto/draft-dto";
-import { getDocClient } from "@share/repository/dynamodb/client";
+import {
+  getDocClient,
+  getTableName,
+} from "@share/repository/dynamodb/client";
+import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 export class GetDraftsQueryHandler
@@ -27,7 +31,7 @@ export class GetDraftsQueryHandler
     }
 
     const docClient = getDocClient();
-    const tableName = "DRAFTS";
+    const tableName = getTableName(TABLE_NAMES.DRAFTS);
 
     const result = await docClient.send(
       new QueryCommand({

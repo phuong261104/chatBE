@@ -12,7 +12,7 @@ import {
   IndexStatus,
   ListTablesCommand,
 } from "@aws-sdk/client-dynamodb";
-import { getDynamoDBClient } from "./client";
+import { getDynamoDBClient, getTableName } from "./client";
 
 const client = getDynamoDBClient();
 
@@ -213,12 +213,20 @@ export async function initDynamoDBTables(): Promise<void> {
 
   const failures: Error[] = [];
   for (const tableDef of ALL_TABLES) {
+    const runtimeTableDef: TableDefinition = {
+      ...tableDef,
+      TableName: getTableName(tableDef.TableName),
+    };
+
     try {
-      await createTableIfNotExists(tableDef);
-      await addMissingGSIsSequentially(tableDef);
-      await syncTimeToLive(tableDef);
+      await createTableIfNotExists(runtimeTableDef);
+      await addMissingGSIsSequentially(runtimeTableDef);
+      await syncTimeToLive(runtimeTableDef);
     } catch (error) {
-      console.error(`Failed to initialize table ${tableDef.TableName}:`, error);
+      console.error(
+        `Failed to initialize table ${runtimeTableDef.TableName}:`,
+        error,
+      );
       failures.push(
         error instanceof Error ? error : new Error(String(error)),
       );

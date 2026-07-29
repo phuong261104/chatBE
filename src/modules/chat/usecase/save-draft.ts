@@ -2,7 +2,11 @@ import { ICommandHandler } from "@share/interface";
 import { AppError } from "@share/app-error";
 import { IConversationMemberQueryRepository } from "../interface";
 import { SaveDraftDTO } from "../model/dto/draft-dto";
-import { getDocClient } from "@share/repository/dynamodb/client";
+import {
+  getDocClient,
+  getTableName,
+} from "@share/repository/dynamodb/client";
+import { TABLE_NAMES } from "@share/repository/dynamodb/table-defs";
 import { PutCommand } from "@aws-sdk/lib-dynamodb";
 import { v7 as uuidv7 } from "uuid";
 
@@ -22,7 +26,7 @@ export class SaveDraftCommandHandler implements ICommandHandler<SaveDraftDTO, vo
     }
 
     const docClient = getDocClient();
-    const tableName = "DRAFTS";
+    const tableName = getTableName(TABLE_NAMES.DRAFTS);
     const now = new Date().toISOString();
 
     await docClient.send(

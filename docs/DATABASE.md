@@ -40,9 +40,11 @@ Các table đang được khởi tạo bởi `ALL_TABLES` (xem `src/share/reposi
 | `messages` | Chat | `pk`, `sk` | `id-index`, `clientMessageKey-index` | Message append/query theo conversation, có TTL |
 | `message_reactions` | Chat | `pk`, `sk` | Không | Reaction theo message/user/emoji |
 | `message_classifications` | Chat/Search | `pk`, `sk` | `GSI1`, `messageId-index` | Media/link classification để tìm kiếm |
+| `drafts` | Chat | `pk`, `sk` | Không | Một draft hiện tại cho mỗi user trong mỗi conversation |
 | `polls` | Chat | `id` | `conversation-index`, `status-expiresAt-index` | Poll trong group |
 | `group_reminders` | Chat | `id` | `conversation-index`, `status-nextNotifyAt-index` | Reminder trong group |
 | `group_notes` | Chat | `id` | `conversation-index` | Note trong group |
+| `blocks` | Social | `blockerId`, `blockedUserId` | `blockerId-createdAt-index` | Quan hệ chặn user |
 | `friendships` | Social | `userA`, `userB` | `userA-createdAt-index`, `userB-index` | Một record cho mỗi cặp bạn bè |
 | `friend_requests` | Social | `id` | `senderId-index`, `receiverId-index`, `senderId-createdAt-index`, `receiverId-createdAt-index` | Lời mời kết bạn |
 | `group_invite_links` | Chat | `token` | `conversationId-status-index` | Invite link/token cho group |
@@ -52,7 +54,6 @@ Các table/constant có trong code nhưng chưa được auto-init bởi `ALL_TA
 
 | Table | Trạng thái trong code | Ghi chú |
 | --- | --- | --- |
-| `blocks` | Có `BLOCKS_TABLE` và repository/model, nhưng chưa nằm trong `ALL_TABLES` | Repository đang query theo `blockerId`/`blockedUserId`; table phải tồn tại sẵn hoặc cần thêm vào `ALL_TABLES` trước khi auto-init |
 | `stories` | Chỉ có trong `TABLE_NAMES` | Chưa có table definition/repository model hiện tại |
 | `story_views` | Chỉ có trong `TABLE_NAMES` | Chưa có table definition/repository model hiện tại |
 
@@ -260,6 +261,26 @@ Access patterns:
 - Delete classifications when message is removed.
 - Search media by keyword (name/url) — in-memory filter after DynamoDB query.
 - Sticker/GIF search via `type` = sticker/gif query.
+
+### `drafts`
+
+Mục đích: lưu bản nháp hiện tại của từng user trong từng conversation.
+
+Primary key:
+
+- `pk = CONV#{conversationId}#USER#{userId}`.
+- `sk = DRAFT#CURRENT`.
+
+Fields chính:
+
+- `id`, `conversationId`, `userId`, `text`, `media`, `createdAt`, `updatedAt`.
+
+Access patterns:
+
+- Save dùng `PutItem` trên cùng `pk/sk`, vì vậy lần lưu sau ghi đè draft hiện
+  tại thay vì sinh nhiều record.
+- Load query theo `pk` và prefix `DRAFT#`.
+- Delete dùng direct key `pk/sk`.
 
 ### `polls`
 
