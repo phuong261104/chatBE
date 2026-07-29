@@ -142,12 +142,14 @@ export class GroupUtilityWorker {
       });
 
       await this.emitReceiveMessage(reminder.conversationId, message);
-      this.deps.notifier?.emitToGroupRoom(reminder.conversationId, "group:reminder_due", {
+      const duePayload = {
         conversationId: reminder.conversationId,
         reminderId: reminder.id,
         reminder: updatedReminder,
         message,
-      });
+        systemMessage: message,
+      };
+      await this.emitToMembers(reminder.conversationId, "group:reminder_due", duePayload);
     }
   }
 
@@ -196,13 +198,17 @@ export class GroupUtilityWorker {
   }
 
   private async emitReceiveMessage(conversationId: string, message: Message): Promise<void> {
+    await this.emitToMembers(conversationId, "receiveMessage", {
+      conversationId,
+      message,
+    });
+  }
+
+  private async emitToMembers(conversationId: string, event: string, payload: unknown): Promise<void> {
     if (!this.deps.notifier) return;
     const memberUserIds = await this.deps.notifier.getMemberUserIds(conversationId);
     for (const userId of memberUserIds) {
-      this.deps.notifier.emitToUser(userId, "receiveMessage", {
-        conversationId,
-        message,
-      });
+      this.deps.notifier.emitToUser(userId, event, payload);
     }
   }
 }

@@ -144,6 +144,7 @@ export class CreateGroupReminderHandler
     });
     reminder.messageId = message.id;
     await this.reminderCommandRepo.insert(reminder);
+    message.reminder = reminder;
     return attachHiddenMessage(reminder, "timelineMessage", message);
   }
 }

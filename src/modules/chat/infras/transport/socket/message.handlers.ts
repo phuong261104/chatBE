@@ -1,6 +1,75 @@
 import { MediaAttachment, MessageType } from "../../../model";
 import { SocketEvent } from "../../../constants/socket-events";
 import { AuthenticatedSocket, SocketHandlerContext } from "./types";
+import { getAttachedMessage } from "../../../usecase/utility-messages";
+import { isBotReminderRequest, parseReminderAgentRequest } from "../../../usecase/reminder-agent";
+
+async function emitMessageToMembers(
+  context: SocketHandlerContext,
+  conversationId: string,
+  message: unknown,
+) {
+  if (!message) return;
+  const memberUserIds = await context.getMemberUserIds(conversationId);
+  for (const memberId of memberUserIds) {
+    context.emitToUser(memberId, SocketEvent.RECEIVE_MESSAGE, {
+      conversationId,
+      message,
+    });
+  }
+}
+
+async function processReminderAgentRequest(
+  context: SocketHandlerContext,
+  conversationId: string,
+  userId: string,
+  text: string,
+) {
+  try {
+    const parsed = await parseReminderAgentRequest(text);
+    if (!parsed.shouldCreate || !parsed.title || !parsed.remindAt) {
+      context.emitToUser(userId, SocketEvent.AI_REMINDER_AGENT_ERROR, {
+        conversationId,
+        reason: parsed.reason || "Missing reminder details",
+        title: parsed.title,
+      });
+      return;
+    }
+
+    const reminder = await context.useCase.createGroupReminder(
+      conversationId,
+      userId,
+      parsed.title,
+      parsed.description,
+      parsed.remindAt,
+      parsed.repeatRule,
+      parsed.notifyBeforeMinutes,
+    );
+
+    const message = getAttachedMessage(reminder, "timelineMessage");
+    await emitMessageToMembers(context, conversationId, message);
+
+    context.emitToGroupRoom(conversationId, SocketEvent.GROUP_REMINDER_CREATED, {
+      conversationId,
+      reminder,
+      createdBy: userId,
+      message,
+      aiAgent: true,
+    });
+
+    context.emitToUser(userId, SocketEvent.AI_REMINDER_AGENT_RESULT, {
+      conversationId,
+      reminder,
+      message,
+    });
+  } catch (error) {
+    console.error("Reminder agent failed:", error);
+    context.emitToUser(userId, SocketEvent.AI_REMINDER_AGENT_ERROR, {
+      conversationId,
+      reason: (error as Error).message || "Reminder agent failed",
+    });
+  }
+}
 
 export const messageSocketHandlers = {
   async handleSendMessage(this: SocketHandlerContext, 
@@ -49,6 +118,10 @@ export const messageSocketHandlers = {
             conversationId,
           });
         }
+      }
+
+      if (isGroup && text && isBotReminderRequest(text)) {
+        void processReminderAgentRequest(this, conversationId, userId, text);
       }
 
       if (callback) {

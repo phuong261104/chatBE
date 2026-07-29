@@ -72,6 +72,8 @@ export const SocketEvent = {
   GROUP_NOTE_CREATED: "group:note_created",
   GROUP_NOTE_UPDATED: "group:note_updated",
   GROUP_NOTE_DELETED: "group:note_deleted",
+  AI_REMINDER_AGENT_RESULT: "ai:reminder_agent:result",
+  AI_REMINDER_AGENT_ERROR: "ai:reminder_agent:error",
 
   // Incoming (Client -> Server)
   ADD_MEMBERS: "addMembers",
