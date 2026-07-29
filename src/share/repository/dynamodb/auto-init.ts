@@ -10,10 +10,35 @@ import {
   UpdateTimeToLiveCommand,
   ResourceNotFoundException,
   IndexStatus,
+  ListTablesCommand,
 } from "@aws-sdk/client-dynamodb";
 import { getDynamoDBClient } from "./client";
 
 const client = getDynamoDBClient();
+
+async function waitForDynamoDBReady(
+  attempts = 20,
+  delayMs = 2000,
+): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await client.send(new ListTablesCommand({ Limit: 1 }));
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  throw new Error(
+    `DynamoDB did not become ready after ${attempts} attempts`,
+    { cause: lastError },
+  );
+}
 
 async function waitForIndexActive(
   tableName: string,
@@ -136,8 +161,9 @@ async function addMissingGSIsSequentially(
     if (err instanceof ResourceNotFoundException) {
       return;
     }
-    console.error(
+    throw new Error(
       `Failed to add GSIs to table ${def.TableName}: ${(err as Error).message}`,
+      { cause: err },
     );
   }
 }
@@ -173,8 +199,9 @@ async function syncTimeToLive(def: TableDefinition): Promise<void> {
     if (err instanceof ResourceNotFoundException) {
       return;
     }
-    console.error(
+    throw new Error(
       `Failed to sync TTL for table ${def.TableName}: ${(err as Error).message}`,
+      { cause: err },
     );
   }
 }
@@ -182,6 +209,9 @@ async function syncTimeToLive(def: TableDefinition): Promise<void> {
 export async function initDynamoDBTables(): Promise<void> {
   console.log("Initializing DynamoDB tables...");
 
+  await waitForDynamoDBReady();
+
+  const failures: Error[] = [];
   for (const tableDef of ALL_TABLES) {
     try {
       await createTableIfNotExists(tableDef);
@@ -189,7 +219,17 @@ export async function initDynamoDBTables(): Promise<void> {
       await syncTimeToLive(tableDef);
     } catch (error) {
       console.error(`Failed to initialize table ${tableDef.TableName}:`, error);
+      failures.push(
+        error instanceof Error ? error : new Error(String(error)),
+      );
     }
+  }
+
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures,
+      `Failed to initialize ${failures.length} DynamoDB table(s)`,
+    );
   }
 
   console.log("DynamoDB tables initialized.");

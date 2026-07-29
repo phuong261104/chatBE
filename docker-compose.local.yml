@@ -25,12 +25,16 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      dynamodb-local:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
     ports:
       - "3000:3000"
     env_file:
-      - .env.local
+      - ${BACKEND_ENV_FILE:-.env.local}
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-development}
       - REDIS_HOST=redis
       - REDIS_URL=redis://redis:6379
     volumes:
@@ -49,10 +53,94 @@ services:
     networks:
       - chatbe-network
 
+  dynamodb-local:
+    image: ${DYNAMODB_IMAGE:-amazon/dynamodb-local:latest}
+    container_name: chatbe-dynamodb-local
+    restart: unless-stopped
+    user: root
+    working_dir: /home/dynamodblocal
+    command:
+      [
+        "-jar",
+        "DynamoDBLocal.jar",
+        "-sharedDb",
+        "-dbPath",
+        "./data",
+        "-disableTelemetry",
+      ]
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - dynamodb_data:/home/dynamodblocal/data
+    networks:
+      - chatbe-network
+
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:latest}
+    container_name: chatbe-minio-local
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_API_CORS_ALLOW_ORIGIN}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://127.0.0.1:9000/minio/health/live",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - chatbe-network
+
+  minio-init:
+    image: ${MINIO_MC_IMAGE:-minio/mc:latest}
+    container_name: chatbe-minio-init-local
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      CLOUD_BUCKET_NAME: ${CLOUD_BUCKET_NAME:-chatbe-media}
+      CLOUD_ACCESS_KEY_ID: ${CLOUD_ACCESS_KEY_ID}
+      CLOUD_SECRET_ACCESS_KEY: ${CLOUD_SECRET_ACCESS_KEY}
+    volumes:
+      - ./docker/minio-policy.json:/config/minio-policy.json:ro
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set local http://minio:9000
+      \"$${MINIO_ROOT_USER}\" \"$${MINIO_ROOT_PASSWORD}\"; do sleep 2; done;
+      /usr/bin/mc mb --ignore-existing \"local/$${CLOUD_BUCKET_NAME}\";
+      /usr/bin/mc anonymous set download \"local/$${CLOUD_BUCKET_NAME}\";
+      /usr/bin/mc admin user add local
+      \"$${CLOUD_ACCESS_KEY_ID}\" \"$${CLOUD_SECRET_ACCESS_KEY}\" || true;
+      /usr/bin/mc admin policy create local chatbe-media
+      /config/minio-policy.json || true;
+      /usr/bin/mc admin policy attach local chatbe-media
+      --user \"$${CLOUD_ACCESS_KEY_ID}\";
+      "
+    networks:
+      - chatbe-network
+
 volumes:
   redis_data:
   backend_uploads:
   backend_logs:
+  dynamodb_data:
+  minio_data:
 
 networks:
   chatbe-network:

@@ -11,9 +11,9 @@ Runtime chính:
 | Express | REST API v1, middleware, Swagger UI |
 | HTTP server | Server nền để gắn Express và Socket.IO |
 | Socket.IO | Realtime chat, presence, social notifications, call notifications |
-| DynamoDB | Database nghiệp vụ chính |
+| DynamoDB Local | Database nghiệp vụ chính của bản demo self-hosted |
 | Redis | Session, token blacklist, presence/socket state |
-| AWS S3 hoặc compatible storage | Cloud media upload khi bật `CLOUD_STORAGE_ENABLED` |
+| MinIO S3-compatible storage | Media upload khi bật `CLOUD_STORAGE_ENABLED` |
 | LiveKit | Audio/video call token và room |
 | Google Gemini | AI summarize, smart reply, tone adjust, translate |
 | Swagger YAML | API documentation source |
@@ -30,7 +30,8 @@ flowchart LR
   Usecase --> Redis["Redis"]
   Usecase --> LiveKit["LiveKit"]
   Usecase --> Gemini["Gemini"]
-  Repo --> DynamoDB["AWS DynamoDB"]
+  Repo --> DynamoDB["DynamoDB Local"]
+  HTTP --> MinIO["MinIO"]
 ```
 
 ## Bootstrap Flow
@@ -297,7 +298,9 @@ Media module xử lý:
 - Confirm upload.
 - Delete media.
 
-Khi cloud storage bật, env cần có `CLOUD_BUCKET_NAME`, `CLOUD_REGION`, `CLOUD_ACCESS_KEY_ID`, `CLOUD_SECRET_ACCESS_KEY`.
+Khi MinIO bật, backend dùng `CLOUD_ENDPOINT` cho server-side operations và
+`CLOUD_PUBLIC_ENDPOINT` để ký presigned URL cho browser. `confirm-upload` gọi
+`HeadObject` và chỉ xác nhận khi object có MIME type/kích thước đúng.
 
 ## Call Architecture
 
@@ -341,13 +344,13 @@ Env groups:
 | Group | Variables |
 | --- | --- |
 | App | `NODE_ENV`, `PORT`, `APP_URL`, `FRONTEND_URL`, `CORS_ORIGINS` |
-| DynamoDB | `DYNAMODB_REGION`, `DYNAMODB_ENDPOINT`, `DYNAMODB_TABLE_PREFIX`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
+| DynamoDB Local | `DYNAMODB_REGION`, `DYNAMODB_ENDPOINT`, `DYNAMODB_TABLE_PREFIX` |
 | Redis | `REDIS_HOST`, `REDIS_URL`, `REDIS_PORT`, `REDIS_PASSWORD` |
 | JWT/Auth | `JWT_ACCESS_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXPIRES_IN`, `AUTH_REQUIRE_EMAIL_VERIFICATION`, `AUTH_REFRESH_COOKIE_ENABLED`, `AUTH_REFRESH_COOKIE_NAME`, `AUTH_REFRESH_COOKIE_SAMESITE`, `AUTH_REFRESH_COOKIE_SECURE` |
 | Password reset | `JWT_PASSWORD_RESET_SECRET`, `JWT_PASSWORD_RESET_EXPIRES_IN` |
 | Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`, `EMAIL_FROM_NAME` |
 | Upload | `UPLOAD_MAX_FILE_SIZE`, `UPLOAD_DESTINATION`, `UPLOAD_BASE_URL`, `UPLOAD_ALLOWED_MIME_TYPES` |
-| Cloud storage | `CLOUD_STORAGE_ENABLED`, `CLOUD_STORAGE_PROVIDER`, `CLOUD_BUCKET_NAME`, `CLOUD_REGION`, `CLOUD_ACCESS_KEY_ID`, `CLOUD_SECRET_ACCESS_KEY` |
+| MinIO storage | `CLOUD_STORAGE_ENABLED`, `CLOUD_STORAGE_PROVIDER`, `CLOUD_BUCKET_NAME`, `CLOUD_REGION`, `CLOUD_ENDPOINT`, `CLOUD_PUBLIC_ENDPOINT`, `CLOUD_PUBLIC_BASE_URL`, `CLOUD_FORCE_PATH_STYLE`, `CLOUD_ACCESS_KEY_ID`, `CLOUD_SECRET_ACCESS_KEY` |
 | AI | `GEMINI_API_KEY`, `GEMINI_MODEL`, `AI_MAX_TOKENS`, `AI_TEMPERATURE` |
 | LiveKit | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_WS_URL`, `LIVEKIT_CLOUD_API_KEY`, `LIVEKIT_CLOUD_API_SECRET`, `LIVEKIT_CLOUD_WS_URL` |
 
@@ -382,10 +385,18 @@ npm run test
 
 Production notes:
 
-- Đặt reverse proxy/TLS phía trước backend.
-- Redis production không nên expose ra host public.
+- Cloudflare edge terminate TLS cho `api.<domain>` và `storage.<domain>`.
+- Container `cloudflared` tạo kết nối outbound-only và route trực tiếp tới
+  `backend:3000` cùng `minio:9000` trong Docker network.
+- VPS không publish hoặc NAT port-forward `80/443`.
+- Redis, DynamoDB Local và MinIO Console không expose ra host public.
+- DynamoDB Local, Redis và MinIO dùng named volume.
+- MinIO dùng internal endpoint cho server operations và public endpoint để ký presigned URL.
+- Tunnel token chỉ nằm trong `.env.production`, không truyền qua command line.
+- LiveKit Cloud đi trực tiếp từ client; không route WebRTC media qua Tunnel.
 - Không commit `.env`, secret hoặc credential thật.
-- Nếu dùng AWS DynamoDB thật, để `DYNAMODB_ENDPOINT` rỗng.
+- Không cần `AWS_ACCESS_KEY_ID` hoặc `AWS_SECRET_ACCESS_KEY`.
+- DynamoDB Local là lựa chọn cho demo một máy, không phải runtime HA production.
 
 ## Testing Architecture
 

@@ -1,17 +1,23 @@
 services:
   backend:
-    image: ${BACKEND_IMAGE}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-chatbe-backend:prod}
     container_name: ${BACKEND_CONTAINER_NAME:-chatbe-backend-prod}
     restart: always
     depends_on:
       redis:
         condition: service_healthy
-    ports:
-      - "${BACKEND_PORT:-3000}:3000"
+      dynamodb-local:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+    expose:
+      - "3000"
     env_file:
-      - ${BACKEND_ENV_FILE:-/opt/chatbe/.env.production}
+      - ${BACKEND_ENV_FILE:-.env.production}
     volumes:
-      - backend_uploads:/app/uploads
       - backend_logs:/app/logs
     healthcheck:
       test:
@@ -27,12 +33,12 @@ services:
       - chatbe-network
 
   redis:
-    image: redis:7-alpine
+    image: ${REDIS_IMAGE:-redis:7-alpine}
     container_name: ${REDIS_CONTAINER_NAME:-chatbe-redis-prod}
     restart: always
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -43,10 +49,120 @@ services:
     networks:
       - chatbe-network
 
+  dynamodb-local:
+    image: ${DYNAMODB_IMAGE:-amazon/dynamodb-local:latest}
+    container_name: ${DYNAMODB_CONTAINER_NAME:-chatbe-dynamodb-local}
+    restart: always
+    user: root
+    working_dir: /home/dynamodblocal
+    command:
+      [
+        "-jar",
+        "DynamoDBLocal.jar",
+        "-sharedDb",
+        "-dbPath",
+        "./data",
+        "-disableTelemetry",
+      ]
+    expose:
+      - "8000"
+    volumes:
+      - dynamodb_data:/home/dynamodblocal/data
+    networks:
+      - chatbe-network
+
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:latest}
+    container_name: ${MINIO_CONTAINER_NAME:-chatbe-minio}
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BROWSER: "off"
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_API_CORS_ALLOW_ORIGIN}
+    expose:
+      - "9000"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://127.0.0.1:9000/minio/health/live",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - chatbe-network
+
+  minio-init:
+    image: ${MINIO_MC_IMAGE:-minio/mc:latest}
+    container_name: ${MINIO_INIT_CONTAINER_NAME:-chatbe-minio-init}
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      CLOUD_BUCKET_NAME: ${CLOUD_BUCKET_NAME:-chatbe-media}
+      CLOUD_ACCESS_KEY_ID: ${CLOUD_ACCESS_KEY_ID}
+      CLOUD_SECRET_ACCESS_KEY: ${CLOUD_SECRET_ACCESS_KEY}
+    volumes:
+      - ./docker/minio-policy.json:/config/minio-policy.json:ro
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set local http://minio:9000
+      \"$${MINIO_ROOT_USER}\" \"$${MINIO_ROOT_PASSWORD}\"; do sleep 2; done;
+      /usr/bin/mc mb --ignore-existing \"local/$${CLOUD_BUCKET_NAME}\";
+      /usr/bin/mc anonymous set download \"local/$${CLOUD_BUCKET_NAME}\";
+      /usr/bin/mc admin user add local
+      \"$${CLOUD_ACCESS_KEY_ID}\" \"$${CLOUD_SECRET_ACCESS_KEY}\" || true;
+      /usr/bin/mc admin policy create local chatbe-media
+      /config/minio-policy.json || true;
+      /usr/bin/mc admin policy attach local chatbe-media
+      --user \"$${CLOUD_ACCESS_KEY_ID}\";
+      /usr/bin/mc stat \"local/$${CLOUD_BUCKET_NAME}\";
+      "
+    networks:
+      - chatbe-network
+
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:latest}
+    container_name: ${CLOUDFLARED_CONTAINER_NAME:-chatbe-cloudflared}
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}
+    command:
+      [
+        "tunnel",
+        "--no-autoupdate",
+        "--loglevel",
+        "info",
+        "--metrics",
+        "0.0.0.0:2000",
+        "run",
+      ]
+    expose:
+      - "2000"
+    networks:
+      - chatbe-network
+
 volumes:
-  backend_uploads:
   backend_logs:
   redis_data:
+  dynamodb_data:
+  minio_data:
 
 networks:
   chatbe-network:

@@ -24,8 +24,6 @@ export const config = {
       process.env.DYNAMODB_TABLE_PREFIX !== undefined
         ? process.env.DYNAMODB_TABLE_PREFIX
         : "",
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
   },
   redis: {
     host: process.env.REDIS_HOST || "redis://localhost:6379",
@@ -56,8 +54,8 @@ export const config = {
     port: parseInt(process.env.SMTP_PORT || "587"),
     secure: process.env.SMTP_SECURE === "true",
     auth: {
-      user: process.env.SMTP_USER || "hideonbush2611@gmail.com",
-      pass: process.env.SMTP_PASS || "ahzr yhqu ibex bxdk",
+      user: process.env.SMTP_USER || "",
+      pass: process.env.SMTP_PASS || "",
     },
     from: process.env.EMAIL_FROM || "noreply@chatbe.io",
     fromName: process.env.EMAIL_FROM_NAME || "ChatBE",
@@ -101,6 +99,10 @@ export const config = {
       provider: process.env.CLOUD_STORAGE_PROVIDER || "aws",
       bucketName: process.env.CLOUD_BUCKET_NAME || "",
       region: process.env.CLOUD_REGION || "",
+      endpoint: process.env.CLOUD_ENDPOINT || "",
+      publicEndpoint: process.env.CLOUD_PUBLIC_ENDPOINT || "",
+      publicBaseUrl: process.env.CLOUD_PUBLIC_BASE_URL || "",
+      forcePathStyle: process.env.CLOUD_FORCE_PATH_STYLE === "true",
       accessKeyId: process.env.CLOUD_ACCESS_KEY_ID || "",
       secretAccessKey: process.env.CLOUD_SECRET_ACCESS_KEY || "",
     },
@@ -129,3 +131,38 @@ export const config = {
     },
   },
 };
+
+export function validateRuntimeConfig(): void {
+  if (process.env.NODE_ENV !== "production") {
+    return;
+  }
+
+  const required = [
+    "DYNAMODB_ENDPOINT",
+    "JWT_ACCESS_SECRET",
+    "JWT_REFRESH_SECRET",
+    "JWT_PASSWORD_RESET_SECRET",
+    "CORS_ORIGINS",
+  ];
+
+  if (process.env.CLOUD_STORAGE_ENABLED === "true") {
+    required.push(
+      "CLOUD_BUCKET_NAME",
+      "CLOUD_REGION",
+      "CLOUD_ENDPOINT",
+      "CLOUD_PUBLIC_ENDPOINT",
+      "CLOUD_PUBLIC_BASE_URL",
+      "CLOUD_ACCESS_KEY_ID",
+      "CLOUD_SECRET_ACCESS_KEY",
+    );
+  }
+
+  const missing = required.filter(
+    (name) => !process.env[name] || !process.env[name]?.trim(),
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required production configuration: ${missing.join(", ")}`,
+    );
+  }
+}

@@ -193,17 +193,25 @@ export function createUploadMiddleware(config?: Partial<IUploadConfig>, storage?
       "application/pdf",
     ],
     destination: path.join(process.cwd(), "uploads"),
+    baseUrl: "http://localhost:3000/uploads",
+    cloudEnabled: false,
+    cloudProvider: "local",
   };
 
   const finalConfig = { ...defaultConfig, ...config };
 
   const storageStrategy =
     storage ||
-    new CloudStorage(
-      finalConfig,
-      finalConfig.cloudBucket || "your-bucket-name",
-      finalConfig.cloudRegion || "us-east-1",
-    );
+    (finalConfig.cloudEnabled &&
+    ["aws", "minio", "s3"].includes(
+      (finalConfig.cloudProvider || "").toLowerCase(),
+    )
+      ? new CloudStorage(
+          finalConfig,
+          finalConfig.cloudBucket || "your-bucket-name",
+          finalConfig.cloudRegion || "us-east-1",
+        )
+      : new LocalStorage(finalConfig, finalConfig.baseUrl || ""));
 
   return new UploadMiddleware(storageStrategy, finalConfig);
 }

@@ -1,91 +1,126 @@
 # chatBE - Backend Chat Application
 
-Backend chat application sử dụng Node.js, TypeScript, DynamoDB, Redis và Socket.IO.
+Backend chat application sử dụng Node.js, TypeScript, DynamoDB-compatible
+storage, Redis, Socket.IO, MinIO, LiveKit và Gemini.
 
-## Yêu Cầu
+## Yêu cầu
 
 - Node.js 22+
-- Docker + Docker Compose
-- AWS DynamoDB credentials trong env
+- Docker Engine + Docker Compose
+- VPS Linux tại nhà có Docker và outbound Internet
+- Domain đang quản lý DNS trên Cloudflare
+- Gemini và LiveKit credentials
 
-> Local và production đều dùng AWS DynamoDB. Redis chạy cùng Docker stack với backend trên cùng server, không dùng Redis cloud.
+Runtime local/production không cần AWS account hoặc AWS access key. DynamoDB
+Local, Redis và MinIO chạy trong Docker Compose; AWS SDK chỉ được dùng như
+protocol client cho DynamoDB và S3-compatible API.
 
-## Chạy Trên Host
-
-```bash
-npm install
-cp .env.example .env
-npm run start
-```
-
-Server chạy ở `http://localhost:3000`.
-
-## Docker Local
+## Docker local
 
 ```bash
 cp .env.local.example .env.local
-# điền AWS DynamoDB, JWT, LiveKit secrets vào .env.local
+# thay JWT, MinIO, Gemini và LiveKit secrets
 npm run docker:local
 ```
 
-Lệnh này build cùng Docker image dùng cho production và chạy `backend` + `redis` trong cùng Docker network.
+Local stack gồm backend, Redis, DynamoDB Local và MinIO. Các port chỉ bind vào
+localhost:
 
-Redis local được publish ra host qua `REDIS_HOST_PORT`, mặc định `6379`, để khi cần chạy backend bằng `npm start` trên host vẫn có thể dùng Redis container:
+- API: `http://localhost:3000`
+- DynamoDB Local: `http://localhost:8000`
+- MinIO API: `http://localhost:9000`
+- MinIO Console: `http://localhost:9001`
 
-```bash
-REDIS_URL=redis://localhost:6379
-```
+## Docker production qua Cloudflare Tunnel
 
-## Docker Production
+Stack production dùng remotely-managed Cloudflare Tunnel. VPS không cần public
+IP, NAT port-forward, hoặc mở inbound port `80/443`.
+
+Trong Cloudflare Zero Trust:
+
+1. Vào `Networks > Tunnels`, tạo tunnel kiểu Cloudflared.
+2. Copy token của tunnel vào `CLOUDFLARE_TUNNEL_TOKEN`.
+3. Thêm hai Published application routes:
+   - `api.example.com` -> service `http://backend:3000`
+   - `storage.example.com` -> service `http://minio:9000`
+4. Không bật Cloudflare Access cho storage hostname vì trình duyệt phải `PUT`
+   trực tiếp bằng presigned URL.
+
+`backend` và `minio` là Docker service name, chỉ resolve được vì container
+`cloudflared` chạy cùng `chatbe-network`.
+
+Triển khai trên VPS:
 
 ```bash
 cp .env.production.example .env.production
-# điền production AWS/JWT/LiveKit secrets trên server
+# điền URL/domain, tunnel token, JWT, MinIO, Gemini, LiveKit và DEMO_PASSWORD
+chmod 600 .env.production
 npm run docker:prod
 ```
 
-Production nên đặt reverse proxy/TLS phía trước container và map `BACKEND_PORT` theo hạ tầng triển khai.
+Production stack gồm cloudflared, backend, Redis, DynamoDB Local và MinIO.
+Không service nào publish port ra host; TLS public kết thúc tại Cloudflare edge,
+sau đó Tunnel chuyển tiếp HTTP trong Docker network.
 
-## Docker Commands
-
-```bash
-npm run docker:local   # docker compose local
-npm run docker:prod    # docker compose production
-npm run docker:logs    # xem logs backend
-npm run docker:down    # dừng stack
-```
-
-## Env Chính
-
-- `DYNAMODB_REGION`, `DYNAMODB_ENDPOINT`, `DYNAMODB_TABLE_PREFIX`
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
-- `REDIS_URL`
-- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
-- `APP_URL`, `FRONTEND_URL`
-- `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_WS_URL`
-- `LIVEKIT_CLOUD_API_KEY`, `LIVEKIT_CLOUD_API_SECRET`, `LIVEKIT_CLOUD_WS_URL`
-
-Để dùng AWS DynamoDB thật, để `DYNAMODB_ENDPOINT=` rỗng.
-Trong Docker local/prod, `REDIS_URL=redis://redis:6379` trỏ tới Redis service chạy cùng stack. Riêng local publish Redis ra host qua `REDIS_HOST_PORT` để hỗ trợ chạy backend bằng `npm start`; production không publish Redis port.
-
-## API Documentation
-
-Swagger UI: `http://localhost:3000/api-docs`
-
-## Scripts
+Kiểm tra và seed:
 
 ```bash
-npm run start          # nodemon cho development trên host
-npm run demo           # chạy một lần bằng ts-node
-npm run test           # chạy tests
-npm run dynamodb:init  # khởi tạo bảng DynamoDB trên endpoint trong env
+curl https://api.example.com/health/ready
+docker compose --env-file .env.production \
+  -f docker-compose.yml -f docker-compose.prod.yml \
+  exec backend npm run seed:demo
+docker compose --env-file .env.production \
+  -f docker-compose.yml -f docker-compose.prod.yml \
+  logs cloudflared
 ```
 
-## Ports
+Seed demo có tính idempotent và dùng password từ `DEMO_PASSWORD`.
 
-| Service | Port |
-|---------|------|
-| Backend API | `3000` trong container |
-| Host mapping | `BACKEND_PORT`, mặc định `3000` |
-| Redis local | `REDIS_HOST_PORT`, mặc định `6379` |
-| Redis production | `6379` trong Docker network, không expose ra host |
+## Docker commands
+
+```bash
+npm run docker:local
+npm run docker:prod
+npm run docker:logs
+npm run docker:down
+```
+
+## Cấu hình chính
+
+- DynamoDB Local: `DYNAMODB_ENDPOINT=http://dynamodb-local:8000`
+- Redis: `REDIS_URL=redis://redis:6379`
+- MinIO internal: `CLOUD_ENDPOINT=http://minio:9000`
+- MinIO public: `CLOUD_PUBLIC_ENDPOINT=https://storage.example.com`
+- MinIO media URL:
+  `CLOUD_PUBLIC_BASE_URL=https://storage.example.com/chatbe-media`
+- Cloudflare Tunnel: `CLOUDFLARE_TUNNEL_TOKEN`
+- Gemini: `GEMINI_API_KEY`, `GEMINI_MODEL`
+- LiveKit: `LIVEKIT_CLOUD_API_KEY`, `LIVEKIT_CLOUD_API_SECRET`,
+  `LIVEKIT_CLOUD_WS_URL`
+
+Không cấu hình `AWS_ACCESS_KEY_ID` hoặc `AWS_SECRET_ACCESS_KEY`.
+
+Cloudflare Free/Pro giới hạn request upload ở 100 MB. Ảnh, audio và video demo
+nên nhỏ hơn giới hạn này; upload video lớn cần chunk/multipart hoặc một đường
+upload không đi qua Cloudflare proxy.
+
+Cấu hình này giả định cuộc gọi dùng LiveKit Cloud. Nếu tự host LiveKit trên VPS
+nhà, Cloudflare Tunnel chỉ giải quyết được signaling HTTP/WebSocket, không thay
+thế các cổng ICE/TURN UDP/TCP mà WebRTC media yêu cầu.
+
+## API documentation
+
+- Local Swagger UI: `http://localhost:3000/api-docs`
+- Production Swagger UI: `https://api.example.com/api-docs`
+
+## Verification
+
+```bash
+npm run build
+npx jest tests/media-minio-storage.test.ts \
+  tests/media-confirm-upload.test.ts --runInBand
+npm run test
+```
+
+DynamoDB Local là runtime phù hợp cho demo/portfolio một máy, không thay thế
+managed database có high availability hoặc point-in-time recovery.

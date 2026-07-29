@@ -6,10 +6,7 @@ let dynamoClient: DynamoDBClient | null = null;
 let docClient: DynamoDBDocumentClient | null = null;
 
 function createClient(): DynamoDBClient {
-  const isLocal = config.dynamodb.endpoint.includes("localhost") ||
-                  config.dynamodb.endpoint.includes("127.0.0.1");
-
-  if (isLocal) {
+  if (config.dynamodb.endpoint) {
     return new DynamoDBClient({
       region: config.dynamodb.region,
       endpoint: config.dynamodb.endpoint,
@@ -17,18 +14,9 @@ function createClient(): DynamoDBClient {
     });
   }
 
-  const clientConfig: { region: string; credentials?: { accessKeyId: string; secretAccessKey: string } } = {
+  return new DynamoDBClient({
     region: config.dynamodb.region,
-  };
-
-  if (config.dynamodb.accessKeyId && config.dynamodb.secretAccessKey) {
-    clientConfig.credentials = {
-      accessKeyId: config.dynamodb.accessKeyId,
-      secretAccessKey: config.dynamodb.secretAccessKey,
-    };
-  }
-
-  return new DynamoDBClient(clientConfig);
+  });
 }
 
 export function getDynamoDBClient(): DynamoDBClient {

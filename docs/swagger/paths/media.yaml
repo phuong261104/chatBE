@@ -212,7 +212,7 @@ paths:
         Backend đóng vai trò "cấp giấy phép", Frontend là người "trực tiếp đi giao hàng".
 
         **Bước 1 (Backend):** Nhận request từ Frontend, kiểm tra quyền và giới hạn file, sinh Pre-signed URL.
-        **Bước 2 (Frontend):** Nhận Pre-signed URL, PUT file trực tiếp lên S3 (bypass Backend).
+        **Bước 2 (Frontend):** Nhận Pre-signed URL, PUT file trực tiếp lên MinIO (bypass Backend).
         **Bước 3 (Frontend):** Sau khi upload thành công, gọi `/media/confirm-upload` để xác nhận.
 
         **Frontend Responsibilities (Quan trọng):**
@@ -326,18 +326,18 @@ paths:
                         example: "7a3f8b2d-4e9c-11ef-a716-446655440000"
                       filename:
                         type: string
-                        description: "Tên file trên S3"
+                        description: "Object key trên MinIO"
                         example: "image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
                       url:
                         type: string
                         format: uri
                         description: "URL cuối của file sau khi PUT thành công, có thể dùng để confirm hoặc gửi tin nhắn"
-                        example: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                        example: "https://storage.example.com/chatbe-media/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
                       presignedUrl:
                         type: string
                         format: uri
-                        description: "URL để PUT file trực tiếp lên S3"
-                        example: "https://bucket.s3.amazonaws.com/image/user123/7a3f8b2d...jpg?X-Amz-Algorithm=..."
+                        description: "URL để PUT file trực tiếp lên MinIO"
+                        example: "https://storage.example.com/chatbe-media/image/user123/7a3f8b2d...jpg?X-Amz-Algorithm=..."
                       uploadMethod:
                         type: string
                         enum: [PUT, POST]
@@ -359,8 +359,8 @@ paths:
                 data:
                   fileId: "7a3f8b2d-4e9c-11ef-a716-446655440000"
                   filename: "image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
-                  url: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
-                  presignedUrl: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=300"
+                  url: "https://storage.example.com/chatbe-media/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                  presignedUrl: "https://storage.example.com/chatbe-media/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=300"
                   uploadMethod: "PUT"
                   expiresAt: "2026-04-07T12:10:00.000Z"
                   headers:
@@ -420,26 +420,26 @@ paths:
       description: |
         **Tại sao cần API này?**
 
-        Khi dùng Pre-signed URL, Frontend upload trực tiếp lên S3 mà **không qua Backend**:
+        Khi dùng Pre-signed URL, Frontend upload trực tiếp lên MinIO mà **không qua Backend**:
 
         ```
-        Frontend ----> PUT presignedUrl (file) ----> AWS S3
+        Frontend ----> PUT presignedUrl (file) ----> MinIO
                                                    |
                                                    v
                                               HTTP 200 (upload thành công)
         ```
 
-        **Vấn đề:** S3 không gửi thông báo về cho Backend. Sau khi upload:
+        **Vấn đề:** object storage không gửi thông báo về cho Backend. Sau khi upload:
         - Backend **không biết** file đã được upload thành công
-        - Backend **không lưu** thông tin file vào database
+        - Backend **chưa xác thực** metadata thực tế của file
         - Frontend **không có** thông tin file để gửi message
 
         **API confirm-upload giải quyết 3 vấn đề:**
 
         | Vấn đề | Giải pháp |
         |--------|-----------|
-        | 1. Xác nhận upload thực sự thành công | Backend kiểm tra file đã tồn tại trên S3 |
-        | 2. Lưu thông tin file vào database | Backend đánh dấu upload hoàn tất |
+        | 1. Xác nhận upload thực sự thành công | Backend gọi `HeadObject` trên MinIO |
+        | 2. Xác thực file | Backend so khớp MIME type và kích thước đã khai báo |
         | 3. Trả thông tin file cho Frontend | Backend trả về `{ url, filename, mimetype, size }` |
 
         **Luồng hoàn chỉnh:**
@@ -447,8 +447,8 @@ paths:
         ```
         1. Frontend  -->POST /media/request-upload-url     --> Backend
         2. Frontend  <-- { fileId, presignedUrl }          <-- Backend
-        3. Frontend  -->PUT presignedUrl (file data)       --> AWS S3
-        4. Frontend  <-- HTTP 200 (upload success)          <-- AWS S3
+        3. Frontend  -->PUT presignedUrl (file data)       --> MinIO
+        4. Frontend  <-- HTTP 200 (upload success)          <-- MinIO
         5. Frontend  -->POST /media/confirm-upload        --> Backend
         6. Frontend  <-- { url, filename, mimetype, size } <-- Backend
         7. Frontend  sử dụng thông tin file gửi message
@@ -478,19 +478,20 @@ paths:
                 uploadedUrl:
                   type: string
                   format: uri
-                  description: "URL đầy đủ của file đã upload lên S3. Nếu bỏ trống, backend dùng `url` đã trả từ `/media/request-upload-url`"
-                  example: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                  deprecated: true
+                  description: "Giữ lại để tương thích. Backend bỏ qua giá trị này và dùng URL đã đăng ký."
+                  example: "https://storage.example.com/chatbe-media/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
             examples:
               confirm_image:
                 summary: "Confirm upload ảnh"
                 value:
                   fileId: "7a3f8b2d-4e9c-11ef-a716-446655440000"
-                  uploadedUrl: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                  uploadedUrl: "https://storage.example.com/chatbe-media/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
               confirm_video:
                 summary: "Confirm upload video"
                 value:
                   fileId: "8b4f9c3e-5f0-12ef-b827-557766551111"
-                  uploadedUrl: "https://your-bucket.s3.us-east-1.amazonaws.com/video/user123/8b4f9c3e-5f0-12ef-b827-557766551111.mp4"
+                  uploadedUrl: "https://storage.example.com/chatbe-media/video/user123/8b4f9c3e-5f0-12ef-b827-557766551111.mp4"
       responses:
         '200':
           description: "Upload đã được xác nhận thành công"
@@ -511,10 +512,10 @@ paths:
                         type: string
                         format: uri
                         description: "URL công khai của file để sử dụng trong message"
-                        example: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                        example: "https://storage.example.com/chatbe-media/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
                       filename:
                         type: string
-                        description: "Tên file trên S3"
+                        description: "Object key trên MinIO"
                         example: "image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
                       mimetype:
                         type: string
@@ -532,7 +533,7 @@ paths:
               example:
                 data:
                   fileId: "7a3f8b2d-4e9c-11ef-a716-446655440000"
-                  url: "https://your-bucket.s3.us-east-1.amazonaws.com/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
+                  url: "https://storage.example.com/chatbe-media/image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
                   filename: "image/user123/7a3f8b2d-4e9c-11ef-a716-446655440000.jpg"
                   mimetype: "image/jpeg"
                   size: 2048000
@@ -586,13 +587,13 @@ paths:
                   code: "NOT_FOUND"
                   message: "Upload file not found or expired"
         '409':
-          description: "Conflict - Upload đã được confirm trước đó"
+          description: "Conflict - object chưa tồn tại, metadata không khớp hoặc upload đã confirm"
           content:
             application/json:
               example:
                 error:
                   code: "CONFLICT"
-                  message: "Upload already confirmed"
+                  message: "Upload has not completed in object storage"
         '410':
           description: "Gone - Presigned URL đã hết hạn, cần gọi lại `/media/request-upload-url`"
           content:
@@ -601,6 +602,14 @@ paths:
                 error:
                   code: "GONE"
                   message: "Upload presigned URL has expired"
+        '503':
+          description: "Service Unavailable - MinIO không truy cập được"
+          content:
+            application/json:
+              example:
+                error:
+                  code: "CONFIRM_UPLOAD_ERROR"
+                  message: "Object storage is unavailable"
 
   /v1/media/upload-methods:
     get:

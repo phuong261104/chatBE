@@ -11,8 +11,10 @@ import {
   UploadStatus,
   uploadRegistry,
 } from "../model/dto";
-import { CloudStorage } from "@share/middleware/upload/cloud-storage";
-import { IStorageStrategy } from "@share/middleware/upload/storage-interface";
+import {
+  IPresignedStorageStrategy,
+  IStorageStrategy,
+} from "@share/middleware/upload/storage-interface";
 
 const MAX_FILE_SIZES: Record<MediaFileType, number> = {
   [MediaFileType.IMAGE]: 100 * 1024 * 1024,
@@ -143,8 +145,15 @@ class RequestPresignedUrlCmdHandler implements ICommandHandler<
   }
 }
 
-function isCloudStorage(storage: IStorageStrategy): storage is CloudStorage {
-  return typeof (storage as CloudStorage).getPresignedUploadUrl === "function";
+function isCloudStorage(
+  storage: IStorageStrategy,
+): storage is IPresignedStorageStrategy {
+  return (
+    typeof (storage as IPresignedStorageStrategy).getPresignedUploadUrl ===
+      "function" &&
+    typeof (storage as IPresignedStorageStrategy).getObjectMetadata ===
+      "function"
+  );
 }
 
 export { RequestPresignedUrlCmdHandler };

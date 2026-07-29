@@ -72,7 +72,8 @@ Project có cả page/limit và cursor pagination:
 Hai luồng upload chính:
 
 - Upload qua backend multipart: `POST /v1/media/upload`, `POST /v1/media/upload-multiple`.
-- Upload cloud/presigned: request URL bằng `POST /v1/media/request-upload-url`, upload trực tiếp lên S3/R2, sau đó confirm bằng `POST /v1/media/confirm-upload`.
+- Upload S3-compatible/presigned: request URL bằng `POST /v1/media/request-upload-url`, upload trực tiếp lên MinIO, sau đó confirm bằng `POST /v1/media/confirm-upload`.
+- Khi confirm, backend dùng `HeadObject` để kiểm tra object, MIME type và kích thước; `uploadedUrl` từ client chỉ còn được nhận để tương thích và không quyết định URL trả về.
 
 ## Response Format
 

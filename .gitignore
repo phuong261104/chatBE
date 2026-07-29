@@ -60,11 +60,15 @@ backend_source_audit_result.md
 backend_audit_for_report.*
 
 tasks
+perf
 test-*
 !docs/test-flows/
 !docs/test-flows/*.md
 docs/handoff/
 docker
+!docker/
+docker/*
+!docker/minio-policy.json
 tests/*
 !tests/
 !tests/call-v2.service.test.ts
@@ -98,7 +102,18 @@ tests/*
 !tests/helpers/chat-e2e-harness.ts
 !tests/helpers/chat-live-e2e-harness.ts
 !tests/chat-poll.e2e.test.ts
+!tests/media-minio-storage.test.ts
+!tests/media-confirm-upload.test.ts
 docs/ARCHITECTURE-REPORT.md
 docs/BACKEND_BUSINESS_CURRENT.md
 backend_audit_for_chapter2.md
 docs/C4-MODEL-REPORT.md
+tests
+docs/API_SPEC.md
+docs/ARCHITECTURE-QA.md
+docs/ARCHITECTURE-ANALYSIS.md
+docs/ARCHITECTURE-OVERVIEW.md
+docs/ARCHITECTURE-DEEP-DIVE.md
+docs/PERFORMANCE_TESTS.md
+docs/SOFTWARE-ARCHITECTURE-REPORT.md
+docs/TECH-CRITERIA.md

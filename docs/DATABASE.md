@@ -2,7 +2,11 @@
 
 ## Tổng quan
 
-Project hiện tại dùng AWS DynamoDB làm database chính. Redis được dùng cho session, token blacklist, presence và realtime state; Redis không phải nguồn dữ liệu nghiệp vụ lâu dài.
+Project dùng DynamoDB API làm database chính. Bản deploy demo chạy DynamoDB Local với volume bền vững, không cần AWS account hoặc AWS key. Redis được dùng cho session, token blacklist, presence và realtime state; Redis không phải nguồn dữ liệu nghiệp vụ lâu dài.
+
+DynamoDB Local chỉ phù hợp cho demo/portfolio một máy và không cung cấp HA,
+PITR hoặc durability của managed DynamoDB. Dữ liệu demo được khởi tạo mới bằng
+`npm run seed:demo`.
 
 Nguồn sự thật của schema DynamoDB nằm ở:
 

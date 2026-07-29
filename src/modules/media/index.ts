@@ -14,7 +14,9 @@ export const setupMediaHexagon = (sctx: ServiceContext) => {
   const uploadMultipleMediaHandler = new UploadMultipleMediaCmdHandler();
   const deleteMediaHandler = new DeleteMediaCmdHandler(mdlFactory.upload);
   const requestPresignedUrlHandler = new RequestPresignedUrlCmdHandler(mdlFactory.upload.getStorage());
-  const confirmUploadHandler = new ConfirmUploadCmdHandler();
+  const confirmUploadHandler = new ConfirmUploadCmdHandler(
+    mdlFactory.upload.getStorage(),
+  );
 
   const httpService = new MediaHttpService(
     uploadMediaHandler,

@@ -4,17 +4,24 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
+  HeadBucketCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { IStorageStrategy, IUploadConfig } from "./storage-interface";
+import {
+  IPresignedStorageStrategy,
+  IUploadConfig,
+  StoredObjectMetadata,
+} from "./storage-interface";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 
-export class CloudStorage implements IStorageStrategy {
+export class CloudStorage implements IPresignedStorageStrategy {
   private config: IUploadConfig;
   private bucketName: string;
   private region: string;
   private s3Client: S3Client;
+  private signingClient: S3Client;
 
   constructor(
     config: IUploadConfig,
@@ -25,18 +32,31 @@ export class CloudStorage implements IStorageStrategy {
     this.bucketName = bucketName;
     this.region = region;
 
-    const accessKeyId = config.cloudAccessKeyId || process.env.CLOUD_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || "";
+    const accessKeyId =
+      config.cloudAccessKeyId || process.env.CLOUD_ACCESS_KEY_ID || "";
     const secretAccessKey = config.cloudSecretAccessKey || process.env.CLOUD_SECRET_ACCESS_KEY || "";
 
-    this.s3Client = new S3Client({
-      region: this.region,
-      ...(accessKeyId && secretAccessKey
+    const credentials =
+      accessKeyId && secretAccessKey
         ? {
-            credentials: {
-              accessKeyId,
-              secretAccessKey,
-            },
+            accessKeyId,
+            secretAccessKey,
           }
+        : undefined;
+    const commonConfig = {
+      region: this.region,
+      forcePathStyle: config.cloudForcePathStyle,
+      ...(credentials ? { credentials } : {}),
+    };
+
+    this.s3Client = new S3Client({
+      ...commonConfig,
+      ...(config.cloudEndpoint ? { endpoint: config.cloudEndpoint } : {}),
+    });
+    this.signingClient = new S3Client({
+      ...commonConfig,
+      ...(config.cloudPublicEndpoint || config.cloudEndpoint
+        ? { endpoint: config.cloudPublicEndpoint || config.cloudEndpoint }
         : {}),
     });
   }
@@ -46,6 +66,17 @@ export class CloudStorage implements IStorageStrategy {
   }
 
   getBaseUrl(): string {
+    if (this.config.cloudPublicBaseUrl) {
+      return this.config.cloudPublicBaseUrl.replace(/\/+$/, "");
+    }
+
+    if (this.config.cloudPublicEndpoint) {
+      const endpoint = this.config.cloudPublicEndpoint.replace(/\/+$/, "");
+      return this.config.cloudForcePathStyle
+        ? `${endpoint}/${this.bucketName}`
+        : endpoint;
+    }
+
     return `https://${this.bucketName}.s3.${this.region}.amazonaws.com`;
   }
 
@@ -89,7 +120,7 @@ export class CloudStorage implements IStorageStrategy {
       ContentType: contentType,
     });
 
-    return getSignedUrl(this.s3Client, command, { expiresIn });
+    return getSignedUrl(this.signingClient, command, { expiresIn });
   }
 
   generateFilename(originalName: string): string {
@@ -104,7 +135,29 @@ export class CloudStorage implements IStorageStrategy {
       Key: filename,
     });
 
-    return getSignedUrl(this.s3Client, command, { expiresIn });
+    return getSignedUrl(this.signingClient, command, { expiresIn });
+  }
+
+  async getObjectMetadata(filename: string): Promise<StoredObjectMetadata> {
+    const result = await this.s3Client.send(
+      new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: filename,
+      }),
+    );
+
+    return {
+      size: result.ContentLength,
+      contentType: result.ContentType,
+    };
+  }
+
+  async checkHealth(): Promise<void> {
+    await this.s3Client.send(
+      new HeadBucketCommand({
+        Bucket: this.bucketName,
+      }),
+    );
   }
 
   isMimeTypeAllowed(mimeType: string): boolean {

@@ -4,7 +4,10 @@ import { config } from "dotenv";
 import express, { NextFunction, Request, Response } from "express";
 import { createServer } from "http";
 import morgan from "morgan";
-import { config as appConfig } from "@share/component/config";
+import {
+  config as appConfig,
+  validateRuntimeConfig,
+} from "@share/component/config";
 import { responseFormatMiddleware, setupMiddlewares } from "@share/middleware";
 import { createRateLimitMiddleware } from "@share/utils/rate-limiter";
 import { healthCheck } from "@share/middleware/health-check";
@@ -46,6 +49,7 @@ const getRateLimitClientIp = (req: Request): string => {
 
 (async () => {
   Logger.info(`Starting server in  mode...`);
+  validateRuntimeConfig();
 
   const connectionUrl = appConfig.redis.url as string;
   await RedisClient.init(connectionUrl);

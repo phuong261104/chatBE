@@ -33,7 +33,7 @@ components:
     UploadMethod:
       type: string
       enum: [PUT, POST]
-      description: "HTTP method để upload lên S3"
+      description: "HTTP method để upload lên S3-compatible storage"
       example: "PUT"
 
     UploadStatus:
@@ -65,7 +65,7 @@ components:
           description: "URL công khai của file"
         filename:
           type: string
-          description: "Tên file trên S3"
+          description: "Object key trên S3-compatible storage"
         originalName:
           type: string
           description: "Tên file gốc"
@@ -90,7 +90,7 @@ components:
           description: "UUID để tracking upload"
         filename:
           type: string
-          description: "Tên file trên S3"
+          description: "Object key trên S3-compatible storage"
         url:
           type: string
           format: uri
@@ -98,7 +98,7 @@ components:
         presignedUrl:
           type: string
           format: uri
-          description: "URL để PUT file lên S3"
+          description: "URL để PUT file lên S3-compatible storage"
         uploadMethod:
           type: string
           enum: [PUT, POST]
